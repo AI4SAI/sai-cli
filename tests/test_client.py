@@ -49,3 +49,5 @@ def test_invalid_filters_and_limit_are_rejected() -> None:
         JobQuery(site_id="site-a", limit=0).parameters()
     with pytest.raises(ConfigError, match="account is invalid"):
         JobQuery(site_id="site-a", scope="org-account", account_name="org+invalid").parameters()
+    with pytest.raises(ConfigError, match="account is invalid"):
+        JobQuery(site_id="site-a", scope="org-account", account_name="a" * 65).parameters()

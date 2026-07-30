@@ -65,7 +65,7 @@ class JobQuery:
         if self.scope not in _SCOPES:
             raise ConfigError("scope is unsupported")
         cluster_id = clean_token(self.cluster_id, field="cluster", maximum=64)
-        account_name = clean_token(self.account_name, field="account", maximum=128)
+        account_name = clean_token(self.account_name, field="account", maximum=64)
         account_id = clean_token(self.account_id, field="account ID", maximum=64)
         if account_name and account_id:
             raise ConfigError("use either --account or --account-id, not both")
