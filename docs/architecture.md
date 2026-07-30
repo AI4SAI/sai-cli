@@ -1,0 +1,156 @@
+# sai-cli Architecture
+
+Status: implementation baseline
+
+## Purpose
+
+`sai-cli` is a thin client for SAI control-plane APIs and, in a later phase,
+site-local read gateways. Its job is to translate explicit user intent into a
+bounded request, validate the response contract, and render JSON or a human
+table. It is not an authorization engine and it is not a second scheduler.
+
+The architecture separates three responsibilities:
+
+| Owner | Responsibility | Explicitly does not own |
+| --- | --- | --- |
+| SAI control plane | Actor identity, membership, site access, compute-account ownership, policy version, and authorization | High-frequency scheduler reads at every remote site |
+| Site-local read plane | Verify a narrow capability, further restrict filters, read native site facts, cache briefly, and buffer audit records | Membership or billing policy decisions |
+| `sai-cli` | Parse commands, obtain short-lived credentials, call an authorized endpoint, validate DTOs, and render output | Raw scheduler access, broad fallback reads, or privilege expansion |
+
+## Current and target paths
+
+The initial release uses the existing control-plane job visibility API:
+
+```text
+user -> sai-cli -> SAI control-plane API -> authorized site reader -> scheduler
+```
+
+The target remote-site path separates authorization from the query hot path:
+
+```text
+                                  +---------------------------+
+user -> sai-cli -- bootstrap ---> | SAI capability issuer     |
+  |                               | identity + policy + scope |
+  |                               +---------------------------+
+  | short-lived, site-bound capability
+  v
+site-local read gateway -> native scheduler/storage readers
+  |
+  +-> bounded DTO + freshness + asynchronous audit reference
+```
+
+The transport changes, but command semantics and response DTOs stay stable.
+The initial implementation must not claim that the site-local capability path
+already exists.
+
+## Trust model
+
+1. The control plane resolves a user-facing scope into an exact scheduler user
+   or account filter.
+2. The CLI can only request a documented scope and can only narrow state,
+   partition, object ID, and result-limit filters.
+3. A site reader receives an already authorized filter or a signed capability.
+4. Results are filtered again and normalized before they reach the CLI.
+5. The CLI validates the normalized contract and fails closed on malformed
+   payloads. It never falls back to a broad native scheduler query.
+
+The following facts are deliberately independent:
+
+- identity and account activation;
+- command-line access;
+- workspace membership and role;
+- site access;
+- job visibility;
+- job mutation rights;
+- billing visibility.
+
+Being allowed to view a job does not imply permission to submit, cancel, hold,
+requeue, change QOS, or see wallet and ledger data.
+
+## Scope model
+
+The first client supports these scopes:
+
+| CLI scope | Server meaning | Selector |
+| --- | --- | --- |
+| `self` | Jobs owned by the current scheduler user | No account selector |
+| `personal-account` | Jobs charged to the actor's personal compute account | Optional account selector |
+| `org-account` | Jobs charged to an organization account the actor may view | Required account name or ID |
+| `project-account` | Jobs charged to a project account the actor may view | Required account name or ID |
+
+There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
+`--account` mode. Administrative fleet views belong to a separate management
+surface with separate authentication and audit policy.
+
+## Data and consistency
+
+Current job state is a site-local, near-real-time fact. Authorization and
+account ownership are control-plane facts. A response therefore carries both
+data and freshness metadata.
+
+The client treats these states differently:
+
+| Condition | Client behavior |
+| --- | --- |
+| Valid response | Validate, then emit JSON or table output |
+| Source unavailable | Return a bounded unavailable error |
+| Contract invalid | Return a contract error; do not print the raw response |
+| Authorization denied | Return a permission error; do not retry with a broader scope |
+| Capability expired in the future local path | Stop live reads; a TUI may display clearly marked stale data |
+
+Historical accounting and final billing are separate products. A settled
+ledger is not a substitute for the live queue, and a running-cost estimate is
+not a final charge.
+
+## Security invariants
+
+- Bearer tokens and compatibility HMAC secrets never appear in command-line
+  arguments, JSON output, table output, logs, or exception messages.
+- Token caches are user-owned, use a `0700` directory and `0600` file, and are
+  replaced atomically.
+- Plain HTTP is rejected except for loopback development endpoints unless the
+  user makes an explicit development-only override.
+- HTTP error bodies are reduced to a bounded code/message pair. HTML, raw
+  provider responses, native command stderr, and unknown nested fields are not
+  echoed.
+- Response models use an allowlist. Work directories, output paths, scripts,
+  environment variables, credentials, wallet data, and raw scheduler objects
+  are never forwarded by the client.
+- Filters are validated locally and validated again by the server. Local
+  validation is ergonomics, not an authorization boundary.
+
+## Package boundaries
+
+The batch CLI has no third-party runtime dependency. It uses Python 3.11+
+standard-library HTTP, JSON, TOML, and filesystem primitives. A future TUI may
+be shipped as an optional extra; its dependencies must not enter control-plane
+or site-gateway service runtimes.
+
+The implementation is organized around explicit boundaries:
+
+```text
+sai_cli.config       configuration and profile resolution
+sai_cli.cache        protected token cache
+sai_cli.auth         bearer selection and compatibility token exchange
+sai_cli.transport    bounded JSON-over-HTTP transport
+sai_cli.client       Portal endpoint mapping
+sai_cli.contracts    stable response validation and serialization
+sai_cli.render       JSON and table presentation
+sai_cli.cli          command parsing and exit-code policy
+```
+
+The future site-local transport must implement the same client-facing
+interface instead of adding authorization or scheduler parsing to command
+handlers.
+
+## Validation boundaries
+
+- Unit and CLI contract tests prove parsing, mapping, caching, redaction, DTO
+  validation, and rendering only.
+- A local fake HTTP server proves request/response integration only.
+- A control-plane development-stack run proves compatibility with that stack;
+  it does not prove a live scheduler or remote-site gateway.
+- A live read-only canary must separately record the site, authorized scope,
+  exact filters, scheduler comparison, package version, and rollback boundary.
+- Production wrapper rollout is a separate deployment operation.
+
