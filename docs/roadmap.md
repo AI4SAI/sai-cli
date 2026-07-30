@@ -23,6 +23,8 @@ production wrapper.
 ## Milestone 0.2: control-plane compatibility
 
 - [ ] Cross-repository contract fixture shared with the Portal API
+- [ ] Surface-bound CLI authorization that enforces shell access `enabled`;
+  the current shared `portal_read` endpoint permits `agent_only`
 - [ ] Development-stack read-only smoke for self and one account scope
 - [ ] Browser/device login design for unmanaged clients
 - [ ] Shell completion and package metadata

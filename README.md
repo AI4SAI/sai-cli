@@ -17,6 +17,10 @@ Job submission, cancellation, resource mutation, TUI views, and the
 site-local capability gateway remain roadmap items. See
 [docs/roadmap.md](docs/roadmap.md) for the exact boundary.
 
+Production login-node rollout is not yet authorized. The current shared Portal
+endpoint uses `portal_read` policy and may accept `agent_only`; a server-bound
+CLI surface must enforce shell access `enabled` before wrappers are enabled.
+
 ## Architecture
 
 - [Architecture](docs/architecture.md)

@@ -47,8 +47,8 @@ Supported query parameters:
 | `site_id` | yes | Site token |
 | `cluster_id` | no | Optional cluster token |
 | `scope_type` | yes | `self`, `personal_account`, `org_account`, or `project_account` |
-| `slurm_account_id` | scope dependent | Mutually exclusive with account name |
-| `slurm_account_name` | scope dependent | Portal account selector; server authorizes it |
+| `slurm_account_id` | account scopes | Exactly one account ID or name is required for every account scope |
+| `slurm_account_name` | account scopes | Exactly one account name or ID is required; server authorizes it |
 | `partition` | no | Narrowing filter |
 | `states` | no | Comma-separated narrowing filter |
 | `limit` | no | Integer from 1 through 500, default 100 |
@@ -56,6 +56,12 @@ Supported query parameters:
 
 The client does not send raw `user`, arbitrary query parameters, or a
 non-live source preference.
+
+The current route calls Portal's `portal_read` policy entrypoint. It rejects
+`LinuxShellAccess.DISABLED` but permits `AGENT_ONLY`. This is valid for Portal
+or Agent read-only surfaces, but it is not the final login-node CLI contract.
+A dedicated endpoint or surface-bound capability/token must enforce
+`LinuxShellAccess.ENABLED` before production CLI wrappers are enabled.
 
 ## Show one job
 
@@ -139,4 +145,3 @@ found or not visible.
 - Adding a query parameter does not permit the CLI to send it until the client
   contract is reviewed.
 - A local fake server test does not establish live scheduler compatibility.
-

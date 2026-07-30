@@ -30,16 +30,19 @@ The first release does not implement:
 Unimplemented command families remain in the roadmap rather than appearing as
 placeholders that return fake data.
 
+The current Portal endpoint uses `portal_read` authorization and can accept an
+`agent_only` account. Production login-node rollout remains blocked until a
+server-verifiable CLI surface enforces shell access `enabled`; client headers or
+local checks cannot establish that authorization boundary.
+
 ## Scope selection
 
 `--scope` accepts `self`, `personal-account`, `org-account`, or
 `project-account`.
 
 - `self` rejects account selectors.
-- `org-account` and `project-account` require exactly one of `--account` or
-  `--account-id`.
-- `personal-account` may omit the selector when the control plane can resolve
-  the actor's unique personal account.
+- `personal-account`, `org-account`, and `project-account` require exactly one
+  of `--account` or `--account-id` under the current Portal contract.
 - The CLI maps hyphenated user-facing values to the control-plane underscore
   values. The server remains authoritative.
 
@@ -189,4 +192,3 @@ The rollout sequence is: inventory and checksum, stage the new package, canary
 through an explicit path, atomically switch package-managed wrappers, validate,
 and retain a package-level rollback. This repository does not authorize manual
 editing of production command directories.
-

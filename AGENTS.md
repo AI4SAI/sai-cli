@@ -52,6 +52,10 @@
   `GET /v1/slurm/jobs/{job_id}`. The site-local capability transport, TUI,
   resources, placement, storage, and usage estimate are roadmap items, not
   implied current behavior.
+- Those Portal endpoints currently use `portal_read` policy, which permits
+  `agent_only`. Production login-node rollout is blocked until a server-bound
+  CLI surface or capability enforces shell access `enabled`; an optional client
+  header is not an authorization boundary.
 - Supported user scopes are `self`, `personal-account`, `org-account`, and
   `project-account`. There is no normal-user all scope or raw user filter.
 
@@ -192,8 +196,8 @@ editing either side. Do not copy private collaboration logs into this repo.
   `sai jobs list --site site-a` are supported contracts.
 - Keep user-facing scope values hyphenated and map them explicitly to Portal's
   underscore values.
-- `self` rejects account selectors. Organization and project scopes require
-  exactly one authorized account name or ID selector.
+- `self` rejects account selectors. Personal, organization, and project account
+  scopes require exactly one authorized account name or ID selector.
 - State, partition, account, site, cluster, job ID, and limit options may only
   narrow a request. Do not expose undocumented query parameters.
 - Keep `source_preference=live` fixed until a separately designed historical

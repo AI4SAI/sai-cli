@@ -74,13 +74,27 @@ The first client supports these scopes:
 | CLI scope | Server meaning | Selector |
 | --- | --- | --- |
 | `self` | Jobs owned by the current scheduler user | No account selector |
-| `personal-account` | Jobs charged to the actor's personal compute account | Optional account selector |
+| `personal-account` | Jobs charged to the actor's personal compute account | Required account name or ID |
 | `org-account` | Jobs charged to an organization account the actor may view | Required account name or ID |
 | `project-account` | Jobs charged to a project account the actor may view | Required account name or ID |
 
 There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
 `--account` mode. Administrative fleet views belong to a separate management
 surface with separate authentication and audit policy.
+
+### Current surface gap
+
+The current Portal job endpoints use the control plane's `portal_read`
+entrypoint. That entrypoint rejects disabled shell access but intentionally
+allows an `agent_only` account for non-login-node read surfaces. The endpoint
+does not yet carry a cryptographically bound CLI surface or audience, so a call
+from this client cannot prove that login-node shell access is `enabled`.
+
+This is a production rollout blocker, not a client-side option. A managed
+login-node wrapper must not be enabled until Portal provides a dedicated CLI
+entrypoint or a surface-bound capability/token that enforces `enabled` on the
+server. A header supplied by an untrusted client is not sufficient because it
+can be omitted. Phase-one local and fake HTTP tests do not close this gate.
 
 ## Data and consistency
 
@@ -153,4 +167,3 @@ handlers.
 - A live read-only canary must separately record the site, authorized scope,
   exact filters, scheduler comparison, package version, and rollback boundary.
 - Production wrapper rollout is a separate deployment operation.
-

@@ -29,7 +29,7 @@ def test_job_query_maps_hyphenated_scope_and_narrowing_filters() -> None:
     }
 
 
-@pytest.mark.parametrize("scope", ["org-account", "project-account"])
+@pytest.mark.parametrize("scope", ["personal-account", "org-account", "project-account"])
 def test_account_scopes_require_selector(scope: str) -> None:
     with pytest.raises(ConfigError, match="requires"):
         JobQuery(site_id="site-a", scope=scope).parameters()

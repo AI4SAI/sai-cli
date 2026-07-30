@@ -71,7 +71,9 @@ class JobQuery:
             raise ConfigError("use either --account or --account-id, not both")
         if self.scope == "self" and (account_name or account_id):
             raise ConfigError("self scope does not accept an account selector")
-        if self.scope in {"org-account", "project-account"} and not (account_name or account_id):
+        if self.scope in {"personal-account", "org-account", "project-account"} and not (
+            account_name or account_id
+        ):
             raise ConfigError(f"{self.scope} requires --account or --account-id")
         if isinstance(self.limit, bool) or not isinstance(self.limit, int) or not 1 <= self.limit <= 500:
             raise ConfigError("limit must be between 1 and 500")
