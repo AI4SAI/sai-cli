@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sai-cli"
+version = "0.1.0"
+description = "Read-only command-line client for SAI compute services"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "AI4SAI contributors" },
+]
+keywords = ["hpc", "slurm", "sai", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Distributed Computing",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/AI4SAI/sai-cli"
+Issues = "https://github.com/AI4SAI/sai-cli/issues"
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2,<2",
+  "pytest>=8,<9",
+]
+
+[project.scripts]
+sai = "sai_cli.cli:entrypoint"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

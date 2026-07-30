@@ -24,6 +24,7 @@ site-local capability gateway remain roadmap items. See
 - [Portal API contract](docs/portal-api-contract.md)
 - [Site-local read plane](docs/site-local-read-plane.md)
 - [Roadmap](docs/roadmap.md)
+- [Repository guidelines](AGENTS.md)
 
 ## Development status
 
@@ -36,3 +37,56 @@ The repository is currently private and does not yet carry an open-source
 license. Do not publish a package or make the repository public until a license
 and release policy have been approved.
 
+## Install for development
+
+Python 3.11 or newer is required. The batch CLI has no third-party runtime
+dependency.
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/sai --version
+```
+
+## Configure
+
+Use a short-lived Bearer token when one is already available:
+
+```bash
+export SAI_API_BASE_URL=https://portal.example.org
+export SAI_SITE_ID=site-a
+export SAI_TOKEN='<short-lived-token>'
+```
+
+Managed login nodes can instead provide `SAI_API_USERNAME`,
+`SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through their protected runtime
+environment. The HMAC route is a compatibility bootstrap, not a credential to
+place in a shell profile or TOML file.
+
+Non-secret defaults can be stored in `~/.config/sai/config.toml`:
+
+```toml
+[profiles.default]
+base_url = "https://portal.example.org"
+site_id = "site-a"
+```
+
+## Use
+
+```bash
+sai jobs list
+sai jobs list --scope project-account --account project-example
+sai jobs list --states R,PD --partition gpu-standard --format table
+sai jobs show 12345
+```
+
+Connection options are accepted before or after the leaf command, so both
+`sai --site site-a jobs list` and `sai jobs list --site site-a` work.
+
+## Verify
+
+```bash
+.venv/bin/python -m pytest
+.venv/bin/python -m build
+python3 scripts/check_public_surface.py
+```

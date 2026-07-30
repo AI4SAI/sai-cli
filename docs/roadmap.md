@@ -6,15 +6,15 @@ Portal repository.
 
 ## Milestone 0.1: read-only jobs CLI
 
-- [ ] Installable Python package and `sai` console entry point
-- [ ] Profile, environment, and command-line configuration precedence
-- [ ] Protected short-lived token cache
-- [ ] Existing Bearer token and managed-node HMAC compatibility bootstrap
-- [ ] `sai jobs list` and `sai jobs show`
-- [ ] Stable JSON and deterministic table rendering
-- [ ] Scope/filter validation and no normal-user all scope
-- [ ] Bounded error mapping and response redaction
-- [ ] Unit, CLI contract, fake HTTP integration, package, and disclosure tests
+- [x] Installable Python package and `sai` console entry point
+- [x] Profile, environment, and command-line configuration precedence
+- [x] Protected short-lived token cache
+- [x] Existing Bearer token and managed-node HMAC compatibility bootstrap
+- [x] `sai jobs list` and `sai jobs show`
+- [x] Stable JSON and deterministic table rendering
+- [x] Scope/filter validation and no normal-user all scope
+- [x] Bounded error mapping and response redaction
+- [x] Unit, CLI contract, fake HTTP integration, package, and disclosure tests
 
 Acceptance boundary: local tests and fake HTTP only. This milestone does not
 prove a development stack, live scheduler, remote site, package deployment, or
@@ -64,4 +64,3 @@ site or production package.
 
 Production rollout and fleet-wide replacement require a separate operations
 plan and approval.
-
