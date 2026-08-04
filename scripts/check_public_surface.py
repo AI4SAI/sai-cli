@@ -17,6 +17,7 @@ TEXT_SUFFIXES = {
     ".html",
     ".ini",
     ".json",
+    ".lua",
     ".md",
     ".py",
     ".sh",
@@ -29,7 +30,7 @@ PATTERNS = {
     "private IPv4 address": re.compile(
         r"(?<!\d)(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?!\d)"
     ),
-    "absolute user or temporary path": re.compile(r"(?<![A-Za-z0-9_])/(?:home|tmp)/[^\s)`'\"]+"),
+    "absolute user or temporary path": re.compile(r"(?<![A-Za-z0-9_])/(?:home|tmp)/(?!<)[^\s)`'\"]+"),
     "private key material": re.compile(r"-----BEGIN (?:OPENSSH|RSA|EC|DSA) PRIVATE KEY-----"),
     "credential assignment": re.compile(
         r"(?i)\b(?:password|passwd|shared_secret|client_secret|api_key|access_token)\b\s*[:=]\s*[\"'](?!redacted|example|placeholder)[^\"']+[\"']"
