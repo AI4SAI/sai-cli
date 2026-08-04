@@ -61,6 +61,26 @@ version deliberately does not reject `--mincpus`, topology fields,
 Adding those fields requires source validation and an explicit policy change;
 they must not be inferred from the current checks.
 
+## Submit Policy Is Not Runtime Placement
+
+This hook decides whether Slurm may accept a resource shape and which account
+the submission directory implies. It does not generate Open MPI rank maps,
+inspect an allocated cpuset, change CPU binding, or repair site runtime scripts
+such as `/opt/sai_config`.
+
+An earlier seven-GPU allocation on a dual-socket eight-GPU node exposed this
+boundary: Slurm allocated the requested GPUs and CPUs, but the generated
+`ppr:7:node:pe=3` Open MPI mapping could not keep every rank inside one CPU
+package. That was a topology-correctness defect in the post-allocation mapping
+logic, not an account, authentication, or submit-hook failure. Disabling
+binding would hide the defect and is not the platform fix.
+
+The submit hook must not reject an otherwise permitted odd GPU shape merely to
+mask a downstream mapper bug. Every shape accepted through an exempt QOS still
+needs a separate runtime-placement regression on each relevant CPU/GPU
+topology. If a site intentionally cannot support a shape, that must become an
+explicit projected submission policy with an immediate user diagnostic.
+
 ## Account Projection
 
 The plugin never derives Slurm account names from naming prefixes. A personal
@@ -193,6 +213,8 @@ Before production enablement, run all of these separately:
   typed/untyped GPU, and proxy-submission canaries.
 - Account association positive and negative cases plus snapshot expiry,
   malformed reload, publisher outage, and controller failover.
+- Runtime placement for every accepted per-node GPU shape on each relevant
+  topology, including odd and near-full shapes on multi-package nodes.
 - TaskProlog observation-only overlap, followed by removal only after equivalent
   submit-time evidence is complete.
 
