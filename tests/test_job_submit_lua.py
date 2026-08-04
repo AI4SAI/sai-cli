@@ -150,6 +150,16 @@ assert(message_contains("WorkDir is unresolved"))
 """
     )
 
+    run_lua(
+        _prelude(tmp_path / "missing.lua")
+        + """
+local job = new_job({account = "personal-alice", tres_per_node = "gres/gpu:4"})
+assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
+assert(job.account == "personal-alice")
+assert(message_contains("WorkDir is unresolved"))
+"""
+    )
+
 
 def test_submit_rejects_explicit_cpu_and_memory_overrides_on_gpu_jobs(tmp_path: Path) -> None:
     snapshot = _snapshot(tmp_path)
@@ -189,6 +199,9 @@ assert(message_contains("divisible by 4"))
 messages = {}
 local exempt = new_job({tres_per_node = "gres/gpu:7", qos = "gpu-special"})
 assert(slurm_job_submit(exempt, {}, 1000) == slurm.SUCCESS)
+
+local default_exempt = new_job({tres_per_node = "gres/gpu:7", default_qos = "gpu-special"})
+assert(slurm_job_submit(default_exempt, {}, 1000) == slurm.SUCCESS)
 
 local typed = new_job({tres_per_node = "gres/gpu:v100:4"})
 assert(slurm_job_submit(typed, {}, 1000) == slurm.SUCCESS)
