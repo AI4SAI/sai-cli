@@ -4,6 +4,19 @@ This roadmap replaces the CLI implementation portion of the former Portal
 design taskboard. Portal-specific authorization service work remains in the
 Portal repository.
 
+## Site Artifact: controller submission policy
+
+- [x] Minimal `job_submit.lua` submission and modification policy
+- [x] Strict account/GPU policy projection renderer
+- [x] Actual-Lua behavior tests without a Python policy reimplementation
+- [x] Snapshot, hot-reload, rollback, failure and performance contracts
+- [ ] Portal authoritative projection producer
+- [ ] Matching-version disposable-controller compatibility test
+- [ ] Live controller canary, peak-rate benchmark and TaskProlog cutover
+
+Acceptance boundary: repository Lua/runtime tests only. The unchecked gates are
+required before enabling `JobSubmitPlugins=lua` or removing TaskProlog policy.
+
 ## Milestone 0.1: read-only jobs CLI
 
 - [x] Installable Python package and `sai` console entry point

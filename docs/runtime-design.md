@@ -27,6 +27,10 @@ The first release does not implement:
 - automatic fallback from live state to broad accounting queries;
 - node topology, placement, storage, usage estimate, or TUI commands.
 
+The controller-side `site/slurm/job_submit.lua` artifact does not change this
+client boundary. It validates jobs submitted through native Slurm commands but
+does not expose a `sai jobs submit` command.
+
 Unimplemented command families remain in the roadmap rather than appearing as
 placeholders that return fake data.
 

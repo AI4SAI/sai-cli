@@ -157,6 +157,20 @@ The future site-local transport must implement the same client-facing
 interface instead of adding authorization or scheduler parsing to command
 handlers.
 
+## Controller Submission Policy Artifact
+
+The repository separately owns `site/slurm/job_submit.lua`. This controller
+artifact validates native Slurm submissions; it is not imported by `sai-cli`,
+does not enter the client wheel, and does not turn the client into a scheduler
+writer.
+
+The plugin consumes a controller-local Lua snapshot generated from a strict
+control-plane projection. Portal owns account, membership, project-shape and
+policy facts; the site artifact owns bounded submit-time evaluation. The
+callback never calls Portal, the site-local read gateway, an authn relay, a
+database, or shared storage. Full policy, snapshot and rollout semantics are in
+[job-submit-policy.md](job-submit-policy.md).
+
 ## Validation boundaries
 
 - Unit and CLI contract tests prove parsing, mapping, caching, redaction, DTO

@@ -52,6 +52,14 @@
   `GET /v1/slurm/jobs/{job_id}`. The site-local capability transport, TUI,
   resources, placement, storage, and usage estimate are roadmap items, not
   implied current behavior.
+- `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
+  command or wheel module. It consumes only a validated controller-local
+  snapshot and performs no per-submission file, network, database, subprocess,
+  authn-relay, or site-read-gateway call.
+- Portal owns the authoritative account/project/policy projection. This
+  repository owns the strict projection-to-Lua renderer and submit-time
+  evaluator; native Slurm associations remain the final account authorization
+  boundary.
 - Those Portal endpoints currently use `portal_read` policy, which permits
   `agent_only`. Production login-node rollout is blocked until a server-bound
   CLI surface or capability enforces shell access `enabled`; an optional client
