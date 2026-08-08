@@ -157,6 +157,11 @@ The future site-local transport must implement the same client-facing
 interface instead of adding authorization or scheduler parsing to command
 handlers.
 
+The gateway server is a separate low-privilege site-runtime role that reuses
+the existing site Slurm read adapter and normalized DTO. It is not packaged in
+the CLI wheel. This repository owns the client transport and shared protocol
+fixtures; it must not grow a duplicate native `squeue` reader.
+
 ## Controller Submission Policy Artifact
 
 The repository separately owns `site/slurm/job_submit.lua`. This controller

@@ -60,6 +60,9 @@ Rules:
   checked locally.
 - The CLI never receives a signing key or a broad site-agent secret.
 - A capability is bearer-like and must be cached with the same care as a token.
+- Job visibility and billing visibility are separate grants. A capability that
+  allows `jobs.list` or `jobs.detail` does not implicitly allow a running-cost
+  estimate.
 
 ## Query and response
 
@@ -122,6 +125,108 @@ The gateway must not replicate an accounting database, build a second quota
 index, or maintain a strong-consistency topology database. One slow source
 returns partial or unavailable; it does not trigger a broad fallback chain.
 
+## Running usage estimate contract
+
+A running estimate is a separate operation, such as
+`billing.running-estimate`, with its own billing-visibility claim and response
+allowlist. It is not an additive field set on `jobs.list`. The control plane
+resolves the payer, workspace, site, membership window, billing visibility,
+and applicable signed pricing revision before issuing the capability.
+
+The site gateway may reuse the same scheduler observation that serves the job
+list. It applies the signed pricing snapshot without reading a wallet,
+contract database, allowance table, or final ledger. A response contains at
+least:
+
+```json
+{
+  "operation": "billing.running-estimate",
+  "site_id": "site-a",
+  "as_of": "2026-08-09T01:00:00Z",
+  "final": false,
+  "price_revision": "opaque-pricing-revision",
+  "items": [
+    {
+      "provisional_job_key": "opaque-live-generation-key",
+      "slurm_job_db_index": null,
+      "state": "RUNNING",
+      "elapsed_seconds": 3600,
+      "resource_evidence": {},
+      "estimated_usage": {},
+      "estimated_gross_cost": {
+        "sai_credit": "0.00000000",
+        "cny_equivalent": "0.00000000"
+      },
+      "uncertainty": []
+    }
+  ],
+  "freshness": {
+    "source": "scheduler_cache",
+    "observed_at": "2026-08-09T00:59:57Z",
+    "ttl_seconds": 5,
+    "stale": false
+  }
+}
+```
+
+The exact versioned schema must be frozen with the Portal before
+implementation. The example above freezes semantics, not an implemented
+endpoint or final field spelling.
+
+Invariants:
+
+- Every result is explicitly `final=false`; user-facing clients label it as an
+  estimate, never a charge or settled cost.
+- Usage is billable allocated/dominant-resource usage, not GPU or CPU
+  utilization. Optional performance telemetry cannot change the estimate under
+  the current pricing contract.
+- The signed price revision is selected at the job start effective time and
+  remains fixed across refreshes and calendar-day boundaries.
+- Without an allowance hold, the gateway cannot promise the final split among
+  SAI Credit and cash for concurrently running jobs.
+- A live key includes `JobIDRaw`, user/account, and submit/start generation so
+  Job ID reuse, arrays, and heterogeneous components cannot collide. The final
+  identity is the control-plane `(site_id, slurm_job_db_index)` settlement key;
+  the site collector must establish a unique, auditable mapping.
+- When a job leaves `squeue` before final `sacct` data is visible, the last
+  estimate remains in a bounded terminal-grace state. It is not silently
+  dropped or added to the final amount.
+- Final control-plane settlement uses its own canonical DBIndex and never
+  waits for this live mapping, telemetry, or an exposure row. The client
+  replaces the estimate only after mapping succeeds; otherwise it keeps an
+  explicitly bounded terminal-gap state for reconciliation and never adds the
+  estimate to the final amount.
+- Refreshing the gateway cannot create ledger, allowance-usage, funding, or
+  wallet records.
+- A stale estimate may be displayed only with explicit freshness. It cannot by
+  itself authorize job cancellation or another write action.
+
+The CLI, a future TUI, the Portal relay, and a future site-local low-latency Web
+view consume the same DTO. The local Web view is a read-only presentation
+client, not a second Portal; it owns no account, wallet, membership, or write
+workflow.
+
+Interactive reads and risk persistence are separate chains. A user request
+only reads the 2-15 second in-memory cache and never creates or updates a cash
+exposure. Independently, the site collector sends site-scoped, idempotent
+batches of job identity, allocation, state, observation time, and source
+revision to the control plane. The control plane resolves payer and pricing
+and writes the canonical ACR exposure snapshot.
+
+The persistence cadence is change-driven for start, allocation, identity, and
+terminal transitions, plus a lower-frequency checkpoint/heartbeat (target
+default 300 seconds, configurable down to 60 seconds near a risk threshold).
+It must not mirror the UI refresh cadence. Batches update only materially
+changed, new-bucket, or near-expiry jobs, so an idle UI and a heavily refreshed
+UI produce the same database writes.
+
+The first server implementation belongs to the existing site-runtime package:
+it reuses that package's Slurm read adapter and normalized DTO behind a
+separate low-privilege unit, runtime identity, and role-scoped package
+manifest. This repository owns the client transport and compatibility
+fixtures, not a second native `squeue` reader or a gateway server inside the
+CLI wheel.
+
 ## Cache isolation
 
 Cache keys include actor digest, site, surface, operation, scope, workspace,
@@ -150,12 +255,17 @@ or audit backlog exceeds site policy, the gateway fails closed.
 1. Freeze versioned JSON schemas and negative test vectors.
 2. Implement a fake issuer and verifier with audience, filter, expiry, epoch,
    key rotation, and revocation tests.
-3. Implement a fake jobs adapter, cache isolation, request coalescing, ETag,
-   and bounded errors.
-4. Add the client transport behind the existing command interface.
-5. Add package manifests proving the gateway contains no write authority.
-6. Run a development-stack protocol test.
-7. Run a separately approved, read-only live canary.
+3. Add cross-repository fixtures for the site-runtime gateway's shared
+   observation cache, cache isolation, request coalescing, ETag, and bounded
+   errors; do not implement a second native reader here.
+4. Freeze an independent billing capability and running-estimate DTO with the
+   Portal, including estimate-to-final replacement vectors.
+5. Freeze the separate site-telemetry batch contract and prove interactive
+   reads cause zero exposure writes.
+6. Add the client transport behind the existing command interface.
+7. Validate the site-runtime role manifest proving the gateway contains no
+   write authority and that no gateway server enters the CLI wheel.
+8. Run a development-stack protocol test.
+9. Run a separately approved, read-only live canary.
 
 No earlier phase may be reported as proof of a later one.
-

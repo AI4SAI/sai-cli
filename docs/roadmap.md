@@ -49,6 +49,9 @@ facts or production deployment.
 
 - [ ] Optional TUI dependency group
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
+- [ ] Running-usage estimate view with explicit `final=false`, `as_of`,
+  freshness, price revision, and uncertainty
+- [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [ ] Local-state keyboard interactions and asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
   states
@@ -61,10 +64,20 @@ does not prove real placement, topology, rate data, or production latency.
 
 - [ ] Versioned capability/query/response schemas
 - [ ] Control-plane issuer compatibility vectors
-- [ ] Local verifier, filter narrowing, cache isolation, and audit reference
+- [ ] Independent billing-visibility capability and running-estimate contract;
+  job visibility alone must not grant it
+- [ ] Shared scheduler collector snapshot for jobs and usage estimates, with
+  2-15 second TTL, request coalescing, ETag, and freshness
+- [ ] Cross-repository site-runtime gateway fixture for verifier, filter
+  narrowing, cache isolation, and audit reference; the gateway server is not a
+  CLI-wheel module
 - [ ] Client capability cache and renewal single-flight
 - [ ] Local-gateway transport behind existing commands
 - [ ] Development-stack protocol smoke
+- [ ] Contract fixture usable by CLI/TUI, Portal relay, and a separately owned
+  site-local read-only Web client
+- [ ] Separate site-telemetry batch fixture proving interactive reads cause no
+  exposure writes and persistence does not follow the 2-15 second UI cadence
 
 Acceptance boundary: protocol implementation. It does not prove a live remote
 site or production package.
