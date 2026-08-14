@@ -228,3 +228,94 @@ def test_scope_validation_fails_before_network(tmp_path: Path) -> None:
 
     assert result == 2
     assert "requires --account" in stderr.getvalue()
+
+
+def test_jobs_cost_uses_independent_endpoint_and_allowlisted_json(
+    tmp_path: Path,
+    running_estimate_payload,
+) -> None:
+    payload = deepcopy(running_estimate_payload)
+    payload["items"][0]["raw_scheduler"] = {"token": "must-not-leak"}
+    stdout = StringIO()
+    stderr = StringIO()
+
+    with _server(payload) as (base_url, server):
+        result = main(
+            [
+                "--site",
+                "site-a",
+                "jobs",
+                "cost",
+                "--base-url",
+                base_url,
+                "--scope",
+                "project-account",
+                "--account",
+                "project-example",
+                "--states",
+                "r,pd",
+                "--partition",
+                "gpu-standard",
+                "--limit",
+                "25",
+            ],
+            environ=_env(tmp_path),
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    assert result == 0
+    assert stderr.getvalue() == ""
+    rendered = json.loads(stdout.getvalue())
+    assert rendered["operation"] == "billing.running-estimate"
+    assert rendered["final"] is False
+    assert rendered["items"][1]["estimate_status"] == "not_started"
+    assert rendered["items"][2]["estimate_status"] == "unavailable"
+    assert "raw_scheduler" not in rendered["items"][0]
+    assert "must-not-leak" not in stdout.getvalue()
+    request = server.requests[0]
+    assert request["path"] == "/v1/billing/running-estimates"
+    assert request["authorization"] == "Bearer test-bearer-token"
+    assert request["query"] == {
+        "site_id": ["site-a"],
+        "scope_type": ["project_account"],
+        "slurm_account_name": ["project-example"],
+        "states": ["R,PD"],
+        "source_preference": ["live"],
+        "partition": ["gpu-standard"],
+        "limit": ["25"],
+    }
+
+
+def test_jobs_cost_table_shows_pending_unavailable_and_stale_snapshot(
+    tmp_path: Path,
+    running_estimate_payload,
+) -> None:
+    payload = deepcopy(running_estimate_payload)
+    payload["freshness"]["stale"] = True
+    stdout = StringIO()
+    stderr = StringIO()
+
+    with _server(payload) as (base_url, _):
+        result = main(
+            [
+                "jobs",
+                "cost",
+                "--base-url",
+                base_url,
+                "--site",
+                "site-a",
+                "--format",
+                "table",
+            ],
+            environ=_env(tmp_path),
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    assert result == 0
+    assert stderr.getvalue() == ""
+    assert "Stale: yes" in stdout.getvalue()
+    assert "PENDING" in stdout.getvalue()
+    assert "UNAVAILABLE" in stdout.getvalue()
+    assert "snapshot-etag" in stdout.getvalue()

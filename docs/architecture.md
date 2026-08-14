@@ -19,7 +19,8 @@ The architecture separates three responsibilities:
 
 ## Current and target paths
 
-The initial release uses the existing control-plane job visibility API:
+The current release uses control-plane job visibility and running-estimate
+read APIs:
 
 ```text
 user -> sai-cli -> SAI control-plane API -> authorized site reader -> scheduler
@@ -114,7 +115,8 @@ The client treats these states differently:
 
 Historical accounting and final billing are separate products. A settled
 ledger is not a substitute for the live queue, and a running-cost estimate is
-not a final charge.
+not a final charge. The CLI receives the estimate from Portal and never reads
+pricing data or computes a price locally.
 
 ## Security invariants
 

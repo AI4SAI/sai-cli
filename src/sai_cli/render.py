@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 from typing import Any, Iterable
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from .contracts import JobItem, JobResult
+from .contracts import JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 
 
 _COLUMNS = (
@@ -24,6 +26,18 @@ _COLUMNS = (
     ("mem_per_unit", "MemPerU", 12),
     ("array_task_id", "array_ID", 12),
     ("reason_or_nodelist", "Reason/Nodelist", 36),
+)
+
+_RUNNING_ESTIMATE_COLUMNS = (
+    ("job_id", "Job-ID", 20),
+    ("state", "State", 14),
+    ("elapsed", "Elapsed", 14),
+    ("billable", "Billable", 18),
+    ("usage", "Usage", 18),
+    ("gross", "Gross CNY", 16),
+    ("cash", "Cash CNY", 16),
+    ("estimate", "Estimate", 16),
+    ("uncertainty", "Uncertainty", 36),
 )
 
 
@@ -52,6 +66,11 @@ def _display(value: object) -> str:
     )
 
 
+def _site_time(value: str, *, timezone_name: str) -> str:
+    instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return instant.astimezone(ZoneInfo(timezone_name)).isoformat(timespec="seconds")
+
+
 def _row(item: JobItem) -> dict[str, str]:
     values = item.values
     return {
@@ -70,6 +89,39 @@ def _row(item: JobItem) -> dict[str, str]:
         "mem_per_unit": _display(values["mem_per_unit"]),
         "array_task_id": _display(values["array_task_id"]),
         "reason_or_nodelist": _display(values["reason_or_nodelist"]),
+    }
+
+
+def _estimate_state(item: RunningEstimateItem) -> str:
+    status = item.values["estimate_status"]
+    if status == "not_started":
+        return "PENDING"
+    if status == "unavailable":
+        return "UNAVAILABLE"
+    return str(status).upper()
+
+
+def _billable(item: RunningEstimateItem) -> str:
+    resources = item.values["resources"]
+    resource_type = resources["resource_type"]
+    resource_count = resources["resource_count"]
+    if resource_type is None or resource_count is None:
+        return "-"
+    return f"{resource_count} {resource_type}"
+
+
+def _running_estimate_row(item: RunningEstimateItem) -> dict[str, str]:
+    values = item.values
+    return {
+        "job_id": _display(values["job_id_raw"] or values["job_key"]),
+        "state": _display(values["state"]),
+        "elapsed": _duration(values["elapsed_seconds"]),
+        "billable": _billable(item),
+        "usage": _display(values["resources"]["usage_quantity"]),
+        "gross": _display(values["gross_cny"]),
+        "cash": _display(values["cash_cny"]),
+        "estimate": _estimate_state(item),
+        "uncertainty": _display(",".join(values["uncertainty"])),
     }
 
 
@@ -115,4 +167,43 @@ def render_table(result: JobResult) -> str:
             "Slots may represent requested tasks while pending and allocated CPU slots while running.",
         )
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_running_estimate_table(result: RunningEstimateResult) -> str:
+    rows = [_running_estimate_row(item) for item in result.items]
+    widths: list[int] = []
+    for key, heading, maximum in _RUNNING_ESTIMATE_COLUMNS:
+        widest = max([len(heading), *(len(row[key]) for row in rows)], default=len(heading))
+        widths.append(min(widest, maximum))
+
+    stale = "yes" if result.freshness.stale else "no"
+    lines = [
+        (
+            f"Site: {result.site_id}  Cluster: {result.cluster_id}  Scope: {result.scope}  "
+            f"Timezone: {result.site_timezone}  "
+            f"As-of: {_site_time(result.as_of, timezone_name=result.site_timezone)}  Final: false"
+        ),
+        (
+            f"Observed: {_site_time(result.freshness.observed_at, timezone_name=result.site_timezone)}  "
+            f"Age: {result.freshness.age_seconds}s  "
+            f"Stale: {stale}  Source: {result.freshness.source}  ETag: {result.etag}"
+        ),
+        _line((heading for _, heading, _ in _RUNNING_ESTIMATE_COLUMNS), widths),
+        _line(("-" * width for width in widths), widths),
+    ]
+    if rows:
+        for row in rows:
+            lines.append(
+                _line(
+                    (
+                        _truncate(row[key], maximum)
+                        for key, _, maximum in _RUNNING_ESTIMATE_COLUMNS
+                    ),
+                    widths,
+                )
+            )
+    else:
+        lines.append("(no running jobs)")
+    lines.append("Amounts are running estimates only; final charges may differ.")
     return "\n".join(lines) + "\n"

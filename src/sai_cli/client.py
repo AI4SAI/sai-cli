@@ -1,4 +1,4 @@
-"""Mapping from explicit CLI scopes to Portal job visibility endpoints."""
+"""Mapping from explicit CLI scopes to Portal read-only endpoints."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import quote
 
 from .auth import TokenLease, TokenProvider
-from .contracts import JobResult
+from .contracts import JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError
 from .transport import JsonResponse, JsonTransport
 
@@ -156,3 +156,13 @@ class PortalClient:
 
             raise ContractError("the job detail response must contain one item", request_id=response.request_id)
         return result
+
+    def running_estimates(self, query: JobQuery) -> RunningEstimateResult:
+        response = self._authorized_get(
+            "/v1/billing/running-estimates",
+            query=query.parameters(),
+        )
+        return RunningEstimateResult.from_payload(
+            response.payload,
+            request_id=response.request_id,
+        )

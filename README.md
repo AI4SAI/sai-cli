@@ -9,12 +9,15 @@ The first implementation milestone is intentionally read-only:
 - `sai jobs list` lists jobs in an authorized personal, organization, or
   project scope.
 - `sai jobs show` returns one authorized job.
+- `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
 - JSON is the default output. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
 
-Job submission, cancellation, resource mutation, TUI views, and the
-site-local capability gateway remain roadmap items. See
+Job submission, cancellation, resource mutation, TUI views, and the site-local
+capability gateway remain roadmap items. Running estimates are read from the
+independent Portal billing DTO; the CLI has no pricing engine or Slurm reader.
+See
 [docs/roadmap.md](docs/roadmap.md) for the exact boundary.
 
 The repository also carries a controller-side Slurm policy artifact under
@@ -88,6 +91,7 @@ sai jobs list
 sai jobs list --scope project-account --account project-example
 sai jobs list --states R,PD --partition gpu-standard --format table
 sai jobs show 12345
+sai jobs cost --states R,PD --format table
 ```
 
 Connection options are accepted before or after the leaf command, so both

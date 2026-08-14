@@ -5,9 +5,16 @@ import json
 
 import pytest
 
-from sai_cli.contracts import JOB_ITEM_FIELDS, JobResult
+from sai_cli.contracts import (
+    JOB_ITEM_FIELDS,
+    RUNNING_ESTIMATE_ALLOC_TRES_FIELDS,
+    RUNNING_ESTIMATE_ITEM_FIELDS,
+    RUNNING_ESTIMATE_RESOURCE_FIELDS,
+    JobResult,
+    RunningEstimateResult,
+)
 from sai_cli.errors import ContractError
-from sai_cli.render import render_json, render_table
+from sai_cli.render import render_json, render_running_estimate_table, render_table
 
 
 def test_contract_allowlists_fields_and_drops_unknown_sensitive_data(job_payload) -> None:
@@ -73,3 +80,96 @@ def test_json_is_valid_and_terminated(job_payload) -> None:
     rendered = render_json(result.as_dict())
     assert rendered.endswith("\n")
     assert json.loads(rendered)["count"] == 1
+
+
+def test_running_estimate_contract_recursively_drops_unknown_fields(running_estimate_payload) -> None:
+    payload = deepcopy(running_estimate_payload)
+    payload["wallet"] = {"token": "top-secret"}
+    payload["freshness"]["raw_source"] = "private-source"
+    payload["items"][0]["ledger"] = {"secret": "ledger-secret"}
+    payload["items"][0]["resources"]["raw_tres"] = "raw-secret"
+    payload["items"][0]["resources"]["alloc_tres"]["native"] = "native-secret"
+
+    rendered = RunningEstimateResult.from_payload(payload, request_id="estimate-request").as_dict()
+
+    assert set(rendered["items"][0]) == set(RUNNING_ESTIMATE_ITEM_FIELDS)
+    assert set(rendered["items"][0]["resources"]) == set(RUNNING_ESTIMATE_RESOURCE_FIELDS)
+    assert set(rendered["items"][0]["resources"]["alloc_tres"]) == set(
+        RUNNING_ESTIMATE_ALLOC_TRES_FIELDS
+    )
+    text = render_json(rendered)
+    for secret in ("top-secret", "private-source", "ledger-secret", "raw-secret", "native-secret"):
+        assert secret not in text
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload.update(final=True),
+        lambda payload: payload.update(operation="jobs.list"),
+        lambda payload: payload.update(schema_version="billing.running-estimate.v1"),
+        lambda payload: payload.pop("visibility_role"),
+        lambda payload: payload.update(site_timezone="+08:00"),
+        lambda payload: payload["freshness"].update(stale="false"),
+        lambda payload: payload["freshness"].update(observed_at="2026-08-14T09:02:00+08:00"),
+        lambda payload: payload["items"][0].update(start_time="2026-08-14T00:02:00"),
+        lambda payload: payload["items"][0].update(gross_cny="2.0"),
+        lambda payload: payload["items"][0].update(cash_cny=None),
+        lambda payload: payload["items"][0].update(uncertainty=["pricing_uncertain"]),
+        lambda payload: payload["items"][0].update(
+            estimate_status="partial",
+            cash_cny=None,
+            uncertainty=[],
+        ),
+        lambda payload: payload["items"][0].update(
+            estimate_status="partial",
+            uncertainty=["payer_unavailable"],
+        ),
+        lambda payload: payload["items"][0].update(estimate_status="settled"),
+        lambda payload: payload["items"][0]["resources"].update(resource_count=True),
+        lambda payload: payload["items"][1]["resources"].update(usage_quantity="0"),
+        lambda payload: payload["items"][2].update(gross_cny="1.00000000"),
+        lambda payload: payload["items"][2].update(uncertainty=[]),
+        lambda payload: payload["items"][2].update(uncertainty=[{"message": "raw"}]),
+    ],
+)
+def test_running_estimate_contract_rejects_invalid_semantics(
+    running_estimate_payload,
+    mutation,
+) -> None:
+    payload = deepcopy(running_estimate_payload)
+    mutation(payload)
+    with pytest.raises(ContractError):
+        RunningEstimateResult.from_payload(payload, request_id="estimate-invalid")
+
+
+def test_running_estimate_contract_accepts_partial_cash_estimate(running_estimate_payload) -> None:
+    payload = deepcopy(running_estimate_payload)
+    payload["items"][0].update(
+        estimate_status="partial",
+        cash_cny=None,
+        uncertainty=["payer_unavailable"],
+    )
+
+    result = RunningEstimateResult.from_payload(payload, request_id="estimate-partial")
+
+    assert result.as_dict()["items"][0]["estimate_status"] == "partial"
+
+
+def test_running_estimate_table_shows_freshness_and_estimate_states(running_estimate_payload) -> None:
+    result = RunningEstimateResult.from_payload(
+        running_estimate_payload,
+        request_id="estimate-table",
+    )
+
+    table = render_running_estimate_table(result)
+
+    assert "Timezone: Asia/Shanghai" in table
+    assert "As-of: 2026-08-14T09:02:03+08:00" in table
+    assert "Observed: 2026-08-14T09:02:00+08:00" in table
+    assert "Age: 3s" in table
+    assert "Stale: no" in table
+    assert "ETag: snapshot-etag" in table
+    assert "PENDING" in table
+    assert "UNAVAILABLE" in table
+    assert "Amounts are running estimates only" in table

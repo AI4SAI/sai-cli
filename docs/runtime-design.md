@@ -1,10 +1,10 @@
 # Runtime Design
 
-Status: phase-one commands frozen
+Status: read-only commands frozen
 
 ## Command surface
 
-The first release is read-only and exposes two commands:
+The current release is read-only and exposes three commands:
 
 ```bash
 sai jobs list --site site-a
@@ -14,6 +14,9 @@ sai jobs list --site site-a --scope project-account --account project-example \
 sai jobs show 12345 --site site-a
 sai jobs show 12345 --site site-a --scope project-account \
   --account project-example
+sai jobs cost --site site-a
+sai jobs cost --site site-a --scope project-account \
+  --account project-example --states R,PD --partition gpu-standard --limit 100
 ```
 
 `--format json` is the default. `--format table` is intended for a person at a
@@ -25,7 +28,12 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, placement, storage, usage estimate, or TUI commands.
+- node topology, placement, storage, or TUI commands.
+
+`jobs cost` calls Portal `GET /v1/billing/running-estimates`. It reuses the
+list command's scope and narrowing options, validates the independent
+`billing.running-estimate/v1` DTO, and renders it without local caching,
+scheduler access, or price calculation.
 
 The controller-side `site/slurm/job_submit.lua` artifact does not change this
 client boundary. It validates jobs submitted through native Slurm commands but
@@ -154,9 +162,15 @@ Requirements:
 
 ## Output contract
 
-JSON output contains only the stable job visibility fields documented in
+JSON output contains only the stable job visibility or running-estimate fields documented in
 [portal-api-contract.md](portal-api-contract.md). Unknown response fields are
 ignored after validation instead of being copied to stdout.
+
+Running-estimate table output always shows `final=false`, `as_of`, observation
+time, age, stale state, and ETag. Times use the response's required site/Slurm
+IANA timezone and show an explicit offset, never the center or terminal local
+timezone. A pending job has no zero-cost claim; an
+unavailable estimate has no guessed amount. Both remain explicit row states.
 
 Table mode keeps the established SAI meanings:
 

@@ -45,13 +45,16 @@
 
 - Python 3.11+ is required.
 - The batch CLI has no third-party runtime dependency.
-- The implemented surface is `sai jobs list` and `sai jobs show` only.
+- The implemented surface is `sai jobs list`, `sai jobs show`, and the
+  non-final `sai jobs cost` running-estimate view.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
-- The current transport calls Portal `GET /v1/slurm/jobs` and
-  `GET /v1/slurm/jobs/{job_id}`. The site-local capability transport, TUI,
-  resources, placement, storage, and usage estimate are roadmap items, not
-  implied current behavior.
+- The current transport calls Portal `GET /v1/slurm/jobs`,
+  `GET /v1/slurm/jobs/{job_id}`, and
+  `GET /v1/billing/running-estimates`. The site-local capability transport,
+  TUI, resources, placement, and storage are roadmap items, not implied
+  current behavior. Running estimates come only from the Portal DTO; the CLI
+  does not price jobs locally.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
   snapshot and performs no per-submission file, network, database, subprocess,

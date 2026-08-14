@@ -1,4 +1,4 @@
-# Portal Job Visibility API Contract
+# Portal Read API Contract
 
 Status: consumed by the phase-one client
 
@@ -127,6 +127,84 @@ The response must not expose:
 - raw scheduler or site-agent payloads;
 - wallet, balance, pricing, ledger, payment, or refund fields;
 - credentials, internal secrets, or raw provider errors.
+
+## Running job cost estimates
+
+```text
+GET /v1/billing/running-estimates
+```
+
+This independent billing-visibility endpoint accepts the same query contract
+as the job list endpoint. It is not a pricing option on `/v1/slurm/jobs`.
+`source_preference` remains fixed to `live`.
+
+The response contract is `billing.running-estimate/v1`. Top-level fields are
+`operation`, `version`, `schema_version`, `site_id`, `site_timezone`,
+`cluster_id`, `scope`, `visibility_role`, `slurm_user`, `slurm_account`,
+`as_of`, `freshness`, `etag`, `items`, `count`, and `final`. `operation` is `billing.running-estimate`,
+`version` is `v1`, `schema_version` is `billing.running-estimate/v1`, and `final` is always
+`false`.
+
+Freshness contains `source`, `observed_at`, non-negative `ttl_seconds` and
+`age_seconds`, and native-boolean `stale`. ETag is a body field for the source
+snapshot; it is not an HTTP response-header contract.
+
+Each item contains only:
+
+```json
+{
+  "job_key": "opaque-generation-key",
+  "job_id_raw": "12345",
+  "slurm_job_db_index": null,
+  "slurm_user": "alice",
+  "slurm_account": "project-example",
+  "state": "RUNNING",
+  "submit_time": "2026-08-14T00:00:00Z",
+  "start_time": "2026-08-14T00:01:00Z",
+  "elapsed_seconds": 3600,
+  "resources": {
+    "partition": "gpu-standard",
+    "qos": "normal",
+    "nodes": 1,
+    "alloc_tres": {
+      "gpu": 1,
+      "cpu": 8,
+      "mem_mb": "16384",
+      "billing": null,
+      "nodes": 1
+    },
+    "resource_type": "gpu",
+    "resource_count": 1,
+    "usage_quantity": "1.00000000"
+  },
+  "gross_cny": "2.00000000",
+  "cash_cny": "1.80000000",
+  "currency": "CNY",
+  "price_revision": "opaque-price-revision",
+  "estimate_status": "estimated",
+  "uncertainty": [],
+  "final": false
+}
+```
+
+`estimate_status` is `estimated`, `partial`, `not_started`, or `unavailable`.
+An `estimated` item has non-null gross and cash amounts, price revision,
+resource type, resource count, and usage quantity, with empty `uncertainty`. A
+`partial` item has the same gross price and resource facts, a null cash amount,
+and non-empty machine-code `uncertainty`.
+`PENDING` and `CONFIGURING` jobs use `not_started`: `resource_type`,
+`resource_count`, `usage_quantity`, both amounts, and `price_revision` are
+null, although observed allocation evidence may remain. An unavailable job
+uses a null amount and bounded machine-code `uncertainty`; the response does
+not fail as a whole. Money is an unsigned CNY decimal string with exactly eight
+fraction digits. `site_timezone` is the job site's required IANA Slurm timezone.
+Non-null `submit_time` and `start_time` values, like `as_of` and
+`freshness.observed_at`, are normalized UTC timestamps ending in `Z`; table
+output converts them with `site_timezone` and displays the resulting offset.
+
+The CLI validates this response recursively as an allowlist and ignores
+additive unknown fields. It does not cache responses, inspect wallets or
+ledgers, call Slurm, or calculate any amount.
 
 ## Bounded errors
 

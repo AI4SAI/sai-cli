@@ -135,43 +135,12 @@ and applicable signed pricing revision before issuing the capability.
 
 The site gateway may reuse the same scheduler observation that serves the job
 list. It applies the signed pricing snapshot without reading a wallet,
-contract database, allowance table, or final ledger. A response contains at
-least:
-
-```json
-{
-  "operation": "billing.running-estimate",
-  "site_id": "site-a",
-  "as_of": "2026-08-09T01:00:00Z",
-  "final": false,
-  "price_revision": "opaque-pricing-revision",
-  "items": [
-    {
-      "provisional_job_key": "opaque-live-generation-key",
-      "slurm_job_db_index": null,
-      "state": "RUNNING",
-      "elapsed_seconds": 3600,
-      "resource_evidence": {},
-      "estimated_usage": {},
-      "estimated_gross_cost": {
-        "sai_credit": "0.00000000",
-        "cny_equivalent": "0.00000000"
-      },
-      "uncertainty": []
-    }
-  ],
-  "freshness": {
-    "source": "scheduler_cache",
-    "observed_at": "2026-08-09T00:59:57Z",
-    "ttl_seconds": 5,
-    "stale": false
-  }
-}
-```
-
-The exact versioned schema must be frozen with the Portal before
-implementation. The example above freezes semantics, not an implemented
-endpoint or final field spelling.
+contract database, allowance table, or final ledger. The Portal endpoint and
+batch CLI now consume the frozen `billing.running-estimate/v1` DTO documented
+in [portal-api-contract.md](portal-api-contract.md). A future site-local
+capability transport must preserve that exact DTO, including the required site
+IANA timezone, UTC source timestamps, freshness, ETag, uncertainty, and
+`final=false` fields.
 
 Invariants:
 

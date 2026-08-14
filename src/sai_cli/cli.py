@@ -13,7 +13,7 @@ from .auth import TokenProvider
 from .client import JobQuery, PortalClient, clean_states
 from .config import resolve_settings
 from .errors import ContractError, SaiCliError
-from .render import render_json, render_table
+from .render import render_json, render_running_estimate_table, render_table
 from .transport import JsonTransport
 
 
@@ -41,6 +41,13 @@ def build_parser() -> argparse.ArgumentParser:
     show_parser.add_argument("job_id", help="job identifier")
     _add_job_scope_arguments(show_parser)
     _add_format_argument(show_parser)
+
+    cost_parser = job_commands.add_parser("cost", help="show non-final running job cost estimates")
+    _add_connection_arguments(cost_parser, suppress_defaults=True)
+    _add_job_scope_arguments(cost_parser)
+    cost_parser.add_argument("--partition", help="partition narrowing filter")
+    cost_parser.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
+    _add_format_argument(cost_parser)
     return parser
 
 
@@ -140,10 +147,17 @@ def main(
             result = client.list_jobs(query)
         elif args.command == "jobs" and args.jobs_command == "show":
             result = client.show_job(args.job_id, query)
+        elif args.command == "jobs" and args.jobs_command == "cost":
+            result = client.running_estimates(query)
         else:
             raise ContractError("the selected command is not implemented")
 
-        output.write(render_json(result.as_dict()) if output_format == "json" else render_table(result))
+        if output_format == "json":
+            output.write(render_json(result.as_dict()))
+        elif args.jobs_command == "cost":
+            output.write(render_running_estimate_table(result))
+        else:
+            output.write(render_table(result))
         return 0
     except SaiCliError as exc:
         _emit_error(exc, output_format=output_format, stderr=errors)

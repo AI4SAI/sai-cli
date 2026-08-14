@@ -29,6 +29,30 @@ def test_job_query_maps_hyphenated_scope_and_narrowing_filters() -> None:
     }
 
 
+def test_running_estimate_query_reuses_list_scope_and_narrowing_contract() -> None:
+    query = JobQuery(
+        site_id="site-a",
+        cluster_id="cluster-a",
+        scope="org-account",
+        account_id="account-id",
+        states=clean_states("r,pd"),
+        partition="gpu-standard",
+        limit=12,
+    )
+
+    assert query.parameters() == {
+        "site_id": "site-a",
+        "cluster_id": "cluster-a",
+        "scope_type": "org_account",
+        "slurm_account_id": "account-id",
+        "slurm_account_name": None,
+        "states": "R,PD",
+        "source_preference": "live",
+        "partition": "gpu-standard",
+        "limit": 12,
+    }
+
+
 @pytest.mark.parametrize("scope", ["personal-account", "org-account", "project-account"])
 def test_account_scopes_require_selector(scope: str) -> None:
     with pytest.raises(ConfigError, match="requires"):

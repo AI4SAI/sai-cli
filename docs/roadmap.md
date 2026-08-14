@@ -24,6 +24,7 @@ required before enabling `JobSubmitPlugins=lua` or removing TaskProlog policy.
 - [x] Protected short-lived token cache
 - [x] Existing Bearer token and managed-node HMAC compatibility bootstrap
 - [x] `sai jobs list` and `sai jobs show`
+- [x] `sai jobs cost` against the independent Portal running-estimate DTO
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -49,8 +50,8 @@ facts or production deployment.
 
 - [ ] Optional TUI dependency group
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
-- [ ] Running-usage estimate view with explicit `final=false`, `as_of`,
-  freshness, price revision, and uncertainty
+- [ ] TUI running-usage estimate view; the batch `jobs cost` view already
+  exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [ ] Local-state keyboard interactions and asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
@@ -64,8 +65,8 @@ does not prove real placement, topology, rate data, or production latency.
 
 - [ ] Versioned capability/query/response schemas
 - [ ] Control-plane issuer compatibility vectors
-- [ ] Independent billing-visibility capability and running-estimate contract;
-  job visibility alone must not grant it
+- [ ] Site-local billing-visibility capability; the Portal running-estimate
+  HTTP contract is implemented, but job visibility alone must not grant it
 - [ ] Shared scheduler collector snapshot for jobs and usage estimates, with
   2-15 second TTL, request coalescing, ETag, and freshness
 - [ ] Cross-repository site-runtime gateway fixture for verifier, filter
