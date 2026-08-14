@@ -178,9 +178,9 @@ Each item contains only:
     "usage_quantity": "1.00000000"
   },
   "gross_cny": "2.00000000",
-  "cash_cny": "1.80000000",
+  "cash_before_credit_cny": "1.80000000",
   "currency": "CNY",
-  "price_revision": "opaque-price-revision",
+  "price_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "estimate_status": "estimated",
   "uncertainty": [],
   "final": false
@@ -188,16 +188,23 @@ Each item contains only:
 ```
 
 `estimate_status` is `estimated`, `partial`, `not_started`, or `unavailable`.
-An `estimated` item has non-null gross and cash amounts, price revision,
-resource type, resource count, and usage quantity, with empty `uncertainty`. A
-`partial` item has the same gross price and resource facts, a null cash amount,
+`cash_before_credit_cny` is the contract or activity cash-price estimate before
+SAI Credit, allowances, reservations, or other coverage. It is neither an
+expected deduction nor a promise of the final Credit/cash split. An `estimated`
+item has non-null gross and before-credit amounts, price revision, resource
+type, resource count, and usage quantity, with empty `uncertainty`. A `partial`
+item has the same gross price and resource facts, a null before-credit amount,
 and non-empty machine-code `uncertainty`.
 `PENDING` and `CONFIGURING` jobs use `not_started`: `resource_type`,
 `resource_count`, `usage_quantity`, both amounts, and `price_revision` are
 null, although observed allocation evidence may remain. An unavailable job
-uses a null amount and bounded machine-code `uncertainty`; the response does
+uses null amounts and bounded machine-code `uncertainty`; the response does
 not fail as a whole. Money is an unsigned CNY decimal string with exactly eight
 fraction digits. `site_timezone` is the job site's required IANA Slurm timezone.
+Non-null `price_revision` is a 64-character lowercase SHA-256 hash over the
+normalized gross and before-credit pricing decision. A partial estimate hashes
+the stable unavailable cash decision and reason code, never a raw error or
+transient diagnostic.
 Non-null `submit_time` and `start_time` values, like `as_of` and
 `freshness.observed_at`, are normalized UTC timestamps ending in `Z`; table
 output converts them with `site_timezone` and displays the resulting offset.

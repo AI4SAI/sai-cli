@@ -87,6 +87,7 @@ def test_running_estimate_contract_recursively_drops_unknown_fields(running_esti
     payload["wallet"] = {"token": "top-secret"}
     payload["freshness"]["raw_source"] = "private-source"
     payload["items"][0]["ledger"] = {"secret": "ledger-secret"}
+    payload["items"][0]["cash_cny"] = "9.99999999"
     payload["items"][0]["resources"]["raw_tres"] = "raw-secret"
     payload["items"][0]["resources"]["alloc_tres"]["native"] = "native-secret"
 
@@ -100,6 +101,7 @@ def test_running_estimate_contract_recursively_drops_unknown_fields(running_esti
     text = render_json(rendered)
     for secret in ("top-secret", "private-source", "ledger-secret", "raw-secret", "native-secret"):
         assert secret not in text
+    assert "cash_cny" not in rendered["items"][0]
 
 
 @pytest.mark.parametrize(
@@ -114,11 +116,13 @@ def test_running_estimate_contract_recursively_drops_unknown_fields(running_esti
         lambda payload: payload["freshness"].update(observed_at="2026-08-14T09:02:00+08:00"),
         lambda payload: payload["items"][0].update(start_time="2026-08-14T00:02:00"),
         lambda payload: payload["items"][0].update(gross_cny="2.0"),
-        lambda payload: payload["items"][0].update(cash_cny=None),
+        lambda payload: payload["items"][0].update(cash_before_credit_cny=None),
+        lambda payload: payload["items"][0].update(price_revision="price-v1"),
+        lambda payload: payload["items"][0].update(price_revision="A" * 64),
         lambda payload: payload["items"][0].update(uncertainty=["pricing_uncertain"]),
         lambda payload: payload["items"][0].update(
             estimate_status="partial",
-            cash_cny=None,
+            cash_before_credit_cny=None,
             uncertainty=[],
         ),
         lambda payload: payload["items"][0].update(
@@ -143,11 +147,13 @@ def test_running_estimate_contract_rejects_invalid_semantics(
         RunningEstimateResult.from_payload(payload, request_id="estimate-invalid")
 
 
-def test_running_estimate_contract_accepts_partial_cash_estimate(running_estimate_payload) -> None:
+def test_running_estimate_contract_accepts_partial_before_credit_estimate(
+    running_estimate_payload,
+) -> None:
     payload = deepcopy(running_estimate_payload)
     payload["items"][0].update(
         estimate_status="partial",
-        cash_cny=None,
+        cash_before_credit_cny=None,
         uncertainty=["payer_unavailable"],
     )
 
@@ -172,4 +178,6 @@ def test_running_estimate_table_shows_freshness_and_estimate_states(running_esti
     assert "ETag: snapshot-etag" in table
     assert "PENDING" in table
     assert "UNAVAILABLE" in table
-    assert "Amounts are running estimates only" in table
+    assert "Gross est. CNY" in table
+    assert "Before-credit CNY" not in table
+    assert "Gross amounts are running estimates only" in table

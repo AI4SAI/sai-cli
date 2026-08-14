@@ -34,8 +34,7 @@ _RUNNING_ESTIMATE_COLUMNS = (
     ("elapsed", "Elapsed", 14),
     ("billable", "Billable", 18),
     ("usage", "Usage", 18),
-    ("gross", "Gross CNY", 16),
-    ("cash", "Cash CNY", 16),
+    ("gross", "Gross est. CNY", 16),
     ("estimate", "Estimate", 16),
     ("uncertainty", "Uncertainty", 36),
 )
@@ -119,7 +118,6 @@ def _running_estimate_row(item: RunningEstimateItem) -> dict[str, str]:
         "billable": _billable(item),
         "usage": _display(values["resources"]["usage_quantity"]),
         "gross": _display(values["gross_cny"]),
-        "cash": _display(values["cash_cny"]),
         "estimate": _estimate_state(item),
         "uncertainty": _display(",".join(values["uncertainty"])),
     }
@@ -205,5 +203,5 @@ def render_running_estimate_table(result: RunningEstimateResult) -> str:
             )
     else:
         lines.append("(no running jobs)")
-    lines.append("Amounts are running estimates only; final charges may differ.")
+    lines.append("Gross amounts are running estimates only; final charges may differ.")
     return "\n".join(lines) + "\n"

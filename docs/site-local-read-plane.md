@@ -149,8 +149,9 @@ Invariants:
 - Usage is billable allocated/dominant-resource usage, not GPU or CPU
   utilization. Optional performance telemetry cannot change the estimate under
   the current pricing contract.
-- The signed price revision is selected at the job start effective time and
-  remains fixed across refreshes and calendar-day boundaries.
+- The price revision hashes normalized gross and before-credit pricing
+  decisions. A partial result hashes a stable unavailable decision and bounded
+  reason code, never raw errors, transient diagnostics, or wallet identifiers.
 - Without an allowance hold, the gateway cannot promise the final split among
   SAI Credit and cash for concurrently running jobs.
 - A live key includes `JobIDRaw`, user/account, and submit/start generation so

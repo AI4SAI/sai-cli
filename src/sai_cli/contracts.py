@@ -45,7 +45,7 @@ RUNNING_ESTIMATE_ITEM_FIELDS = (
     "elapsed_seconds",
     "resources",
     "gross_cny",
-    "cash_cny",
+    "cash_before_credit_cny",
     "currency",
     "price_revision",
     "estimate_status",
@@ -71,6 +71,7 @@ RUNNING_ESTIMATE_ALLOC_TRES_FIELDS = (
 
 _DECIMAL_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
 _MONEY_RE = re.compile(r"^[0-9]+\.[0-9]{8}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _MACHINE_CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
 _ESTIMATE_STATUSES = {"estimated", "partial", "not_started", "unavailable"}
 _RESOURCE_TYPES = {"gpu", "cpu"}
@@ -209,6 +210,13 @@ def _timestamp_text(
     except ValueError as exc:
         raise ContractError(request_id=request_id) from exc
     if parsed.tzinfo is None:
+        raise ContractError(request_id=request_id)
+    return value
+
+
+def _nullable_sha256_text(payload: dict[str, Any], key: str, *, request_id: str) -> str | None:
+    value = _nullable_nonempty_text(payload, key, request_id=request_id)
+    if value is not None and _SHA256_RE.fullmatch(value) is None:
         raise ContractError(request_id=request_id)
     return value
 
@@ -385,9 +393,19 @@ class RunningEstimateItem:
             "elapsed_seconds": _nullable_int(payload, "elapsed_seconds", request_id=request_id),
             "resources": _running_estimate_resources(payload.get("resources"), request_id=request_id),
             "gross_cny": _decimal_text(payload, "gross_cny", request_id=request_id, nullable=True, money=True),
-            "cash_cny": _decimal_text(payload, "cash_cny", request_id=request_id, nullable=True, money=True),
+            "cash_before_credit_cny": _decimal_text(
+                payload,
+                "cash_before_credit_cny",
+                request_id=request_id,
+                nullable=True,
+                money=True,
+            ),
             "currency": _literal_text(payload, "currency", expected="CNY", request_id=request_id),
-            "price_revision": _nullable_nonempty_text(payload, "price_revision", request_id=request_id),
+            "price_revision": _nullable_sha256_text(
+                payload,
+                "price_revision",
+                request_id=request_id,
+            ),
             "estimate_status": estimate_status,
             "uncertainty": list(_machine_codes(payload, "uncertainty", request_id=request_id)),
             "final": _required_false(payload, "final", request_id=request_id),
@@ -401,13 +419,13 @@ class RunningEstimateItem:
             resources["usage_quantity"],
         )
         if estimate_status == "estimated" and (
-            values["cash_cny"] is None
+            values["cash_before_credit_cny"] is None
             or any(value is None for value in priced_values)
             or values["uncertainty"]
         ):
             raise ContractError(request_id=request_id)
         if estimate_status == "partial" and (
-            values["cash_cny"] is not None
+            values["cash_before_credit_cny"] is not None
             or any(value is None for value in priced_values)
             or not values["uncertainty"]
         ):
@@ -416,7 +434,7 @@ class RunningEstimateItem:
             value is not None
             for value in (
                 values["gross_cny"],
-                values["cash_cny"],
+                values["cash_before_credit_cny"],
                 values["price_revision"],
                 resources["resource_type"],
                 resources["resource_count"],
