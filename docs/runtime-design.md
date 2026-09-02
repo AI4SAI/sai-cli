@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: read-only commands and site-read client contract frozen; gateway rollout pending
+Status: read-only commands frozen
 
 ## Command surface
 
@@ -30,12 +30,10 @@ The first release does not implement:
 - automatic fallback from live state to broad accounting queries;
 - node topology, placement, storage, or TUI commands.
 
-`jobs cost` calls the independent site-read gateway at
-`GET /v1/site-read/billing/running-estimates`. It reuses the list command's
-scope and narrowing options, validates the gross-only
-`billing.running-estimate/v2` DTO, and renders it without local caching,
-scheduler access, or price calculation. The gateway may return a gross
-estimate or an explicit unavailable state; it never returns a final charge.
+`jobs cost` calls Portal `GET /v1/billing/running-estimates`. It reuses the
+list command's scope and narrowing options, validates the independent
+`billing.running-estimate/v1` DTO, and renders it without local caching,
+scheduler access, or price calculation.
 
 The controller-side `site/slurm/job_submit.lua` artifact does not change this
 client boundary. It validates jobs submitted through native Slurm commands but
@@ -86,10 +84,8 @@ Example:
 default_profile = "default"
 
 [profiles.default]
-portal_base_url = "https://portal.example.org"
-site_read_base_url = "https://site-read.example.org"
+base_url = "https://portal.example.org"
 site_id = "site-a"
-cluster_id = "cluster-a"
 username = "alice"
 key_id = "managed-login"
 timeout_seconds = 10
@@ -103,17 +99,15 @@ Relevant environment variables:
 | Variable | Purpose |
 | --- | --- |
 | `SAI_API_BASE_URL` | Control-plane base URL |
-| `SAI_SITE_READ_BASE_URL` | Site-read gateway base URL |
 | `SAI_SITE_ID` | Default site |
-| `SAI_CLUSTER_ID` | Default cluster |
 | `SAI_PROFILE` | Profile name |
-| `SAI_API_USERNAME` | Actor username for legacy compatibility token exchange |
-| `SAI_API_KEY_ID` | Client key identifier for legacy compatibility exchange |
+| `SAI_API_USERNAME` | Actor username for unmanaged compatibility token exchange |
+| `SAI_API_KEY_ID` | Client key identifier for unmanaged compatibility exchange |
 | `SAI_TOKEN` | Already-issued short-lived Bearer token |
-| `SAI_API_SHARED_SECRET` | Legacy compatibility HMAC secret; never used in managed mode |
+| `SAI_API_SHARED_SECRET` | Protected HMAC secret for unmanaged compatibility exchange |
 | `SAI_API_TIMEOUT` | HTTP timeout in seconds |
 | `SAI_ALLOW_INSECURE_HTTP` | Development-only explicit HTTP override |
-| `SAI_MANAGED_LOGIN_NODE` | Enable fixed root-owned login-node configuration and token-only credentials |
+| `SAI_REQUIRE_SITE_CAPABILITY` | Require the server-bound capability/CLI routes; mandatory in managed production wrappers |
 
 ## Authentication
 
@@ -123,7 +117,8 @@ Token selection order is:
 2. reuse a valid protected cache entry;
 3. for an unmanaged compatibility client, exchange a HMAC request at
    `POST /v1/token` and cache only the returned short-lived Bearer token.
-Managed login-node mode accepts only an injected short-lived `SAI_TOKEN`.
+   Managed login nodes require the process-local `SAI_TOKEN` path and never
+   carry the HMAC secret.
 
 The HMAC canonical string is part of the existing Portal compatibility
 contract:
@@ -137,13 +132,13 @@ interactive browser/device authorization flow should replace it for unmanaged
 clients. The CLI must not accept a secret or Bearer token as a command-line
 argument because process listings and shell history are not secret stores.
 
-For managed production use, the Bearer is followed by a capability exchange at
-`POST /v1/authz/site-read`. The response is cached as an opaque short-lived
-credential keyed by both trust origins, the user-session digest, operation,
-site/cluster, scope, exact filters, and job ID. Jobs and running-estimate reads
-then use `/v1/site-read/...`; the gateway verifies the signed grant and never
-receives the Portal Bearer. A cached Bearer or capability is refreshed at most
-once after authentication failure.
+For managed production use, Bearer authentication is followed by a capability
+exchange at `POST /v1/authz/site-read` with the exact JSON request body. The response is cached as an opaque
+short-lived credential keyed by the user-session digest, operation, site,
+scope, exact filters, and job ID. Jobs and running-estimate reads then use
+`/v1/slurm/cli/...` or `/v1/billing/cli/...`; the server revalidates both the
+Bearer actor and the signed grant. A cached Bearer or capability is refreshed
+at most once after authentication failure.
 
 ## Token cache
 
@@ -183,8 +178,8 @@ JSON output contains only the stable job visibility or running-estimate fields d
 [portal-api-contract.md](portal-api-contract.md). Unknown response fields are
 ignored after validation instead of being copied to stdout.
 
-Running-estimate table output always shows `final=false`, observation time, age,
-stale state, and ETag. Times use the response's required site/Slurm
+Running-estimate table output always shows `final=false`, `as_of`, observation
+time, age, stale state, and ETag. Times use the response's required site/Slurm
 IANA timezone and show an explicit offset, never the center or terminal local
 timezone. A pending job has no zero-cost claim; an
 unavailable estimate has no guessed amount. Both remain explicit row states.

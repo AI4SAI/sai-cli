@@ -66,8 +66,11 @@ Portal Bearer to the gateway.
 ## Request and response
 
 The gateway request is a `GET` with no authorization query parameters; the
-capability carries the authority. The response uses the shared `jobs/v1` or
-`billing.running-estimate/v2` DTO documented in
+capability carries the authority. The phase-one Portal CLI route uses the
+`billing.running-estimate/v1` DTO. The existing unactivated gateway candidate
+still emits its earlier `billing.running-estimate/v2` shape and must be migrated
+to the frozen v1 contract before that transport is enabled. Both paths use the
+shared `jobs/v1` semantics documented in
 [portal-api-contract.md](portal-api-contract.md). Both include site/cluster,
 resolved subject, source freshness, and an ETag. Unknown additive fields may be
 ignored only after recursive allowlist validation. Paths, scripts,

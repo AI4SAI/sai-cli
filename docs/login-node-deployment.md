@@ -1,17 +1,18 @@
 # Login-node package and canary
 
-Status: package run card; target install and live canary are still open.
+Status: production run card
 
-The login-node artifact is a dedicated `sai-cli` Debian package. It is not part
-of Portal's center/site roles or the identity-cache package. It contains only
-the pure-Python CLI, a thin `/usr/bin/sai` launcher, a generic non-secret
-configuration example, and a full-SHA manifest. It contains no Bearer token,
-HMAC secret, signing key, site-agent code, Portal ORM, Slurm reader, or
-scheduler mutation command.
+The login-node artifact is a dedicated `sai-cli` Debian package. It must not be
+added to Portal's center/site roles or to the identity-cache package. The
+package contains only the pure-Python CLI, a thin `/usr/bin/sai` entrypoint, a
+generic non-secret config example, and a full-SHA manifest. It contains no
+Bearer token, HMAC secret, signing/public key, site-agent code, Portal ORM,
+Slurm reader, or scheduler mutation command.
 
 ## Build gate
 
-Build from a clean commit already reachable from the reviewed remote `main`:
+Formal artifacts are built only from a clean commit that is already reachable
+from the reviewed remote branch:
 
 ```bash
 .venv/bin/python -m pytest
@@ -21,60 +22,75 @@ git diff --check
 python3 scripts/build_login_node_deb.py --output-dir dist/deb
 ```
 
-The builder rejects a dirty tree or a `HEAD` that is not reachable from
-`origin/main`. It records the complete source commit/digest, wheel digest,
-package digest, installed-file allowlist, and an explicit package-only rollback
-instruction in a mode-`0600` sidecar manifest. Inspect both metadata and file
-listing with `dpkg-deb -I` and `dpkg-deb -c` before transfer.
+The artifact and its mode-`0600` sidecar manifest record the complete source
+commit, source digest, wheel digest, package digest, installed file allowlist,
+and rollback shape. Inspect with `dpkg-deb -I/-c` before transfer. Do not use a
+previous `dist/` wheel or a package built from a dirty tree.
 
 ## Runtime configuration
 
-The real `/etc/sai-cli/config.toml` is an external non-secret input. It must be
-root-owned, a regular non-symlink file, and not group/world writable. The
-packaged example contains `portal_base_url`, `site_read_base_url`, `site_id`,
-and `cluster_id`; it does not contain credentials.
+The real `/etc/sai-cli/config.toml` is an external non-secret runtime input,
+not a package payload. It is root-owned, regular, not symlinked, and not
+group/world writable. Start from the packaged generic example and set only the
+approved Portal origin and canonical site. Managed `/usr/bin/sai` forces:
 
-The launcher fixes `SAI_MANAGED_LOGIN_NODE=1` and the root config path, then
-starts Python with `-I -P` and the versioned package path. Managed mode rejects
-origin, site, cluster, cache, TLS, username/key, and HMAC overrides from argv or
-environment. The only user credential accepted for the canary is a short-lived
-process-local `SAI_TOKEN`; it must not enter argv, TOML, shell startup, package,
-transcript, or release manifest.
+```text
+SAI_ENV=production
+SAI_REQUIRE_SITE_CAPABILITY=1
+PYTHONNOUSERSITE=1
+```
+
+The CLI therefore has no production fallback to the legacy `portal_read`
+routes. The matching Portal release must already expose and enable the
+capability issuer/CLI routes, use an Ed25519 key through a protected file, and
+publish the matching integer policy epoch.
+
+User credentials remain process-local. A canary may receive only a short-lived
+`SAI_TOKEN` through a protected, non-recorded environment injection. Never
+place it in argv, TOML, shell startup, the package, transcript, or release
+manifest. Remove the temporary injection and user cache after the canary.
 
 ## Single-user canary
 
-Before any install, record host/user/time, `findmnt` for staging and install
-paths, current entrypoint/package checksums, Python version, and the canary
-user's queue/history. Extract and run the inspected package first, without
-changing the global entrypoint.
+Before mutation, record host/user/time, `findmnt` for the intended staging and
+install paths, current `dpkg-query`/entrypoint checksums, `/usr/bin/python3`
+version, and the canary user's queue/history. The first execution is made from
+an explicitly extracted package path, before `dpkg -i` changes the global
+entrypoint.
 
-Run only this read operation:
+Only run:
 
 ```bash
 sai jobs list --scope self --limit 1 --format json
 ```
 
-Acceptance requires issuer and gateway audit evidence for the named actor,
-site, `jobs.list`, and the exact self filter; every returned `slurm_user` is the
-canary user; and stdout/stderr contains no paths, scripts, environments, raw
-scheduler fields, wallet/ledger data, token, or capability. Compare queue and
-recent history before and after. Do not run `sbatch`, `srun`, `scancel`,
-`sacctmgr`, account/QOS/quota changes, or configuration writes. If there is no
-live job, record `jobs show` as no sample and do not submit a job to create one.
+Acceptance requires:
 
-After the extracted-path check passes, install the exact inspected `.deb`, read
-back package version/manifest/digest and `/usr/bin/sai --version`, then repeat
-the same GET-only canary. Keep the previous package as the rollback artifact.
+- issuer/read audit evidence binds the named actor, site, `jobs.list`, and
+  exact self filter;
+- every returned `slurm_user` is the canary user;
+- no path, script, environment, raw scheduler, wallet, ledger, token, or
+  capability field reaches stdout/stderr;
+- queue and recent history are unchanged before/after;
+- no `sbatch`, `srun`, `scancel`, `sacctmgr` write, account/QOS/quota or config
+  mutation occurs;
+- if there is no live job, `jobs show` is recorded as no sample and no job is
+  submitted merely to create one.
+
+After the extracted-path canary passes, install the exact inspected `.deb`,
+read back package version/manifest/digest and `/usr/bin/sai --version`, then
+repeat the same GET-only canary. Preserve the previous `.deb` as rollback.
 
 ## Rollback and cleanup
 
-Rollback is `dpkg -i` of the recorded previous `sai-cli` artifact, followed by
-the same manifest and entrypoint readback. If this is the first install, remove
-only the `sai-cli` package after checking its installed-file list. Remove
-transferred packages, extraction trees, failed staging directories, and
-temporary credential/cache material after evidence is captured. Retain only the
-current/previous verified artifacts and the permission-protected evidence
-packet.
+Rollback is `dpkg -i` of the recorded previous package, followed by the same
+manifest/entrypoint readback. If this is the first install, rollback removes
+only the `sai-cli` package after verifying its installed-file list; external
+config/cache cleanup is separate and explicit.
 
-Package build is `candidate`, target installation is `deployed`, and only the
-consuming-layer user flow is `live-verified`.
+Before closing the window, remove the transferred package, extraction tree,
+temporary credential file/environment, failed staging directory, and unused
+tooling. Retain only the current and previous verified artifacts plus the
+permission-protected transcript/evidence packet. A clean package build is
+`candidate`; target install is `deployed`; only the consuming-layer user flow
+is `live-verified`.

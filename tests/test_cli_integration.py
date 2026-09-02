@@ -17,29 +17,15 @@ from sai_cli.cli import main
 class _Server(ThreadingHTTPServer):
     response_status = 200
     response_payload: dict[str, Any] = {}
+    capability_payload: dict[str, Any] = {}
     requests: list[dict[str, Any]]
 
 
 class _Handler(BaseHTTPRequestHandler):
     server: _Server
 
-    def _handle(self) -> None:
-        parsed = urlsplit(self.path)
-        content_length = int(self.headers.get("Content-Length") or 0)
-        raw_body = self.rfile.read(content_length) if content_length else b""
-        self.server.requests.append(
-            {
-                "method": self.command,
-                "path": parsed.path,
-                "query": parse_qs(parsed.query),
-                "authorization": self.headers.get("Authorization"),
-                "capability": self.headers.get("X-SAI-Capability"),
-                "content_type": self.headers.get("Content-Type"),
-                "body": json.loads(raw_body) if raw_body else None,
-                "request_id": self.headers.get("X-SAI-Request-ID"),
-            }
-        )
-        encoded = json.dumps(self.server.response_payload).encode("utf-8")
+    def _respond(self, payload: dict[str, Any]) -> None:
+        encoded = json.dumps(payload).encode("utf-8")
         self.send_response(self.server.response_status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(encoded)))
@@ -48,10 +34,40 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def do_GET(self) -> None:  # noqa: N802
-        self._handle()
+        parsed = urlsplit(self.path)
+        self.server.requests.append(
+            {
+                "method": "GET",
+                "path": parsed.path,
+                "query": parse_qs(parsed.query),
+                "authorization": self.headers.get("Authorization"),
+                "capability": self.headers.get("X-SAI-Capability"),
+                "request_id": self.headers.get("X-SAI-Request-ID"),
+            }
+        )
+        self._respond(self.server.response_payload)
 
     def do_POST(self) -> None:  # noqa: N802
-        self._handle()
+        parsed = urlsplit(self.path)
+        content_length = int(self.headers.get("Content-Length") or 0)
+        raw_body = self.rfile.read(content_length) if content_length else b""
+        self.server.requests.append(
+            {
+                "method": "POST",
+                "path": parsed.path,
+                "query": parse_qs(parsed.query),
+                "authorization": self.headers.get("Authorization"),
+                "capability": self.headers.get("X-SAI-Capability"),
+                "body": json.loads(raw_body) if raw_body else None,
+                "request_id": self.headers.get("X-SAI-Request-ID"),
+            }
+        )
+        payload = (
+            self.server.capability_payload
+            if parsed.path == "/v1/authz/site-read"
+            else self.server.response_payload
+        )
+        self._respond(payload)
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -62,10 +78,12 @@ def _server(
     payload: dict[str, Any],
     *,
     status: int = 200,
+    capability_payload: dict[str, Any] | None = None,
 ) -> Iterator[tuple[str, _Server]]:
     server = _Server(("127.0.0.1", 0), _Handler)
     server.response_payload = payload
     server.response_status = status
+    server.capability_payload = capability_payload or {}
     server.requests = []
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -86,55 +104,26 @@ def _env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _capability_payload(*, operation: str = "jobs.list") -> dict[str, object]:
-    return {
-        "schema_version": "sai-site-read-capability/v1",
-        "capability": "opaque-capability-token",
-        "expires_at": int(time.time()) + 120,
-        "audience": "sai-site-read",
-        "surface": "site-read",
-        "operation": operation,
-        "site_id": "site-a",
-        "cluster_id": "cluster-a",
-    }
-
-
-def _connection_args(portal_url: str, site_read_url: str) -> list[str]:
-    return [
-        "--base-url",
-        portal_url,
-        "--site-read-base-url",
-        site_read_url,
-        "--site",
-        "site-a",
-    ]
-
-
-def test_jobs_list_uses_post_issuer_and_capability_only_gateway(
-    tmp_path: Path,
-    job_payload,
-) -> None:
+def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_payload) -> None:
     payload = deepcopy(job_payload)
-    payload["scope_type"] = "project_account"
-    payload["subject"] = {
-        "slurm_user": None,
-        "slurm_account": "project-example",
-    }
+    payload["scope"] = "project_account"
+    payload["visibility_role"] = "read"
+    payload["slurm_user"] = None
+    payload["slurm_account"] = "project-example"
     payload["items"][0]["slurm_account"] = "project-example"
     payload["items"][0]["raw_json"] = {"token": "must-not-leak"}
     stdout = StringIO()
     stderr = StringIO()
 
-    with _server(_capability_payload()) as (portal_url, portal), _server(
-        payload
-    ) as (site_read_url, gateway):
+    with _server(payload) as (base_url, server):
         result = main(
             [
-                *_connection_args(portal_url, site_read_url),
                 "jobs",
                 "list",
-                "--cluster",
-                "cluster-a",
+                "--base-url",
+                base_url,
+                "--site",
+                "site-a",
                 "--scope",
                 "project-account",
                 "--account",
@@ -151,57 +140,98 @@ def test_jobs_list_uses_post_issuer_and_capability_only_gateway(
 
     assert result == 0
     assert stderr.getvalue() == ""
-    assert "raw_json" not in json.loads(stdout.getvalue())["items"][0]
-    assert portal.requests[0]["method"] == "POST"
-    assert portal.requests[0]["path"] == "/v1/authz/site-read"
-    assert portal.requests[0]["authorization"] == "Bearer test-bearer-token"
-    assert portal.requests[0]["capability"] is None
-    assert portal.requests[0]["content_type"] == "application/json"
-    assert portal.requests[0]["body"] == {
-        "operation": "jobs.list",
-        "site_id": "site-a",
-        "cluster_id": "cluster-a",
-        "scope_type": "project_account",
-        "slurm_account_id": None,
-        "slurm_account_name": "project-example",
-        "partition": "gpu-standard",
-        "states": ["PD", "R"],
-        "job_id": None,
-        "limit": 100,
+    rendered = json.loads(stdout.getvalue())
+    assert rendered["scope"] == "project_account"
+    assert "raw_json" not in rendered["items"][0]
+    assert "must-not-leak" not in stdout.getvalue()
+    request = server.requests[0]
+    assert request["path"] == "/v1/slurm/jobs"
+    assert request["authorization"] == "Bearer test-bearer-token"
+    assert request["request_id"].startswith("sai-cli-")
+    assert request["query"] == {
+        "site_id": ["site-a"],
+        "scope_type": ["project_account"],
+        "slurm_account_name": ["project-example"],
+        "states": ["PD,R"],
+        "source_preference": ["live"],
+        "partition": ["gpu-standard"],
+        "limit": ["100"],
     }
-    assert gateway.requests == [
-        {
-            "method": "GET",
-            "path": "/v1/site-read/jobs",
-            "query": {},
-            "authorization": None,
-            "capability": "opaque-capability-token",
-            "content_type": None,
-            "body": None,
-            "request_id": gateway.requests[0]["request_id"],
-        }
-    ]
 
 
-def test_jobs_show_uses_exact_detail_capability_and_table(
+def test_managed_capability_mode_uses_server_bound_cli_route(
     tmp_path: Path,
     job_payload,
 ) -> None:
+    capability = {
+        "schema_version": "sai-site-read-capability/v1",
+        "capability": "opaque-capability-token",
+        "expires_at": int(time.time()) + 120,
+        "audience": "sai-site-read",
+        "surface": "site-read",
+        "operation": "jobs.list",
+        "site_id": "site-a",
+        "cluster_id": "cluster-a",
+    }
+    stdout = StringIO()
+    stderr = StringIO()
+    with _server(job_payload, capability_payload=capability) as (base_url, server):
+        result = main(
+            [
+                "jobs",
+                "list",
+                "--base-url",
+                base_url,
+                "--site",
+                "site-a",
+                "--cluster",
+                "cluster-a",
+            ],
+            environ={
+                **_env(tmp_path),
+                "SAI_REQUIRE_SITE_CAPABILITY": "1",
+            },
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    assert result == 0
+    assert stderr.getvalue() == ""
+    assert [request["method"] for request in server.requests] == ["POST", "GET"]
+    issuer_request, read_request = server.requests
+    assert issuer_request["path"] == "/v1/authz/site-read"
+    assert issuer_request["authorization"] == "Bearer test-bearer-token"
+    assert issuer_request["body"] == {
+        "operation": "jobs.list",
+        "site_id": "site-a",
+        "cluster_id": "cluster-a",
+        "scope_type": "self",
+        "slurm_account_id": None,
+        "slurm_account_name": None,
+        "partition": None,
+        "states": [],
+        "job_id": None,
+        "limit": 100,
+    }
+    assert read_request["path"] == "/v1/slurm/cli/jobs"
+    assert read_request["authorization"] == "Bearer test-bearer-token"
+    assert read_request["capability"] == "opaque-capability-token"
+
+
+def test_jobs_show_uses_detail_endpoint_and_table_output(tmp_path: Path, job_payload) -> None:
     stdout = StringIO()
     stderr = StringIO()
 
-    with _server(_capability_payload(operation="jobs.detail")) as (
-        portal_url,
-        portal,
-    ), _server(job_payload) as (site_read_url, gateway):
+    with _server(job_payload) as (base_url, server):
         result = main(
             [
-                *_connection_args(portal_url, site_read_url),
                 "jobs",
                 "show",
                 "12345",
-                "--cluster",
-                "cluster-a",
+                "--base-url",
+                base_url,
+                "--site",
+                "site-a",
                 "--format",
                 "table",
             ],
@@ -213,37 +243,26 @@ def test_jobs_show_uses_exact_detail_capability_and_table(
     assert result == 0
     assert stderr.getvalue() == ""
     assert "simulation" in stdout.getvalue()
-    assert portal.requests[0]["body"]["job_id"] == "12345"
-    assert portal.requests[0]["body"]["partition"] is None
-    assert portal.requests[0]["body"]["limit"] is None
-    assert gateway.requests[0]["path"] == "/v1/site-read/jobs/12345"
+    assert "GPU is the GPU count per node." in stdout.getvalue()
+    assert server.requests[0]["path"] == "/v1/slurm/jobs/12345"
+    assert "partition" not in server.requests[0]["query"]
+    assert "limit" not in server.requests[0]["query"]
 
 
-def test_gateway_error_is_bounded_without_portal_bearer(
-    tmp_path: Path,
-) -> None:
+def test_bounded_http_error_does_not_echo_raw_secret(tmp_path: Path) -> None:
     stdout = StringIO()
     stderr = StringIO()
-    error = {
+    payload = {
         "detail": {
-            "code": "site_read_unavailable",
+            "code": "site_agent_unavailable",
             "message": "token=raw-secret source at /home/private 192.168.1.2",  # public-scan: allow-test-vector
             "raw": {"password": "another-secret"},
         }
     }
 
-    with _server(_capability_payload()) as (portal_url, _portal), _server(
-        error,
-        status=502,
-    ) as (site_read_url, gateway):
+    with _server(payload, status=502) as (base_url, _):
         result = main(
-            [
-                *_connection_args(portal_url, site_read_url),
-                "jobs",
-                "list",
-                "--cluster",
-                "cluster-a",
-            ],
+            ["jobs", "list", "--base-url", base_url, "--site", "site-a"],
             environ=_env(tmp_path),
             stdout=stdout,
             stderr=stderr,
@@ -251,9 +270,32 @@ def test_gateway_error_is_bounded_without_portal_bearer(
 
     assert result == 6
     assert stdout.getvalue() == ""
+    rendered = json.loads(stderr.getvalue())
+    assert rendered["error"]["code"] == "site_agent_unavailable"
+    assert rendered["error"]["request_id"] == "server-request-id"
     assert "raw-secret" not in stderr.getvalue()
     assert "another-secret" not in stderr.getvalue()
-    assert gateway.requests[0]["authorization"] is None
+    assert "/home/private" not in stderr.getvalue()  # public-scan: allow-test-vector
+    assert "192.168.1.2" not in stderr.getvalue()  # public-scan: allow-test-vector
+
+
+def test_invalid_response_returns_contract_error(tmp_path: Path, job_payload) -> None:
+    payload = deepcopy(job_payload)
+    payload["items"][0].pop("state")
+    stdout = StringIO()
+    stderr = StringIO()
+
+    with _server(payload) as (base_url, _):
+        result = main(
+            ["jobs", "list", "--base-url", base_url, "--site", "site-a"],
+            environ=_env(tmp_path),
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    assert result == 7
+    assert stdout.getvalue() == ""
+    assert json.loads(stderr.getvalue())["error"]["code"] == "contract_invalid"
 
 
 def test_scope_validation_fails_before_network(tmp_path: Path) -> None:
@@ -262,11 +304,12 @@ def test_scope_validation_fails_before_network(tmp_path: Path) -> None:
 
     result = main(
         [
-            *_connection_args("http://127.0.0.1:9", "http://127.0.0.1:10"),
             "jobs",
             "list",
-            "--cluster",
-            "cluster-a",
+            "--base-url",
+            "http://127.0.0.1:9",
+            "--site",
+            "site-a",
             "--scope",
             "project-account",
         ],
@@ -279,33 +322,30 @@ def test_scope_validation_fails_before_network(tmp_path: Path) -> None:
     assert "requires --account" in stderr.getvalue()
 
 
-def test_jobs_cost_uses_running_operation_and_gateway_path(
+def test_jobs_cost_uses_independent_endpoint_and_allowlisted_json(
     tmp_path: Path,
     running_estimate_payload,
 ) -> None:
     payload = deepcopy(running_estimate_payload)
-    payload["scope_type"] = "project_account"
-    payload["subject"] = {
-        "slurm_user": None,
-        "slurm_account": "project-example",
-    }
+    payload["scope"] = "project_account"
+    payload["visibility_role"] = "read"
+    payload["slurm_user"] = None
+    payload["slurm_account"] = "project-example"
     for item in payload["items"]:
         item["slurm_account"] = "project-example"
     payload["items"][0]["raw_scheduler"] = {"token": "must-not-leak"}
     stdout = StringIO()
     stderr = StringIO()
 
-    with _server(_capability_payload(operation="billing.running-estimate")) as (
-        portal_url,
-        portal,
-    ), _server(payload) as (site_read_url, gateway):
+    with _server(payload) as (base_url, server):
         result = main(
             [
-                *_connection_args(portal_url, site_read_url),
+                "--site",
+                "site-a",
                 "jobs",
                 "cost",
-                "--cluster",
-                "cluster-a",
+                "--base-url",
+                base_url,
                 "--scope",
                 "project-account",
                 "--account",
@@ -322,35 +362,45 @@ def test_jobs_cost_uses_running_operation_and_gateway_path(
 
     assert result == 0
     assert stderr.getvalue() == ""
-    assert json.loads(stdout.getvalue())["final"] is False
-    assert portal.requests[0]["body"]["operation"] == "billing.running-estimate"
-    assert portal.requests[0]["body"]["limit"] is None
-    assert gateway.requests[0]["path"] == (
-        "/v1/site-read/billing/running-estimates"
-    )
-    assert gateway.requests[0]["authorization"] is None
+    rendered = json.loads(stdout.getvalue())
+    assert rendered["operation"] == "billing.running-estimate"
+    assert rendered["final"] is False
+    assert rendered["items"][1]["estimate_status"] == "not_started"
+    assert rendered["items"][2]["estimate_status"] == "unavailable"
+    assert "raw_scheduler" not in rendered["items"][0]
+    assert "must-not-leak" not in stdout.getvalue()
+    request = server.requests[0]
+    assert request["path"] == "/v1/billing/running-estimates"
+    assert request["authorization"] == "Bearer test-bearer-token"
+    assert request["query"] == {
+        "site_id": ["site-a"],
+        "scope_type": ["project_account"],
+        "slurm_account_name": ["project-example"],
+        "states": ["PD,R"],
+        "source_preference": ["live"],
+        "partition": ["gpu-standard"],
+    }
 
 
-def test_jobs_cost_table_preserves_freshness_states(
+def test_jobs_cost_table_shows_pending_unavailable_and_stale_snapshot(
     tmp_path: Path,
     running_estimate_payload,
 ) -> None:
     payload = deepcopy(running_estimate_payload)
     payload["freshness"]["stale"] = True
+    payload["freshness"]["age_seconds"] = payload["freshness"]["ttl_seconds"]
     stdout = StringIO()
     stderr = StringIO()
 
-    with _server(_capability_payload(operation="billing.running-estimate")) as (
-        portal_url,
-        _portal,
-    ), _server(payload) as (site_read_url, _gateway):
+    with _server(payload) as (base_url, _):
         result = main(
             [
-                *_connection_args(portal_url, site_read_url),
                 "jobs",
                 "cost",
-                "--cluster",
-                "cluster-a",
+                "--base-url",
+                base_url,
+                "--site",
+                "site-a",
                 "--format",
                 "table",
             ],
@@ -364,3 +414,4 @@ def test_jobs_cost_table_preserves_freshness_states(
     assert "Stale: yes" in stdout.getvalue()
     assert "PENDING" in stdout.getvalue()
     assert "UNAVAILABLE" in stdout.getvalue()
+    assert "snapshot-etag" in stdout.getvalue()

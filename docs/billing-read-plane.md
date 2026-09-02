@@ -4,8 +4,10 @@ Status: semantic architecture frozen 2026-09-02; producer, gateway, and
 deployment gates remain explicit.
 
 This is the cross-product boundary for `sai-cli`, `sai-pilot`, Portal, and site
-runtime. It fixes one business path while allowing protected network routes to
-differ between a center and a satellite site.
+runtime. The phase-one production path is the Portal server-bound CLI surface;
+the site-local gateway is the next transport using the same capability and DTO
+contracts. Network routing may differ between a center and a satellite site,
+but product semantics do not.
 
 ```text
 client (CLI/Pilot)
@@ -20,16 +22,18 @@ site observations -> Portal operation worker -> exposure/settlement
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | `sai-authz` | Ed25519 capability envelope issue/verify | users, policy, key distribution, billing decisions |
-| Portal | identity, membership, site/account policy, issuer, pricing authority, settled facts, audit persistence | interactive native scheduler reads on the request path |
+| Portal | identity, membership, site/account policy, issuer, pricing authority, settled facts, audit persistence, and the phase-one server-bound read surface | site-local cache ownership and native reads in the target gateway path |
 | Site-read gateway | envelope verification, claim narrowing, native read adapter, short cache, bounded audit buffer | membership/RBAC decisions, wallet/ledger writes, provisioning or scheduler writes |
 | Billing contract/kernel | versioned DTOs and deterministic gross arithmetic | ORM, HTTP, wallet ownership, final settlement |
 | `sai-cli` / `sai-pilot` | explicit intent, bootstrap/renewal, transport, allowlist validation, presentation | Slurm access, price calculation, wallet/ledger access, authorization policy |
 
-Running facts and estimates come from the site-read gateway. An estimate is
-always `final=false` and is never a charge. The gateway may produce only gross
-amounts from a Portal-approved immutable pricing/resource snapshot. Cash,
-Credit, allowance coverage, and final settlement remain Portal-owned and are
-not part of the gross-only `billing.running-estimate/v2` DTO.
+In the target low-latency path, running facts and estimates come from the
+site-read gateway. In phase one, the server-bound Portal surface reuses the
+same authorized adapter and returns the same semantics. An estimate is always
+`final=false` and is never a charge. Cash, Credit, allowance coverage, and
+final settlement remain Portal-owned. The `billing.running-estimate/v1` DTO may
+include a bounded before-credit estimate, but never a charge, balance, or
+settlement fact.
 
 Interactive reads never create exposure, allowance, wallet, ledger, or payment
 rows. A separate site collector sends idempotent observation batches at
@@ -65,11 +69,13 @@ override. It may cache only an opaque capability in a protected user cache.
 
 `jobs/v1` is an allowlisted normalized job DTO with UTC source time, freshness,
 ETag, and no paths, scripts, environments, raw scheduler fields, or billing
-data. `billing.running-estimate/v2` is a gross-only, non-final DTO with
-generation-safe job identity, resource evidence, price decision revision,
-uncertainty, site timezone, freshness, and ETag. A missing or expired matching
-price snapshot yields an explicit unavailable row; no component guesses from
-the latest price.
+data. The phase-one Portal route and CLI consume
+`billing.running-estimate/v1`, a non-final DTO with generation-safe job
+identity, resource evidence, gross/before-credit decision fields, price
+revision, uncertainty, site timezone, freshness, and ETag. The unactivated
+gateway candidate remains on its earlier v2 wire shape until its own migration
+slice lands. A missing or expired matching price snapshot yields an explicit
+unavailable row; no component guesses from the latest price.
 
 The site runtime reuses its canonical Slurm queue/detail adapter. This client
 repository owns no native reader and no gateway server. The independent gateway

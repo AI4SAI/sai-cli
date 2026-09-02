@@ -49,13 +49,11 @@
   non-final `sai jobs cost` running-estimate view.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
-- The capability-mode client obtains an opaque site-read capability from Portal
-  with `POST /v1/authz/site-read`, then calls the independent gateway at
-  `/v1/site-read/jobs`, `/v1/site-read/jobs/{job_id}`, or
-  `/v1/site-read/billing/running-estimates`. The existing Portal job and
-  running-estimate endpoints remain a development/Portal contract and are not
-  a production fallback. The gateway server and its live producer are tracked
-  as a coordinated cross-repository gate; this wheel contains no native reader.
+- Development compatibility can call Portal `GET /v1/slurm/jobs`, detail, and
+  `GET /v1/billing/running-estimates`. Managed production mode first obtains
+  an opaque site-read capability and calls the server-bound
+  `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
+  transport, TUI, resources, placement, and storage remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
@@ -65,12 +63,11 @@
   repository owns the strict projection-to-Lua renderer and submit-time
   evaluator; native Slurm associations remain the final account authorization
   boundary.
-- Portal resolves the issuer request with `entrypoint=cli` and enforces shell
-  access `enabled`; the gateway verifies the signed grant again. A capability
-  header alone is never an authorization boundary, and the legacy
-  `portal_read` endpoints are not used by managed production wrappers. Code
-  support alone does not prove the Portal issuer, gateway, keys, or package
-  have been deployed.
+- The legacy Portal endpoints use `portal_read` policy, which permits
+  `agent_only`. Production wrappers must force the server-bound capability/CLI
+  routes; Portal re-resolves `entrypoint=cli` and enforces shell access
+  `enabled`. Code support alone does not prove the Portal keys/routes or
+  login-node package have been deployed.
 - Supported user scopes are `self`, `personal-account`, `org-account`, and
   `project-account`. There is no normal-user all scope or raw user filter.
 
@@ -181,8 +178,9 @@ editing either side. Do not copy private collaboration logs into this repo.
 - Never accept Bearer tokens, HMAC secrets, passwords, or other credentials as
   command-line arguments. They leak through process listings and shell history.
 - Never store tokens or secrets in TOML profiles. `SAI_TOKEN` is process-local;
-  managed-node HMAC bootstrap reads its secret from the protected runtime
-  environment and caches only the returned short-lived token.
+  unmanaged compatibility HMAC bootstrap reads its secret from the protected
+  runtime environment and caches only the returned short-lived token. The
+  managed login-node wrapper rejects HMAC inputs and requires `SAI_TOKEN`.
 - Token cache directories are user-owned `0700`; cache files are regular,
   user-owned `0600` files written by atomic replacement. Reject symbolic links,
   unsafe permissions, oversized payloads, and read races.

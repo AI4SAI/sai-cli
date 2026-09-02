@@ -25,12 +25,12 @@ The repository also carries a controller-side Slurm policy artifact under
 not add a `sai` submission command or grant job mutation rights. See
 [docs/job-submit-policy.md](docs/job-submit-policy.md).
 
-Production login-node mode requires the capability-bound Portal issuer and
-independent site-read gateway. The issuer resolves `entrypoint=cli` and
-requires shell access `enabled`; the gateway verifies the grant and reads only
-the authorized native snapshot. The legacy Portal `portal_read` endpoints are
-not a production fallback. Code availability does not imply that the issuer,
-gateway, keys, or login-node package have been deployed.
+Production login-node mode requires the capability-bound Portal CLI surface.
+The legacy shared Portal endpoint uses `portal_read` policy and may accept
+`agent_only`; managed wrappers therefore set `SAI_REQUIRE_SITE_CAPABILITY=1`
+and use only the server-bound `/cli/` routes, which enforce shell access
+`enabled`. Code availability does not imply that Portal keys/routes or a
+login-node package have been deployed.
 
 ## Architecture
 
@@ -72,31 +72,29 @@ Use a short-lived Bearer token when one is already available:
 
 ```bash
 export SAI_API_BASE_URL=https://portal.example.org
-export SAI_SITE_READ_BASE_URL=https://site-read.example.org
 export SAI_SITE_ID=site-a
-export SAI_CLUSTER_ID=cluster-a
 export SAI_TOKEN='<short-lived-token>'
+export SAI_REQUIRE_SITE_CAPABILITY=1
 ```
 
-Unmanaged compatibility clients can provide `SAI_API_USERNAME`,
+Unmanaged compatibility clients may provide `SAI_API_USERNAME`,
 `SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through a protected runtime
-environment for the existing HMAC bootstrap. Managed login nodes use only an
-injected short-lived `SAI_TOKEN`; no shared secret is installed on a
-multi-user node. Neither form belongs in a shell profile or TOML file.
+environment. Managed login nodes use only an injected short-lived `SAI_TOKEN`;
+the HMAC route is not enabled for the shared login-node wrapper. Neither form
+belongs in a shell profile or TOML file.
 
 In capability mode the CLI first exchanges the user Bearer for an opaque,
-operation-bound site-read capability, then calls the independent site-read
-gateway. The capability is never decoded by the CLI and is never accepted from
-an environment override or command line.
+operation-bound site-read capability, then calls the matching server-bound CLI
+route. The capability is never decoded by the CLI. It is obtained only from
+the Portal issuer; it is never accepted from a profile, wrapper, shell
+startup file, argv, or log.
 
 Non-secret defaults can be stored in `~/.config/sai/config.toml`:
 
 ```toml
 [profiles.default]
-portal_base_url = "https://portal.example.org"
-site_read_base_url = "https://site-read.example.org"
+base_url = "https://portal.example.org"
 site_id = "site-a"
-cluster_id = "cluster-a"
 ```
 
 ## Use

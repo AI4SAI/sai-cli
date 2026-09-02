@@ -37,10 +37,8 @@ def _settings(
     managed: bool = False,
 ) -> Settings:
     return Settings(
-        portal_base_url="https://portal.example.org",
-        site_read_base_url="https://site-read.example.org",
+        base_url="https://portal.example.org",
         site_id="site-a",
-        cluster_id="cluster-a",
         username=username,
         key_id="managed-login",
         timeout_seconds=10,
@@ -49,6 +47,7 @@ def _settings(
         use_cache=use_cache,
         profile="default",
         managed_login_node=managed,
+        require_site_capability=managed,
     )
 
 

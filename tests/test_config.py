@@ -22,9 +22,7 @@ def _args(*extra: str):
         ["jobs", "list", "--site", "site-a", "--cluster", "cluster-a"],
     ],
 )
-def test_connection_site_and_cluster_work_before_or_after_command(
-    argv: list[str],
-) -> None:
+def test_connection_site_is_valid_before_or_after_command(argv: list[str]) -> None:
     args = build_parser().parse_args(argv)
     assert args.site == "site-a"
     assert args.cluster == "cluster-a"
@@ -37,8 +35,7 @@ def test_profile_loads_and_cli_environment_precedence(tmp_path: Path) -> None:
 default_profile = "lab"
 
 [profiles.lab]
-portal_base_url = "https://profile.example.org"
-site_read_base_url = "https://profile-read.example.org"
+base_url = "https://profile.example.org"
 site_id = "profile-site"
 cluster_id = "profile-cluster"
 username = "profile-user"
@@ -54,32 +51,32 @@ timeout_seconds = 7
         args,
         {
             "SAI_API_BASE_URL": "https://environment.example.org",
-            "SAI_SITE_READ_BASE_URL": "https://read.environment.example.org",
-            "SAI_CLUSTER_ID": "environment-cluster",
+            "SAI_SITE_ID": "environment-site",
             "SAI_API_USERNAME": "environment-user",
             "XDG_CACHE_HOME": str(tmp_path / "cache"),
         },
     )
 
-    assert settings.portal_base_url == "https://environment.example.org"
-    assert settings.site_read_base_url == "https://read.environment.example.org"
+    assert settings.base_url == "https://environment.example.org"
     assert settings.site_id == "cli-site"
-    assert settings.cluster_id == "environment-cluster"
+    assert settings.cluster_id == "profile-cluster"
     assert settings.username == "environment-user"
     assert settings.key_id == "profile-key"
     assert settings.timeout_seconds == 7
     assert settings.cache_path == tmp_path / "cache" / "sai" / "token-cache.json"
+    assert settings.require_site_capability is False
 
 
-@pytest.mark.parametrize("key", ["token", "bearer_token", "secret", "shared_secret", "password"])
+@pytest.mark.parametrize(
+    "key",
+    ["token", "bearer_token", "secret", "shared_secret", "password"],
+)
 def test_profile_rejects_secrets(tmp_path: Path, key: str) -> None:
     config = tmp_path / "config.toml"
     config.write_text(
         "[profiles.default]\n"
-        'portal_base_url = "https://example.org"\n'
-        'site_read_base_url = "https://read.example.org"\n'
+        'base_url = "https://example.org"\n'
         'site_id = "site-a"\n'
-        'cluster_id = "cluster-a"\n'
         f'{key} = "value"\n',
         encoding="utf-8",
     )
@@ -89,34 +86,43 @@ def test_profile_rejects_secrets(tmp_path: Path, key: str) -> None:
         resolve_settings(_args("--config", str(config)), {})
 
 
-def test_missing_portal_base_url_is_bounded(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="missing SAI Portal base URL"):
+def test_profile_rejects_direct_gateway_fields(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text(
+        "[profiles.default]\n"
+        'base_url = "https://example.org"\n'
+        'site_id = "site-a"\n'
+        'site_read_base_url = "https://gateway.example.org"\n',
+        encoding="utf-8",
+    )
+    config.chmod(0o644)
+
+    with pytest.raises(ConfigError, match="unsupported keys"):
+        resolve_settings(_args("--config", str(config)), {})
+
+
+def test_missing_base_url_is_bounded(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="missing SAI API base URL"):
         resolve_settings(
             _args("--config", str(tmp_path / "missing.toml"), "--site", "site-a"),
-            {
-                "SAI_SITE_READ_BASE_URL": "https://read.example.org",
-                "SAI_CLUSTER_ID": "cluster-a",
-            },
+            {},
         )
 
 
-def test_timeout_and_boolean_are_validated(tmp_path: Path) -> None:
-    args = _args(
-        "--config",
-        str(tmp_path / "missing.toml"),
-        "--base-url",
-        "https://example.org",
-        "--site",
-        "site-a",
-    )
-    with pytest.raises(ConfigError, match="true or false"):
+@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf"])
+def test_nonfinite_timeout_is_rejected(tmp_path: Path, timeout: str) -> None:
+    with pytest.raises(ConfigError, match="at most 120"):
         resolve_settings(
-            args,
-            {
-                "SAI_SITE_READ_BASE_URL": "https://read.example.org",
-                "SAI_CLUSTER_ID": "cluster-a",
-                "SAI_ALLOW_INSECURE_HTTP": "maybe",
-            },
+            _args(
+                "--config",
+                str(tmp_path / "missing.toml"),
+                "--base-url",
+                "https://example.org",
+                "--site",
+                "site-a",
+                f"--timeout={timeout}",
+            ),
+            {},
         )
 
 
@@ -124,10 +130,8 @@ def test_group_writable_config_is_rejected(tmp_path: Path) -> None:
     config = tmp_path / "config.toml"
     config.write_text(
         "[profiles.default]\n"
-        'portal_base_url = "https://example.org"\n'
-        'site_read_base_url = "https://read.example.org"\n'
-        'site_id = "site-a"\n'
-        'cluster_id = "cluster-a"\n',
+        'base_url = "https://example.org"\n'
+        'site_id = "site-a"\n',
         encoding="utf-8",
     )
     config.chmod(0o664)
@@ -144,38 +148,37 @@ def test_dangling_config_symlink_is_rejected(tmp_path: Path) -> None:
         resolve_settings(_args("--config", str(config)), {})
 
 
-@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf"])
-def test_nonfinite_timeout_is_rejected(tmp_path: Path, timeout: str) -> None:
-    with pytest.raises(ConfigError, match="at most 120"):
+def test_config_parent_symlink_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(target, target_is_directory=True)
+    config = link / "config.toml"
+    with pytest.raises(ConfigError, match="symbolic links"):
         resolve_settings(
             _args(
                 "--config",
-                str(tmp_path / "missing.toml"),
+                str(config),
                 "--base-url",
                 "https://example.org",
-                "--site-read-base-url",
-                "https://read.example.org",
                 "--site",
                 "site-a",
-                "--cluster",
-                "cluster-a",
-                f"--timeout={timeout}",
             ),
             {},
         )
 
 
-def test_managed_login_node_uses_only_root_managed_connection_config(
+def test_managed_login_node_uses_root_config_and_token_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = tmp_path / "managed.toml"
     config.write_text(
         "[profiles.default]\n"
-        'portal_base_url = "https://portal.example.org"\n'
-        'site_read_base_url = "http://127.0.0.1:9180"\n'
+        'base_url = "https://portal.example.org"\n'
         'site_id = "site-a"\n'
-        'cluster_id = "cluster-a"\n',
+        'cluster_id = "cluster-a"\n'
+        'require_site_capability = true\n',
         encoding="utf-8",
     )
     config.chmod(0o644)
@@ -187,19 +190,18 @@ def test_managed_login_node_uses_only_root_managed_connection_config(
         {
             "SAI_MANAGED_LOGIN_NODE": "1",
             "SAI_CONFIG": str(config),
-            "XDG_CACHE_HOME": str(tmp_path / "cache"),
+            "SAI_TOKEN": "short-lived",
         },
     )
 
     assert settings.managed_login_node is True
-    assert settings.portal_base_url == "https://portal.example.org"
-    assert settings.site_read_base_url == "http://127.0.0.1:9180"
+    assert settings.base_url == "https://portal.example.org"
+    assert settings.site_id == "site-a"
     assert settings.username is None
+    assert settings.require_site_capability is True
 
 
-def test_managed_login_node_rejects_argv_env_and_hmac_overrides(
-    tmp_path: Path,
-) -> None:
+def test_managed_login_node_rejects_connection_overrides() -> None:
     with pytest.raises(ConfigError, match="cannot be overridden"):
         resolve_settings(
             _args("--base-url", "https://attacker.example.org"),
@@ -212,4 +214,17 @@ def test_managed_login_node_rejects_argv_env_and_hmac_overrides(
                 "SAI_MANAGED_LOGIN_NODE": "1",
                 "SAI_API_SHARED_SECRET": "must-not-be-used",
             },
+        )
+
+
+def test_production_environment_requires_capability() -> None:
+    with pytest.raises(ConfigError, match="capability is required"):
+        resolve_settings(
+            _args(
+                "--base-url",
+                "https://portal.example.org",
+                "--site",
+                "site-a",
+            ),
+            {"SAI_ENV": "production"},
         )

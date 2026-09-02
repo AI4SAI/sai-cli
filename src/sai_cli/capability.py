@@ -27,6 +27,9 @@ _OPERATIONS = frozenset(
         "billing.running-estimate",
     }
 )
+_SCOPES = frozenset(
+    {"self", "personal_account", "org_account", "project_account"}
+)
 _REQUEST_FIELDS = frozenset(
     {
         "operation",
@@ -53,16 +56,14 @@ class CapabilityLease:
 
 def capability_cache_key(
     *,
-    portal_base_url: str,
-    site_read_base_url: str,
+    base_url: str,
     user_token: str,
     request_body: Mapping[str, object],
 ) -> str:
-    """Hash both trust origins and the complete exact authorization request."""
+    """Hash the Portal origin and complete exact authorization request."""
 
     normalized = {
-        "portal_base_url": portal_base_url.rstrip("/"),
-        "site_read_base_url": site_read_base_url.rstrip("/"),
+        "base_url": base_url.rstrip("/"),
         "audience": CAPABILITY_AUDIENCE,
         "surface": CAPABILITY_SURFACE,
         "user_token_sha256": hashlib.sha256(
@@ -103,20 +104,73 @@ class CapabilityProvider:
         user_lease: TokenLease,
         force_refresh: bool = False,
     ) -> CapabilityLease:
+        if not isinstance(request_body, Mapping):
+            raise ContractError("the site-read capability request is invalid")
         body = dict(request_body)
         if set(body) != _REQUEST_FIELDS:
             raise ContractError("the site-read capability request is invalid")
         operation = body.get("operation")
         if operation not in _OPERATIONS:
             raise ContractError("the requested capability operation is unsupported")
+        if not isinstance(body.get("site_id"), str) or not body["site_id"].strip():
+            raise ContractError("the site-read capability request is invalid")
+        if not isinstance(body.get("cluster_id"), str) or not body["cluster_id"].strip():
+            raise ContractError("the site-read capability request is invalid")
+        if not isinstance(body.get("scope_type"), str) or not body["scope_type"].strip():
+            raise ContractError("the site-read capability request is invalid")
+        if body["scope_type"] not in _SCOPES:
+            raise ContractError("the site-read capability request is invalid")
+        selector_count = int(body.get("slurm_account_id") is not None) + int(
+            body.get("slurm_account_name") is not None
+        )
+        if body["scope_type"] == "self":
+            if selector_count:
+                raise ContractError("the site-read capability request is invalid")
+        elif selector_count != 1:
+            raise ContractError("the site-read capability request is invalid")
+        if any(
+            not isinstance(body.get(field), (str, type(None)))
+            for field in (
+                "site_id",
+                "cluster_id",
+                "slurm_account_id",
+                "slurm_account_name",
+                "partition",
+                "job_id",
+            )
+        ):
+            raise ContractError("the site-read capability request is invalid")
+        states = body.get("states")
+        if (
+            not isinstance(states, list)
+            or any(not isinstance(state, str) for state in states)
+            or states != sorted(set(states))
+        ):
+            raise ContractError("the site-read capability request is invalid")
+        limit = body.get("limit")
+        if limit is not None and (
+            isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500
+        ):
+            raise ContractError("the site-read capability request is invalid")
+        if operation == "jobs.list" and (body.get("job_id") is not None or limit is None):
+            raise ContractError("the site-read capability request is invalid")
+        if operation == "jobs.detail" and (
+            body.get("job_id") is None
+            or body.get("partition") is not None
+            or limit is not None
+        ):
+            raise ContractError("the site-read capability request is invalid")
+        if operation == "billing.running-estimate" and (
+            body.get("job_id") is not None or limit is not None
+        ):
+            raise ContractError("the site-read capability request is invalid")
         if not isinstance(user_lease, TokenLease) or not user_lease.token:
             raise AuthenticationError(
                 "the user session is unavailable",
                 code="credentials_unavailable",
             )
         key = capability_cache_key(
-            portal_base_url=self.settings.portal_base_url,
-            site_read_base_url=self.settings.site_read_base_url,
+            base_url=self.settings.base_url,
             user_token=user_lease.token,
             request_body=body,
         )
@@ -138,6 +192,11 @@ class CapabilityProvider:
             json_body=body,
         )
         payload = response.payload
+        if not isinstance(payload, Mapping):
+            raise ContractError(
+                "the site-read capability response is invalid",
+                request_id=response.request_id,
+            )
         required_echo = {
             "schema_version": CAPABILITY_SCHEMA,
             "audience": CAPABILITY_AUDIENCE,

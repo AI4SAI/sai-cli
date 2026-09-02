@@ -56,7 +56,7 @@ def test_login_node_config_matches_current_settings_contract() -> None:
     config = (Path(__file__).parents[1] / "packaging/login-node/config.toml.example").read_text(
         encoding="utf-8"
     )
-    assert 'portal_base_url = "https://portal.example.org"' in config
-    assert 'site_read_base_url = "https://site-read.example.org"' in config
+    assert 'base_url = "https://portal.example.org"' in config
     assert 'cluster_id = "cluster-a"' in config
-    assert "\nbase_url =" not in config
+    assert "require_site_capability = true" in config
+    assert "site_read_base_url" not in config

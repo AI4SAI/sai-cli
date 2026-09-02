@@ -36,6 +36,7 @@ class TokenCache:
 
     def _secure_parent(self) -> None:
         parent = self.path.parent
+        self._reject_symlink_ancestors(parent)
         try:
             info = parent.lstat()
         except FileNotFoundError:
@@ -50,9 +51,37 @@ class TokenCache:
         if stat.S_IMODE(info.st_mode) != 0o700:
             os.chmod(parent, 0o700)
 
+    @staticmethod
+    def _reject_symlink_ancestors(path: Path) -> None:
+        """Reject a cache path redirected through any existing symlink."""
+
+        current = path
+        while True:
+            try:
+                info = current.lstat()
+            except FileNotFoundError:
+                current = current.parent
+                if current == path:
+                    break
+                if current == current.parent:
+                    break
+                continue
+            except OSError as exc:
+                raise AuthenticationError(
+                    "the token cache directory could not be inspected"
+                ) from exc
+            if stat.S_ISLNK(info.st_mode):
+                raise AuthenticationError(
+                    "the token cache directory must not contain symbolic links"
+                )
+            if current == current.parent:
+                break
+            current = current.parent
+
     def _read(self) -> dict[str, Any]:
         if not self.enabled:
             return {"version": 1, "entries": {}}
+        self._reject_symlink_ancestors(self.path.parent)
         try:
             info = self.path.lstat()
         except FileNotFoundError:
@@ -86,14 +115,34 @@ class TokenCache:
         return payload
 
     def get(self, key: str, *, now: int, margin_seconds: int = 30) -> tuple[str, int] | None:
+        if isinstance(now, bool) or not isinstance(now, int) or now < 0:
+            raise AuthenticationError("the token cache clock value is invalid")
+        if (
+            isinstance(margin_seconds, bool)
+            or not isinstance(margin_seconds, int)
+            or margin_seconds < 0
+        ):
+            raise AuthenticationError("the token cache expiry margin is invalid")
         payload = self._read()
-        entry = payload["entries"].get(key)
-        if not isinstance(entry, dict):
+        entries = payload["entries"]
+        if key not in entries:
             return None
+        entry = entries[key]
+        if not isinstance(entry, dict):
+            raise AuthenticationError("the token cache entry is invalid")
         token = entry.get("token")
         expires_at = entry.get("expires_at")
-        if not isinstance(token, str) or not token or isinstance(expires_at, bool) or not isinstance(expires_at, int):
-            return None
+        if (
+            not isinstance(token, str)
+            or not token
+            or len(token) > 16_384
+            or any(ord(char) < 32 or ord(char) == 127 for char in token)
+            or isinstance(expires_at, bool)
+            or not isinstance(expires_at, int)
+        ):
+            raise AuthenticationError("the token cache entry is invalid")
+        if expires_at < 1:
+            raise AuthenticationError("the token cache entry is invalid")
         if expires_at - now <= margin_seconds:
             return None
         return token, expires_at
@@ -101,6 +150,16 @@ class TokenCache:
     def put(self, key: str, *, token: str, expires_at: int) -> None:
         if not self.enabled:
             return
+        if (
+            not isinstance(token, str)
+            or not token
+            or len(token) > 16_384
+            or any(ord(char) < 32 or ord(char) == 127 for char in token)
+            or isinstance(expires_at, bool)
+            or not isinstance(expires_at, int)
+            or expires_at < 1
+        ):
+            raise AuthenticationError("the token cache entry is invalid")
         self._secure_parent()
         payload = self._read()
         now = int(self.clock())

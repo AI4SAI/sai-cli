@@ -1,162 +1,188 @@
-# SAI Read-Plane Contract
+# Portal Read API Contract
 
-Status: frozen for the site-read client; Portal and gateway producers remain
-separate deployment gates.
+Status: consumed by the phase-one client
 
-This document is the wire contract consumed by `sai-cli`. Portal remains the
-authority for identity, membership, site/account access, policy, and settled
-billing. The CLI never queries Slurm, a Portal database, a wallet, or a broad
-site-agent endpoint.
+This document records the control-plane contract that `sai-cli` currently
+consumes. The control plane remains the source of truth for authorization and
+may evolve independently, so contract changes require compatibility tests in
+both repositories.
 
-## User authentication
+## Authentication
 
-An already-issued user session is sent to Portal as:
+User endpoints require:
 
 ```http
 Authorization: Bearer <short-lived-token>
 ```
 
-An unmanaged compatibility client may obtain that session through the existing
-HMAC bootstrap:
+Unmanaged compatibility bootstrap uses:
 
 ```text
 POST /v1/token?username=...&ts=...&nonce=...&key_id=...&sig=...
 ```
 
-The CLI never prints or logs the token, signature, or shared secret. Managed
-login-node mode does not use the HMAC secret; it accepts only a protected,
-short-lived `SAI_TOKEN` injection.
+Successful bootstrap response:
 
-## Site-read capability issuance
+```json
+{
+  "token": "redacted",
+  "expires_at": 1785427200,
+  "can_access_portal": true,
+  "can_access_mis": false
+}
+```
 
-The client sends one exact JSON object to Portal:
+The CLI never prints or logs `token` or `sig`.
+
+### Server-bound CLI capability
+
+Managed login-node mode first calls:
 
 ```text
 POST /v1/authz/site-read
-Authorization: Bearer <short-lived-token>
-Content-Type: application/json
 ```
 
-```json
-{
-  "operation": "jobs.list",
-  "site_id": "site-a",
-  "cluster_id": "cluster-a",
-  "scope_type": "self",
-  "slurm_account_id": null,
-  "slurm_account_name": null,
-  "partition": null,
-  "states": ["PD", "R"],
-  "job_id": null,
-  "limit": 100
-}
-```
-
-`operation` is exactly one of `jobs.list`, `jobs.detail`, or
-`billing.running-estimate`. `self` requires no account selector; every account
-scope requires exactly one account name or ID. `jobs.list` requires `limit` and
-rejects `job_id`; `jobs.detail` requires `job_id` and rejects `partition` and
-`limit`; running estimates reject both. States are sorted, unique, and bounded.
-Portal repeats all validation and resolves the exact user/account intersection
-with `entrypoint=cli`, including active shell access.
-
-The response is an opaque capability envelope and a bounded echo:
-
-```json
-{
-  "schema_version": "sai-site-read-capability/v1",
-  "capability": "opaque",
-  "expires_at": 1785427180,
-  "audience": "sai-site-read",
-  "surface": "site-read",
-  "operation": "jobs.list",
-  "site_id": "site-a",
-  "cluster_id": "cluster-a"
-}
-```
-
-The capability is the fixed `sai-authz` v1 envelope with an
-`interactive-read-grant.v1` grant. It is sent only as `X-SAI-Capability` to the
-independent gateway. The Portal Bearer is never sent to that gateway. A grant
-binds actor, site, cluster, exact compound subject, operation, narrowing
-filters, limit maximum, policy epoch, and expiry. The gateway rejects wrong
-audience/surface/site/operation, unknown key or stale epoch, expiry, revoked
-JTI, malformed grant, and any request that widens a bound filter.
-
-The legacy Portal job and running-estimate routes remain separate Portal/Agent
-contracts. They are not a fallback for managed CLI mode, and this client does
-not expose their direct query parameters.
-
-## Jobs response: `jobs/v1`
-
-The gateway returns one normalized object:
-
-```json
-{
-  "schema_version": "jobs/v1",
-  "site_id": "site-a",
-  "cluster_id": "cluster-a",
-  "scope_type": "self",
-  "subject": {"slurm_user": "alice", "slurm_account": null},
-  "freshness": {
-    "source": "squeue",
-    "observed_at": "2026-07-31T01:01:00Z",
-    "ttl_seconds": 5,
-    "age_seconds": 1,
-    "stale": false
-  },
-  "etag": "opaque-snapshot-etag",
-  "has_more": false,
-  "items": []
-}
-```
-
-Each item contains exactly these normalized fields:
-
-```json
-{
-  "job_id": "12345",
-  "array_task_id": null,
-  "name": "simulation",
-  "slurm_user": "alice",
-  "slurm_account": "project-example",
-  "state": "R",
-  "priority": 1000,
-  "submit_time": "2026-07-31T00:00:00Z",
-  "start_time": "2026-07-31T00:01:00Z",
-  "elapsed_seconds": 3600,
-  "run_wait_seconds": 3600,
-  "partition": "gpu-standard",
-  "qos": "normal",
-  "nodes": 1,
-  "slots": 8,
-  "gpus_per_node": 1,
-  "mem_per_unit": "16G",
-  "reason_or_nodelist": "compute-node"
-}
-```
-
-The client ignores additive unknown fields after recursive validation and
-never forwards paths, scripts, commands, environments, raw scheduler payloads,
-wallet/ledger data, credentials, or provider errors. Every returned item must
-remain inside the response subject's non-null user and account filters.
-
-## Running estimate response: `billing.running-estimate/v2`
-
-Running estimates are independent site-read results, always `final=false`, and
-never a charge. The top-level object contains:
+with the user Bearer and the exact requested operation/site/cluster/scope and
+narrowing filters. Portal resolves the same scope with `entrypoint=cli`, which
+requires `LinuxShellAccess.ENABLED`, then returns
+`sai-site-read-capability/v1`. The opaque capability is sent in
+`X-SAI-Capability` to:
 
 ```text
-schema_version, site_id, cluster_id, scope_type, subject, site_timezone,
-freshness, etag, final, items
+GET /v1/slurm/cli/jobs
+GET /v1/slurm/cli/jobs/{job_id}
+GET /v1/billing/cli/running-estimates
 ```
 
-`site_timezone` is a valid IANA zone. `freshness` uses UTC `observed_at` and
-bounded non-negative TTL/age values. Each item contains:
+The server requires the original user Bearer as well and binds it to the
+capability actor. Operations are exact: `jobs.list`, `jobs.detail`, and
+`billing.running-estimate` do not imply one another. Missing, expired,
+wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
+fail closed. The existing non-CLI routes remain a Portal/Agent contract and
+are not a production CLI fallback.
+
+## List jobs
+
+```text
+GET /v1/slurm/jobs
+```
+
+Supported query parameters:
+
+| Parameter | Required | Contract |
+| --- | --- | --- |
+| `site_id` | yes | Site token |
+| `cluster_id` | no | Optional cluster token |
+| `scope_type` | yes | `self`, `personal_account`, `org_account`, or `project_account` |
+| `slurm_account_id` | account scopes | Exactly one account ID or name is required for every account scope |
+| `slurm_account_name` | account scopes | Exactly one account name or ID is required; server authorizes it |
+| `partition` | no | Narrowing filter |
+| `states` | no | Comma-separated narrowing filter |
+| `limit` | no | Integer from 1 through 500, default 100 |
+| `source_preference` | no | Currently fixed to `live` |
+
+The client does not send raw `user`, arbitrary query parameters, or a
+non-live source preference.
+
+The current route calls Portal's `portal_read` policy entrypoint. It rejects
+`LinuxShellAccess.DISABLED` but permits `AGENT_ONLY`. This is valid for Portal
+or Agent read-only surfaces, but it is not the final login-node CLI contract.
+A dedicated endpoint or surface-bound capability/token must enforce
+`LinuxShellAccess.ENABLED` before production CLI wrappers are enabled.
+
+## Show one job
+
+```text
+GET /v1/slurm/jobs/{job_id}
+```
+
+It accepts the same site, cluster, scope, account, states, and source fields as
+the list endpoint. It does not accept partition or limit. A `404` means the job
+does not exist or is not visible; the client must not distinguish those cases.
+
+## Response
+
+Both endpoints return the same envelope. The detail endpoint returns one item.
 
 ```json
 {
-  "job_generation_key": "opaque-generation-key",
+  "site_id": "site-a",
+  "cluster_id": "cluster-a",
+  "scope": "project_account",
+  "visibility_role": "read",
+  "slurm_user": null,
+  "slurm_account": "project-example",
+  "items": [
+    {
+      "job_id": "12345",
+      "array_task_id": null,
+      "name": "simulation",
+      "slurm_user": "alice",
+      "slurm_account": "project-example",
+      "state": "R",
+      "state_label": "running",
+      "priority": 1000,
+      "submit_time": "2026-07-31T00:00:00Z",
+      "start_time": "2026-07-31T00:01:00Z",
+      "elapsed_seconds": 3600,
+      "run_wait_seconds": 3600,
+      "partition": "gpu-standard",
+      "qos": "normal",
+      "nodes": 1,
+      "slots": 8,
+      "gpus_per_node": 1,
+      "mem_per_unit": "16G",
+      "reason_or_nodelist": "compute-node"
+    }
+  ],
+  "count": 1,
+  "freshness": {
+    "source": "squeue",
+    "queried_at": "2026-07-31T01:01:00Z"
+  }
+}
+```
+
+Every item must contain exactly the documented semantic field set after client
+normalization. Values may be null where the scheduler has no fact. Unknown
+server fields are not forwarded by the CLI.
+
+The response must not expose:
+
+- work directories, stdout/stderr paths, submit scripts, commands, or
+  environment variables;
+- raw scheduler or site-agent payloads;
+- wallet, balance, pricing, ledger, payment, or refund fields;
+- credentials, internal secrets, or raw provider errors.
+
+## Running job cost estimates
+
+```text
+GET /v1/billing/running-estimates
+```
+
+This independent billing-visibility endpoint accepts the same scope and
+narrowing filters as the job list endpoint, except that it has no `limit`
+parameter: it prices the complete authorized live snapshot. It is not a
+pricing option on `/v1/slurm/jobs`. `source_preference` remains fixed to
+`live`.
+
+The response contract is `billing.running-estimate/v1`. Top-level fields are
+`operation`, `version`, `schema_version`, `site_id`, `site_timezone`,
+`cluster_id`, `scope`, `visibility_role`, `slurm_user`, `slurm_account`,
+`as_of`, `freshness`, `etag`, `items`, `count`, and `final`. `operation` is `billing.running-estimate`,
+`version` is `v1`, `schema_version` is `billing.running-estimate/v1`, and `final` is always
+`false`.
+
+Freshness contains `source`, `observed_at`, non-negative `ttl_seconds` and
+`age_seconds`, and native-boolean `stale`. ETag is a body field for the source
+snapshot; it is not an HTTP response-header contract.
+
+Each item contains only:
+
+```json
+{
+  "job_key": "opaque-generation-key",
   "job_id_raw": "12345",
   "slurm_job_db_index": null,
   "slurm_user": "alice",
@@ -169,43 +195,67 @@ bounded non-negative TTL/age values. Each item contains:
     "partition": "gpu-standard",
     "qos": "normal",
     "nodes": 1,
-    "alloc_tres": {"gpu": 1, "cpu": 8, "mem_mb": "16384", "nodes": 1},
+    "alloc_tres": {
+      "gpu": 1,
+      "cpu": 8,
+      "mem_mb": "16384",
+      "billing": null,
+      "nodes": 1
+    },
     "resource_type": "gpu",
     "resource_count": 1,
     "usage_quantity": "1.00000000"
   },
   "gross_cny": "2.00000000",
+  "cash_before_credit_cny": "1.80000000",
   "currency": "CNY",
-  "pricing_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "price_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "estimate_status": "estimated",
-  "uncertainty": []
+  "uncertainty": [],
+  "final": false
 }
 ```
 
-`job_generation_key` is required for every row so Slurm ID reuse and arrays do
-not collide. `estimated` requires a start/elapsed fact, gross amount,
-pricing revision, resource type/count/usage, and empty uncertainty.
-`not_started` has no pricing/resource usage fields and empty uncertainty.
-`unavailable` has null gross/pricing and at least one bounded machine-code
-uncertainty; observed resource facts may remain. Money is an unsigned CNY
-decimal with exactly eight fractional digits, and `pricing_revision` is a
-lowercase SHA-256 decision digest. No cash/Credit/allowance, wallet, ledger,
-payment, or settlement field is part of this contract.
+`estimate_status` is `estimated`, `partial`, `not_started`, or `unavailable`.
+`cash_before_credit_cny` is the contract or activity cash-price estimate before
+SAI Credit, allowances, reservations, or other coverage. It is neither an
+expected deduction nor a promise of the final Credit/cash split. An `estimated`
+item has non-null gross and before-credit amounts, price revision, resource
+type, resource count, and usage quantity, with empty `uncertainty`. A `partial`
+item has the same gross price and resource facts, a null before-credit amount,
+and non-empty machine-code `uncertainty`.
+`PENDING` and `CONFIGURING` jobs use `not_started`: `resource_type`,
+`resource_count`, `usage_quantity`, both amounts, and `price_revision` are
+null, although observed allocation evidence may remain. An unavailable job
+uses null amounts and bounded machine-code `uncertainty`; the response does
+not fail as a whole. Money is an unsigned CNY decimal string with exactly eight
+fraction digits. `site_timezone` is the job site's required IANA Slurm timezone.
+Non-null `price_revision` is a 64-character lowercase SHA-256 hash over the
+normalized gross and before-credit pricing decision. A partial estimate hashes
+the stable unavailable cash decision and reason code, never a raw error or
+transient diagnostic.
+Non-null `submit_time` and `start_time` values, like `as_of` and
+`freshness.observed_at`, are normalized UTC timestamps ending in `Z`; table
+output converts them with `site_timezone` and displays the resulting offset.
 
-The client does not cache this DTO, read a price table, or calculate an amount.
-Table output converts UTC timestamps to the returned site timezone and labels
-every value as a non-final estimate.
+The CLI validates this response recursively as an allowlist and ignores
+additive unknown fields. It does not cache responses, inspect wallets or
+ledgers, call Slurm, or calculate any amount.
 
-## Errors and evolution
+## Bounded errors
 
-The server may return a bounded code/message or a string detail. The client
-maps status to its stable exit categories and never echoes nested JSON, HTML,
-native stderr, private paths, addresses, or secrets. Missing/expired/wrong-site
-capabilities and source failures fail closed; no broader query or accounting
-fallback is attempted.
+The control plane may return a string `detail` or an object containing a short
+`code` and user-safe `message`. The CLI maps HTTP status and bounded error code
+to its stable exit categories. It does not echo arbitrary nested bodies.
 
-Additive response fields are ignored until modeled. Removing or changing a
-modeled field requires a coordinated versioned migration and compatibility
-fixtures in Portal, site runtime, and this repository. Local fake-server tests
-prove request/response mapping only; they do not prove a live gateway,
-scheduler, or production deployment.
+Expected examples include source unavailable, source contract invalid,
+authentication failure, authorization denial, unsupported query, and job not
+found or not visible.
+
+## Change discipline
+
+- Additive response fields are allowed; older clients ignore them.
+- Removing or changing a documented field requires a versioned migration.
+- Adding a query parameter does not permit the CLI to send it until the client
+  contract is reviewed.
+- A local fake server test does not establish live scheduler compatibility.

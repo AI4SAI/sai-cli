@@ -60,7 +60,7 @@ class TokenProvider:
                 code="credentials_unavailable",
             )
         return cache_key(
-            base_url=self.settings.portal_base_url,
+            base_url=self.settings.base_url,
             username=self.settings.username,
             key_id=self.settings.key_id,
         )
@@ -102,7 +102,11 @@ class TokenProvider:
                 code="credentials_unavailable",
             )
         nonce = self.nonce_factory()
-        if not nonce or len(nonce) > 128:
+        if (
+            not nonce
+            or len(nonce) > 128
+            or any(ord(char) < 33 or ord(char) == 127 for char in nonce)
+        ):
             raise AuthenticationError("the generated authentication nonce is invalid")
         canonical = f"{username}\n{now}\n{nonce}\n{self.settings.key_id}"
         signature = hmac.new(
