@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+SAI_CLI_PYTHONPATH="@SAI_CLI_PYTHONPATH@"
+export SAI_ENV=production
+export SAI_MANAGED_LOGIN_NODE=1
+export SAI_CONFIG=/etc/sai-cli/config.toml
+exec /usr/bin/python3 -I -P -c '
+import sys
+sys.path.insert(0, "@SAI_CLI_PYTHONPATH@")
+from sai_cli.__main__ import entrypoint
+entrypoint()
+' "$@"

@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Build the role-scoped, provenance-bound login-node Debian package."""
+
+from __future__ import annotations
+
+import argparse
+from contextlib import contextmanager
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import stat
+import subprocess
+import sys
+import tempfile
+import zipfile
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_NAME = "sai-cli"
+SOURCE_PATHS = (
+    "README.md",
+    "SECURITY.md",
+    "pyproject.toml",
+    "packaging/login-node/config.toml.example",
+    "packaging/login-node/sai",
+    "scripts/build_login_node_deb.py",
+)
+
+
+def _run(*args: str) -> str:
+    return subprocess.run(
+        list(args),
+        cwd=REPO_ROOT,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout.strip()
+
+
+def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool]:
+    commit = _run("git", "rev-parse", "HEAD")
+    if len(commit) != 40:
+        raise RuntimeError("git commit is invalid")
+    dirty = bool(_run("git", "status", "--porcelain"))
+    if dirty and not allow_dirty:
+        raise RuntimeError("formal login-node packages require a clean worktree")
+    reachable = False
+    if not allow_dirty:
+        try:
+            remote_main = _run("git", "rev-parse", "--verify", "refs/remotes/origin/main")
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", commit, remote_main],
+                cwd=REPO_ROOT,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except (RuntimeError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError(
+                "formal login-node packages require HEAD to be reachable from origin/main"
+            ) from exc
+        reachable = True
+    timestamp = int(_run("git", "show", "-s", "--format=%ct", "HEAD"))
+    stamp = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d%H%M%S")
+    return commit, f"0.1.0+{stamp}.{commit[:12]}", not dirty, reachable
+
+
+def _source_files() -> list[Path]:
+    paths = [REPO_ROOT / value for value in SOURCE_PATHS]
+    paths.extend(sorted((REPO_ROOT / "src" / "sai_cli").glob("*.py")))
+    if any(not path.is_file() or path.is_symlink() for path in paths):
+        raise RuntimeError("login-node package source set is incomplete or unsafe")
+    return sorted(set(paths))
+
+
+def _source_digest(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        relative = path.relative_to(REPO_ROOT).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        data = path.read_bytes()
+        digest.update(len(data).to_bytes(8, "big"))
+        digest.update(data)
+    return digest.hexdigest()
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_wheel_members(path: Path) -> list[zipfile.ZipInfo]:
+    with zipfile.ZipFile(path) as archive:
+        members = archive.infolist()
+    names: set[str] = set()
+    for member in members:
+        name = PurePosixPath(member.filename)
+        if (
+            name.is_absolute()
+            or ".." in name.parts
+            or not name.parts
+            or member.filename in names
+        ):
+            raise RuntimeError("wheel contains an unsafe member")
+        names.add(member.filename)
+        mode = member.external_attr >> 16
+        if mode and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            raise RuntimeError("wheel contains a non-regular member")
+    return members
+
+
+def _write(path: Path, data: str | bytes, *, mode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data.encode("utf-8") if isinstance(data, str) else data)
+    path.chmod(mode)
+
+
+@contextmanager
+def _public_umask():
+    previous = os.umask(0o022)
+    try:
+        yield
+    finally:
+        os.umask(previous)
+
+
+def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
+    commit, version, clean, remote_reachable = _git_provenance(
+        allow_dirty=allow_dirty
+    )
+    source_paths = _source_files()
+    source_sha256 = _source_digest(source_paths)
+    output_dir = output_dir.resolve()
+    with _public_umask(), tempfile.TemporaryDirectory(prefix="sai-cli-deb-") as temporary:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        root = Path(temporary)
+        wheel_dir = root / "wheel"
+        subprocess.run(
+            [sys.executable, "-m", "build", "--wheel", "--outdir", str(wheel_dir)],
+            cwd=REPO_ROOT,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        wheels = list(wheel_dir.glob("*.whl"))
+        if len(wheels) != 1:
+            raise RuntimeError("wheel build did not produce exactly one artifact")
+        wheel = wheels[0]
+        _safe_wheel_members(wheel)
+
+        stage = root / PACKAGE_NAME
+        release_rel = PurePosixPath("usr/lib/sai-cli/releases") / version / "site-packages"
+        release = stage / str(release_rel)
+        release.mkdir(parents=True)
+        with zipfile.ZipFile(wheel) as archive:
+            archive.extractall(release)
+        for path in release.rglob("*"):
+            path.chmod(0o755 if path.is_dir() else 0o644)
+
+        wrapper = (REPO_ROOT / "packaging/login-node/sai").read_text(encoding="utf-8")
+        wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/{release_rel.as_posix()}")
+        _write(stage / "usr/bin/sai", wrapper, mode=0o755)
+        _write(
+            stage / "usr/share/sai-cli/examples/config.toml",
+            (REPO_ROOT / "packaging/login-node/config.toml.example").read_bytes(),
+            mode=0o644,
+        )
+
+        installed_files = sorted(
+            "/" + path.relative_to(stage).as_posix()
+            for path in stage.rglob("*")
+            if path.is_file() and "DEBIAN" not in path.relative_to(stage).parts
+        )
+        installed_files.append("/usr/share/sai-cli/package-manifest.json")
+        installed_files.sort()
+        manifest = {
+            "schema_version": "sai-cli-login-package/v1",
+            "source_package": "sai-cli",
+            "binary_package": PACKAGE_NAME,
+            "role": "login_node_cli",
+            "version": version,
+            "git_commit": commit,
+            "source_clean": clean,
+            "remote_reachable": remote_reachable,
+            "source_sha256": source_sha256,
+            "wheel_filename": wheel.name,
+            "wheel_sha256": _sha256(wheel),
+            "runtime_dependencies": [],
+            "credential_files": [],
+            "installed_files": installed_files,
+            "activation_entrypoint": "/usr/bin/sai",
+            "rollback": {
+                "strategy": "dpkg-reinstall",
+                "command": "dpkg -i /path/to/recorded-previous-sai-cli.deb",
+                "scope": "sai-cli package only",
+            },
+        }
+        _write(
+            stage / "usr/share/sai-cli/package-manifest.json",
+            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            mode=0o644,
+        )
+        control = (
+            f"Package: {PACKAGE_NAME}\n"
+            f"Version: {version}\n"
+            "Section: science\n"
+            "Priority: optional\n"
+            "Architecture: all\n"
+            "Maintainer: SAI Operations <ops@example.invalid>\n"
+            "Depends: python3 (>= 3.11)\n"
+            "Description: Capability-bound read-only SAI login-node client\n"
+            " Installs the thin SAI CLI only; no scheduler, site-agent, database, or secret credential.\n"
+        )
+        _write(stage / "DEBIAN/control", control, mode=0o644)
+        postinst = """#!/bin/sh
+set -eu
+/usr/bin/sai --version >/dev/null
+exit 0
+"""
+        _write(stage / "DEBIAN/postinst", postinst, mode=0o755)
+
+        artifact = output_dir / f"{PACKAGE_NAME}_{version}_all.deb"
+        if artifact.exists():
+            raise RuntimeError(f"refusing to overwrite existing artifact: {artifact}")
+        subprocess.run(
+            ["dpkg-deb", "--build", "--root-owner-group", str(stage), str(artifact)],
+            cwd=REPO_ROOT,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        artifact_manifest = output_dir / f"{artifact.name}.manifest.json"
+        release_manifest = {
+            **manifest,
+            "artifact": artifact.name,
+            "artifact_sha256": _sha256(artifact),
+            "artifact_size": artifact.stat().st_size,
+        }
+        _write(
+            artifact_manifest,
+            json.dumps(release_manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            mode=0o600,
+        )
+        return artifact, artifact_manifest
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "dist" / "deb")
+    parser.add_argument("--allow-dirty", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    artifact, manifest = build(output_dir=args.output_dir, allow_dirty=args.allow_dirty)
+    print(f"SAI_CLI_DEB={artifact}")
+    print(f"SAI_CLI_DEB_MANIFEST={manifest}")
+    print(f"SAI_CLI_DEB_SHA256={_sha256(artifact)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

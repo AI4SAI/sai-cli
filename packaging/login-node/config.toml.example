@@ -1,0 +1,8 @@
+default_profile = "default"
+
+[profiles.default]
+portal_base_url = "https://portal.example.org"
+site_read_base_url = "https://site-read.example.org"
+site_id = "site-a"
+cluster_id = "cluster-a"
+timeout_seconds = 10
