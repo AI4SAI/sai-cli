@@ -27,6 +27,20 @@ commit, source digest, wheel digest, package digest, installed file allowlist,
 and rollback shape. Inspect with `dpkg-deb -I/-c` before transfer. Do not use a
 previous `dist/` wheel or a package built from a dirty tree.
 
+The builder archives the reviewed `HEAD` into a temporary source tree before
+invoking the normal isolated PEP 517 wheel build. Ignored checkout output such
+as `build/` or `dist/` therefore cannot become package input. It also sets
+`SOURCE_DATE_EPOCH` to the `HEAD` commit timestamp for both the wheel and
+Debian archive, so repeated builds of the same commit with the same build
+toolchain produce the same artifact digest. The formal path still requires an
+available isolated-build dependency source (for example, the approved
+internal wheelhouse for `setuptools>=69`); `--no-isolation` is only a local
+test seam.
+
+The hidden `--allow-dirty` option is reserved for tests and diagnostics. Even
+there, the builder archives `HEAD` and marks the manifest as not clean; it never
+mixes uncommitted checkout files into a package.
+
 ## Runtime configuration
 
 The real `/etc/sai-cli/config.toml` is an external non-secret runtime input,
@@ -39,6 +53,10 @@ SAI_ENV=production
 SAI_REQUIRE_SITE_CAPABILITY=1
 PYTHONNOUSERSITE=1
 ```
+
+The wrapper also passes Python's `-B` flag so importing the immutable release
+tree cannot leave unowned `__pycache__` files during package installation or
+normal login-node use.
 
 The CLI therefore has no production fallback to the legacy `portal_read`
 routes. The matching Portal release must already expose and enable the

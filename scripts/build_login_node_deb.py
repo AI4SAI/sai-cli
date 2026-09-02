@@ -7,6 +7,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -40,7 +41,7 @@ def _run(*args: str) -> str:
     ).stdout.strip()
 
 
-def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool]:
+def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
     commit = _run("git", "rev-parse", "HEAD")
     if len(commit) != 40:
         raise RuntimeError("git commit is invalid")
@@ -66,27 +67,78 @@ def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool]:
         reachable = True
     timestamp = int(_run("git", "show", "-s", "--format=%ct", "HEAD"))
     stamp = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d%H%M%S")
-    return commit, f"0.1.0+{stamp}.{commit[:12]}", not dirty, reachable
+    return commit, f"0.1.0+{stamp}.{commit[:12]}", not dirty, reachable, timestamp
 
 
-def _source_files() -> list[Path]:
-    paths = [REPO_ROOT / value for value in SOURCE_PATHS]
-    paths.extend(sorted((REPO_ROOT / "src" / "sai_cli").glob("*.py")))
+def _source_files(root: Path = REPO_ROOT) -> list[Path]:
+    paths = [root / value for value in SOURCE_PATHS]
+    paths.extend(sorted((root / "src" / "sai_cli").glob("*.py")))
     if any(not path.is_file() or path.is_symlink() for path in paths):
         raise RuntimeError("login-node package source set is incomplete or unsafe")
     return sorted(set(paths))
 
 
-def _source_digest(paths: list[Path]) -> str:
+def _source_digest(paths: list[Path], *, root: Path = REPO_ROOT) -> str:
     digest = hashlib.sha256()
     for path in paths:
-        relative = path.relative_to(REPO_ROOT).as_posix().encode("utf-8")
+        relative = path.relative_to(root).as_posix().encode("utf-8")
         digest.update(len(relative).to_bytes(4, "big"))
         digest.update(relative)
         data = path.read_bytes()
         digest.update(len(data).to_bytes(8, "big"))
         digest.update(data)
     return digest.hexdigest()
+
+
+def _extract_git_archive(commit: str, destination: Path, *, timestamp: int) -> None:
+    """Materialize only committed source into a deterministic build tree."""
+
+    completed = subprocess.run(
+        ["git", "archive", "--format=zip", commit],
+        cwd=REPO_ROOT,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(completed.stdout))
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise RuntimeError("git archive could not be read") from exc
+    with archive:
+        members = archive.infolist()
+        names: set[str] = set()
+        for member in members:
+            name = PurePosixPath(member.filename)
+            if (
+                name.is_absolute()
+                or ".." in name.parts
+                or not name.parts
+                or member.filename in names
+            ):
+                raise RuntimeError("git archive contains an unsafe member")
+            names.add(member.filename)
+            mode = member.external_attr >> 16
+            if mode and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+                raise RuntimeError("git archive contains an unsafe member")
+        archive.extractall(destination, members=members)
+    for path in sorted(destination.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        os.utime(path, (timestamp, timestamp), follow_symlinks=False)
+    os.utime(destination, (timestamp, timestamp), follow_symlinks=False)
+
+
+def _build_wheel(*, source_dir: Path, wheel_dir: Path, environment: dict[str, str]) -> None:
+    """Build through the normal isolated PEP 517 frontend."""
+
+    subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--outdir", str(wheel_dir)],
+        cwd=source_dir,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -133,23 +185,34 @@ def _public_umask():
 
 
 def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
-    commit, version, clean, remote_reachable = _git_provenance(
+    """Build the package from the exact committed HEAD snapshot.
+
+    ``allow_dirty`` exists for local tests and diagnostics only.  Even when it
+    is true, the package input remains the committed HEAD archive and the
+    manifest records ``source_clean=False``; uncommitted files are never
+    silently mixed into a formal artifact.
+    """
+
+    commit, version, clean, remote_reachable, timestamp = _git_provenance(
         allow_dirty=allow_dirty
     )
-    source_paths = _source_files()
-    source_sha256 = _source_digest(source_paths)
+    # Validate the checkout-side package inputs before creating the archive.
+    _source_files()
     output_dir = output_dir.resolve()
     with _public_umask(), tempfile.TemporaryDirectory(prefix="sai-cli-deb-") as temporary:
         output_dir.mkdir(parents=True, exist_ok=True)
         root = Path(temporary)
+        source_dir = root / "source"
+        _extract_git_archive(commit, source_dir, timestamp=timestamp)
+        source_paths = _source_files(source_dir)
+        source_sha256 = _source_digest(source_paths, root=source_dir)
         wheel_dir = root / "wheel"
-        subprocess.run(
-            [sys.executable, "-m", "build", "--wheel", "--outdir", str(wheel_dir)],
-            cwd=REPO_ROOT,
-            check=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        build_environment = os.environ.copy()
+        build_environment["SOURCE_DATE_EPOCH"] = str(timestamp)
+        _build_wheel(
+            source_dir=source_dir,
+            wheel_dir=wheel_dir,
+            environment=build_environment,
         )
         wheels = list(wheel_dir.glob("*.whl"))
         if len(wheels) != 1:
@@ -166,12 +229,12 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         for path in release.rglob("*"):
             path.chmod(0o755 if path.is_dir() else 0o644)
 
-        wrapper = (REPO_ROOT / "packaging/login-node/sai").read_text(encoding="utf-8")
+        wrapper = (source_dir / "packaging/login-node/sai").read_text(encoding="utf-8")
         wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/{release_rel.as_posix()}")
         _write(stage / "usr/bin/sai", wrapper, mode=0o755)
         _write(
             stage / "usr/share/sai-cli/examples/config.toml",
-            (REPO_ROOT / "packaging/login-node/config.toml.example").read_bytes(),
+            (source_dir / "packaging/login-node/config.toml.example").read_bytes(),
             mode=0o644,
         )
 
@@ -238,6 +301,7 @@ exit 0
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=build_environment,
         )
         artifact_manifest = output_dir / f"{artifact.name}.manifest.json"
         release_manifest = {
