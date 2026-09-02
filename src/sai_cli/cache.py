@@ -36,9 +36,16 @@ class TokenCache:
 
     def _secure_parent(self) -> None:
         parent = self.path.parent
-        parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        info = parent.stat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        try:
+            info = parent.lstat()
+        except FileNotFoundError:
+            parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            info = parent.lstat()
+        if (
+            stat.S_ISLNK(info.st_mode)
+            or not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.getuid()
+        ):
             raise AuthenticationError("the token cache directory is not owned by the current user")
         if stat.S_IMODE(info.st_mode) != 0o700:
             os.chmod(parent, 0o700)

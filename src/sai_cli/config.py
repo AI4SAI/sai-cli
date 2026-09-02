@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import math
 import os
 from pathlib import Path
 import re
@@ -87,10 +88,13 @@ def default_cache_path(environ: Mapping[str, str]) -> Path:
 
 
 def _read_config(path: Path, *, required_owner_uid: int | None = None) -> dict[str, Any]:
-    if not path.exists():
-        return {}
     try:
         before = path.lstat()
+    except FileNotFoundError:
+        return {}
+    except OSError as exc:
+        raise ConfigError("the SAI config file could not be read") from exc
+    try:
         if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
             raise ConfigError("the SAI config path must be a regular file")
         owner_ok = (
@@ -170,7 +174,7 @@ def _parse_timeout(value: object) -> float:
         timeout = float(value)
     except (TypeError, ValueError) as exc:
         raise ConfigError("API timeout must be a number") from exc
-    if timeout <= 0 or timeout > 120:
+    if not math.isfinite(timeout) or timeout <= 0 or timeout > 120:
         raise ConfigError("API timeout must be greater than 0 and at most 120 seconds")
     return timeout
 

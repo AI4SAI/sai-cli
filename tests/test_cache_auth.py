@@ -94,6 +94,20 @@ def test_token_cache_delete_rejects_dangling_symlink(tmp_path: Path) -> None:
         TokenCache(link).delete("key")
 
 
+def test_token_cache_rejects_symlink_parent(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "cache"
+    link.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(AuthenticationError, match="directory"):
+        TokenCache(link / "token-cache.json").put(
+            "key",
+            token="short-token",
+            expires_at=1_700_000_300,
+        )
+
+
 def test_token_cache_put_prunes_expired_entries_with_provider_clock(tmp_path: Path) -> None:
     path = tmp_path / "cache" / "token-cache.json"
     cache = TokenCache(path, clock=lambda: 100)

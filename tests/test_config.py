@@ -136,6 +136,35 @@ def test_group_writable_config_is_rejected(tmp_path: Path) -> None:
         resolve_settings(_args("--config", str(config)), {})
 
 
+def test_dangling_config_symlink_is_rejected(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.symlink_to(tmp_path / "missing.toml")
+
+    with pytest.raises(ConfigError, match="regular file"):
+        resolve_settings(_args("--config", str(config)), {})
+
+
+@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf"])
+def test_nonfinite_timeout_is_rejected(tmp_path: Path, timeout: str) -> None:
+    with pytest.raises(ConfigError, match="at most 120"):
+        resolve_settings(
+            _args(
+                "--config",
+                str(tmp_path / "missing.toml"),
+                "--base-url",
+                "https://example.org",
+                "--site-read-base-url",
+                "https://read.example.org",
+                "--site",
+                "site-a",
+                "--cluster",
+                "cluster-a",
+                f"--timeout={timeout}",
+            ),
+            {},
+        )
+
+
 def test_managed_login_node_uses_only_root_managed_connection_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
