@@ -82,7 +82,11 @@ def test_login_node_wrapper_is_valid_shell() -> None:
 
 def test_login_node_wrapper_does_not_write_bytecode(tmp_path: Path) -> None:
     package_root = tmp_path / "site-packages"
-    shutil.copytree(Path(__file__).parents[1] / "src" / "sai_cli", package_root / "sai_cli")
+    shutil.copytree(
+        Path(__file__).parents[1] / "src" / "sai_cli",
+        package_root / "sai_cli",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+    )
     wrapper = tmp_path / "sai"
     template = (Path(__file__).parents[1] / "packaging/login-node/sai").read_text(
         encoding="utf-8"
