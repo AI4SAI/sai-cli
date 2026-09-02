@@ -242,6 +242,17 @@ The CLI validates this response recursively as an allowlist and ignores
 additive unknown fields. It does not cache responses, inspect wallets or
 ledgers, call Slurm, or calculate any amount.
 
+## Settled billing (future independent contract)
+
+Settled job cost is deliberately not part of the site-read capability or the
+current CLI command surface. A future `billing.settled.read` Portal Bearer
+route must query only `JobBillingSettlement.status=succeeded` rows with a
+complete `SlurmJobBillingFact`/ledger/line-item/usage graph, apply the same
+scope and site/cluster authorization, and return a new allowlisted DTO. It
+must not reuse `/v1/billing/ledger`, expose wallet/ledger internals, or let the
+client recompute a final amount. The command name, pagination, and DTO version
+remain open until that Portal contract is frozen with compatibility tests.
+
 ## Bounded errors
 
 The control plane may return a string `detail` or an object containing a short

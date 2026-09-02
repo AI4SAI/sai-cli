@@ -42,6 +42,8 @@ production wrapper.
   focused vectors are aligned, but no single shared artifact is published yet)
 - [ ] Production issuer key/epoch deployment and authenticated devstack smoke
 - [ ] Development-stack read-only smoke for self and one account scope
+- [ ] Independent Portal settled-billing read contract (`billing.settled.read`)
+  and a separately reviewed CLI command
 - [ ] Browser/device login design for unmanaged clients
 - [ ] Shell completion and package metadata
 
