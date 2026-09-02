@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: read-only commands frozen
+Status: read-only commands and site-read client contract frozen; gateway rollout pending
 
 ## Command surface
 
@@ -16,7 +16,7 @@ sai jobs show 12345 --site site-a --scope project-account \
   --account project-example
 sai jobs cost --site site-a
 sai jobs cost --site site-a --scope project-account \
-  --account project-example --states R,PD --partition gpu-standard --limit 100
+  --account project-example --states R,PD --partition gpu-standard
 ```
 
 `--format json` is the default. `--format table` is intended for a person at a
@@ -30,10 +30,12 @@ The first release does not implement:
 - automatic fallback from live state to broad accounting queries;
 - node topology, placement, storage, or TUI commands.
 
-`jobs cost` calls Portal `GET /v1/billing/running-estimates`. It reuses the
-list command's scope and narrowing options, validates the independent
-`billing.running-estimate/v1` DTO, and renders it without local caching,
-scheduler access, or price calculation.
+`jobs cost` calls the independent site-read gateway at
+`GET /v1/site-read/billing/running-estimates`. It reuses the list command's
+scope and narrowing options, validates the gross-only
+`billing.running-estimate/v2` DTO, and renders it without local caching,
+scheduler access, or price calculation. The gateway may return a gross
+estimate or an explicit unavailable state; it never returns a final charge.
 
 The controller-side `site/slurm/job_submit.lua` artifact does not change this
 client boundary. It validates jobs submitted through native Slurm commands but
@@ -59,7 +61,8 @@ local checks cannot establish that authorization boundary.
   values. The server remains authoritative.
 
 `--states` is a comma-separated allowlisted token list. `--partition` only
-narrows the result. `--limit` is constrained to the API range of 1 through 500.
+narrows the result.  The running-estimate endpoint deliberately returns the
+complete authorized live snapshot and has no client `--limit` parameter.
 
 ## Configuration
 
@@ -83,8 +86,10 @@ Example:
 default_profile = "default"
 
 [profiles.default]
-base_url = "https://portal.example.org"
+portal_base_url = "https://portal.example.org"
+site_read_base_url = "https://site-read.example.org"
 site_id = "site-a"
+cluster_id = "cluster-a"
 username = "alice"
 key_id = "managed-login"
 timeout_seconds = 10
@@ -98,14 +103,17 @@ Relevant environment variables:
 | Variable | Purpose |
 | --- | --- |
 | `SAI_API_BASE_URL` | Control-plane base URL |
+| `SAI_SITE_READ_BASE_URL` | Site-read gateway base URL |
 | `SAI_SITE_ID` | Default site |
+| `SAI_CLUSTER_ID` | Default cluster |
 | `SAI_PROFILE` | Profile name |
-| `SAI_API_USERNAME` | Actor username for compatibility token exchange |
-| `SAI_API_KEY_ID` | Managed client key identifier |
+| `SAI_API_USERNAME` | Actor username for legacy compatibility token exchange |
+| `SAI_API_KEY_ID` | Client key identifier for legacy compatibility exchange |
 | `SAI_TOKEN` | Already-issued short-lived Bearer token |
-| `SAI_API_SHARED_SECRET` | Managed-node compatibility HMAC secret |
+| `SAI_API_SHARED_SECRET` | Legacy compatibility HMAC secret; never used in managed mode |
 | `SAI_API_TIMEOUT` | HTTP timeout in seconds |
 | `SAI_ALLOW_INSECURE_HTTP` | Development-only explicit HTTP override |
+| `SAI_MANAGED_LOGIN_NODE` | Enable fixed root-owned login-node configuration and token-only credentials |
 
 ## Authentication
 
@@ -113,8 +121,9 @@ Token selection order is:
 
 1. use `SAI_TOKEN` for the current process without writing it to disk;
 2. reuse a valid protected cache entry;
-3. on a managed login node, exchange a compatibility HMAC request at
+3. for an unmanaged compatibility client, exchange a HMAC request at
    `POST /v1/token` and cache only the returned short-lived Bearer token.
+Managed login-node mode accepts only an injected short-lived `SAI_TOKEN`.
 
 The HMAC canonical string is part of the existing Portal compatibility
 contract:
@@ -127,6 +136,14 @@ The compatibility secret is not a general desktop login mechanism. A future
 interactive browser/device authorization flow should replace it for unmanaged
 clients. The CLI must not accept a secret or Bearer token as a command-line
 argument because process listings and shell history are not secret stores.
+
+For managed production use, the Bearer is followed by a capability exchange at
+`POST /v1/authz/site-read`. The response is cached as an opaque short-lived
+credential keyed by both trust origins, the user-session digest, operation,
+site/cluster, scope, exact filters, and job ID. Jobs and running-estimate reads
+then use `/v1/site-read/...`; the gateway verifies the signed grant and never
+receives the Portal Bearer. A cached Bearer or capability is refreshed at most
+once after authentication failure.
 
 ## Token cache
 
@@ -166,8 +183,8 @@ JSON output contains only the stable job visibility or running-estimate fields d
 [portal-api-contract.md](portal-api-contract.md). Unknown response fields are
 ignored after validation instead of being copied to stdout.
 
-Running-estimate table output always shows `final=false`, `as_of`, observation
-time, age, stale state, and ETag. Times use the response's required site/Slurm
+Running-estimate table output always shows `final=false`, observation time, age,
+stale state, and ETag. Times use the response's required site/Slurm
 IANA timezone and show an explicit offset, never the center or terminal local
 timezone. A pending job has no zero-cost claim; an
 unavailable estimate has no guessed amount. Both remain explicit row states.

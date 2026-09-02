@@ -1,13 +1,14 @@
 # sai-cli Architecture
 
-Status: implementation baseline
+Status: read-only client contract frozen; independent site-read producer pending
 
 ## Purpose
 
-`sai-cli` is a thin client for SAI control-plane APIs and, in a later phase,
-site-local read gateways. Its job is to translate explicit user intent into a
-bounded request, validate the response contract, and render JSON or a human
-table. It is not an authorization engine and it is not a second scheduler.
+`sai-cli` is a thin client for SAI control-plane authorization and the
+independent site-read gateway. Its job is to translate explicit user intent
+into a bounded capability request, validate the response contract, and render
+JSON or a human table. It is not an authorization engine and it is not a second
+scheduler.
 
 The architecture separates three responsibilities:
 
@@ -19,11 +20,10 @@ The architecture separates three responsibilities:
 
 ## Current and target paths
 
-The current release uses control-plane job visibility and running-estimate
-read APIs:
+The client path is:
 
 ```text
-user -> sai-cli -> SAI control-plane API -> authorized site reader -> scheduler
+user -> sai-cli -> Portal capability issuer -> site-read gateway -> scheduler
 ```
 
 The target remote-site path separates authorization from the query hot path:
@@ -40,9 +40,10 @@ site-local read gateway -> native scheduler/storage readers
   +-> bounded DTO + freshness + asynchronous audit reference
 ```
 
-The transport changes, but command semantics and response DTOs stay stable.
-The initial implementation must not claim that the site-local capability path
-already exists.
+Portal remains the policy and billing authority. The gateway is the native
+read/cache boundary; command semantics and normalized DTOs stay stable across
+center and satellite routes. The gateway service and live producer are not yet
+deployed by this repository.
 
 ## Trust model
 
@@ -83,19 +84,14 @@ There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
 `--account` mode. Administrative fleet views belong to a separate management
 surface with separate authentication and audit policy.
 
-### Current surface gap
+### Capability-bound CLI surface
 
-The current Portal job endpoints use the control plane's `portal_read`
-entrypoint. That entrypoint rejects disabled shell access but intentionally
-allows an `agent_only` account for non-login-node read surfaces. The endpoint
-does not yet carry a cryptographically bound CLI surface or audience, so a call
-from this client cannot prove that login-node shell access is `enabled`.
-
-This is a production rollout blocker, not a client-side option. A managed
-login-node wrapper must not be enabled until Portal provides a dedicated CLI
-entrypoint or a surface-bound capability/token that enforces `enabled` on the
-server. A header supplied by an untrusted client is not sufficient because it
-can be omitted. Phase-one local and fake HTTP tests do not close this gate.
+Portal's issuer is `POST /v1/authz/site-read`. It resolves the actor with
+`entrypoint=cli`, enforces shell access `enabled`, and signs a site,
+operation, scope, and filter-bound `sai-authz` envelope. The gateway verifies
+that envelope again; a client header alone is never trusted. The legacy
+`portal_read` job endpoints remain a separate Portal/Agent contract and are
+not a production CLI fallback.
 
 ## Data and consistency
 
@@ -115,8 +111,9 @@ The client treats these states differently:
 
 Historical accounting and final billing are separate products. A settled
 ledger is not a substitute for the live queue, and a running-cost estimate is
-not a final charge. The CLI receives the estimate from Portal and never reads
-pricing data or computes a price locally.
+not a final charge. The CLI receives the gross estimate from the gateway and
+never reads pricing data or computes a price locally. Settled billing will use
+a separate Portal billing-read contract when implemented.
 
 ## Security invariants
 
@@ -149,15 +146,14 @@ sai_cli.config       configuration and profile resolution
 sai_cli.cache        protected token cache
 sai_cli.auth         bearer selection and compatibility token exchange
 sai_cli.transport    bounded JSON-over-HTTP transport
-sai_cli.client       Portal endpoint mapping
+  sai_cli.client       Portal issuer and site-read endpoint mapping
 sai_cli.contracts    stable response validation and serialization
 sai_cli.render       JSON and table presentation
 sai_cli.cli          command parsing and exit-code policy
 ```
 
-The future site-local transport must implement the same client-facing
-interface instead of adding authorization or scheduler parsing to command
-handlers.
+The site-read transport implements the same client-facing command interface;
+command handlers do not gain authorization or scheduler parsing.
 
 The gateway server is a separate low-privilege site-runtime role that reuses
 the existing site Slurm read adapter and normalized DTO. It is not packaged in

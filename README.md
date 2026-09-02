@@ -25,9 +25,12 @@ The repository also carries a controller-side Slurm policy artifact under
 not add a `sai` submission command or grant job mutation rights. See
 [docs/job-submit-policy.md](docs/job-submit-policy.md).
 
-Production login-node rollout is not yet authorized. The current shared Portal
-endpoint uses `portal_read` policy and may accept `agent_only`; a server-bound
-CLI surface must enforce shell access `enabled` before wrappers are enabled.
+Production login-node mode requires the capability-bound Portal issuer and
+independent site-read gateway. The issuer resolves `entrypoint=cli` and
+requires shell access `enabled`; the gateway verifies the grant and reads only
+the authorized native snapshot. The legacy Portal `portal_read` endpoints are
+not a production fallback. Code availability does not imply that the issuer,
+gateway, keys, or login-node package have been deployed.
 
 ## Architecture
 
@@ -35,6 +38,8 @@ CLI surface must enforce shell access `enabled` before wrappers are enabled.
 - [Runtime design](docs/runtime-design.md)
 - [Portal API contract](docs/portal-api-contract.md)
 - [Site-local read plane](docs/site-local-read-plane.md)
+- [Billing / interactive read-plane freeze](docs/billing-read-plane.md)
+- [Login-node deployment run card](docs/login-node-deployment.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
 - [Repository guidelines](AGENTS.md)
@@ -67,21 +72,31 @@ Use a short-lived Bearer token when one is already available:
 
 ```bash
 export SAI_API_BASE_URL=https://portal.example.org
+export SAI_SITE_READ_BASE_URL=https://site-read.example.org
 export SAI_SITE_ID=site-a
+export SAI_CLUSTER_ID=cluster-a
 export SAI_TOKEN='<short-lived-token>'
 ```
 
-Managed login nodes can instead provide `SAI_API_USERNAME`,
-`SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through their protected runtime
-environment. The HMAC route is a compatibility bootstrap, not a credential to
-place in a shell profile or TOML file.
+Unmanaged compatibility clients can provide `SAI_API_USERNAME`,
+`SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through a protected runtime
+environment for the existing HMAC bootstrap. Managed login nodes use only an
+injected short-lived `SAI_TOKEN`; no shared secret is installed on a
+multi-user node. Neither form belongs in a shell profile or TOML file.
+
+In capability mode the CLI first exchanges the user Bearer for an opaque,
+operation-bound site-read capability, then calls the independent site-read
+gateway. The capability is never decoded by the CLI and is never accepted from
+an environment override or command line.
 
 Non-secret defaults can be stored in `~/.config/sai/config.toml`:
 
 ```toml
 [profiles.default]
-base_url = "https://portal.example.org"
+portal_base_url = "https://portal.example.org"
+site_read_base_url = "https://site-read.example.org"
 site_id = "site-a"
+cluster_id = "cluster-a"
 ```
 
 ## Use

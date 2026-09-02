@@ -15,9 +15,26 @@ from .errors import ConfigError
 
 
 _PROFILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_MANAGED_CONFIG_PATH = Path("/etc/sai-cli/config.toml")
+_MANAGED_CONFIG_OWNER_UID = 0
+_MANAGED_OVERRIDE_ENV = (
+    "SAI_API_BASE_URL",
+    "SAI_SITE_READ_BASE_URL",
+    "SAI_SITE_ID",
+    "SAI_CLUSTER_ID",
+    "SAI_PROFILE",
+    "SAI_API_USERNAME",
+    "SAI_API_KEY_ID",
+    "SAI_API_TIMEOUT",
+    "SAI_TOKEN_CACHE",
+    "SAI_ALLOW_INSECURE_HTTP",
+    "SAI_API_SHARED_SECRET",
+)
 _PROFILE_KEYS = {
-    "base_url",
+    "portal_base_url",
+    "site_read_base_url",
     "site_id",
+    "cluster_id",
     "username",
     "key_id",
     "timeout_seconds",
@@ -35,8 +52,10 @@ _FORBIDDEN_PROFILE_KEYS = {
 
 @dataclass(frozen=True)
 class Settings:
-    base_url: str
+    portal_base_url: str
+    site_read_base_url: str
     site_id: str
+    cluster_id: str
     username: str | None
     key_id: str
     timeout_seconds: float
@@ -44,6 +63,7 @@ class Settings:
     cache_path: Path
     use_cache: bool
     profile: str
+    managed_login_node: bool = False
 
 
 def default_config_path(environ: Mapping[str, str]) -> Path:
@@ -66,14 +86,19 @@ def default_cache_path(environ: Mapping[str, str]) -> Path:
     return Path.home() / ".cache" / "sai" / "token-cache.json"
 
 
-def _read_config(path: Path) -> dict[str, Any]:
+def _read_config(path: Path, *, required_owner_uid: int | None = None) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
         before = path.lstat()
         if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
             raise ConfigError("the SAI config path must be a regular file")
-        if before.st_uid not in {0, os.getuid()} or before.st_mode & 0o022:
+        owner_ok = (
+            before.st_uid == required_owner_uid
+            if required_owner_uid is not None
+            else before.st_uid in {0, os.getuid()}
+        )
+        if not owner_ok or before.st_mode & 0o022:
             raise ConfigError("the SAI config file ownership or permissions are unsafe")
         if before.st_size > 1_048_576:
             raise ConfigError("the SAI config file is too large")
@@ -152,29 +177,118 @@ def _parse_timeout(value: object) -> float:
 
 def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if environ is None else environ
-    config_path = Path(args.config).expanduser() if args.config else default_config_path(env)
-    config = _read_config(config_path)
-    requested_profile = _first_text(args.profile, env.get("SAI_PROFILE"))
+    managed = _parse_bool(
+        env.get("SAI_MANAGED_LOGIN_NODE"),
+        field="SAI_MANAGED_LOGIN_NODE",
+    )
+    if managed:
+        override_args = (
+            "config",
+            "profile",
+            "base_url",
+            "site_read_base_url",
+            "site",
+            "cluster",
+            "username",
+            "key_id",
+            "timeout",
+            "cache",
+            "allow_insecure_http",
+        )
+        if any(getattr(args, name, None) not in {None, False} for name in override_args):
+            raise ConfigError("managed login-node connection settings cannot be overridden")
+        configured_path = (env.get("SAI_CONFIG") or "").strip()
+        if configured_path and Path(configured_path) != _MANAGED_CONFIG_PATH:
+            raise ConfigError("managed login-node config path cannot be overridden")
+        forbidden_env = [name for name in _MANAGED_OVERRIDE_ENV if (env.get(name) or "").strip()]
+        if forbidden_env:
+            raise ConfigError(
+                "managed login-node connection environment cannot be overridden"
+            )
+        config_path = _MANAGED_CONFIG_PATH
+        requested_profile = None
+    else:
+        config_path = (
+            Path(args.config).expanduser()
+            if args.config
+            else default_config_path(env)
+        )
+        requested_profile = _first_text(args.profile, env.get("SAI_PROFILE"))
+    config = _read_config(
+        config_path,
+        required_owner_uid=_MANAGED_CONFIG_OWNER_UID if managed else None,
+    )
     profile_name, values = _profile(config, requested_profile)
 
-    base_url = _first_text(args.base_url, env.get("SAI_API_BASE_URL"), values.get("base_url"))
-    if not base_url:
-        raise ConfigError("missing SAI API base URL; set --base-url or SAI_API_BASE_URL")
-    site_id = _first_text(args.site, env.get("SAI_SITE_ID"), values.get("site_id"))
+    portal_base_url = _first_text(
+        None if managed else args.base_url,
+        None if managed else env.get("SAI_API_BASE_URL"),
+        values.get("portal_base_url"),
+    )
+    if not portal_base_url:
+        raise ConfigError(
+            "missing SAI Portal base URL; set --base-url or SAI_API_BASE_URL"
+        )
+    site_read_base_url = _first_text(
+        None if managed else args.site_read_base_url,
+        None if managed else env.get("SAI_SITE_READ_BASE_URL"),
+        values.get("site_read_base_url"),
+    )
+    if not site_read_base_url:
+        raise ConfigError(
+            "missing SAI site-read base URL; set --site-read-base-url or "
+            "SAI_SITE_READ_BASE_URL"
+        )
+    site_id = _first_text(
+        None if managed else args.site,
+        None if managed else env.get("SAI_SITE_ID"),
+        values.get("site_id"),
+    )
     if not site_id:
         raise ConfigError("missing SAI site; set --site or SAI_SITE_ID")
+    cluster_id = _first_text(
+        None if managed else args.cluster,
+        None if managed else env.get("SAI_CLUSTER_ID"),
+        values.get("cluster_id"),
+    )
+    if not cluster_id:
+        raise ConfigError("missing SAI cluster; set --cluster or SAI_CLUSTER_ID")
 
-    username = _first_text(args.username, env.get("SAI_API_USERNAME"), values.get("username"))
-    key_id = _first_text(args.key_id, env.get("SAI_API_KEY_ID"), values.get("key_id"), "sai-cli") or "sai-cli"
-    timeout_raw = _first_text(args.timeout, env.get("SAI_API_TIMEOUT"), values.get("timeout_seconds"), "10")
-    insecure_raw: object = args.allow_insecure_http
+    username = None if managed else _first_text(
+        args.username,
+        env.get("SAI_API_USERNAME"),
+        values.get("username"),
+    )
+    key_id = (
+        "sai-cli"
+        if managed
+        else _first_text(
+            args.key_id,
+            env.get("SAI_API_KEY_ID"),
+            values.get("key_id"),
+            "sai-cli",
+        )
+        or "sai-cli"
+    )
+    timeout_raw = _first_text(
+        None if managed else args.timeout,
+        None if managed else env.get("SAI_API_TIMEOUT"),
+        values.get("timeout_seconds"),
+        "10",
+    )
+    insecure_raw: object = False if managed else args.allow_insecure_http
     if insecure_raw is None:
         insecure_raw = env.get("SAI_ALLOW_INSECURE_HTTP", values.get("allow_insecure_http"))
-    cache_raw = _first_text(args.cache, env.get("SAI_TOKEN_CACHE"), values.get("cache_path"))
-
+    cache_raw = _first_text(
+        None if managed else args.cache,
+        None if managed else env.get("SAI_TOKEN_CACHE"),
+        values.get("cache_path"),
+    )
     return Settings(
-        base_url=base_url.rstrip("/"),
+        portal_base_url=portal_base_url.rstrip("/"),
+        site_read_base_url=site_read_base_url.rstrip("/"),
         site_id=site_id,
+        cluster_id=cluster_id,
         username=username,
         key_id=key_id,
         timeout_seconds=_parse_timeout(timeout_raw),
@@ -182,4 +296,5 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
         cache_path=Path(cache_raw).expanduser() if cache_raw else default_cache_path(env),
         use_cache=not bool(args.no_cache),
         profile=profile_name,
+        managed_login_node=managed,
     )

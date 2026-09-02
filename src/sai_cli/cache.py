@@ -8,7 +8,8 @@ import os
 from pathlib import Path
 import stat
 import tempfile
-from typing import Any
+import time
+from typing import Any, Callable
 
 from .errors import AuthenticationError
 
@@ -22,9 +23,16 @@ def cache_key(*, base_url: str, username: str, key_id: str) -> str:
 
 
 class TokenCache:
-    def __init__(self, path: Path, *, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        enabled: bool = True,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self.path = path
         self.enabled = enabled
+        self.clock = clock
 
     def _secure_parent(self) -> None:
         parent = self.path.parent
@@ -88,6 +96,15 @@ class TokenCache:
             return
         self._secure_parent()
         payload = self._read()
+        now = int(self.clock())
+        payload["entries"] = {
+            entry_key: entry
+            for entry_key, entry in payload["entries"].items()
+            if isinstance(entry, dict)
+            and isinstance(entry.get("expires_at"), int)
+            and not isinstance(entry.get("expires_at"), bool)
+            and entry["expires_at"] - now > 0
+        }
         payload["entries"][key] = {"token": token, "expires_at": expires_at}
         encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
         if len(encoded) > _MAX_CACHE_BYTES:
@@ -96,7 +113,11 @@ class TokenCache:
         self._write(encoded, error_message="the token cache could not be written")
 
     def delete(self, key: str) -> None:
-        if not self.enabled or not self.path.exists():
+        if not self.enabled:
+            return
+        try:
+            self.path.lstat()
+        except FileNotFoundError:
             return
         payload = self._read()
         if payload["entries"].pop(key, None) is None:

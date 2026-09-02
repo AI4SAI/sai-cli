@@ -28,10 +28,18 @@ class FakeTransport:
         )
 
 
-def _settings(tmp_path: Path, *, username: str | None = "alice", use_cache: bool = True) -> Settings:
+def _settings(
+    tmp_path: Path,
+    *,
+    username: str | None = "alice",
+    use_cache: bool = True,
+    managed: bool = False,
+) -> Settings:
     return Settings(
-        base_url="https://portal.example.org",
+        portal_base_url="https://portal.example.org",
+        site_read_base_url="https://site-read.example.org",
         site_id="site-a",
+        cluster_id="cluster-a",
         username=username,
         key_id="managed-login",
         timeout_seconds=10,
@@ -39,6 +47,7 @@ def _settings(tmp_path: Path, *, username: str | None = "alice", use_cache: bool
         cache_path=tmp_path / "cache" / "token-cache.json",
         use_cache=use_cache,
         profile="default",
+        managed_login_node=managed,
     )
 
 
@@ -128,5 +137,18 @@ def test_missing_credentials_fails_without_network(tmp_path: Path) -> None:
     )
 
     with pytest.raises(AuthenticationError, match="no Bearer token"):
+        provider.get()
+    assert transport.calls == []
+
+
+def test_managed_login_node_never_uses_hmac_exchange(tmp_path: Path) -> None:
+    transport = FakeTransport()
+    provider = TokenProvider(
+        settings=_settings(tmp_path, username=None, managed=True),
+        transport=transport,  # type: ignore[arg-type]
+        environ={"SAI_API_SHARED_SECRET": "global-secret"},
+    )
+
+    with pytest.raises(AuthenticationError, match="short-lived SAI_TOKEN"):
         provider.get()
     assert transport.calls == []

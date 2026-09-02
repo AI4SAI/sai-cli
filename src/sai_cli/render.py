@@ -112,7 +112,7 @@ def _billable(item: RunningEstimateItem) -> str:
 def _running_estimate_row(item: RunningEstimateItem) -> dict[str, str]:
     values = item.values
     return {
-        "job_id": _display(values["job_id_raw"] or values["job_key"]),
+        "job_id": _display(values["job_id_raw"] or values["job_generation_key"]),
         "state": _display(values["state"]),
         "elapsed": _duration(values["elapsed_seconds"]),
         "billable": _billable(item),
@@ -144,7 +144,11 @@ def render_table(result: JobResult) -> str:
         widths.append(min(widest, maximum))
 
     lines = [
-        f"Site: {result.site_id}  Scope: {result.scope}  Source: {result.freshness.source}  Queried: {result.freshness.queried_at}",
+        (
+            f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+            f"Scope: {result.scope_type}  Source: {result.freshness.source}  "
+            f"Observed: {result.freshness.observed_at}"
+        ),
         _line((heading for _, heading, _ in _COLUMNS), widths),
         _line(("-" * width for width in widths), widths),
     ]
@@ -178,9 +182,9 @@ def render_running_estimate_table(result: RunningEstimateResult) -> str:
     stale = "yes" if result.freshness.stale else "no"
     lines = [
         (
-            f"Site: {result.site_id}  Cluster: {result.cluster_id}  Scope: {result.scope}  "
-            f"Timezone: {result.site_timezone}  "
-            f"As-of: {_site_time(result.as_of, timezone_name=result.site_timezone)}  Final: false"
+            f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+            f"Scope: {result.scope_type}  Timezone: {result.site_timezone}  "
+            "Final: false"
         ),
         (
             f"Observed: {_site_time(result.freshness.observed_at, timezone_name=result.site_timezone)}  "

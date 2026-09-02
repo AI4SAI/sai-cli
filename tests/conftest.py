@@ -8,12 +8,14 @@ import pytest
 @pytest.fixture
 def job_payload() -> dict[str, Any]:
     return {
+        "schema_version": "jobs/v1",
         "site_id": "site-a",
         "cluster_id": "cluster-a",
-        "scope": "self",
-        "visibility_role": "self",
-        "slurm_user": "alice",
-        "slurm_account": None,
+        "scope_type": "self",
+        "subject": {
+            "slurm_user": "alice",
+            "slurm_account": None,
+        },
         "items": [
             {
                 "job_id": "12345",
@@ -22,7 +24,6 @@ def job_payload() -> dict[str, Any]:
                 "slurm_user": "alice",
                 "slurm_account": "personal-alice",
                 "state": "R",
-                "state_label": "running",
                 "priority": 1000,
                 "submit_time": "2026-07-31T00:00:00Z",
                 "start_time": "2026-07-31T00:01:00Z",
@@ -37,22 +38,26 @@ def job_payload() -> dict[str, Any]:
                 "reason_or_nodelist": "compute-node",
             }
         ],
-        "count": 1,
         "freshness": {
             "source": "squeue",
-            "queried_at": "2026-07-31T01:01:00Z",
+            "observed_at": "2026-07-31T01:01:00Z",
+            "ttl_seconds": 5,
+            "age_seconds": 1,
+            "stale": False,
         },
+        "etag": "jobs-snapshot-etag",
+        "has_more": False,
     }
 
 
 @pytest.fixture
 def running_estimate_payload() -> dict[str, Any]:
     common = {
+        "job_generation_key": "opaque-generation-key",
         "slurm_job_db_index": None,
         "slurm_user": "alice",
         "slurm_account": "personal-alice",
         "currency": "CNY",
-        "final": False,
     }
     allocated = {
         "partition": "gpu-standard",
@@ -62,22 +67,19 @@ def running_estimate_payload() -> dict[str, Any]:
             "gpu": 1,
             "cpu": 8,
             "mem_mb": "16384",
-            "billing": None,
             "nodes": 1,
         },
     }
     return {
-        "operation": "billing.running-estimate",
-        "version": "v1",
-        "schema_version": "billing.running-estimate/v1",
+        "schema_version": "billing.running-estimate/v2",
         "site_id": "site-a",
         "site_timezone": "Asia/Shanghai",
         "cluster_id": "cluster-a",
-        "scope": "self",
-        "visibility_role": "self",
-        "slurm_user": "alice",
-        "slurm_account": None,
-        "as_of": "2026-08-14T01:02:03Z",
+        "scope_type": "self",
+        "subject": {
+            "slurm_user": "alice",
+            "slurm_account": None,
+        },
         "freshness": {
             "source": "scheduler_cache",
             "observed_at": "2026-08-14T01:02:00Z",
@@ -89,7 +91,7 @@ def running_estimate_payload() -> dict[str, Any]:
         "items": [
             {
                 **common,
-                "job_key": "opaque-running-key",
+                "job_generation_key": "opaque-running-key",
                 "job_id_raw": "12345",
                 "state": "RUNNING",
                 "submit_time": "2026-08-14T00:00:00Z",
@@ -102,14 +104,13 @@ def running_estimate_payload() -> dict[str, Any]:
                     "usage_quantity": "1.00000000",
                 },
                 "gross_cny": "2.00000000",
-                "cash_before_credit_cny": "1.80000000",
-                "price_revision": "a" * 64,
+                "pricing_revision": "a" * 64,
                 "estimate_status": "estimated",
                 "uncertainty": [],
             },
             {
                 **common,
-                "job_key": "opaque-pending-key",
+                "job_generation_key": "opaque-pending-key",
                 "job_id_raw": "12346",
                 "state": "PENDING",
                 "submit_time": "2026-08-14T01:00:00Z",
@@ -122,14 +123,13 @@ def running_estimate_payload() -> dict[str, Any]:
                     "usage_quantity": None,
                 },
                 "gross_cny": None,
-                "cash_before_credit_cny": None,
-                "price_revision": None,
+                "pricing_revision": None,
                 "estimate_status": "not_started",
                 "uncertainty": [],
             },
             {
                 **common,
-                "job_key": "opaque-unavailable-key",
+                "job_generation_key": "opaque-unavailable-key",
                 "job_id_raw": "12347",
                 "state": "RUNNING",
                 "submit_time": "2026-08-14T00:00:00Z",
@@ -145,12 +145,10 @@ def running_estimate_payload() -> dict[str, Any]:
                     "usage_quantity": None,
                 },
                 "gross_cny": None,
-                "cash_before_credit_cny": None,
-                "price_revision": None,
+                "pricing_revision": None,
                 "estimate_status": "unavailable",
                 "uncertainty": ["pricing_unavailable"],
             },
         ],
-        "count": 3,
         "final": False,
     }

@@ -49,12 +49,14 @@
   non-final `sai jobs cost` running-estimate view.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
-- The current transport calls Portal `GET /v1/slurm/jobs`,
-  `GET /v1/slurm/jobs/{job_id}`, and
-  `GET /v1/billing/running-estimates`. The site-local capability transport,
-  TUI, resources, placement, and storage are roadmap items, not implied
-  current behavior. Running estimates come only from the Portal DTO; the CLI
-  does not price jobs locally.
+- The capability-mode client obtains an opaque site-read capability from Portal
+  with `POST /v1/authz/site-read`, then calls the independent gateway at
+  `/v1/site-read/jobs`, `/v1/site-read/jobs/{job_id}`, or
+  `/v1/site-read/billing/running-estimates`. The existing Portal job and
+  running-estimate endpoints remain a development/Portal contract and are not
+  a production fallback. The gateway server and its live producer are tracked
+  as a coordinated cross-repository gate; this wheel contains no native reader.
+  Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
   snapshot and performs no per-submission file, network, database, subprocess,
@@ -63,10 +65,12 @@
   repository owns the strict projection-to-Lua renderer and submit-time
   evaluator; native Slurm associations remain the final account authorization
   boundary.
-- Those Portal endpoints currently use `portal_read` policy, which permits
-  `agent_only`. Production login-node rollout is blocked until a server-bound
-  CLI surface or capability enforces shell access `enabled`; an optional client
-  header is not an authorization boundary.
+- Portal resolves the issuer request with `entrypoint=cli` and enforces shell
+  access `enabled`; the gateway verifies the signed grant again. A capability
+  header alone is never an authorization boundary, and the legacy
+  `portal_read` endpoints are not used by managed production wrappers. Code
+  support alone does not prove the Portal issuer, gateway, keys, or package
+  have been deployed.
 - Supported user scopes are `self`, `personal-account`, `org-account`, and
   `project-account`. There is no normal-user all scope or raw user filter.
 

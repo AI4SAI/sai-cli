@@ -10,8 +10,9 @@ from typing import Mapping, Sequence, TextIO
 
 from . import __version__
 from .auth import TokenProvider
-from .client import JobQuery, PortalClient, clean_states
-from .config import resolve_settings
+from .capability import CapabilityProvider
+from .client import JobQuery, SaiClient, clean_states
+from .config import Settings, resolve_settings
 from .errors import ContractError, SaiCliError
 from .render import render_json, render_running_estimate_table, render_table
 from .transport import JsonTransport
@@ -46,7 +47,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_connection_arguments(cost_parser, suppress_defaults=True)
     _add_job_scope_arguments(cost_parser)
     cost_parser.add_argument("--partition", help="partition narrowing filter")
-    cost_parser.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     _add_format_argument(cost_parser)
     return parser
 
@@ -56,7 +56,13 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
     parser.add_argument("--config", default=default, help="TOML configuration path")
     parser.add_argument("--profile", default=default, help="configuration profile")
     parser.add_argument("--base-url", default=default, help="SAI API base URL")
+    parser.add_argument(
+        "--site-read-base-url",
+        default=default,
+        help="SAI site-read gateway base URL",
+    )
     parser.add_argument("--site", default=default, help="SAI site identifier")
+    parser.add_argument("--cluster", default=default, help="SAI cluster identifier")
     parser.add_argument("--username", default=default, help="username for managed-node token exchange")
     parser.add_argument("--key-id", default=default, help="key identifier for managed-node token exchange")
     parser.add_argument("--timeout", type=float, default=default, help="API timeout in seconds")
@@ -85,7 +91,6 @@ def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--account", help="Portal compute account name")
     selector.add_argument("--account-id", help="Portal compute account ID")
-    parser.add_argument("--cluster", help="optional cluster identifier")
     parser.add_argument("--states", help="comma-separated state narrowing filter")
 
 
@@ -98,11 +103,11 @@ def _add_format_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _job_query(args: argparse.Namespace, *, site_id: str) -> JobQuery:
+def _job_query(args: argparse.Namespace, *, settings: Settings) -> JobQuery:
     return JobQuery(
-        site_id=site_id,
+        site_id=settings.site_id,
+        cluster_id=settings.cluster_id,
         scope=args.scope,
-        cluster_id=args.cluster,
         account_name=args.account,
         account_id=args.account_id,
         states=clean_states(args.states),
@@ -134,14 +139,32 @@ def main(
 
     try:
         settings = resolve_settings(args, env)
-        transport = JsonTransport(
-            base_url=settings.base_url,
+        portal_transport = JsonTransport(
+            base_url=settings.portal_base_url,
             timeout_seconds=settings.timeout_seconds,
             allow_insecure_http=settings.allow_insecure_http,
         )
-        provider = TokenProvider(settings=settings, transport=transport, environ=env)
-        client = PortalClient(transport=transport, token_provider=provider)
-        query = _job_query(args, site_id=settings.site_id)
+        site_read_transport = JsonTransport(
+            base_url=settings.site_read_base_url,
+            timeout_seconds=settings.timeout_seconds,
+            allow_insecure_http=settings.allow_insecure_http,
+        )
+        provider = TokenProvider(
+            settings=settings,
+            transport=portal_transport,
+            environ=env,
+        )
+        capability_provider = CapabilityProvider(
+            settings=settings,
+            portal_transport=portal_transport,
+        )
+        client = SaiClient(
+            portal_transport=portal_transport,
+            site_read_transport=site_read_transport,
+            token_provider=provider,
+            capability_provider=capability_provider,
+        )
+        query = _job_query(args, settings=settings)
 
         if args.command == "jobs" and args.jobs_command == "list":
             result = client.list_jobs(query)

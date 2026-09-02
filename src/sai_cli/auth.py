@@ -47,7 +47,11 @@ class TokenProvider:
         self.environ = os.environ if environ is None else environ
         self.clock = clock
         self.nonce_factory = nonce_factory or (lambda: secrets.token_hex(16))
-        self.cache = TokenCache(settings.cache_path, enabled=settings.use_cache)
+        self.cache = TokenCache(
+            settings.cache_path,
+            enabled=settings.use_cache,
+            clock=clock,
+        )
 
     def _entry_key(self) -> str:
         if not self.settings.username:
@@ -56,7 +60,7 @@ class TokenProvider:
                 code="credentials_unavailable",
             )
         return cache_key(
-            base_url=self.settings.base_url,
+            base_url=self.settings.portal_base_url,
             username=self.settings.username,
             key_id=self.settings.key_id,
         )
@@ -65,6 +69,11 @@ class TokenProvider:
         direct = (self.environ.get("SAI_TOKEN") or "").strip()
         if direct:
             return TokenLease(token=_validate_token(direct), expires_at=None, source="environment")
+        if self.settings.managed_login_node:
+            raise AuthenticationError(
+                "managed login nodes require an injected short-lived SAI_TOKEN",
+                code="credentials_unavailable",
+            )
 
         now = int(self.clock())
         entry_key = self._entry_key()
@@ -80,6 +89,11 @@ class TokenProvider:
         self.cache.delete(self._entry_key())
 
     def _exchange(self, *, now: int, entry_key: str) -> TokenLease:
+        if self.settings.managed_login_node:
+            raise AuthenticationError(
+                "managed login nodes require an injected short-lived SAI_TOKEN",
+                code="credentials_unavailable",
+            )
         username = self.settings.username or ""
         shared_secret = (self.environ.get("SAI_API_SHARED_SECRET") or "").strip()
         if not shared_secret:

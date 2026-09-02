@@ -24,7 +24,7 @@ required before enabling `JobSubmitPlugins=lua` or removing TaskProlog policy.
 - [x] Protected short-lived token cache
 - [x] Existing Bearer token and managed-node HMAC compatibility bootstrap
 - [x] `sai jobs list` and `sai jobs show`
-- [x] `sai jobs cost` against the independent Portal running-estimate DTO
+- [x] `sai jobs cost` against the frozen gross-only site-read DTO
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -36,9 +36,10 @@ production wrapper.
 
 ## Milestone 0.2: control-plane compatibility
 
-- [ ] Cross-repository contract fixture shared with the Portal API
-- [ ] Surface-bound CLI authorization that enforces shell access `enabled`;
-  the current shared `portal_read` endpoint permits `agent_only`
+- [x] Client-side POST capability request and server-bound site-read mapping;
+  Portal issuer resolves `entrypoint=cli` and enforces shell access `enabled`
+- [ ] Cross-repository response/conformance fixture shared with Portal and the
+  independent gateway
 - [ ] Development-stack read-only smoke for self and one account scope
 - [ ] Browser/device login design for unmanaged clients
 - [ ] Shell completion and package metadata
@@ -51,7 +52,7 @@ facts or production deployment.
 - [ ] Optional TUI dependency group
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
 - [ ] TUI running-usage estimate view; the batch `jobs cost` view already
-  exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
+  exposes `final=false`, observed freshness, price revision, and uncertainty
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [ ] Local-state keyboard interactions and asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
@@ -63,8 +64,8 @@ does not prove real placement, topology, rate data, or production latency.
 
 ## Milestone 0.4: site-local capability transport
 
-- [ ] Versioned capability/query/response schemas
-- [ ] Control-plane issuer compatibility vectors
+- [x] Versioned client capability/query/response schemas and negative vectors
+- [x] Control-plane issuer compatibility request/echo vectors
 - [ ] Site-local billing-visibility capability; the Portal running-estimate
   HTTP contract is implemented, but job visibility alone must not grant it
 - [ ] Shared scheduler collector snapshot for jobs and usage estimates, with
@@ -72,8 +73,9 @@ does not prove real placement, topology, rate data, or production latency.
 - [ ] Cross-repository site-runtime gateway fixture for verifier, filter
   narrowing, cache isolation, and audit reference; the gateway server is not a
   CLI-wheel module
-- [ ] Client capability cache and renewal single-flight
-- [ ] Local-gateway transport behind existing commands
+- [x] Client capability cache and one-refresh renewal boundary
+- [x] Local-gateway transport behind existing commands (producer deployment
+  remains open)
 - [ ] Development-stack protocol smoke
 - [ ] Contract fixture usable by CLI/TUI, Portal relay, and a separately owned
   site-local read-only Web client
@@ -93,3 +95,8 @@ site or production package.
 
 Production rollout and fleet-wide replacement require a separate operations
 plan and approval.
+
+The batch-only login-node Debian package, full-SHA manifest, and canary run card
+are tracked as a candidate implementation. These checkboxes remain open until
+a clean pushed commit is built and target install/readback/rollback evidence is
+captured; local packaging tests do not mark production complete.

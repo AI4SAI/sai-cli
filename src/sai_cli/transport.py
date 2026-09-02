@@ -28,6 +28,7 @@ from .errors import (
 
 _MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 _MAX_ERROR_BYTES = 64 * 1024
+_MAX_REQUEST_BYTES = 64 * 1024
 _SAFE_CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
 _BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
 _SECRET_PAIR_RE = re.compile(
@@ -167,6 +168,7 @@ class JsonTransport:
         *,
         query: Mapping[str, str | int | Sequence[str] | None] | None = None,
         headers: Mapping[str, str] | None = None,
+        json_body: Mapping[str, object] | None = None,
     ) -> JsonResponse:
         if not path.startswith("/") or path.startswith("//"):
             raise ConfigError("API request path is invalid")
@@ -184,7 +186,27 @@ class JsonTransport:
             "X-SAI-Request-ID": request_id,
         }
         request_headers.update(headers or {})
-        request = Request(url=url, method=method.upper(), headers=request_headers)
+        data: bytes | None = None
+        if json_body is not None:
+            if method.upper() not in {"POST", "PUT", "PATCH"}:
+                raise ConfigError("JSON request bodies require POST, PUT, or PATCH")
+            try:
+                data = json.dumps(
+                    dict(json_body),
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            except (TypeError, ValueError) as exc:
+                raise ConfigError("API request body is invalid") from exc
+            if len(data) > _MAX_REQUEST_BYTES:
+                raise ConfigError("API request body is too large")
+            request_headers["Content-Type"] = "application/json"
+        request = Request(
+            url=url,
+            data=data,
+            method=method.upper(),
+            headers=request_headers,
+        )
 
         try:
             with self._opener.open(request, timeout=self.timeout_seconds) as response:
