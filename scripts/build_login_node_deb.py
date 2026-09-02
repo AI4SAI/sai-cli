@@ -72,7 +72,7 @@ def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
 
 def _source_files(root: Path = REPO_ROOT) -> list[Path]:
     paths = [root / value for value in SOURCE_PATHS]
-    paths.extend(sorted((root / "src" / "sai_cli").glob("*.py")))
+    paths.extend(sorted((root / "src" / "sai_cli").rglob("*.py")))
     if any(not path.is_file() or path.is_symlink() for path in paths):
         raise RuntimeError("login-node package source set is incomplete or unsafe")
     return sorted(set(paths))
