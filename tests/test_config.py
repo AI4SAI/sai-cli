@@ -15,6 +15,21 @@ def _args(*extra: str):
     return build_parser().parse_args([*extra, "jobs", "list"])
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--site", "site-a", "--cluster", "cluster-a", "jobs", "list"],
+        ["jobs", "list", "--site", "site-a", "--cluster", "cluster-a"],
+    ],
+)
+def test_connection_site_and_cluster_work_before_or_after_command(
+    argv: list[str],
+) -> None:
+    args = build_parser().parse_args(argv)
+    assert args.site == "site-a"
+    assert args.cluster == "cluster-a"
+
+
 def test_profile_loads_and_cli_environment_precedence(tmp_path: Path) -> None:
     config = tmp_path / "config.toml"
     config.write_text(

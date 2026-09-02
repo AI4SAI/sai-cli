@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,24 @@ def test_token_cache_rejects_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(AuthenticationError, match="regular file"):
         TokenCache(link).get("missing", now=0)
+
+
+def test_token_cache_delete_rejects_dangling_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "token-cache.json"
+    link.symlink_to(tmp_path / "missing.json")
+
+    with pytest.raises(AuthenticationError, match="regular file"):
+        TokenCache(link).delete("key")
+
+
+def test_token_cache_put_prunes_expired_entries_with_provider_clock(tmp_path: Path) -> None:
+    path = tmp_path / "cache" / "token-cache.json"
+    cache = TokenCache(path, clock=lambda: 100)
+    cache.put("expired", token="old", expires_at=100)
+    cache.put("live", token="new", expires_at=200)
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert set(payload["entries"]) == {"live"}
 
 
 def test_hmac_exchange_uses_contract_and_reuses_cache(tmp_path: Path) -> None:
