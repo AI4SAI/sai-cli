@@ -168,6 +168,68 @@ def test_config_parent_symlink_is_rejected(tmp_path: Path) -> None:
         )
 
 
+def test_managed_config_parent_permissions_are_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "managed"
+    parent.mkdir()
+    parent.chmod(0o777)
+    config = parent / "config.toml"
+    config.write_text(
+        '[profiles.default]\nbase_url = "https://portal.example.org"\nsite_id = "site-a"\n',
+        encoding="utf-8",
+    )
+    config.chmod(0o644)
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
+
+    with pytest.raises(ConfigError, match="parent ownership or permissions"):
+        resolve_settings(
+            _args(),
+            {"SAI_MANAGED_LOGIN_NODE": "1"},
+        )
+
+
+def test_managed_config_parent_must_be_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "managed"
+    parent.write_text("not a directory", encoding="utf-8")
+    config = parent / "config.toml"
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
+
+    with pytest.raises(ConfigError, match="parent must be a directory"):
+        resolve_settings(
+            _args(),
+            {"SAI_MANAGED_LOGIN_NODE": "1"},
+        )
+
+
+def test_unmanaged_config_allows_user_parent_permissions(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "user-config"
+    parent.mkdir()
+    parent.chmod(0o777)
+    config = parent / "config.toml"
+    config.write_text(
+        '[profiles.default]\nbase_url = "https://portal.example.org"\nsite_id = "site-a"\n',
+        encoding="utf-8",
+    )
+    config.chmod(0o644)
+
+    settings = resolve_settings(
+        _args("--config", str(config)),
+        {},
+    )
+
+    assert settings.base_url == "https://portal.example.org"
+    assert settings.site_id == "site-a"
+
+
 def test_managed_login_node_uses_root_config_and_token_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

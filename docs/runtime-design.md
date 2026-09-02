@@ -160,6 +160,10 @@ Requirements:
   margin;
 - malformed or weak-permission caches fail closed with a bounded diagnostic.
 
+Managed `/etc/sai-cli/config.toml` additionally requires a root-owned regular
+file beneath root-owned, non-group/world-writable, non-symlink directories.
+This applies only to the managed path; XDG paths retain per-user rules.
+
 ## HTTP behavior
 
 - The base URL must be HTTPS unless it resolves syntactically to a loopback

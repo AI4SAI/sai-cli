@@ -92,7 +92,10 @@ def _read_config(
     *,
     required_owner_uid: int | None = None,
 ) -> dict[str, Any]:
-    _reject_symlink_ancestors(path.parent)
+    _reject_symlink_ancestors(
+        path.parent,
+        required_owner_uid=required_owner_uid,
+    )
     try:
         before = path.lstat()
     except FileNotFoundError:
@@ -130,8 +133,17 @@ def _read_config(
     return loaded
 
 
-def _reject_symlink_ancestors(path: Path) -> None:
-    """Reject config paths redirected through an existing directory symlink."""
+def _reject_symlink_ancestors(
+    path: Path,
+    *,
+    required_owner_uid: int | None = None,
+) -> None:
+    """Reject redirected or unsafe ancestors of a config path.
+
+    Managed config paths are rooted in an operator-owned directory tree.  The
+    per-user XDG path keeps the historical symlink-only check so users may use
+    normal private directory layouts without an ownership policy imposed here.
+    """
 
     current = path
     while True:
@@ -146,6 +158,21 @@ def _reject_symlink_ancestors(path: Path) -> None:
             raise ConfigError("the SAI config path could not be inspected") from exc
         if stat.S_ISLNK(info.st_mode):
             raise ConfigError("the SAI config path must not contain symbolic links")
+        if required_owner_uid is not None:
+            # Sticky world-writable temporary roots protect root-owned
+            # descendants from replacement; use them as a safe test boundary.
+            if (
+                stat.S_ISDIR(info.st_mode)
+                and info.st_mode & stat.S_IWOTH
+                and info.st_mode & stat.S_ISVTX
+            ):
+                break
+            if not stat.S_ISDIR(info.st_mode):
+                raise ConfigError("the managed SAI config parent must be a directory")
+            if info.st_uid != required_owner_uid or info.st_mode & 0o022:
+                raise ConfigError(
+                    "the managed SAI config parent ownership or permissions are unsafe"
+                )
         if current == current.parent:
             break
         current = current.parent
