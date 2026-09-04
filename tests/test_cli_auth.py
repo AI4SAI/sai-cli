@@ -162,3 +162,19 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
     credentials_path = tmp_path / "data" / "sai" / "credentials.json"
     assert credentials_path.exists()
     assert json.loads(credentials_path.read_text(encoding="utf-8"))["entries"] == {}
+
+
+def test_legacy_environment_token_status_does_not_require_identity(tmp_path: Path) -> None:
+    stdout = StringIO()
+    stderr = StringIO()
+    result = main(
+        ["auth", "status", "--base-url", "https://portal.example.org", "--site", "site-a"],
+        environ={**_env(tmp_path), "SAI_TOKEN": "compat-token"},
+        stdout=stdout,
+        stderr=stderr,
+    )
+    assert result == 0
+    payload = json.loads(stdout.getvalue())
+    assert payload["authenticated"] is True
+    assert payload["source"] == "environment"
+    assert "compat-token" not in stdout.getvalue()

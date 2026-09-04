@@ -303,10 +303,18 @@ def _handle_auth_command(
     if args.auth_command == "status":
         lease = provider.get()
         if oidc_client is None:
-            raise AuthenticationError(
-                "SAI Identity issuer is not configured; CLI status is unavailable",
-                code="credentials_unavailable",
+            _auth_result_output(
+                {
+                    "ok": True,
+                    "authenticated": True,
+                    "source": lease.source,
+                    "access_expires_at": lease.expires_at,
+                    "refresh_expires_at": None,
+                },
+                output_format=output_format,
+                output=output,
             )
+            return 0
         refresh = provider.device_refresh()
         safe = {
             "ok": True,
