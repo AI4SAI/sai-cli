@@ -41,7 +41,12 @@ def _validate_token(value: object) -> str:
     if not isinstance(value, str):
         raise ContractError("the token response is invalid")
     token = value.strip()
-    if not token or len(token) > 16_384 or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token):
+    if (
+        not token
+        or token != value
+        or len(token) > 16_384
+        or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
+    ):
         raise ContractError("the token response is invalid")
     return token
 

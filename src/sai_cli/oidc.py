@@ -58,8 +58,14 @@ class OidcSlowDown(Exception):
 def _token(value: object, *, field: str) -> str:
     if not isinstance(value, str):
         raise ContractError(f"the Identity {field} is invalid")
+    original = value
     value = value.strip()
-    if not value or len(value) > 16_384 or any(ord(char) < 33 or ord(char) == 127 for char in value):
+    if (
+        not value
+        or value != original
+        or len(value) > 16_384
+        or any(ord(char) < 33 or ord(char) == 127 for char in value)
+    ):
         raise ContractError(f"the Identity {field} is invalid")
     return value
 

@@ -144,3 +144,12 @@ def test_malformed_discovery_url_is_a_contract_error() -> None:
     transport = _Transport([JsonResponse(metadata, "discovery", 200)])
     with pytest.raises(ContractError, match="Identity token_endpoint"):
         _client(transport).discover()
+
+
+def test_device_code_with_surrounding_whitespace_is_rejected() -> None:
+    transport = _Transport([JsonResponse(_metadata(), "discovery", 200)])
+    with pytest.raises(ContractError, match="device_code"):
+        _client(transport).poll_device_token(
+            device_code=" opaque-device-code",
+            now=1_700_000_000,
+        )
