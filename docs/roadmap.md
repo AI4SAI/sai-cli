@@ -41,6 +41,9 @@ production wrapper.
 - [ ] Shared cross-repository request/response fixture (the two repositories'
   focused vectors are aligned, but no single shared artifact is published yet)
 - [ ] Production issuer key/epoch deployment and authenticated devstack smoke
+- [ ] SAI Identity OIDC provider/device grant, registered `sai-cli` client, and
+  Portal resource-token verifier (owned by the Identity/Portal repositories;
+  the current repositories are still pre-migration)
 - [ ] Development-stack read-only smoke for self and one account scope
 - [ ] Independent Portal settled-billing read contract (`billing.settled.read`)
   and a separately reviewed CLI command
