@@ -19,7 +19,7 @@ from .auth import (
 from .capability import CapabilityProvider
 from .client import JobQuery, PortalClient, clean_states
 from .config import Settings, resolve_settings
-from .errors import ContractError, SaiCliError
+from .errors import AuthenticationError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
 from .render import render_json, render_running_estimate_table, render_table
 from .transport import JsonTransport

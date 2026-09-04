@@ -178,3 +178,17 @@ def test_legacy_environment_token_status_does_not_require_identity(tmp_path: Pat
     assert payload["authenticated"] is True
     assert payload["source"] == "environment"
     assert "compat-token" not in stdout.getvalue()
+
+
+def test_device_login_without_identity_issuer_is_bounded(tmp_path: Path) -> None:
+    stdout = StringIO()
+    stderr = StringIO()
+    result = main(
+        ["auth", "login", "--no-wait", "--base-url", "https://portal.example.org", "--site", "site-a"],
+        environ=_env(tmp_path),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    assert result == 3
+    assert json.loads(stderr.getvalue())["error"]["code"] == "credentials_unavailable"
+    assert stdout.getvalue() == ""
