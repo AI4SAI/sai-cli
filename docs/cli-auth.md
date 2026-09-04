@@ -1,0 +1,77 @@
+# CLI 登录与长期会话
+
+状态：`oidc-device-flow-contract`（需要 `sai-identity` consuming layer）
+
+## 用户体验
+
+登录节点不要求用户在每次 SSH 会话中输入密码、复制 Bearer 或设置环境
+变量。首次使用时，在登录节点执行：
+
+```bash
+sai auth login
+```
+
+命令显示 SAI Identity 的浏览器地址和一次性设备码。用户在已有浏览器
+登录态中完成登录/MFA 并批准设备，命令自动完成登录。之后普通命令直接
+使用本机的设备会话：
+
+```bash
+sai jobs list --scope self --limit 1
+sai auth status
+sai auth logout
+```
+
+如果 SSH 窗口需要先退出，可用 `sai auth login --no-wait` 发起授权，回来
+后执行 `sai auth login --resume`。待确认的 device code 只写入权限为
+`0700/0600` 的用户凭据缓存，过期后失效；它不会写入 shell history、TOML
+或日志。
+
+## 协议归属
+
+Device Authorization Grant 是 OAuth 2.0 的授权方式，不是 OAuth 的替代
+品。SAI 的唯一身份入口是 `sai-identity` 及其维护的 OIDC/OAuth 协议引擎：
+
+1. CLI 通过 `GET /.well-known/openid-configuration` 发现 Identity 的
+   `device_authorization_endpoint`、`token_endpoint`、可选的
+   `revocation_endpoint` 和 `userinfo_endpoint`。
+2. CLI 按 RFC 8628 发起设备授权；用户在 Identity 浏览器页完成密码、OTP、
+   MFA、consent 和风控确认。
+3. CLI 轮询 Identity 的 token endpoint。批准后得到短期 OAuth access token
+   和 rotating refresh token。CLI 不解析或伪造 Identity token。
+4. access token 以 Portal resource audience 使用：Portal 校验 Identity
+   issuer/signature/audience/scope（或受保护的 introspection），再执行
+   workspace、membership、site、account、policy 判定。
+5. Portal 通过 `POST /v1/authz/site-read` 签发独立的 `sai-authz` capability，
+   CLI 最终只访问 `/v1/slurm/cli/*` 或 `/v1/billing/cli/*`。
+
+Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当前仍有
+历史密码/OTP/HMAC Bearer 兼容链，这是迁移前状态，不是 CLI 长期登录的目标
+合同。`sai-identity` 的 OIDC provider、client registry、credential store
+和生产部署尚未完成前，CLI 生产登录门禁保持 blocked。
+
+## 生命周期与存储
+
+- access token 默认由 Identity policy 控制为短期（客户端接受不超过 1 小时）。
+- refresh token 由 Identity 轮换、可撤销并受绝对/闲置生命周期限制；客户端不
+  提供不可撤销的“永久 Bearer”。在 SSH 可信的前提下，用户可以数月乃至更久
+  不重新交互，但账号禁用、全局 logout、token-family reuse 或策略过期会立即
+  收敛权限。
+- refresh token 的默认路径是
+  `${XDG_DATA_HOME}/sai/credentials.json`（未设置时
+  `~/.local/share/sai/credentials.json`），目录 `0700`、文件 `0600`，原子
+  替换并拒绝符号链接。access token 仍使用现有短期 cache。
+- 多个 CLI 进程通过用户凭据锁串行化 refresh，避免 rotating token 的竞态。
+- managed login-node 的 `/etc/sai-cli/config.toml` 只提供非敏感 Portal/
+  Identity origin、client ID、scope 和 resource；refresh token 始终由当前
+  Unix 用户持有，不能由 root 配置文件共享，也不能放入 package 或 wrapper。
+
+## 失败与恢复
+
+`sai` 不会猜测身份、回退到原始 Slurm、静默换用 `portal_read`，或把空列表
+当作成功。Identity device/session 无效、过期或被撤销时，命令返回
+`credentials_unavailable`，并提示重新执行 `sai auth login`。网络暂时失败
+不会删除仍然有效的本地 refresh token。
+
+设备登录完成不等于生产闭环完成：还必须验证 Identity discovery/keys/rotation、
+Portal resource-token consuming layer、issuer key/epoch、login-node package、
+真实用户 GET-only canary 和回滚证据。本文件不宣称这些部署门禁已经通过。

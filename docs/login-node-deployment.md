@@ -61,12 +61,16 @@ normal login-node use.
 The CLI therefore has no production fallback to the legacy `portal_read`
 routes. The matching Portal release must already expose and enable the
 capability issuer/CLI routes, use an Ed25519 key through a protected file, and
-publish the matching integer policy epoch.
+publish the matching integer policy epoch. The matching SAI Identity release
+must expose the registered OIDC client and Device Authorization Grant.
 
-User credentials remain process-local. A canary may receive only a short-lived
-`SAI_TOKEN` through a protected, non-recorded environment injection. Never
-place it in argv, TOML, shell startup, the package, transcript, or release
-manifest. Remove the temporary injection and user cache after the canary.
+Users authenticate once per login-node account with `sai auth login`; the
+browser/device flow runs at SAI Identity, not Portal. The resulting rotating
+refresh credential is owned by the Unix user in the protected credential cache.
+No Bearer, refresh token, password, or Identity signing key is put in argv,
+TOML, shell startup, the package, transcript, or release manifest. An
+already-issued `SAI_TOKEN` remains a process-local emergency compatibility
+input only.
 
 ## Single-user canary
 
@@ -76,9 +80,10 @@ version, and the canary user's queue/history. The first execution is made from
 an explicitly extracted package path, before `dpkg -i` changes the global
 entrypoint.
 
-Only run:
+After the user device session exists, only run:
 
 ```bash
+sai auth status --format json
 sai jobs list --scope self --limit 1 --format json
 ```
 
@@ -98,6 +103,9 @@ Acceptance requires:
 After the extracted-path canary passes, install the exact inspected `.deb`,
 read back package version/manifest/digest and `/usr/bin/sai --version`, then
 repeat the same GET-only canary. Preserve the previous `.deb` as rollback.
+If the canary device session was created only for acceptance, revoke it with
+`sai auth logout` after collecting evidence; never copy its refresh credential
+to another user or node.
 
 ## Rollback and cleanup
 
@@ -107,8 +115,8 @@ only the `sai-cli` package after verifying its installed-file list; external
 config/cache cleanup is separate and explicit.
 
 Before closing the window, remove the transferred package, extraction tree,
-temporary credential file/environment, failed staging directory, and unused
-tooling. Retain only the current and previous verified artifacts plus the
-permission-protected transcript/evidence packet. A clean package build is
+temporary device-auth state or process environment, failed staging directory,
+and unused tooling. Retain only the current and previous verified artifacts
+plus the permission-protected transcript/evidence packet. A clean package build is
 `candidate`; target install is `deployed`; only the consuming-layer user flow
 is `live-verified`.

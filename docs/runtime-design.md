@@ -42,10 +42,12 @@ does not expose a `sai jobs submit` command.
 Unimplemented command families remain in the roadmap rather than appearing as
 placeholders that return fake data.
 
-The current Portal endpoint uses `portal_read` authorization and can accept an
-`agent_only` account. Production login-node rollout remains blocked until a
-server-verifiable CLI surface enforces shell access `enabled`; client headers or
-local checks cannot establish that authorization boundary.
+The current legacy Portal endpoint uses `portal_read` authorization and can
+accept an `agent_only` account. Production login-node rollout remains blocked
+until (a) SAI Identity issues the registered Portal-audience token, (b) Portal
+verifies that token and its CLI surface, and (c) the server-verifiable CLI
+surface enforces shell access `enabled`; client headers or local checks cannot
+establish that authorization boundary.
 
 ## Scope selection
 
@@ -85,6 +87,10 @@ default_profile = "default"
 
 [profiles.default]
 base_url = "https://portal.example.org"
+identity_issuer = "https://id.example.org"
+oidc_client_id = "sai-cli"
+oidc_scope = "openid offline_access sai.compute.read"
+oidc_resource = "https://portal.example.org"
 site_id = "site-a"
 username = "alice"
 key_id = "managed-login"
@@ -106,6 +112,11 @@ Relevant environment variables:
 | `SAI_TOKEN` | Already-issued short-lived Bearer token |
 | `SAI_API_SHARED_SECRET` | Protected HMAC secret for unmanaged compatibility exchange |
 | `SAI_API_TIMEOUT` | HTTP timeout in seconds |
+| `SAI_CREDENTIAL_CACHE` | Optional unmanaged path for the protected device refresh cache |
+| `SAI_IDENTITY_ISSUER` | SAI Identity OIDC issuer used by `sai auth login` |
+| `SAI_OIDC_CLIENT_ID` | Pre-registered public OIDC client identifier |
+| `SAI_OIDC_SCOPE` | Reviewed OIDC scopes for the Portal resource (includes `offline_access`) |
+| `SAI_OIDC_RESOURCE` | Optional Portal resource/audience identifier |
 | `SAI_ALLOW_INSECURE_HTTP` | Development-only explicit HTTP override |
 | `SAI_REQUIRE_SITE_CAPABILITY` | Require the server-bound capability/CLI routes; mandatory in managed production wrappers |
 
@@ -114,11 +125,14 @@ Relevant environment variables:
 Token selection order is:
 
 1. use `SAI_TOKEN` for the current process without writing it to disk;
-2. reuse a valid protected cache entry;
-3. for an unmanaged compatibility client, exchange a HMAC request at
+2. reuse a valid CLI device access token;
+3. rotate a valid SAI Identity OIDC refresh credential at the discovered
+   `token_endpoint`;
+4. reuse a legacy protected cache entry;
+5. for an unmanaged compatibility client, exchange a HMAC request at
    `POST /v1/token` and cache only the returned short-lived Bearer token.
-   Managed login nodes require the process-local `SAI_TOKEN` path and never
-   carry the HMAC secret.
+   Managed login nodes never carry the HMAC secret; they use SAI Identity's
+   OAuth 2.0 Device Authorization Grant after a one-time browser approval.
 
 The HMAC canonical string is part of the existing Portal compatibility
 contract:
@@ -127,10 +141,11 @@ contract:
 username + "\n" + unix_timestamp + "\n" + nonce + "\n" + key_id
 ```
 
-The compatibility secret is not a general desktop login mechanism. A future
-interactive browser/device authorization flow should replace it for unmanaged
-clients. The CLI must not accept a secret or Bearer token as a command-line
-argument because process listings and shell history are not secret stores.
+The compatibility secret is not a general login mechanism. `sai auth login`
+uses a short-lived browser/device authorization and persists only a rotating,
+revocable refresh credential. The CLI must not accept a secret, Bearer token,
+or refresh credential as a command-line argument because process listings and
+shell history are not secret stores.
 
 For managed production use, Bearer authentication is followed by a capability
 exchange at `POST /v1/authz/site-read` with the exact JSON request body. The response is cached as an opaque
@@ -140,7 +155,7 @@ scope, exact filters, and job ID. Jobs and running-estimate reads then use
 Bearer actor and the signed grant. A cached Bearer or capability is refreshed
 at most once after authentication failure.
 
-## Token cache
+## Token and device credential caches
 
 Cache path precedence is:
 
@@ -159,6 +174,12 @@ Requirements:
 - a token is considered expired before its actual expiry to leave request
   margin;
 - malformed or weak-permission caches fail closed with a bounded diagnostic.
+
+The device refresh cache defaults to
+`${XDG_DATA_HOME}/sai/credentials.json` or
+`~/.local/share/sai/credentials.json` and has the same `0700/0600`, symlink,
+atomic-replacement, and ownership requirements. A per-user lock serializes
+refresh-token rotation across concurrent CLI processes.
 
 Managed `/etc/sai-cli/config.toml` additionally requires a root-owned regular
 file beneath root-owned, non-group/world-writable, non-symlink directories.

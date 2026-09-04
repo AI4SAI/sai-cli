@@ -44,7 +44,10 @@ production wrapper.
 - [ ] Development-stack read-only smoke for self and one account scope
 - [ ] Independent Portal settled-billing read contract (`billing.settled.read`)
   and a separately reviewed CLI command
-- [ ] Browser/device login design for unmanaged clients
+- [ ] Browser/device login via the SAI Identity OIDC Device Authorization Grant
+  (the client-side protocol candidate is local; Identity provider/client
+  registration, Portal resource-token consumption, and live authentication
+  remain gates)
 - [ ] Shell completion and package metadata
 
 Acceptance boundary: development control plane. It does not prove live site

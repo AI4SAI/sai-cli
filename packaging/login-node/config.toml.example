@@ -2,6 +2,10 @@ default_profile = "default"
 
 [profiles.default]
 base_url = "https://portal.example.org"
+identity_issuer = "https://id.example.org"
+oidc_client_id = "sai-cli"
+oidc_scope = "openid offline_access sai.compute.read"
+oidc_resource = "https://portal.example.org"
 site_id = "site-a"
 cluster_id = "cluster-a"
 timeout_seconds = 10

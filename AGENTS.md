@@ -29,15 +29,18 @@
 
 ## Ownership Boundaries
 
-- The SAI control plane owns identity, membership, account ownership, site
-  access, policy, authorization, and final billing facts.
+- `sai-identity` owns account identity, credentials, MFA, sessions, consent,
+  OIDC/OAuth subjects, and shared profile. Portal owns membership, account
+  ownership, site access, policy, authorization, and final billing facts.
 - A future site-local read gateway may verify a narrow signed capability,
   further restrict filters, read native facts, cache briefly, and buffer audit
   records. It must not become an authorization or write service.
-- `sai-cli` parses explicit user intent, obtains short-lived credentials, calls
-  an authorized endpoint, validates an allowlisted DTO, and renders output.
-  It must not query Slurm, storage, identity systems, or broad site-agent
-  endpoints directly.
+- `sai-cli` parses explicit user intent, obtains short-lived credentials (via
+  the SAI Identity OIDC Device Authorization Grant in managed mode), calls an
+  authorized endpoint, validates an allowlisted DTO, and renders output.
+  It must not query Slurm, storage, identity databases/administrative APIs, or
+  broad site-agent endpoints directly; the registered OIDC protocol endpoint is
+  the sole identity interaction.
 - Read permission never implies submit, cancel, hold, requeue, QOS mutation,
   quota mutation, wallet, or ledger permission.
 
@@ -66,8 +69,9 @@
 - The legacy Portal endpoints use `portal_read` policy, which permits
   `agent_only`. Production wrappers must force the server-bound capability/CLI
   routes; Portal re-resolves `entrypoint=cli` and enforces shell access
-  `enabled`. Code support alone does not prove the Portal keys/routes or
-  login-node package have been deployed.
+  `enabled`. Code support alone does not prove the Identity provider, Portal
+  resource-token verifier, keys/routes, or login-node package have been
+  deployed.
 - Supported user scopes are `self`, `personal-account`, `org-account`, and
   `project-account`. There is no normal-user all scope or raw user filter.
 
@@ -179,8 +183,9 @@ editing either side. Do not copy private collaboration logs into this repo.
   command-line arguments. They leak through process listings and shell history.
 - Never store tokens or secrets in TOML profiles. `SAI_TOKEN` is process-local;
   unmanaged compatibility HMAC bootstrap reads its secret from the protected
-  runtime environment and caches only the returned short-lived token. The
-  managed login-node wrapper rejects HMAC inputs and requires `SAI_TOKEN`.
+  runtime environment and caches only the returned short-lived token. Managed
+  login nodes use the SAI Identity device flow and a protected rotating
+  refresh credential; the wrapper rejects HMAC inputs.
 - Token cache directories are user-owned `0700`; cache files are regular,
   user-owned `0600` files written by atomic replacement. Reject symbolic links,
   unsafe permissions, oversized payloads, and read races.

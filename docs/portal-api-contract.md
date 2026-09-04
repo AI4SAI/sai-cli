@@ -9,13 +9,21 @@ both repositories.
 
 ## Authentication
 
-User endpoints require:
+User endpoints require a short-lived access token whose issuer and audience are
+validated by Portal. In the target architecture the token is issued by the
+SAI Identity OIDC provider:
 
 ```http
 Authorization: Bearer <short-lived-token>
 ```
 
-Unmanaged compatibility bootstrap uses:
+The CLI obtains that token with the standard OAuth 2.0 Device Authorization
+Grant discovered from the Identity issuer. Identity owns the rotating refresh
+token and user session; Portal does not issue a second CLI login credential.
+The Identity provider/device endpoint is a separate cross-repository release
+gate and is not yet a production fact in this repository.
+
+The pre-Identity compatibility bootstrap currently retained by Portal uses:
 
 ```text
 POST /v1/token?username=...&ts=...&nonce=...&key_id=...&sig=...

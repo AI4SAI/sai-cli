@@ -13,17 +13,20 @@ The architecture separates three responsibilities:
 
 | Owner | Responsibility | Explicitly does not own |
 | --- | --- | --- |
-| SAI control plane | Actor identity, membership, site access, compute-account ownership, policy version, and authorization | High-frequency scheduler reads at every remote site |
+| `sai-identity` | Account identity, credentials, MFA, sessions, consent, OIDC/OAuth subjects, and shared profile | Portal workspace/membership/site/billing policy or scheduler facts |
+| Portal control plane | Workspace/membership, site access, compute-account ownership, policy version, authorization, and final billing facts | Identity credentials and high-frequency scheduler reads at every remote site |
 | Site-local read plane | Verify a narrow capability, further restrict filters, read native site facts, cache briefly, and buffer audit records | Membership or billing policy decisions |
-| `sai-cli` | Parse commands, obtain short-lived credentials, call an authorized endpoint, validate DTOs, and render output | Raw scheduler access, broad fallback reads, or privilege expansion |
+| `sai-cli` | Parse commands, complete a browser-approved device login when needed, renew short-lived credentials, call an authorized endpoint, validate DTOs, and render output | Raw scheduler access, broad fallback reads, or privilege expansion |
 
 ## Current and target paths
 
-The current release uses control-plane job visibility and running-estimate
-read APIs:
+The current code release uses control-plane job visibility and
+running-estimate read APIs. Its legacy compatibility mode still accepts a
+Portal Bearer; the production target inserts SAI Identity as the issuer:
 
 ```text
-user -> sai-cli -> SAI control-plane API -> authorized site reader -> scheduler
+user -> sai-cli -- OIDC access token --> SAI Identity
+     -> Portal resource API -> authorized site reader -> scheduler
 ```
 
 The target remote-site path separates authorization from the query hot path:
@@ -44,10 +47,18 @@ The transport changes, but command semantics and response DTOs stay stable.
 The initial implementation must not claim that the site-local capability path
 already exists.
 
+For an interactive login-node user, the bootstrap is a one-time OAuth/OIDC
+Device Authorization Grant at `sai-identity`: the browser authenticates and
+approves the device, while the CLI keeps only a rotating, revocable refresh
+credential. A short-lived Portal-bound access token is renewed automatically;
+Portal still enforces its audience/scope and CLI read policy. SSH session
+reconnects therefore do not require another login.
+
 ## Trust model
 
-1. The control plane resolves a user-facing scope into an exact scheduler user
-   or account filter.
+1. SAI Identity authenticates the user and issues a token for the Portal
+   resource. Portal then resolves a user-facing scope into an exact scheduler
+   user or account filter.
 2. The CLI can only request a documented scope and can only narrow state,
    partition, object ID, and result-limit filters.
 3. A site reader receives an already authorized filter or a signed capability.
@@ -124,6 +135,8 @@ pricing data or computes a price locally.
 
 - Bearer tokens and compatibility HMAC secrets never appear in command-line
   arguments, JSON output, table output, logs, or exception messages.
+- OIDC refresh credentials are opaque, rotating, user-owned secrets; they are
+  never sent to Portal read routes or stored in the TOML profile.
 - Token caches are user-owned, use a `0700` directory and `0600` file, and are
   replaced atomically.
 - Plain HTTP is rejected except for loopback development endpoints unless the

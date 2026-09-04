@@ -13,6 +13,9 @@ The first implementation milestone is intentionally read-only:
 - JSON is the default output. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
+- `sai auth login` uses a browser-approved device flow once; later commands
+  renew a short-lived access token from a revocable local device session, so a
+  user does not log in again for every SSH connection.
 
 Job submission, cancellation, resource mutation, TUI views, and the site-local
 capability gateway remain roadmap items. Running estimates are read from the
@@ -40,6 +43,7 @@ login-node package have been deployed.
 - [Site-local read plane](docs/site-local-read-plane.md)
 - [Billing / interactive read-plane freeze](docs/billing-read-plane.md)
 - [Login-node deployment run card](docs/login-node-deployment.md)
+- [CLI login and long-lived device sessions](docs/cli-auth.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
 - [Repository guidelines](AGENTS.md)
@@ -79,9 +83,15 @@ export SAI_REQUIRE_SITE_CAPABILITY=1
 
 Unmanaged compatibility clients may provide `SAI_API_USERNAME`,
 `SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through a protected runtime
-environment. Managed login nodes use only an injected short-lived `SAI_TOKEN`;
-the HMAC route is not enabled for the shared login-node wrapper. Neither form
-belongs in a shell profile or TOML file.
+environment. Managed login nodes use the SAI Identity OIDC device flow and do
+not carry an HMAC secret. An already-issued short-lived `SAI_TOKEN` remains a
+process-local emergency/compatibility input; neither form belongs in a shell
+profile or TOML file.
+
+For a user-managed or login-node installation, configure the non-secret Portal
+origin/site once and run `sai auth login`. It prints a one-time browser URL and
+device code, then stores only a protected rotating refresh credential. See
+[docs/cli-auth.md](docs/cli-auth.md).
 
 In capability mode the CLI first exchanges the user Bearer for an opaque,
 operation-bound site-read capability, then calls the matching server-bound CLI
@@ -94,6 +104,10 @@ Non-secret defaults can be stored in `~/.config/sai/config.toml`:
 ```toml
 [profiles.default]
 base_url = "https://portal.example.org"
+identity_issuer = "https://id.example.org"
+oidc_client_id = "sai-cli"
+oidc_scope = "openid offline_access sai.compute.read"
+oidc_resource = "https://portal.example.org"
 site_id = "site-a"
 ```
 
