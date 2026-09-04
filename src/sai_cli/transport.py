@@ -98,6 +98,15 @@ def _bounded_error(payload: object, *, status: int) -> tuple[str, str]:
     if not isinstance(payload, dict):
         return fallback_code, fallback_message
 
+    # OAuth/OIDC token endpoints use the RFC 6749 ``error`` and
+    # ``error_description`` members rather than Portal's ``detail`` envelope.
+    oauth_code = payload.get("error")
+    if isinstance(oauth_code, str) and _SAFE_CODE_RE.fullmatch(oauth_code):
+        return oauth_code, sanitize_message(
+            payload.get("error_description"),
+            fallback=fallback_message,
+        )
+
     detail = payload.get("detail")
     if isinstance(detail, dict):
         raw_code = detail.get("code")
@@ -127,9 +136,17 @@ def _http_error(*, status: int, payload: object, request_id: str | None) -> SaiC
     return UnavailableError(message, code=code, request_id=request_id)
 
 
-def _decode_json(data: bytes, *, request_id: str, error_body: bool = False) -> dict[str, Any]:
+def _decode_json(
+    data: bytes,
+    *,
+    request_id: str,
+    error_body: bool = False,
+    allow_empty: bool = False,
+) -> dict[str, Any]:
     if not data:
         if error_body:
+            return {}
+        if allow_empty:
             return {}
         raise ContractError(request_id=request_id)
     try:
@@ -169,6 +186,8 @@ class JsonTransport:
         query: Mapping[str, str | int | Sequence[str] | None] | None = None,
         headers: Mapping[str, str] | None = None,
         json_body: Mapping[str, object] | None = None,
+        form_body: Mapping[str, str | int] | None = None,
+        allow_empty_response: bool = False,
     ) -> JsonResponse:
         if not path.startswith("/") or path.startswith("//"):
             raise ConfigError("API request path is invalid")
@@ -187,6 +206,8 @@ class JsonTransport:
         }
         request_headers.update(headers or {})
         data: bytes | None = None
+        if json_body is not None and form_body is not None:
+            raise ConfigError("API request cannot contain both JSON and form bodies")
         if json_body is not None:
             if method.upper() not in {"POST", "PUT", "PATCH"}:
                 raise ConfigError("JSON request bodies require POST, PUT, or PATCH")
@@ -201,6 +222,24 @@ class JsonTransport:
             if len(data) > _MAX_REQUEST_BYTES:
                 raise ConfigError("API request body is too large")
             request_headers["Content-Type"] = "application/json"
+        elif form_body is not None:
+            if method.upper() not in {"POST", "PUT", "PATCH"}:
+                raise ConfigError("form request bodies require POST, PUT, or PATCH")
+            if any(
+                not isinstance(key, str)
+                or not key
+                or not isinstance(value, (str, int))
+                or isinstance(value, bool)
+                for key, value in form_body.items()
+            ):
+                raise ConfigError("API form body is invalid")
+            data = urlencode(
+                [(key, value) for key, value in form_body.items()],
+                doseq=False,
+            ).encode("utf-8")
+            if len(data) > _MAX_REQUEST_BYTES:
+                raise ConfigError("API request body is too large")
+            request_headers["Content-Type"] = "application/x-www-form-urlencoded"
         request = Request(
             url=url,
             data=data,
@@ -217,7 +256,11 @@ class JsonTransport:
                 data = response.read(self.max_response_bytes + 1)
                 if len(data) > self.max_response_bytes:
                     raise ContractError("the server response is too large", request_id=response_request_id)
-                payload = _decode_json(data, request_id=response_request_id)
+                payload = _decode_json(
+                    data,
+                    request_id=response_request_id,
+                    allow_empty=allow_empty_response,
+                )
                 return JsonResponse(payload=payload, request_id=response_request_id, status=int(response.status))
         except HTTPError as exc:
             response_request_id = exc.headers.get("X-Request-ID") or exc.headers.get("X-SAI-Request-ID") or request_id

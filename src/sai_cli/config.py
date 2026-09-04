@@ -27,6 +27,11 @@ _MANAGED_OVERRIDE_ENV = (
     "SAI_API_KEY_ID",
     "SAI_API_TIMEOUT",
     "SAI_TOKEN_CACHE",
+    "SAI_CREDENTIAL_CACHE",
+    "SAI_IDENTITY_ISSUER",
+    "SAI_OIDC_CLIENT_ID",
+    "SAI_OIDC_SCOPE",
+    "SAI_OIDC_RESOURCE",
     "SAI_ALLOW_INSECURE_HTTP",
     "SAI_API_SHARED_SECRET",
     "SAI_SITE_CAPABILITY",
@@ -40,6 +45,11 @@ _PROFILE_KEYS = {
     "timeout_seconds",
     "allow_insecure_http",
     "cache_path",
+    "credential_path",
+    "identity_issuer",
+    "oidc_client_id",
+    "oidc_scope",
+    "oidc_resource",
     "require_site_capability",
 }
 _FORBIDDEN_PROFILE_KEYS = {
@@ -62,6 +72,11 @@ class Settings:
     cache_path: Path
     use_cache: bool
     profile: str
+    credential_path: Path | None = None
+    identity_issuer: str | None = None
+    oidc_client_id: str = "sai-cli"
+    oidc_scope: str = "openid offline_access"
+    oidc_resource: str | None = None
     managed_login_node: bool = False
     require_site_capability: bool = False
     cluster_id: str | None = None
@@ -85,6 +100,20 @@ def default_cache_path(environ: Mapping[str, str]) -> Path:
     if cache_home:
         return Path(cache_home).expanduser() / "sai" / "token-cache.json"
     return Path.home() / ".cache" / "sai" / "token-cache.json"
+
+
+def default_credential_path(environ: Mapping[str, str]) -> Path:
+    """Return the persistent user-owned device credential path.
+
+    Device refresh credentials are intentionally kept in a separate protected
+    file instead of the non-secret TOML profile or the short-lived access
+    token cache.
+    """
+
+    data_home = (environ.get("XDG_DATA_HOME") or "").strip()
+    if data_home:
+        return Path(data_home).expanduser() / "sai" / "credentials.json"
+    return Path.home() / ".local" / "share" / "sai" / "credentials.json"
 
 
 def _read_config(
@@ -335,6 +364,30 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
     )
     if managed and "cache_path" in values:
         raise ConfigError("managed login-node cache path cannot be configured")
+    credential_raw = _first_text(
+        None if managed else env.get("SAI_CREDENTIAL_CACHE"),
+        values.get("credential_path"),
+    )
+    if managed and "credential_path" in values:
+        raise ConfigError("managed login-node credential path cannot be configured")
+    identity_issuer = _first_text(
+        None if managed else env.get("SAI_IDENTITY_ISSUER"),
+        values.get("identity_issuer"),
+    )
+    oidc_client_id = _first_text(
+        None if managed else env.get("SAI_OIDC_CLIENT_ID"),
+        values.get("oidc_client_id"),
+        "sai-cli",
+    ) or "sai-cli"
+    oidc_scope = _first_text(
+        None if managed else env.get("SAI_OIDC_SCOPE"),
+        values.get("oidc_scope"),
+        "openid offline_access",
+    ) or "openid offline_access"
+    oidc_resource = _first_text(
+        None if managed else env.get("SAI_OIDC_RESOURCE"),
+        values.get("oidc_resource"),
+    )
     require_capability = _parse_bool(
         env.get("SAI_REQUIRE_SITE_CAPABILITY", values.get("require_site_capability")),
         field="require_site_capability",
@@ -355,8 +408,17 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
         timeout_seconds=_parse_timeout(timeout_raw),
         allow_insecure_http=_parse_bool(insecure_raw, field="allow_insecure_http"),
         cache_path=Path(cache_raw).expanduser() if cache_raw else default_cache_path(env),
-        use_cache=not bool(args.no_cache),
+        use_cache=not bool(getattr(args, "no_cache", False)),
         profile=profile_name,
+        credential_path=(
+            Path(credential_raw).expanduser()
+            if credential_raw
+            else default_credential_path(env)
+        ),
+        identity_issuer=identity_issuer,
+        oidc_client_id=oidc_client_id,
+        oidc_scope=oidc_scope,
+        oidc_resource=oidc_resource,
         managed_login_node=managed,
         require_site_capability=require_capability,
         cluster_id=cluster_id,

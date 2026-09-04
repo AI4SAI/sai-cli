@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from sai_cli.auth import TokenProvider
-from sai_cli.cache import TokenCache, cache_key
+from sai_cli.auth import DeviceTokenResult, TokenProvider
+from sai_cli.cache import TokenCache, cache_key, device_refresh_cache_key
 from sai_cli.config import Settings
 from sai_cli.errors import AuthenticationError
 from sai_cli.transport import JsonResponse
@@ -181,6 +181,67 @@ def test_managed_login_node_never_uses_hmac_exchange(tmp_path: Path) -> None:
         environ={"SAI_API_SHARED_SECRET": "global-secret"},
     )
 
-    with pytest.raises(AuthenticationError, match="short-lived SAI_TOKEN"):
+    with pytest.raises(AuthenticationError, match="sai auth login"):
         provider.get()
     assert transport.calls == []
+
+
+def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> None:
+    class FakeOidc:
+        issuer_url = "https://portal.example.org"
+
+        calls = 0
+
+        def refresh(self, *, refresh_token: str, now: int) -> DeviceTokenResult:
+            self.calls += 1
+            assert refresh_token == "refresh-old"
+            return DeviceTokenResult(
+                access_token="access-new",  # public-scan: allow-test-vector
+                access_expires_at=now + 300,
+                refresh_token="refresh-new",  # public-scan: allow-test-vector
+                refresh_expires_at=now + 100_000,
+                subject="subject-1",
+                device_id="device-1",
+            )
+
+    transport = FakeTransport()
+    settings = _settings(tmp_path, username=None, managed=True)
+    oidc = FakeOidc()
+    provider = TokenProvider(
+        settings=settings,
+        transport=transport,  # type: ignore[arg-type]
+        environ={},
+        clock=lambda: 1_700_000_000,
+        oidc_client=oidc,  # type: ignore[arg-type]
+    )
+    provider.credential_cache.put(
+        device_refresh_cache_key(base_url=settings.base_url),
+        token="refresh-old",
+        expires_at=1_700_100_000,
+    )
+
+    lease = provider.get()
+    assert lease.token == "access-new"
+    assert lease.source == "cache"
+    assert provider.device_refresh(now=1_700_000_000) == ("refresh-new", 1_700_100_000)
+    assert oidc.calls == 1
+
+
+def test_install_device_tokens_requires_persistent_cache(tmp_path: Path) -> None:
+    settings = _settings(tmp_path, username=None, managed=True, use_cache=False)
+    provider = TokenProvider(
+        settings=settings,
+        transport=FakeTransport(),  # type: ignore[arg-type]
+        environ={},
+        clock=lambda: 1_700_000_000,
+    )
+    result = DeviceTokenResult(
+        access_token="access",  # public-scan: allow-test-vector
+        access_expires_at=1_700_000_300,
+        refresh_token="refresh",  # public-scan: allow-test-vector
+        refresh_expires_at=1_700_100_000,
+        subject="subject-1",
+        device_id="device-1",
+    )
+    with pytest.raises(AuthenticationError, match="credential cache"):
+        provider.install_device_tokens(result)

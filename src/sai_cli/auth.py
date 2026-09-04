@@ -1,7 +1,8 @@
-"""Short-lived Bearer selection and managed-node HMAC compatibility exchange."""
+"""Credential selection for Portal calls and the SAI Identity device session."""
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 import hashlib
 import hmac
@@ -10,9 +11,21 @@ import secrets
 import time
 from typing import Callable, Mapping
 
-from .cache import TokenCache, cache_key
+try:  # pragma: no cover - Windows has no fcntl; atomic files still apply.
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore[assignment]
+
+from .cache import (
+    TokenCache,
+    cache_key,
+    device_access_cache_key,
+    device_pending_cache_key,
+    device_refresh_cache_key,
+)
 from .config import Settings
 from .errors import AuthenticationError, ContractError
+from .oidc import DeviceAuthorization, DeviceTokenResult, OidcClient
 from .transport import JsonTransport
 
 
@@ -21,6 +34,7 @@ class TokenLease:
     token: str
     expires_at: int | None
     source: str
+    cache_key: str | None = None
 
 
 def _validate_token(value: object) -> str:
@@ -32,6 +46,38 @@ def _validate_token(value: object) -> str:
     return token
 
 
+def _validate_device_result(result: DeviceTokenResult, *, now: int) -> DeviceTokenResult:
+    if not isinstance(result, DeviceTokenResult):
+        raise ContractError("the Identity token response is invalid")
+    access_token = _validate_token(result.access_token)
+    refresh_token = _validate_token(result.refresh_token)
+    if (
+        type(result.access_expires_at) is not int
+        or result.access_expires_at <= now
+        or result.access_expires_at - now > 60 * 60
+        or type(result.refresh_expires_at) is not int
+        or result.refresh_expires_at <= result.access_expires_at
+        or result.refresh_expires_at - now > 366 * 24 * 60 * 60
+    ):
+        raise ContractError("the Identity token response is invalid")
+    for value, maximum in ((result.subject, 512), (result.device_id, 128)):
+        if value is not None and (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value.strip()) > maximum
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)
+        ):
+            raise ContractError("the Identity token response is invalid")
+    return DeviceTokenResult(
+        access_token=access_token,
+        access_expires_at=result.access_expires_at,
+        refresh_token=refresh_token,
+        refresh_expires_at=result.refresh_expires_at,
+        subject=result.subject.strip() if result.subject else None,
+        device_id=result.device_id.strip() if result.device_id else None,
+    )
+
+
 class TokenProvider:
     def __init__(
         self,
@@ -41,17 +87,62 @@ class TokenProvider:
         environ: Mapping[str, str] | None = None,
         clock: Callable[[], float] = time.time,
         nonce_factory: Callable[[], str] | None = None,
+        oidc_client: OidcClient | None = None,
     ) -> None:
         self.settings = settings
         self.transport = transport
         self.environ = os.environ if environ is None else environ
         self.clock = clock
         self.nonce_factory = nonce_factory or (lambda: secrets.token_hex(16))
+        self.oidc_client = oidc_client
         self.cache = TokenCache(
             settings.cache_path,
             enabled=settings.use_cache,
             clock=clock,
         )
+        self.credential_cache = TokenCache(
+            settings.credential_path or settings.cache_path.with_name("credentials.json"),
+            enabled=settings.use_cache,
+            clock=clock,
+        )
+
+    def _device_cache_base(self) -> str:
+        return self.oidc_client.issuer_url if self.oidc_client is not None else self.settings.base_url
+
+    def _device_access_key(self) -> str:
+        return device_access_cache_key(base_url=self._device_cache_base())
+
+    def _device_refresh_key(self) -> str:
+        return device_refresh_cache_key(base_url=self._device_cache_base())
+
+    def _device_pending_key(self) -> str:
+        return device_pending_cache_key(base_url=self._device_cache_base())
+
+    @contextmanager
+    def _credential_lock(self):
+        """Serialize rotating refresh exchanges across CLI processes."""
+
+        path = self.credential_cache.path
+        self.credential_cache._secure_parent()
+        lock_path = path.with_name(f".{path.name}.lock")
+        descriptor: int | None = None
+        try:
+            flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(lock_path, flags, 0o600)
+            os.fchmod(descriptor, 0o600)
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        except OSError as exc:
+            raise AuthenticationError("the SAI credential cache could not be locked") from exc
+        finally:
+            if descriptor is not None:
+                if fcntl is not None:
+                    try:
+                        fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    except OSError:
+                        pass
+                os.close(descriptor)
 
     def _entry_key(self) -> str:
         if not self.settings.username:
@@ -69,29 +160,192 @@ class TokenProvider:
         direct = (self.environ.get("SAI_TOKEN") or "").strip()
         if direct:
             return TokenLease(token=_validate_token(direct), expires_at=None, source="environment")
+
+        now = int(self.clock())
+        access_key = self._device_access_key()
+        if not force_exchange:
+            cached = self.cache.get(access_key, now=now)
+            if cached:
+                return TokenLease(
+                    token=cached[0],
+                    expires_at=cached[1],
+                    source="cache",
+                    cache_key=access_key,
+                )
+
+        refresh = self.credential_cache.get(
+            self._device_refresh_key(),
+            now=now,
+            margin_seconds=0,
+        )
+        if refresh:
+            return self._refresh_device(refresh_token=refresh[0], now=now)
+
         if self.settings.managed_login_node:
             raise AuthenticationError(
-                "managed login nodes require an injected short-lived SAI_TOKEN",
+                "no SAI Identity device session is available; run `sai auth login` once",
                 code="credentials_unavailable",
             )
 
-        now = int(self.clock())
         entry_key = self._entry_key()
         if not force_exchange:
             cached = self.cache.get(entry_key, now=now)
             if cached:
-                return TokenLease(token=cached[0], expires_at=cached[1], source="cache")
+                return TokenLease(
+                    token=cached[0],
+                    expires_at=cached[1],
+                    source="cache",
+                    cache_key=entry_key,
+                )
         return self._exchange(now=now, entry_key=entry_key)
 
     def invalidate(self, lease: TokenLease) -> None:
-        if lease.source == "environment" or not self.settings.username:
+        if lease.source == "environment":
             return
-        self.cache.delete(self._entry_key())
+        if lease.cache_key:
+            self.cache.delete(lease.cache_key)
+            return
+        if self.settings.username:
+            self.cache.delete(self._entry_key())
+
+    def install_device_tokens(self, result: DeviceTokenResult) -> None:
+        """Persist an OIDC token response without exposing token values."""
+
+        checked = _validate_device_result(result, now=int(self.clock()))
+        if not self.settings.use_cache:
+            raise AuthenticationError(
+                "persistent device login requires the credential cache",
+                code="credentials_unavailable",
+            )
+        with self._credential_lock():
+            self._store_device_tokens_locked(checked)
+
+    def _store_device_tokens_locked(self, result: DeviceTokenResult) -> None:
+        self.credential_cache.put(
+            self._device_refresh_key(),
+            token=result.refresh_token,
+            expires_at=result.refresh_expires_at,
+        )
+        self.cache.put(
+            self._device_access_key(),
+            token=result.access_token,
+            expires_at=result.access_expires_at,
+        )
+
+    def start_device_authorization(self) -> DeviceAuthorization:
+        if self.oidc_client is None:
+            raise AuthenticationError(
+                "SAI Identity issuer is not configured; set SAI_IDENTITY_ISSUER",
+                code="credentials_unavailable",
+            )
+        authorization = self.oidc_client.start_device_authorization(now=int(self.clock()))
+        self.store_pending_device_code(
+            device_code=authorization.device_code,
+            expires_at=authorization.expires_at,
+        )
+        return authorization
+
+    def poll_device_token(self, *, device_code: str) -> DeviceTokenResult | None:
+        if self.oidc_client is None:
+            raise AuthenticationError(
+                "SAI Identity issuer is not configured; set SAI_IDENTITY_ISSUER",
+                code="credentials_unavailable",
+            )
+        return self.oidc_client.poll_device_token(
+            device_code=device_code,
+            now=int(self.clock()),
+        )
+
+    def device_refresh(self, *, now: int | None = None) -> tuple[str, int] | None:
+        current = int(self.clock()) if now is None else now
+        return self.credential_cache.get(
+            self._device_refresh_key(),
+            now=current,
+            margin_seconds=0,
+        )
+
+    def store_pending_device_code(self, *, device_code: str, expires_at: int) -> None:
+        if not self.settings.use_cache:
+            raise AuthenticationError(
+                "device login requires the credential cache",
+                code="credentials_unavailable",
+            )
+        self.credential_cache.put(
+            self._device_pending_key(),
+            token=_validate_token(device_code),
+            expires_at=expires_at,
+        )
+
+    def pending_device_code(self, *, now: int | None = None) -> tuple[str, int] | None:
+        current = int(self.clock()) if now is None else now
+        return self.credential_cache.get(
+            self._device_pending_key(),
+            now=current,
+            margin_seconds=0,
+        )
+
+    def clear_pending_device_code(self) -> None:
+        self.credential_cache.delete(self._device_pending_key())
+
+    def clear_device_credentials(self) -> None:
+        self.cache.delete(self._device_access_key())
+        self.credential_cache.delete(self._device_refresh_key())
+        self.clear_pending_device_code()
+
+    def revoke_device(self) -> bool:
+        refresh = self.device_refresh()
+        revoked = False
+        if refresh and self.oidc_client is not None:
+            revoked = self.oidc_client.revoke(refresh_token=refresh[0])
+        self.clear_device_credentials()
+        return revoked
+
+    def _refresh_device(self, *, refresh_token: str, now: int) -> TokenLease:
+        if self.oidc_client is None:
+            self.clear_device_credentials()
+            raise AuthenticationError(
+                "the SAI Identity issuer is not configured; run `sai auth login`",
+                code="credentials_unavailable",
+            )
+        try:
+            with self._credential_lock():
+                cached = self.cache.get(self._device_access_key(), now=now)
+                if cached:
+                    return TokenLease(
+                        token=cached[0],
+                        expires_at=cached[1],
+                        source="cache",
+                        cache_key=self._device_access_key(),
+                    )
+                current = self.credential_cache.get(
+                    self._device_refresh_key(),
+                    now=now,
+                    margin_seconds=0,
+                )
+                if not current:
+                    raise AuthenticationError("the SAI device refresh credential is unavailable")
+                result = _validate_device_result(
+                    self.oidc_client.refresh(refresh_token=current[0], now=now),
+                    now=now,
+                )
+                self._store_device_tokens_locked(result)
+                return TokenLease(
+                    token=result.access_token,
+                    expires_at=result.access_expires_at,
+                    source="cache",
+                    cache_key=self._device_access_key(),
+                )
+        except (AuthenticationError, ContractError):
+            self.clear_device_credentials()
+            raise AuthenticationError(
+                "the SAI Identity device session is no longer valid; run `sai auth login`",
+                code="credentials_unavailable",
+            )
 
     def _exchange(self, *, now: int, entry_key: str) -> TokenLease:
         if self.settings.managed_login_node:
             raise AuthenticationError(
-                "managed login nodes require an injected short-lived SAI_TOKEN",
+                "managed login nodes use the SAI Identity device login",
                 code="credentials_unavailable",
             )
         username = self.settings.username or ""
@@ -130,4 +384,18 @@ class TokenProvider:
         if isinstance(expires_at, bool) or not isinstance(expires_at, int) or expires_at <= now:
             raise ContractError("the token response is invalid", request_id=response.request_id)
         self.cache.put(entry_key, token=token, expires_at=expires_at)
-        return TokenLease(token=token, expires_at=expires_at, source="exchange")
+        return TokenLease(
+            token=token,
+            expires_at=expires_at,
+            source="exchange",
+            cache_key=entry_key,
+        )
+
+
+__all__ = [
+    "DeviceAuthorization",
+    "DeviceTokenResult",
+    "OidcClient",
+    "TokenLease",
+    "TokenProvider",
+]

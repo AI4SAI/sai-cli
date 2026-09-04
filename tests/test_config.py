@@ -230,7 +230,7 @@ def test_unmanaged_config_allows_user_parent_permissions(
     assert settings.site_id == "site-a"
 
 
-def test_managed_login_node_uses_root_config_and_token_only(
+def test_managed_login_node_uses_root_config_and_allows_identity_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -240,6 +240,10 @@ def test_managed_login_node_uses_root_config_and_token_only(
         'base_url = "https://portal.example.org"\n'
         'site_id = "site-a"\n'
         'cluster_id = "cluster-a"\n'
+        'identity_issuer = "https://id.example.org"\n'
+        'oidc_client_id = "sai-cli"\n'
+        'oidc_scope = "openid offline_access sai.compute.read"\n'
+        'oidc_resource = "https://portal.example.org"\n'
         'require_site_capability = true\n',
         encoding="utf-8",
     )
@@ -261,6 +265,9 @@ def test_managed_login_node_uses_root_config_and_token_only(
     assert settings.site_id == "site-a"
     assert settings.username is None
     assert settings.require_site_capability is True
+    assert settings.identity_issuer == "https://id.example.org"
+    assert settings.oidc_client_id == "sai-cli"
+    assert settings.oidc_resource == "https://portal.example.org"
 
 
 def test_managed_login_node_rejects_connection_overrides() -> None:
@@ -275,6 +282,14 @@ def test_managed_login_node_rejects_connection_overrides() -> None:
             {
                 "SAI_MANAGED_LOGIN_NODE": "1",
                 "SAI_API_SHARED_SECRET": "must-not-be-used",
+            },
+        )
+    with pytest.raises(ConfigError, match="cannot be overridden"):
+        resolve_settings(
+            _args(),
+            {
+                "SAI_MANAGED_LOGIN_NODE": "1",
+                "SAI_IDENTITY_ISSUER": "https://attacker.example.org",
             },
         )
 

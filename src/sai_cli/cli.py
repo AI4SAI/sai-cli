@@ -6,14 +6,20 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import Mapping, Sequence, TextIO
 
 from . import __version__
-from .auth import TokenProvider
+from .auth import (
+    DeviceAuthorization,
+    OidcClient,
+    TokenProvider,
+)
 from .capability import CapabilityProvider
 from .client import JobQuery, PortalClient, clean_states
 from .config import Settings, resolve_settings
 from .errors import ContractError, SaiCliError
+from .oidc import OidcPending, OidcSlowDown
 from .render import render_json, render_running_estimate_table, render_table
 from .transport import JsonTransport
 
@@ -48,6 +54,39 @@ def build_parser() -> argparse.ArgumentParser:
     _add_job_scope_arguments(cost_parser)
     cost_parser.add_argument("--partition", help="partition narrowing filter")
     _add_format_argument(cost_parser)
+
+    auth = commands.add_parser("auth", help="manage the SAI CLI device session")
+    auth_commands = auth.add_subparsers(dest="auth_command", required=True)
+    login_parser = auth_commands.add_parser(
+        "login",
+        help="authorize this user account once in a browser",
+    )
+    _add_connection_arguments(login_parser, suppress_defaults=True)
+    login_parser.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="start device authorization and return; resume with --resume",
+    )
+    login_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume the protected pending device authorization",
+    )
+    _add_format_argument(login_parser)
+
+    status_parser = auth_commands.add_parser(
+        "status",
+        help="show the current CLI device session status",
+    )
+    _add_connection_arguments(status_parser, suppress_defaults=True)
+    _add_format_argument(status_parser)
+
+    logout_parser = auth_commands.add_parser(
+        "logout",
+        help="revoke the current CLI device session",
+    )
+    _add_connection_arguments(logout_parser, suppress_defaults=True)
+    _add_format_argument(logout_parser)
     return parser
 
 
@@ -98,6 +137,186 @@ def _add_format_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _build_transport(settings: Settings) -> JsonTransport:
+    return JsonTransport(
+        base_url=settings.base_url,
+        timeout_seconds=settings.timeout_seconds,
+        allow_insecure_http=settings.allow_insecure_http,
+    )
+
+
+def _build_oidc_client(settings: Settings) -> OidcClient | None:
+    issuer = (settings.identity_issuer or "").strip()
+    if not issuer:
+        return None
+    identity_transport = JsonTransport(
+        base_url=issuer,
+        timeout_seconds=settings.timeout_seconds,
+        allow_insecure_http=settings.allow_insecure_http,
+    )
+    return OidcClient(
+        transport=identity_transport,
+        issuer_url=identity_transport.base_url,
+        client_id=settings.oidc_client_id,
+        scope=settings.oidc_scope,
+        resource=settings.oidc_resource,
+    )
+
+
+def _auth_result_output(
+    payload: Mapping[str, object],
+    *,
+    output_format: str,
+    output: TextIO,
+) -> None:
+    if output_format == "json":
+        output.write(json.dumps(dict(payload), ensure_ascii=False, sort_keys=True) + "\n")
+        return
+    for key, value in payload.items():
+        output.write(f"{key}: {value}\n")
+
+
+def _poll_device_authorization(
+    *,
+    provider: TokenProvider,
+    oidc_client: OidcClient,
+    authorization: DeviceAuthorization | None,
+    device_code: str,
+    interval_seconds: int,
+    output: TextIO,
+) -> dict[str, object]:
+    now = int(provider.clock())
+    deadline = authorization.expires_at if authorization is not None else now + 600
+    interval = max(1, min(30, int(interval_seconds)))
+    while now < deadline:
+        try:
+            result = oidc_client.poll_device_token(device_code=device_code, now=now)
+        except OidcPending:
+            result = None
+        except OidcSlowDown:
+            interval = min(30, interval + 5)
+            result = None
+        if result is not None:
+            provider.install_device_tokens(result)
+            provider.clear_pending_device_code()
+            return {
+                "ok": True,
+                "authenticated": True,
+                "subject": result.subject,
+                "device_id": result.device_id,
+                "expires_at": result.access_expires_at,
+                "refresh_expires_at": result.refresh_expires_at,
+            }
+        if authorization is None:
+            deadline = min(deadline, now + 600)
+        remaining = deadline - now
+        if remaining <= 0:
+            break
+        output.write("等待浏览器确认 CLI 登录...\n")
+        output.flush()
+        time.sleep(min(interval, remaining))
+        now = int(provider.clock())
+    raise AuthenticationError(
+        "device authorization expired; run `sai auth login` again",
+        code="credentials_unavailable",
+    )
+
+
+def _handle_auth_command(
+    args: argparse.Namespace,
+    *,
+    oidc_client: OidcClient | None,
+    provider: TokenProvider,
+    output: TextIO,
+    errors: TextIO,
+) -> int:
+    output_format = getattr(args, "format", "json")
+    if args.auth_command == "login":
+        if oidc_client is None:
+            raise AuthenticationError(
+                "SAI Identity issuer is not configured; set identity_issuer in the profile",
+                code="credentials_unavailable",
+            )
+        if args.no_wait and args.resume:
+            raise ContractError("use either --no-wait or --resume")
+        authorization: DeviceAuthorization | None = None
+        if args.resume:
+            pending = provider.pending_device_code()
+            if not pending:
+                raise AuthenticationError(
+                    "no pending device authorization; run `sai auth login`",
+                    code="credentials_unavailable",
+                )
+            device_code, expires_at = pending
+            authorization = DeviceAuthorization(
+                device_code=device_code,
+                user_code="",
+                verification_url="",
+                expires_at=expires_at,
+                interval_seconds=5,
+            )
+        else:
+            authorization = provider.start_device_authorization()
+            errors.write(
+                "请在浏览器打开以下地址，并确认显示的设备码：\n"
+                f"{authorization.verification_url}\n"
+                f"设备码：{authorization.user_code}\n"
+            )
+        if args.no_wait:
+            return_value = {
+                "ok": True,
+                "status": "pending",
+                "verification_url": authorization.verification_url,
+                "user_code": authorization.user_code,
+                "expires_at": authorization.expires_at,
+                "interval_seconds": authorization.interval_seconds,
+                "resume": "sai auth login --resume",
+            }
+            _auth_result_output(return_value, output_format=output_format, output=output)
+            return 0
+        result = _poll_device_authorization(
+            provider=provider,
+            oidc_client=oidc_client,
+            authorization=authorization,
+            device_code=authorization.device_code,
+            interval_seconds=authorization.interval_seconds,
+            output=errors,
+        )
+        _auth_result_output(result, output_format=output_format, output=output)
+        return 0
+
+    if args.auth_command == "status":
+        lease = provider.get()
+        if oidc_client is None:
+            raise AuthenticationError(
+                "SAI Identity issuer is not configured; CLI status is unavailable",
+                code="credentials_unavailable",
+            )
+        payload = oidc_client.userinfo(access_token=lease.token)
+        refresh = provider.device_refresh()
+        safe = {
+            "ok": True,
+            "authenticated": True,
+            "subject": payload.get("sub"),
+            "preferred_username": payload.get("preferred_username"),
+            "access_expires_at": lease.expires_at,
+            "refresh_expires_at": refresh[1] if refresh else None,
+        }
+        _auth_result_output(safe, output_format=output_format, output=output)
+        return 0
+
+    if args.auth_command == "logout":
+        server_revoked = provider.revoke_device()
+        _auth_result_output(
+            {"ok": True, "revoked": server_revoked, "local_cleared": True},
+            output_format=output_format,
+            output=output,
+        )
+        return 0
+
+    raise ContractError("the selected auth command is not implemented")
+
+
 def _job_query(args: argparse.Namespace, *, settings: Settings) -> JobQuery:
     return JobQuery(
         site_id=settings.site_id,
@@ -134,12 +353,22 @@ def main(
 
     try:
         settings = resolve_settings(args, env)
-        transport = JsonTransport(
-            base_url=settings.base_url,
-            timeout_seconds=settings.timeout_seconds,
-            allow_insecure_http=settings.allow_insecure_http,
+        transport = _build_transport(settings)
+        oidc_client = _build_oidc_client(settings)
+        provider = TokenProvider(
+            settings=settings,
+            transport=transport,
+            environ=env,
+            oidc_client=oidc_client,
         )
-        provider = TokenProvider(settings=settings, transport=transport, environ=env)
+        if args.command == "auth":
+            return _handle_auth_command(
+                args,
+                oidc_client=oidc_client,
+                provider=provider,
+                output=output,
+                errors=errors,
+            )
         capability_provider = (
             CapabilityProvider(
                 settings=settings,

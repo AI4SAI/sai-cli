@@ -1,4 +1,10 @@
-"""Protected on-disk cache for short-lived Bearer tokens."""
+"""Protected on-disk cache for opaque SAI credentials.
+
+The same hardened store is used for the short-lived access token cache and
+the separately located, longer-lived device refresh credential.  Callers keep
+the two namespaces/files separate; this module only owns filesystem safety and
+atomic replacement.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +26,36 @@ _MAX_CACHE_BYTES = 1_048_576
 def cache_key(*, base_url: str, username: str, key_id: str) -> str:
     material = "\0".join((base_url.rstrip("/"), username, key_id)).encode("utf-8")
     return hashlib.sha256(material).hexdigest()
+
+
+def device_access_cache_key(*, base_url: str) -> str:
+    """Return the stable namespace key for a CLI device access token."""
+
+    return cache_key(
+        base_url=base_url,
+        username="__sai_cli_device__",
+        key_id="cli-device-access",
+    )
+
+
+def device_refresh_cache_key(*, base_url: str) -> str:
+    """Return the stable namespace key for a CLI device refresh token."""
+
+    return cache_key(
+        base_url=base_url,
+        username="__sai_cli_device__",
+        key_id="cli-device-refresh",
+    )
+
+
+def device_pending_cache_key(*, base_url: str) -> str:
+    """Return the stable namespace key for a pending device authorization."""
+
+    return cache_key(
+        base_url=base_url,
+        username="__sai_cli_device__",
+        key_id="cli-device-pending",
+    )
 
 
 class TokenCache:
