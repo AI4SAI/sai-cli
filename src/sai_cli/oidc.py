@@ -92,12 +92,14 @@ def _same_origin(left: str, right: str) -> bool:
     except ValueError:
         return False
     try:
-        a_port = a.port or (443 if a.scheme == "https" else 80)
-        b_port = b.port or (443 if b.scheme == "https" else 80)
+        a_scheme = a.scheme.lower()
+        b_scheme = b.scheme.lower()
+        a_port = a.port or (443 if a_scheme == "https" else 80)
+        b_port = b.port or (443 if b_scheme == "https" else 80)
     except ValueError:
         return False
     return (
-        a.scheme.lower() == b.scheme.lower()
+        a_scheme == b_scheme
         and (a.hostname or "").lower().rstrip(".") == (b.hostname or "").lower().rstrip(".")
         and a_port == b_port
     )
@@ -119,6 +121,10 @@ def _trusted_scheme(url: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def _safe_path(path: str) -> bool:
+    return bool(path.startswith("/")) and ".." not in path.split("/")
 
 
 class OidcClient:
@@ -320,6 +326,7 @@ class OidcClient:
             or parsed.password
             or parsed.query
             or parsed.fragment
+            or not _safe_path(parsed.path or "/")
             or not _same_origin(url, self.issuer_url)
         ):
             raise ContractError(
@@ -341,6 +348,7 @@ class OidcClient:
             or not parsed.hostname
             or parsed.username
             or parsed.password
+            or not _safe_path(parsed.path or "/")
             or not _same_origin(url, self.issuer_url)
         ):
             raise ContractError(
@@ -361,7 +369,12 @@ class OidcClient:
             parsed = urlsplit(endpoint)
         except ValueError as exc:
             raise ConfigError("the Identity endpoint is invalid") from exc
-        if not _same_origin(endpoint, self.issuer_url) or parsed.query or parsed.fragment:
+        if (
+            not _same_origin(endpoint, self.issuer_url)
+            or parsed.query
+            or parsed.fragment
+            or not _safe_path(parsed.path or "/")
+        ):
             raise ConfigError("the Identity endpoint is invalid")
         path = self._relative_path(parsed.path or "/")
         return self.transport.request(
