@@ -26,7 +26,6 @@ class OidcMetadata:
     device_authorization_endpoint: str
     token_endpoint: str
     revocation_endpoint: str | None
-    userinfo_endpoint: str | None
 
 
 @dataclass(frozen=True)
@@ -81,8 +80,11 @@ def _positive_int(value: object, *, field: str, minimum: int, maximum: int) -> i
 
 
 def _same_origin(left: str, right: str) -> bool:
-    a = urlsplit(left)
-    b = urlsplit(right)
+    try:
+        a = urlsplit(left)
+        b = urlsplit(right)
+    except ValueError:
+        return False
     try:
         a_port = a.port or (443 if a.scheme == "https" else 80)
         b_port = b.port or (443 if b.scheme == "https" else 80)
@@ -96,7 +98,10 @@ def _same_origin(left: str, right: str) -> bool:
 
 
 def _trusted_scheme(url: str) -> bool:
-    parsed = urlsplit(url)
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
     if parsed.scheme == "https":
         return True
     if parsed.scheme != "http" or not parsed.hostname:
@@ -121,7 +126,22 @@ class OidcClient:
         resource: str | None = None,
     ) -> None:
         self.transport = transport
-        self.issuer_url = issuer_url.rstrip("/")
+        try:
+            parsed_issuer = urlsplit(issuer_url)
+        except ValueError as exc:
+            raise ConfigError("the Identity issuer is invalid") from exc
+        issuer = issuer_url.strip().rstrip("/")
+        if (
+            not _trusted_scheme(issuer)
+            or not parsed_issuer.hostname
+            or parsed_issuer.username
+            or parsed_issuer.password
+            or parsed_issuer.query
+            or parsed_issuer.fragment
+            or not _same_origin(issuer, transport.base_url)
+        ):
+            raise ConfigError("the Identity issuer is invalid")
+        self.issuer_url = issuer
         self.client_id = _text(client_id, field="client_id", maximum=128)
         self.scope = _text(scope, field="scope", maximum=1024)
         if "offline_access" not in self.scope.split():
@@ -165,18 +185,11 @@ class OidcClient:
             if revocation is not None
             else None
         )
-        userinfo = payload.get("userinfo_endpoint")
-        userinfo_url = (
-            self._endpoint(userinfo, field="userinfo_endpoint", request_id=response.request_id)
-            if userinfo is not None
-            else None
-        )
         self._metadata = OidcMetadata(
             issuer=issuer,
             device_authorization_endpoint=device,
             token_endpoint=token,
             revocation_endpoint=revocation_url,
-            userinfo_endpoint=userinfo_url,
         )
         return self._metadata
 
@@ -285,34 +298,15 @@ class OidcClient:
             raise
         return True
 
-    def userinfo(self, *, access_token: str) -> dict[str, object]:
-        metadata = self.discover()
-        if not metadata.userinfo_endpoint:
-            return {}
-        response = self._request(
-            metadata.userinfo_endpoint,
-            method="GET",
-            headers={"Authorization": f"Bearer {_token(access_token, field='access_token')}"},
-        )
-        payload = response.payload
-        subject = payload.get("sub")
-        if subject is not None:
-            _text(subject, field="userinfo subject", maximum=512)
-        preferred = payload.get("preferred_username")
-        if preferred is not None:
-            _text(preferred, field="userinfo preferred_username", maximum=128)
-        return {
-            key: value
-            for key, value in {
-                "sub": subject,
-                "preferred_username": preferred,
-            }.items()
-            if value is not None
-        }
-
     def _endpoint(self, value: object, *, field: str, request_id: str) -> str:
         url = _text(value, field=field, maximum=2048)
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+        except ValueError as exc:
+            raise ContractError(
+                f"the Identity {field} is invalid",
+                request_id=request_id,
+            ) from exc
         if (
             not _trusted_scheme(url)
             or not parsed.hostname
@@ -329,7 +323,13 @@ class OidcClient:
         return url.rstrip("/")
 
     def _validate_browser_url(self, url: str, *, request_id: str) -> None:
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+        except ValueError as exc:
+            raise ContractError(
+                "the Identity verification URL is invalid",
+                request_id=request_id,
+            ) from exc
         if (
             not _trusted_scheme(url)
             or not parsed.hostname
@@ -351,7 +351,10 @@ class OidcClient:
         headers: Mapping[str, str] | None = None,
         allow_empty_response: bool = False,
     ) -> JsonResponse:
-        parsed = urlsplit(endpoint)
+        try:
+            parsed = urlsplit(endpoint)
+        except ValueError as exc:
+            raise ConfigError("the Identity endpoint is invalid") from exc
         if not _same_origin(endpoint, self.issuer_url) or parsed.query or parsed.fragment:
             raise ConfigError("the Identity endpoint is invalid")
         path = self._relative_path(parsed.path or "/")
@@ -407,7 +410,7 @@ class OidcClient:
                 refresh_expires_in,
                 field="refresh_expires_in",
                 minimum=24 * 60 * 60,
-                maximum=366 * 24 * 60 * 60,
+                maximum=2**63 - 1,
             )
             refresh_expires_at = now + refresh_expires_in
         if type(refresh_expires_at) is not int or refresh_expires_at <= now + expires_in:

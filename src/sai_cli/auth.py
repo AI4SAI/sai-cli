@@ -24,7 +24,7 @@ from .cache import (
     device_refresh_cache_key,
 )
 from .config import Settings
-from .errors import AuthenticationError, ContractError
+from .errors import AuthenticationError, ContractError, SaiCliError
 from .oidc import DeviceAuthorization, DeviceTokenResult, OidcClient
 from .transport import JsonTransport
 
@@ -41,7 +41,7 @@ def _validate_token(value: object) -> str:
     if not isinstance(value, str):
         raise ContractError("the token response is invalid")
     token = value.strip()
-    if not token or len(token) > 16_384 or any(ord(char) < 32 or ord(char) == 127 for char in token):
+    if not token or len(token) > 16_384 or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token):
         raise ContractError("the token response is invalid")
     return token
 
@@ -57,7 +57,7 @@ def _validate_device_result(result: DeviceTokenResult, *, now: int) -> DeviceTok
         or result.access_expires_at - now > 60 * 60
         or type(result.refresh_expires_at) is not int
         or result.refresh_expires_at <= result.access_expires_at
-        or result.refresh_expires_at - now > 366 * 24 * 60 * 60
+        or result.refresh_expires_at > 2**63 - 1
     ):
         raise ContractError("the Identity token response is invalid")
     for value, maximum in ((result.subject, 512), (result.device_id, 128)):
@@ -106,17 +106,24 @@ class TokenProvider:
             clock=clock,
         )
 
-    def _device_cache_base(self) -> str:
-        return self.oidc_client.issuer_url if self.oidc_client is not None else self.settings.base_url
+    def _device_cache_context(self) -> dict[str, str | None]:
+        client = self.oidc_client
+        return {
+            "base_url": self.settings.base_url,
+            "identity_issuer": client.issuer_url if client is not None else None,
+            "client_id": client.client_id if client is not None else self.settings.oidc_client_id,
+            "resource": client.resource if client is not None else self.settings.oidc_resource,
+            "scope": client.scope if client is not None else self.settings.oidc_scope,
+        }
 
     def _device_access_key(self) -> str:
-        return device_access_cache_key(base_url=self._device_cache_base())
+        return device_access_cache_key(**self._device_cache_context())
 
     def _device_refresh_key(self) -> str:
-        return device_refresh_cache_key(base_url=self._device_cache_base())
+        return device_refresh_cache_key(**self._device_cache_context())
 
     def _device_pending_key(self) -> str:
-        return device_pending_cache_key(base_url=self._device_cache_base())
+        return device_pending_cache_key(**self._device_cache_context())
 
     @contextmanager
     def _credential_lock(self):
@@ -179,7 +186,7 @@ class TokenProvider:
             margin_seconds=0,
         )
         if refresh:
-            return self._refresh_device(refresh_token=refresh[0], now=now)
+            return self._refresh_device(now=now)
 
         if self.settings.managed_login_node:
             raise AuthenticationError(
@@ -285,22 +292,40 @@ class TokenProvider:
         )
 
     def clear_pending_device_code(self) -> None:
-        self.credential_cache.delete(self._device_pending_key())
+        with self._credential_lock():
+            self.credential_cache.delete(self._device_pending_key())
 
     def clear_device_credentials(self) -> None:
+        with self._credential_lock():
+            self._clear_device_credentials_locked()
+
+    def _clear_device_credentials_locked(self) -> None:
         self.cache.delete(self._device_access_key())
         self.credential_cache.delete(self._device_refresh_key())
-        self.clear_pending_device_code()
+        self.credential_cache.delete(self._device_pending_key())
 
     def revoke_device(self) -> bool:
-        refresh = self.device_refresh()
-        revoked = False
-        if refresh and self.oidc_client is not None:
-            revoked = self.oidc_client.revoke(refresh_token=refresh[0])
-        self.clear_device_credentials()
-        return revoked
+        # Hold the same lock as refresh/install so a concurrent rotation cannot
+        # repopulate the local credential after logout.  Network failure must
+        # not prevent local removal.
+        with self._credential_lock():
+            refresh = self.credential_cache.get(
+                self._device_refresh_key(),
+                now=int(self.clock()),
+                margin_seconds=0,
+            )
+            revoked = False
+            if refresh and self.oidc_client is not None:
+                try:
+                    revoked = self.oidc_client.revoke(refresh_token=refresh[0])
+                except SaiCliError:
+                    # The server may be unreachable; local logout is still
+                    # completed, while the caller reports server_revoked=false.
+                    revoked = False
+            self._clear_device_credentials_locked()
+            return revoked
 
-    def _refresh_device(self, *, refresh_token: str, now: int) -> TokenLease:
+    def _refresh_device(self, *, now: int) -> TokenLease:
         if self.oidc_client is None:
             self.clear_device_credentials()
             raise AuthenticationError(

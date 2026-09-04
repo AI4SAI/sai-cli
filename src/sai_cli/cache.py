@@ -28,32 +28,84 @@ def cache_key(*, base_url: str, username: str, key_id: str) -> str:
     return hashlib.sha256(material).hexdigest()
 
 
-def device_access_cache_key(*, base_url: str) -> str:
-    """Return the stable namespace key for a CLI device access token."""
+def _device_cache_key(
+    *,
+    base_url: str,
+    identity_issuer: str | None,
+    client_id: str,
+    resource: str | None,
+    scope: str | None,
+    key_id: str,
+) -> str:
+    material = "\0".join(
+        (
+            base_url.rstrip("/"),
+            (identity_issuer or base_url).rstrip("/"),
+            client_id,
+            resource or "",
+            scope or "",
+            key_id,
+        )
+    ).encode("utf-8")
+    return hashlib.sha256(material).hexdigest()
 
-    return cache_key(
+
+def device_access_cache_key(
+    *,
+    base_url: str,
+    identity_issuer: str | None = None,
+    client_id: str = "sai-cli",
+    resource: str | None = None,
+    scope: str | None = None,
+) -> str:
+    """Return a cache key bound to the complete OIDC/Portal context."""
+
+    return _device_cache_key(
         base_url=base_url,
-        username="__sai_cli_device__",
+        identity_issuer=identity_issuer,
+        client_id=client_id,
+        resource=resource,
+        scope=scope,
         key_id="cli-device-access",
     )
 
 
-def device_refresh_cache_key(*, base_url: str) -> str:
-    """Return the stable namespace key for a CLI device refresh token."""
+def device_refresh_cache_key(
+    *,
+    base_url: str,
+    identity_issuer: str | None = None,
+    client_id: str = "sai-cli",
+    resource: str | None = None,
+    scope: str | None = None,
+) -> str:
+    """Return the refresh key bound to the complete OIDC/Portal context."""
 
-    return cache_key(
+    return _device_cache_key(
         base_url=base_url,
-        username="__sai_cli_device__",
+        identity_issuer=identity_issuer,
+        client_id=client_id,
+        resource=resource,
+        scope=scope,
         key_id="cli-device-refresh",
     )
 
 
-def device_pending_cache_key(*, base_url: str) -> str:
-    """Return the stable namespace key for a pending device authorization."""
+def device_pending_cache_key(
+    *,
+    base_url: str,
+    identity_issuer: str | None = None,
+    client_id: str = "sai-cli",
+    resource: str | None = None,
+    scope: str | None = None,
+) -> str:
+    """Return the pending-key bound to the complete OIDC/Portal context."""
 
-    return cache_key(
+    return _device_cache_key(
         base_url=base_url,
-        username="__sai_cli_device__",
+        identity_issuer=identity_issuer,
+        client_id=client_id,
+        resource=resource,
+        scope=scope,
         key_id="cli-device-pending",
     )
 

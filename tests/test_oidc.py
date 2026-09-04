@@ -63,7 +63,7 @@ def test_device_flow_uses_discovery_and_form_contract() -> None:
                     "access_token": "opaque-access",
                     "expires_in": 900,
                     "refresh_token": "opaque-refresh",
-                    "refresh_expires_in": 86400,
+                    "refresh_expires_in": 5 * 365 * 24 * 60 * 60,
                 },
                 "token",
                 200,
@@ -110,3 +110,37 @@ def test_oidc_client_requires_offline_access() -> None:
             client_id="sai-cli",
             scope="openid",
         )
+
+
+def test_discovery_endpoint_with_issuer_path_uses_origin_transport() -> None:
+    transport = _Transport(
+        [
+            JsonResponse(
+                {
+                    "issuer": "https://identity.example.org/tenant",
+                    "device_authorization_endpoint": "https://identity.example.org/oauth/device",
+                    "token_endpoint": "https://identity.example.org/oauth/token",
+                },
+                "discovery",
+                200,
+            )
+        ]
+    )
+    transport.base_url = "https://identity.example.org"
+    client = OidcClient(
+        transport=transport,  # type: ignore[arg-type]
+        issuer_url="https://identity.example.org/tenant",
+        client_id="sai-cli",
+        scope="openid offline_access",
+    )
+    metadata = client.discover()
+    assert metadata.token_endpoint.endswith("/oauth/token")
+    assert transport.calls[0][1] == "/tenant/.well-known/openid-configuration"
+
+
+def test_malformed_discovery_url_is_a_contract_error() -> None:
+    metadata = _metadata()
+    metadata["token_endpoint"] = "https://[invalid"
+    transport = _Transport([JsonResponse(metadata, "discovery", 200)])
+    with pytest.raises(ContractError, match="Identity token_endpoint"):
+        _client(transport).discover()

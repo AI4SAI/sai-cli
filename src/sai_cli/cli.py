@@ -8,6 +8,7 @@ import os
 import sys
 import time
 from typing import Mapping, Sequence, TextIO
+from urllib.parse import urlsplit, urlunsplit
 
 from . import __version__
 from .auth import (
@@ -149,14 +150,28 @@ def _build_oidc_client(settings: Settings) -> OidcClient | None:
     issuer = (settings.identity_issuer or "").strip()
     if not issuer:
         return None
+    try:
+        parsed = urlsplit(issuer)
+    except ValueError as exc:
+        raise ContractError("the SAI Identity issuer is invalid") from exc
+    if (
+        parsed.scheme not in {"https", "http"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ContractError("the SAI Identity issuer is invalid")
+    origin = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
     identity_transport = JsonTransport(
-        base_url=issuer,
+        base_url=origin,
         timeout_seconds=settings.timeout_seconds,
         allow_insecure_http=settings.allow_insecure_http,
     )
     return OidcClient(
         transport=identity_transport,
-        issuer_url=identity_transport.base_url,
+        issuer_url=issuer.rstrip("/"),
         client_id=settings.oidc_client_id,
         scope=settings.oidc_scope,
         resource=settings.oidc_resource,
@@ -292,13 +307,13 @@ def _handle_auth_command(
                 "SAI Identity issuer is not configured; CLI status is unavailable",
                 code="credentials_unavailable",
             )
-        payload = oidc_client.userinfo(access_token=lease.token)
         refresh = provider.device_refresh()
         safe = {
             "ok": True,
             "authenticated": True,
-            "subject": payload.get("sub"),
-            "preferred_username": payload.get("preferred_username"),
+            "source": lease.source,
+            "issuer": oidc_client.issuer_url,
+            "client_id": oidc_client.client_id,
             "access_expires_at": lease.expires_at,
             "refresh_expires_at": refresh[1] if refresh else None,
         }

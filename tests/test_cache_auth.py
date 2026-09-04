@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 
 from sai_cli.auth import DeviceTokenResult, TokenProvider
-from sai_cli.cache import TokenCache, cache_key, device_refresh_cache_key
+from sai_cli.cache import TokenCache, cache_key, device_access_cache_key, device_refresh_cache_key
 from sai_cli.config import Settings
-from sai_cli.errors import AuthenticationError
+from sai_cli.errors import AuthenticationError, NetworkError
 from sai_cli.transport import JsonResponse
 
 
@@ -63,6 +63,20 @@ def test_token_cache_permissions_round_trip_and_delete(tmp_path: Path) -> None:
     assert path.parent.stat().st_mode & 0o777 == 0o700
     cache.delete(key)
     assert cache.get(key, now=1_700_000_000) is None
+
+
+def test_device_cache_keys_bind_identity_and_portal_context() -> None:
+    common = {
+        "base_url": "https://portal.example.org",
+        "identity_issuer": "https://id.example.org",
+        "client_id": "sai-cli",
+        "resource": "https://portal.example.org",
+        "scope": "openid offline_access sai.compute.read",
+    }
+    first = device_access_cache_key(**common)
+    assert first != device_access_cache_key(**{**common, "resource": "https://other.example.org"})
+    assert first != device_access_cache_key(**{**common, "client_id": "other-client"})
+    assert first != device_access_cache_key(**{**common, "scope": "openid offline_access"})
 
 
 def test_token_cache_rejects_weak_permissions(tmp_path: Path) -> None:
@@ -189,6 +203,9 @@ def test_managed_login_node_never_uses_hmac_exchange(tmp_path: Path) -> None:
 def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> None:
     class FakeOidc:
         issuer_url = "https://portal.example.org"
+        client_id = "sai-cli"
+        scope = "openid offline_access"
+        resource = None
 
         calls = 0
 
@@ -215,7 +232,12 @@ def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> No
         oidc_client=oidc,  # type: ignore[arg-type]
     )
     provider.credential_cache.put(
-        device_refresh_cache_key(base_url=settings.base_url),
+        device_refresh_cache_key(
+            base_url=settings.base_url,
+            identity_issuer=settings.base_url,
+            client_id=settings.oidc_client_id,
+            scope=settings.oidc_scope,
+        ),
         token="refresh-old",
         expires_at=1_700_100_000,
     )
@@ -245,3 +267,34 @@ def test_install_device_tokens_requires_persistent_cache(tmp_path: Path) -> None
     )
     with pytest.raises(AuthenticationError, match="credential cache"):
         provider.install_device_tokens(result)
+
+
+def test_logout_clears_local_device_credentials_when_identity_is_unreachable(tmp_path: Path) -> None:
+    class UnreachableOidc:
+        issuer_url = "https://portal.example.org"
+        client_id = "sai-cli"
+        scope = "openid offline_access"
+        resource = None
+
+        def revoke(self, *, refresh_token: str) -> bool:
+            raise NetworkError()
+
+    settings = _settings(tmp_path, username=None, managed=True)
+    provider = TokenProvider(
+        settings=settings,
+        transport=FakeTransport(),  # type: ignore[arg-type]
+        environ={},
+        clock=lambda: 1_700_000_000,
+        oidc_client=UnreachableOidc(),  # type: ignore[arg-type]
+    )
+    provider.install_device_tokens(
+        DeviceTokenResult(
+            access_token="access",  # public-scan: allow-test-vector
+            access_expires_at=1_700_000_300,
+            refresh_token="refresh",  # public-scan: allow-test-vector
+            refresh_expires_at=1_700_100_000,
+        )
+    )
+
+    assert provider.revoke_device() is False
+    assert provider.device_refresh(now=1_700_000_000) is None

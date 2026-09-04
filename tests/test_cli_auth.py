@@ -85,9 +85,6 @@ class _AuthHandler(BaseHTTPRequestHandler):
                 }
             )
             return
-        if self.path == "/userinfo":
-            self._json({"sub": "subject-1", "preferred_username": "alice"})
-            return
         self._json({"ok": True})
 
     def log_message(self, _format: str, *_args: object) -> None:
@@ -145,8 +142,8 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
             stderr=status_err,
         ) == 0
         status_payload = json.loads(status_out.getvalue())
-        assert status_payload["preferred_username"] == "alice"
-        assert status_payload["subject"] == "subject-1"
+        assert status_payload["issuer"] == base_url
+        assert status_payload["client_id"] == "sai-cli"
         assert status_err.getvalue() == ""
 
         logout_out = StringIO()
