@@ -44,6 +44,13 @@ Device Authorization Grant 是 OAuth 2.0 的授权方式，不是 OAuth 的替�
 5. Portal 通过 `POST /v1/authz/site-read` 签发独立的 `sai-authz` capability，
    CLI 最终只访问 `/v1/slurm/cli/*` 或 `/v1/billing/cli/*`。
 
+Identity 侧必须先注册一个 public CLI client（不保存 client secret），允许
+`urn:ietf:params:oauth:grant-type:device_code` 和 `refresh_token`，并明确
+Portal resource/audience、最小 scope、access/refresh/session lifetime、
+rotation/reuse detection、revocation、logout 和 key rotation。CLI 只接受
+discovery 提供的端点和这些已审查的响应字段；不会猜测 issuer、scope 或
+refresh 有效期。
+
 Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当前仍有
 历史密码/OTP/HMAC Bearer 兼容链，这是迁移前状态，不是 CLI 长期登录的目标
 合同。`sai-identity` 的 OIDC provider、client registry、credential store
