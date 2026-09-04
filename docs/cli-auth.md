@@ -21,6 +21,10 @@ sai auth status
 sai auth logout
 ```
 
+`sai auth status` reports the local device-session state and expiry without
+printing or echoing token material; it is not a substitute for Portal's
+authorization decision.
+
 如果 SSH 窗口需要先退出，可用 `sai auth login --no-wait` 发起授权，回来
 后执行 `sai auth login --resume`。待确认的 device code 只写入权限为
 `0700/0600` 的用户凭据缓存，过期后失效；它不会写入 shell history、TOML
