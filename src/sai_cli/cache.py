@@ -224,7 +224,7 @@ class TokenCache:
             not isinstance(token, str)
             or not token
             or len(token) > 16_384
-            or any(ord(char) < 32 or ord(char) == 127 for char in token)
+            or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
             or isinstance(expires_at, bool)
             or not isinstance(expires_at, int)
         ):
@@ -242,7 +242,7 @@ class TokenCache:
             not isinstance(token, str)
             or not token
             or len(token) > 16_384
-            or any(ord(char) < 32 or ord(char) == 127 for char in token)
+            or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
             or isinstance(expires_at, bool)
             or not isinstance(expires_at, int)
             or expires_at < 1

@@ -88,6 +88,12 @@ def test_token_cache_rejects_weak_permissions(tmp_path: Path) -> None:
         TokenCache(path).get("missing", now=0)
 
 
+def test_token_cache_rejects_whitespace_credentials(tmp_path: Path) -> None:
+    path = tmp_path / "cache" / "token-cache.json"
+    with pytest.raises(AuthenticationError, match="entry is invalid"):
+        TokenCache(path).put("key", token="token with-space", expires_at=1_700_000_300)
+
+
 def test_token_cache_rejects_symlink(tmp_path: Path) -> None:
     target = tmp_path / "target.json"
     target.write_text('{"version": 1, "entries": {}}', encoding="utf-8")
