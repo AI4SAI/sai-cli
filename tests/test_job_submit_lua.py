@@ -15,18 +15,11 @@ RENDERER = ROOT / "scripts" / "render_job_submit_snapshot.py"
 
 def _projection(*, generated_at: int = 1_785_823_200, expires_at: int = 4_102_444_800) -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "revision": "test-1",
         "generated_at": generated_at,
         "expires_at": expires_at,
         "gpu_policy": {"per_node_multiple": 4, "exempt_qos": ["gpu-special"]},
-        "personal_accounts": {"alice": "personal-alice"},
-        "org_accounts": {"org-example": "org-example"},
-        "project_accounts": {
-            "org-example/proj-research": "proj-research",
-            "org-example/proj-standard": "org-example",
-        },
-        "home_aliases": {"alice/workdir_org-example": "org-example"},
     }
 
 
@@ -79,7 +72,7 @@ end
 """
 
 
-def test_submit_forces_directory_account_and_handles_project_shapes(tmp_path: Path) -> None:
+def test_submit_applies_explicit_first_and_derives_canonical_paths(tmp_path: Path) -> None:
     snapshot = _snapshot(tmp_path)
     run_lua(
         _prelude(snapshot)
@@ -90,25 +83,46 @@ local research = new_job({
     tres_per_node = "gres/gpu:4",
 })
 assert(slurm_job_submit(research, {}, 1000) == slurm.SUCCESS)
-assert(research.account == "proj-research")
-assert(message_contains("account changed to proj-research"))
+assert(research.account == "personal-alice")
+assert(message_contains("explicit account personal-alice differs from WorkDir account proj-research"))
 
 messages = {}
-local standard = new_job({
-    work_dir = "/org/org-example/proj-standard/run",
-    account = "proj-research",
+local project = new_job({
+    work_dir = "/org/org-example/proj-research/run",
+    account = nil,
     tres_per_node = "gres/gpu:4",
 })
-assert(slurm_job_submit(standard, {}, 1000) == slurm.SUCCESS)
-assert(standard.account == "org-example")
+assert(slurm_job_submit(project, {}, 1000) == slurm.SUCCESS)
+assert(project.account == "proj-research")
+assert(message_contains("differs from the Slurm default account personal-alice"))
+
+messages = {}
+local org = new_job({
+    work_dir = "/org/org-example/share/run",
+    account = nil,
+    tres_per_node = "gres/gpu:4",
+})
+assert(slurm_job_submit(org, {}, 1000) == slurm.SUCCESS)
+assert(org.account == "org-example")
+
+messages = {}
+local home = new_job({
+    work_dir = "/home/alice/projects/run", -- public-scan: allow-test-vector
+    account = nil,
+    tres_per_node = "gres/gpu:4",
+})
+assert(slurm_job_submit(home, {}, 1000) == slurm.SUCCESS)
+assert(home.account == "private-alice")
 
 messages = {}
 local alias = new_job({
     work_dir = "/home/alice/workdir_org-example/proj-research/run", -- public-scan: allow-test-vector
+    account = nil,
     tres_per_node = "gres/gpu:4",
 })
 assert(slurm_job_submit(alias, {}, 1000) == slurm.SUCCESS)
-assert(alias.account == "proj-research")
+assert(alias.account == "personal-alice")
+assert(message_contains("WorkDir is unresolved"))
 """
     )
 
@@ -119,23 +133,34 @@ def test_submit_preserves_account_when_path_or_snapshot_is_unresolved(tmp_path: 
         _prelude(snapshot)
         + """
 local unknown = new_job({
-    work_dir = "/org/org-example/proj-unknown/run",
-    account = "personal-alice",
+    work_dir = "/org/org-example/unknown/run",
+    account = nil,
     tres_per_node = "gres/gpu:4",
 })
 assert(slurm_job_submit(unknown, {}, 1000) == slurm.SUCCESS)
-assert(unknown.account == "personal-alice")
-assert(message_contains("WorkDir is unresolved"))
+assert(unknown.account == "org-example")
+assert(not message_contains("WorkDir is unresolved"))
 
 messages = {}
 local suspicious = new_job({
     work_dir = "/home/alice/workdir_org-example/../run", -- public-scan: allow-test-vector
-    account = "personal-alice",
+    account = nil,
     tres_per_node = "gres/gpu:4",
 })
 assert(slurm_job_submit(suspicious, {}, 1000) == slurm.SUCCESS)
 assert(suspicious.account == "personal-alice")
 assert(message_contains("WorkDir is unresolved"))
+
+messages = {}
+local other_home = new_job({work_dir = "/home/bob/run", account = nil, tres_per_node = "gres/gpu:4"}) -- public-scan: allow-test-vector
+assert(slurm_job_submit(other_home, {}, 1000) == slurm.SUCCESS)
+assert(other_home.account == "personal-alice")
+assert(message_contains("keeping the Slurm default account"))
+
+messages = {}
+local relative = new_job({work_dir = "relative/run", account = nil, default_account = "", tres_per_node = "gres/gpu:4"})
+assert(slurm_job_submit(relative, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
+assert(message_contains("no explicit, path-derived, or Slurm default account"))
 """
     )
 
@@ -143,20 +168,18 @@ assert(message_contains("WorkDir is unresolved"))
     run_lua(
         _prelude(stale)
         + """
-local job = new_job({account = "personal-alice", tres_per_node = "gres/gpu:4"})
+local job = new_job({account = nil, tres_per_node = "gres/gpu:4"})
 assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
-assert(job.account == "personal-alice")
-assert(message_contains("WorkDir is unresolved"))
+assert(job.account == "private-alice")
 """
     )
 
     run_lua(
         _prelude(tmp_path / "missing.lua")
         + """
-local job = new_job({account = "personal-alice", tres_per_node = "gres/gpu:4"})
+local job = new_job({account = nil, tres_per_node = "gres/gpu:4"})
 assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
-assert(job.account == "personal-alice")
-assert(message_contains("WorkDir is unresolved"))
+assert(job.account == "private-alice")
 """
     )
 

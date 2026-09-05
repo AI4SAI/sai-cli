@@ -13,18 +13,11 @@ RENDERER = ROOT / "scripts" / "render_job_submit_snapshot.py"
 
 def _valid_projection() -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "revision": "projection-42",
         "generated_at": 100,
         "expires_at": 200,
         "gpu_policy": {"per_node_multiple": 4, "exempt_qos": ["z-qos", "a-qos", "a-qos"]},
-        "personal_accounts": {"zoe": "personal-zoe", "alice": "personal-alice"},
-        "org_accounts": {"org-example": "account-example"},
-        "project_accounts": {
-            "org-example/proj-standard": "account-example",
-            "org-example/proj-research": "project-example",
-        },
-        "home_aliases": {"alice/workdir_org-example": "org-example"},
     }
 
 
@@ -48,7 +41,8 @@ def test_renderer_is_deterministic_atomic_and_sorted(tmp_path: Path) -> None:
 
     assert text.startswith("return {\n")
     assert text.count('["a-qos"] = true') == 1
-    assert text.index('["alice"]') < text.index('["zoe"]')
+    assert 'personal_accounts' not in text
+    assert 'project_accounts' not in text
     assert stat.S_IMODE(output.stat().st_mode) == 0o644
     assert not list(tmp_path.glob(".snapshot.lua.*"))
 
@@ -64,18 +58,12 @@ def test_renderer_rejects_unknown_fields_and_lua_injection(tmp_path: Path) -> No
     injected["personal_accounts"] = {'alice"] = os.execute("bad") --': "personal-alice"}
     completed = _run(tmp_path / "injected", injected)
     assert completed.returncode != 0
-    assert "canonical token" in completed.stderr
+    assert "fields do not match" in completed.stderr
 
 
-def test_renderer_requires_known_orgs_for_projects_and_aliases(tmp_path: Path) -> None:
+def test_renderer_rejects_retired_account_relation_projection(tmp_path: Path) -> None:
     payload = _valid_projection()
     payload["project_accounts"] = {"org-missing/proj-x": "proj-x"}
     completed = _run(tmp_path / "project", payload)
     assert completed.returncode != 0
-    assert "unknown org" in completed.stderr
-
-    payload = _valid_projection()
-    payload["home_aliases"] = {"alice/workdir_org-missing": "org-missing"}
-    completed = _run(tmp_path / "alias", payload)
-    assert completed.returncode != 0
-    assert "not a provisioned org alias" in completed.stderr
+    assert "fields do not match" in completed.stderr

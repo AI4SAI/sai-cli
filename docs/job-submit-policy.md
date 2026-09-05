@@ -83,29 +83,38 @@ explicit projected submission policy with an immediate user diagnostic.
 
 ## Account Projection
 
-The plugin never derives Slurm account names from naming prefixes. A personal
-account may retain a legacy name, and project directories do not all map to a
-project Slurm account.
+The plugin derives only from the canonical absolute path. It does not load an
+account relation cache and does not resolve Home symlinks:
 
-Supported lexical paths are:
-
-| Work directory | Projection lookup |
+| Work directory | Derived account |
 | --- | --- |
-| `/home/<user>/...` | `personal_accounts[user]` |
-| `/home/<user>/workdir_<org>/...` | provisioned `home_aliases`, then organization account |
-| `/home/<user>/workdir_<org>/<project>/...` | provisioned alias, then exact project mapping |
-| `/org/<org>/...` | `org_accounts[org]` |
-| `/org/<org>/<project>/...` | exact `project_accounts[org/project]` |
+| `/home/<user>` or `/home/<user>/<subpath>` | `private-<user>` |
+| `/org/<org>` or `/org/<org>/<user>` | `<org>` |
+| `/org/<org>/share` or `/org/<org>/shr-<folder>` | `<org>` |
+| `/org/<org>/proj-<project>` or a descendant | `proj-<project>` |
 
-Every canonical project root must be present. A standard project maps to its
-organization account; an account-bearing project maps to its project account.
-An unknown `proj-*` root is unresolved instead of silently falling back to the
-organization account.
+Only a direct child of `/org/<org>/` whose name starts with `proj-` is treated
+as a project account. This relies on Portal's naming contract: shared folders
+use `shr-*`, Slurm-backed projects use globally unique `proj-*`, and personal
+Unix usernames cannot use account prefixes. An unknown `proj-*` root is still a
+syntactic candidate; native Slurm association checks remain the authorization
+boundary.
+
+The retired `/home/<user>/workdir_<org>` alias is unresolved. Relative paths,
+repeated separators, `.` or `..`, another user's home path, and malformed
+absolute paths are unresolved.
+
+Account precedence is fixed:
+
+1. An explicit account is retained; a path mismatch emits a warning.
+2. Without an explicit account, a resolved path account is selected; a mismatch
+   with Slurm's default account emits a warning.
+3. An unresolved path keeps Slurm's default account when one exists.
+4. A submission with no explicit, path-derived, or default account is rejected.
 
 The controller must not call `realpath` or touch shared storage during job
-submission. Relative paths, repeated separators, `.` or `..`, another user's
-home path, and unknown home aliases are unresolved. This is an account-selection
-policy and usability guard, not proof of filesystem ownership.
+submission. This is an account-selection policy and usability guard, not proof
+of filesystem ownership.
 
 ## Projection Contract
 
@@ -113,7 +122,7 @@ The control-plane producer emits strict JSON with this shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "revision": "opaque-revision",
   "generated_at": 1785823200,
   "expires_at": 1785823500,
@@ -121,34 +130,27 @@ The control-plane producer emits strict JSON with this shape:
     "per_node_multiple": 4,
     "exempt_qos": ["gpu-special"]
   },
-  "personal_accounts": {"alice": "personal-alice"},
-  "org_accounts": {"org-example": "org-example"},
-  "project_accounts": {
-    "org-example/proj-research": "proj-research",
-    "org-example/proj-standard": "org-example"
-  },
-  "home_aliases": {"alice/workdir_org-example": "org-example"}
 }
 ```
 
-`scripts/render_job_submit_snapshot.py` validates every field and token, sorts
-maps, renders a Lua table, and replaces the output atomically. It does not read
-Portal databases or infer memberships. Portal owns the authoritative producer
-and may publish only after the matching Slurm association and directory
-projection have succeeded and been read back.
+`scripts/render_job_submit_snapshot.py` validates the GPU policy fields, renders
+a Lua table, and replaces the output atomically. It does not read Portal
+databases or infer memberships. Portal owns the authoritative naming and
+association facts; the controller uses native Slurm authorization after the
+lexical path decision.
 
-`expires_at` is checked on each submission. An expired, missing, malformed, or
-unsupported snapshot disables account inference but does not block unrelated
-submissions; the caller receives the required unresolved warning. Resource
-policy defaults to a four-GPU multiple if a loaded snapshot contains an invalid
-multiple, but production publication must reject such a snapshot before it
-reaches the controller.
+`expires_at` is checked for the projected GPU policy. An expired, missing,
+malformed, or unsupported snapshot disables only the projected GPU exemptions
+and multiple fallback; canonical account derivation remains local and bounded.
+Production publication must reject an invalid GPU policy before it reaches the
+controller.
 
 ## Hot-Path Budget
 
-The Lua state loads the snapshot once through `dofile`. `slurm_job_submit`
-performs only bounded string checks, fixed map lookups, integer arithmetic, and
-one clock read for snapshot expiry. It performs no file read, network request,
+The Lua state loads the GPU policy snapshot once through `dofile`.
+`slurm_job_submit` performs only bounded string checks, direct account
+construction, integer arithmetic, and one clock read for snapshot expiry. It
+performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
 Warnings use `slurm.user_msg`, which Slurm propagates even when the hook returns

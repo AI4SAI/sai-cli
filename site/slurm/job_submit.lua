@@ -4,19 +4,11 @@ local loaded, snapshot = pcall(dofile, snapshot_path)
 
 local snapshot_ready = loaded
     and type(snapshot) == "table"
-    and snapshot.schema_version == 1
+    and snapshot.schema_version == 2
     and type(snapshot.expires_at) == "number"
-local personal_accounts = snapshot_ready and snapshot.personal_accounts or {}
-local org_accounts = snapshot_ready and snapshot.org_accounts or {}
-local project_accounts = snapshot_ready and snapshot.project_accounts or {}
-local home_aliases = snapshot_ready and snapshot.home_aliases or {}
 local exempt_qos = snapshot_ready and snapshot.gpu_multiple_exempt_qos or {}
 local gpu_multiple = snapshot_ready and snapshot.gpu_per_node_multiple or 4
 
-if type(personal_accounts) ~= "table" then personal_accounts = {} end
-if type(org_accounts) ~= "table" then org_accounts = {} end
-if type(project_accounts) ~= "table" then project_accounts = {} end
-if type(home_aliases) ~= "table" then home_aliases = {} end
 if type(exempt_qos) ~= "table" then exempt_qos = {} end
 if type(gpu_multiple) ~= "number" or gpu_multiple < 1 or gpu_multiple % 1 ~= 0 then
     gpu_multiple = 4
@@ -72,52 +64,55 @@ local function canonical_work_dir(path)
         and not string.find(guarded, "/../", 1, true)
 end
 
-local function account_for_org(org, project)
-    local org_account = org_accounts[org]
-    if not nonempty(org_account) then return nil end
-    if project then
-        local project_account = project_accounts[org .. "/" .. project]
-        if nonempty(project_account) then return project_account end
-        if string.sub(project, 1, 5) == "proj-" then return nil end
-    end
-    return org_account
-end
-
 local function inferred_account(job_desc)
-    if not snapshot_ready or os.time() >= snapshot.expires_at then return nil end
     local path, username = job_desc.work_dir, job_desc.user_name
     if not canonical_work_dir(path) or not nonempty(username) then return nil end
 
     local root, owner, rest = string.match(path, "^/([^/]+)/([^/]+)(.*)$")
     if root == "org" then
-        local project = rest and string.match(rest, "^/([^/]+)") or nil
-        return account_for_org(owner, project)
+        local child = rest and string.match(rest, "^/([^/]+)") or nil
+        if nonempty(child) and string.sub(child, 1, 5) == "proj-" then
+            return child
+        end
+        return owner
     end
     if root ~= "home" or owner ~= username then return nil end
 
-    local alias, tail = string.match(rest or "", "^/([^/]+)(.*)$")
-    if not alias then return personal_accounts[username] end
-    if string.sub(alias, 1, 8) ~= "workdir_" then
-        return personal_accounts[username]
+    local child = rest and string.match(rest, "^/([^/]+)") or nil
+    if nonempty(child) and string.sub(child, 1, 8) == "workdir_" then
+        return nil
     end
-
-    local org = home_aliases[username .. "/" .. alias]
-    if not nonempty(org) then return nil end
-    local project = tail and string.match(tail, "^/([^/]+)") or nil
-    return account_for_org(org, project)
+    return "private-" .. username
 end
 
 local function apply_work_dir_account(job_desc)
     local inferred = inferred_account(job_desc)
+    local explicit = nonempty(job_desc.account) and job_desc.account or nil
+    local default_account = nonempty(job_desc.default_account) and job_desc.default_account or nil
+    if explicit then
+        if inferred and explicit ~= inferred then
+            slurm.user_msg("SAI account policy: explicit account " .. explicit
+                .. " differs from WorkDir account " .. inferred .. "; keeping explicit account.")
+        elseif not inferred then
+            slurm.user_msg("SAI account policy: WorkDir is unresolved; keeping the explicit account.")
+        end
+        return true
+    end
     if not nonempty(inferred) then
-        slurm.user_msg("SAI account policy: WorkDir is unresolved; keeping the requested/default account.")
-        return
+        if default_account then
+            job_desc.account = default_account
+            slurm.user_msg("SAI account policy: WorkDir is unresolved; keeping the Slurm default account.")
+            return true
+        end
+        slurm.user_msg("SAI account policy: no explicit, path-derived, or Slurm default account is available.")
+        return false
     end
-    local current = nonempty(job_desc.account) and job_desc.account or job_desc.default_account
-    if current ~= inferred then
-        job_desc.account = inferred
-        slurm.user_msg("SAI account policy: account changed to " .. inferred .. " from WorkDir.")
+    job_desc.account = inferred
+    if default_account and default_account ~= inferred then
+        slurm.user_msg("SAI account policy: WorkDir account " .. inferred
+            .. " differs from the Slurm default account " .. default_account .. "; using WorkDir account.")
     end
+    return true
 end
 
 local function resource_override_error(job_desc)
@@ -140,7 +135,7 @@ local function resource_override_error(job_desc)
 end
 
 function slurm_job_submit(job_desc, part_list, submit_uid)
-    apply_work_dir_account(job_desc)
+    if not apply_work_dir_account(job_desc) then return policy_error end
 
     local has_gpu, gpu_count, invalid_gpu_shape = gpu_request(job_desc)
     if not has_gpu then return slurm.SUCCESS end
