@@ -47,6 +47,10 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     assert manifest["runtime_dependencies"] == []
     assert manifest["credential_files"] == []
     assert manifest["rollback"]["strategy"] == "dpkg-reinstall"
+    assert manifest["activation_entrypoint"] == "/opt/sai-cli/bin/sai"
+    assert manifest["compatibility_entrypoints"] == ["/usr/bin/sai"]
+    assert "/usr/bin/sai" in manifest["installed_files"]
+    assert not any(path.startswith("/usr/lib/sai-cli/") for path in manifest["installed_files"])
 
     listing = subprocess.run(
         ["dpkg-deb", "-c", str(artifact)],
@@ -55,11 +59,23 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
         stdout=subprocess.PIPE,
     ).stdout
     assert "./usr/bin/sai" in listing
+    assert "./opt/sai-cli/bin/sai" in listing
+    assert f"./opt/sai-cli/releases/{manifest['version']}/site-packages/sai_cli/" in listing
     assert "./usr/share/sai-cli/package-manifest.json" in listing
     assert "sai_site_runtime" not in listing
     assert "sai_core" not in listing
     assert "/etc/sai-cli/config.toml" not in listing
     assert "DEBIAN" not in listing
+
+    extracted = tmp_path / "extracted"
+    subprocess.run(["dpkg-deb", "-x", str(artifact), str(extracted)], check=True)
+    assert (extracted / "usr/bin/sai").readlink() == Path("/opt/sai-cli/bin/sai")
+    wrapper = extracted / "opt/sai-cli/bin/sai"
+    release = f"/opt/sai-cli/releases/{manifest['version']}/site-packages"
+    assert release in wrapper.read_text(encoding="utf-8")
+    for path in (extracted / "opt/sai-cli").rglob("*"):
+        expected_mode = 0o755 if path.is_dir() or path == wrapper else 0o644
+        assert path.stat().st_mode & 0o777 == expected_mode
 
 
 def test_managed_wrapper_forces_capability_mode_without_secret_inputs() -> None:

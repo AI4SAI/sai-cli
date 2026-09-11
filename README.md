@@ -70,6 +70,11 @@ python3 -m venv .venv
 .venv/bin/sai --version
 ```
 
+Managed login nodes use the dedicated Debian package under `/opt/sai-cli`,
+with a package-owned `/usr/bin/sai` link for PATH compatibility. Installation,
+configuration, canary, and rollback are documented in the
+[deployment run card](docs/login-node-deployment.md).
+
 ## Configure
 
 Use a short-lived Bearer token when one is already available:

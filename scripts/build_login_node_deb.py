@@ -221,7 +221,7 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         _safe_wheel_members(wheel)
 
         stage = root / PACKAGE_NAME
-        release_rel = PurePosixPath("usr/lib/sai-cli/releases") / version / "site-packages"
+        release_rel = PurePosixPath("opt/sai-cli/releases") / version / "site-packages"
         release = stage / str(release_rel)
         release.mkdir(parents=True)
         with zipfile.ZipFile(wheel) as archive:
@@ -231,7 +231,9 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
 
         wrapper = (source_dir / "packaging/login-node/sai").read_text(encoding="utf-8")
         wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/{release_rel.as_posix()}")
-        _write(stage / "usr/bin/sai", wrapper, mode=0o755)
+        _write(stage / "opt/sai-cli/bin/sai", wrapper, mode=0o755)
+        (stage / "usr/bin").mkdir(parents=True)
+        (stage / "usr/bin/sai").symlink_to("/opt/sai-cli/bin/sai")
         _write(
             stage / "usr/share/sai-cli/examples/config.toml",
             (source_dir / "packaging/login-node/config.toml.example").read_bytes(),
@@ -241,7 +243,8 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         installed_files = sorted(
             "/" + path.relative_to(stage).as_posix()
             for path in stage.rglob("*")
-            if path.is_file() and "DEBIAN" not in path.relative_to(stage).parts
+            if (path.is_file() or path.is_symlink())
+            and "DEBIAN" not in path.relative_to(stage).parts
         )
         installed_files.append("/usr/share/sai-cli/package-manifest.json")
         installed_files.sort()
@@ -260,7 +263,8 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
             "runtime_dependencies": [],
             "credential_files": [],
             "installed_files": installed_files,
-            "activation_entrypoint": "/usr/bin/sai",
+            "activation_entrypoint": "/opt/sai-cli/bin/sai",
+            "compatibility_entrypoints": ["/usr/bin/sai"],
             "rollback": {
                 "strategy": "dpkg-reinstall",
                 "command": "dpkg -i /path/to/recorded-previous-sai-cli.deb",

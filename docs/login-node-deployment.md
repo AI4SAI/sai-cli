@@ -4,8 +4,11 @@ Status: production run card
 
 The login-node artifact is a dedicated `sai-cli` Debian package. It must not be
 added to Portal's center/site roles or to the identity-cache package. The
-package contains only the pure-Python CLI, a thin `/usr/bin/sai` entrypoint, a
-generic non-secret config example, and a full-SHA manifest. It contains no
+package installs the pure-Python CLI in
+`/opt/sai-cli/releases/<version>/site-packages` and a thin
+`/opt/sai-cli/bin/sai` entrypoint. `/usr/bin/sai` is a package-owned symlink for
+the standard login PATH. A generic non-secret config example and full-SHA
+manifest remain in `/usr/share/sai-cli`. It contains no
 Bearer token, HMAC secret, signing/public key, site-agent code, Portal ORM,
 Slurm reader, or scheduler mutation command.
 
@@ -43,10 +46,16 @@ mixes uncommitted checkout files into a package.
 
 ## Runtime configuration
 
+The `/opt/sai-cli` prefix is root-owned and node-local, with directories and
+entrypoints `0755` and runtime files `0644`. Check `findmnt` for the exact
+prefix before installation: a shared application mount requires its own
+rollout scope and cannot be used for an isolated login-node canary. Shared
+shell startup files do not select the installed release or carry credentials.
+
 The real `/etc/sai-cli/config.toml` is an external non-secret runtime input,
 not a package payload. It is root-owned, regular, not symlinked, and not
 group/world writable. Start from the packaged generic example and set only the
-approved Portal origin and canonical site. Managed `/usr/bin/sai` forces:
+approved Portal origin and canonical site. Managed `/opt/sai-cli/bin/sai` forces:
 
 ```text
 SAI_ENV=production
@@ -110,7 +119,11 @@ to another user or node.
 ## Rollback and cleanup
 
 Rollback is `dpkg -i` of the recorded previous package, followed by the same
-manifest/entrypoint readback. If this is the first install, rollback removes
+manifest/entrypoint readback. Upgrading from the previous `/usr/lib/sai-cli`
+layout removes the old package-owned runtime and replaces `/usr/bin/sai` with
+the managed symlink; reinstalling that previous package restores its layout.
+Do not retain a second active runtime or copy files between the two prefixes.
+If this is the first install, rollback removes
 only the `sai-cli` package after verifying its installed-file list; external
 config/cache cleanup is separate and explicit.
 
