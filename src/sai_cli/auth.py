@@ -60,9 +60,13 @@ def _validate_device_result(result: DeviceTokenResult, *, now: int) -> DeviceTok
         type(result.access_expires_at) is not int
         or result.access_expires_at <= now
         or result.access_expires_at - now > 60 * 60
-        or type(result.refresh_expires_at) is not int
-        or result.refresh_expires_at <= result.access_expires_at
-        or result.refresh_expires_at > 2**63 - 1
+        or (
+            result.refresh_expires_at is not None
+            and (
+                type(result.refresh_expires_at) is not int
+                or not now < result.refresh_expires_at <= 2**63 - 1
+            )
+        )
     ):
         raise ContractError("the Identity token response is invalid")
     for value, maximum in ((result.subject, 512), (result.device_id, 128)):
@@ -185,11 +189,7 @@ class TokenProvider:
                     cache_key=access_key,
                 )
 
-        refresh = self.credential_cache.get(
-            self._device_refresh_key(),
-            now=now,
-            margin_seconds=0,
-        )
+        refresh = self.device_refresh(now=now)
         if refresh:
             return self._refresh_device(now=now)
 
@@ -237,6 +237,7 @@ class TokenProvider:
             self._device_refresh_key(),
             token=result.refresh_token,
             expires_at=result.refresh_expires_at,
+            allow_unknown_expiry=True,
         )
         self.cache.put(
             self._device_access_key(),
@@ -268,12 +269,13 @@ class TokenProvider:
             now=int(self.clock()),
         )
 
-    def device_refresh(self, *, now: int | None = None) -> tuple[str, int] | None:
+    def device_refresh(self, *, now: int | None = None) -> tuple[str, int | None] | None:
         current = int(self.clock()) if now is None else now
         return self.credential_cache.get(
             self._device_refresh_key(),
             now=current,
             margin_seconds=0,
+            allow_unknown_expiry=True,
         )
 
     def store_pending_device_code(self, *, device_code: str, expires_at: int) -> None:
@@ -314,11 +316,7 @@ class TokenProvider:
         # repopulate the local credential after logout.  Network failure must
         # not prevent local removal.
         with self._credential_lock():
-            refresh = self.credential_cache.get(
-                self._device_refresh_key(),
-                now=int(self.clock()),
-                margin_seconds=0,
-            )
+            refresh = self.device_refresh()
             revoked = False
             if refresh and self.oidc_client is not None:
                 try:
@@ -347,11 +345,7 @@ class TokenProvider:
                         source="cache",
                         cache_key=self._device_access_key(),
                     )
-                current = self.credential_cache.get(
-                    self._device_refresh_key(),
-                    now=now,
-                    margin_seconds=0,
-                )
+                current = self.device_refresh(now=now)
                 if not current:
                     raise AuthenticationError("the SAI device refresh credential is unavailable")
                 result = _validate_device_result(

@@ -67,6 +67,11 @@ Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当�
   提供不可撤销的“永久 Bearer”。在 SSH 可信的前提下，用户可以数月乃至更久
   不重新交互，但账号禁用、全局 logout、token-family reuse 或策略过期会立即
   收敛权限。
+- OAuth token 响应不要求提供 refresh 到期字段。字段缺失，或 provider 用
+  `refresh_expires_in=0` 表示服务端管理的 offline session 时，CLI 保存未知
+  到期时间，状态输出 `refresh_expires_at=null`，不编造期限或宣称永久有效。
+  已提供的正数到期时间仍严格校验；access token 和待确认设备码必须有期限。
+  服务端返回 `invalid_grant` 后清除设备凭据并要求重新授权。
 - refresh token 的默认路径是
   `${XDG_DATA_HOME}/sai/credentials.json`（未设置时
   `~/.local/share/sai/credentials.json`），目录 `0700`、文件 `0600`，原子

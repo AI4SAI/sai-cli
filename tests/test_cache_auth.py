@@ -206,7 +206,10 @@ def test_managed_login_node_never_uses_hmac_exchange(tmp_path: Path) -> None:
     assert transport.calls == []
 
 
-def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> None:
+@pytest.mark.parametrize("refresh_expiry", [None, 1_700_100_000])
+def test_device_refresh_rotates_and_reuses_protected_cache(
+    tmp_path: Path, refresh_expiry: int | None,
+) -> None:
     class FakeOidc:
         issuer_url = "https://portal.example.org"
         client_id = "sai-cli"
@@ -222,7 +225,7 @@ def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> No
                 access_token="access-new",  # public-scan: allow-test-vector
                 access_expires_at=now + 300,
                 refresh_token="refresh-new",  # public-scan: allow-test-vector
-                refresh_expires_at=now + 100_000,
+                refresh_expires_at=refresh_expiry,
                 subject="subject-1",
                 device_id="device-1",
             )
@@ -245,14 +248,26 @@ def test_device_refresh_rotates_and_reuses_protected_cache(tmp_path: Path) -> No
             scope=settings.oidc_scope,
         ),
         token="refresh-old",
-        expires_at=1_700_100_000,
+        expires_at=refresh_expiry,
+        allow_unknown_expiry=True,
     )
+    provider.store_pending_device_code(device_code="pending-code", expires_at=1_700_000_300)
 
     lease = provider.get()
     assert lease.token == "access-new"
     assert lease.source == "cache"
-    assert provider.device_refresh(now=1_700_000_000) == ("refresh-new", 1_700_100_000)
+    assert provider.device_refresh(now=1_700_000_000) == ("refresh-new", refresh_expiry)
     assert oidc.calls == 1
+
+
+def test_unknown_expiry_is_not_allowed_for_access_or_pending_tokens(tmp_path: Path) -> None:
+    cache = TokenCache(tmp_path / "cache" / "tokens.json")
+    with pytest.raises(AuthenticationError, match="entry is invalid"):
+        cache.put("key", token="opaque-refresh", expires_at=None)
+    cache.put("key", token="opaque-refresh", expires_at=None, allow_unknown_expiry=True)
+    with pytest.raises(AuthenticationError, match="entry is invalid"):
+        cache.get("key", now=1_700_000_000)
+    assert cache.get("key", now=1_800_000_000, allow_unknown_expiry=True) == ("opaque-refresh", None)
 
 
 def test_install_device_tokens_requires_persistent_cache(tmp_path: Path) -> None:

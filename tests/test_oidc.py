@@ -93,6 +93,28 @@ def test_pending_device_poll_is_not_a_terminal_auth_error() -> None:
         client.poll_device_token(device_code="opaque-device-code", now=1_700_000_000)
 
 
+@pytest.mark.parametrize("expiry", [None, 0, 60, True, -1, "300"])
+def test_refresh_expiry_is_optional_but_typed(expiry: object) -> None:
+    payload = {
+        "token_type": "Bearer",
+        "access_token": "opaque-access",
+        "expires_in": 300,
+        "refresh_token": "opaque-refresh",
+    }
+    if expiry is not None:
+        payload["refresh_expires_in"] = expiry
+    transport = _Transport([
+        JsonResponse(_metadata(), "discovery", 200),
+        JsonResponse(payload, "refresh", 200),
+    ])
+    if expiry is None or type(expiry) is int and expiry >= 0:
+        result = _client(transport).refresh(refresh_token="opaque-old", now=1_700_000_000)
+        assert result.refresh_expires_at == (1_700_000_060 if expiry == 60 else None)
+    else:
+        with pytest.raises(ContractError, match="refresh_expires_in"):
+            _client(transport).refresh(refresh_token="opaque-old", now=1_700_000_000)
+
+
 def test_discovery_rejects_cross_origin_endpoint() -> None:
     metadata = _metadata()
     metadata["token_endpoint"] = "https://evil.example.org/oauth/token"

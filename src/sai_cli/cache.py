@@ -15,7 +15,7 @@ from pathlib import Path
 import stat
 import tempfile
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Literal, overload
 
 from .errors import AuthenticationError
 
@@ -202,7 +202,22 @@ class TokenCache:
             raise AuthenticationError("the token cache format is invalid")
         return payload
 
-    def get(self, key: str, *, now: int, margin_seconds: int = 30) -> tuple[str, int] | None:
+    @overload
+    def get(
+        self, key: str, *, now: int, margin_seconds: int = 30,
+        allow_unknown_expiry: Literal[False] = False,
+    ) -> tuple[str, int] | None: ...
+
+    @overload
+    def get(
+        self, key: str, *, now: int, margin_seconds: int = 30,
+        allow_unknown_expiry: Literal[True],
+    ) -> tuple[str, int | None] | None: ...
+
+    def get(
+        self, key: str, *, now: int, margin_seconds: int = 30,
+        allow_unknown_expiry: bool = False,
+    ) -> tuple[str, int | None] | None:
         if isinstance(now, bool) or not isinstance(now, int) or now < 0:
             raise AuthenticationError("the token cache clock value is invalid")
         if (
@@ -225,17 +240,21 @@ class TokenCache:
             or not token
             or len(token) > 16_384
             or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
-            or isinstance(expires_at, bool)
-            or not isinstance(expires_at, int)
+            or "expires_at" not in entry
+            or not (
+                (allow_unknown_expiry and expires_at is None)
+                or (type(expires_at) is int and expires_at > 0)
+            )
         ):
             raise AuthenticationError("the token cache entry is invalid")
-        if expires_at < 1:
-            raise AuthenticationError("the token cache entry is invalid")
-        if expires_at - now <= margin_seconds:
+        if expires_at is not None and expires_at - now <= margin_seconds:
             return None
         return token, expires_at
 
-    def put(self, key: str, *, token: str, expires_at: int) -> None:
+    def put(
+        self, key: str, *, token: str, expires_at: int | None,
+        allow_unknown_expiry: bool = False,
+    ) -> None:
         if not self.enabled:
             return
         if (
@@ -243,9 +262,10 @@ class TokenCache:
             or not token
             or len(token) > 16_384
             or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
-            or isinstance(expires_at, bool)
-            or not isinstance(expires_at, int)
-            or expires_at < 1
+            or not (
+                (allow_unknown_expiry and expires_at is None)
+                or (type(expires_at) is int and expires_at > 0)
+            )
         ):
             raise AuthenticationError("the token cache entry is invalid")
         self._secure_parent()
@@ -255,9 +275,11 @@ class TokenCache:
             entry_key: entry
             for entry_key, entry in payload["entries"].items()
             if isinstance(entry, dict)
-            and isinstance(entry.get("expires_at"), int)
-            and not isinstance(entry.get("expires_at"), bool)
-            and entry["expires_at"] - now > 0
+            and "expires_at" in entry
+            and (
+                entry["expires_at"] is None
+                or (type(entry["expires_at"]) is int and entry["expires_at"] > now)
+            )
         }
         payload["entries"][key] = {"token": token, "expires_at": expires_at}
         encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")

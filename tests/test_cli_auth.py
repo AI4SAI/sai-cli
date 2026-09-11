@@ -60,7 +60,6 @@ class _AuthHandler(BaseHTTPRequestHandler):
                     "access_token": "opaque-access-token",
                     "expires_in": 300,
                     "refresh_token": "opaque-refresh-token",
-                    "refresh_expires_in": 86400,
                     "subject": "subject-1",
                     "device_id": "device-id-1",
                 }
@@ -127,6 +126,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         assert result == 0
         login_payload = json.loads(stdout.getvalue())
         assert login_payload["authenticated"] is True
+        assert login_payload["refresh_expires_at"] is None
         assert "opaque-access-token" not in stdout.getvalue()
         assert "opaque-refresh-token" not in stdout.getvalue()
         assert "ABCD-EFGH" in stderr.getvalue()
@@ -144,6 +144,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         status_payload = json.loads(status_out.getvalue())
         assert status_payload["issuer"] == base_url
         assert status_payload["client_id"] == "sai-cli"
+        assert status_payload["refresh_expires_at"] is None
         assert status_err.getvalue() == ""
 
         logout_out = StringIO()

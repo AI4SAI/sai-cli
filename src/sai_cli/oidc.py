@@ -42,7 +42,7 @@ class DeviceTokenResult:
     access_token: str
     access_expires_at: int
     refresh_token: str
-    refresh_expires_at: int
+    refresh_expires_at: int | None
     subject: str | None = None
     device_id: str | None = None
 
@@ -417,22 +417,25 @@ class OidcClient:
         refresh_expires_in = payload.get("refresh_expires_in")
         if refresh_expires_in is None:
             refresh_expires_in = payload.get("refresh_token_expires_in")
-        if refresh_expires_in is None:
+        if type(refresh_expires_in) is int and refresh_expires_in == 0:
+            # Some providers use zero for server-managed offline sessions.
+            refresh_expires_at = None
+        elif refresh_expires_in is None:
             refresh_expires_at = payload.get("refresh_expires_at")
-            if type(refresh_expires_at) is not int:
-                raise ContractError(
-                    "the Identity refresh expiry is missing",
-                    request_id=request_id,
-                )
         else:
             refresh_expires_in = _positive_int(
                 refresh_expires_in,
                 field="refresh_expires_in",
-                minimum=24 * 60 * 60,
+                minimum=1,
                 maximum=2**63 - 1,
             )
             refresh_expires_at = now + refresh_expires_in
-        if type(refresh_expires_at) is not int or refresh_expires_at <= now + expires_in:
+        # OAuth does not require a refresh-token expiry field. Unknown expiry
+        # remains unknown; only the issuer decides whether refresh is allowed.
+        if refresh_expires_at is not None and (
+            type(refresh_expires_at) is not int
+            or not now < refresh_expires_at <= 2**63 - 1
+        ):
             raise ContractError(
                 "the Identity refresh expiry is invalid",
                 request_id=request_id,

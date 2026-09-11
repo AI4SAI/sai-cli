@@ -181,6 +181,12 @@ The device refresh cache defaults to
 atomic-replacement, and ownership requirements. A per-user lock serializes
 refresh-token rotation across concurrent CLI processes.
 
+Refresh expiry may be unknown: OAuth does not require an expiry extension, and
+some providers return zero for server-managed offline sessions. Only refresh
+credentials may store an explicit null expiry; access tokens and pending device
+codes still require a finite expiry. Unknown expiry does not imply permanent
+validity: the issuer enforces idle limits, revocation, and account state.
+
 Managed `/etc/sai-cli/config.toml` additionally requires a root-owned regular
 file beneath root-owned, non-group/world-writable, non-symlink directories.
 This applies only to the managed path; XDG paths retain per-user rules.
