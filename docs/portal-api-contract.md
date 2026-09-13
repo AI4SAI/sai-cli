@@ -51,7 +51,7 @@ The CLI never prints or logs `token` or `sig`.
 
 ### Server-bound CLI capability
 
-Managed login-node mode first calls:
+Managed login-node mode requires an Identity-issued resource token and first calls:
 
 ```text
 POST /v1/authz/site-read
@@ -70,7 +70,10 @@ GET /v1/billing/cli/running-estimates
 ```
 
 The server requires the original user Bearer as well and binds it to the
-capability actor. Operations are exact: `jobs.list`, `jobs.detail`, and
+capability actor. The issuer and all three CLI read routes reject legacy
+Portal-issued credentials; there is no CLI authentication downgrade switch.
+Development compatibility credentials remain limited to the non-CLI endpoints.
+Operations are exact: `jobs.list`, `jobs.detail`, and
 `billing.running-estimate` do not imply one another. Missing, expired,
 wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and

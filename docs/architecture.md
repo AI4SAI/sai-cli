@@ -21,12 +21,13 @@ The architecture separates three responsibilities:
 ## Current and target paths
 
 The current code release uses control-plane job visibility and
-running-estimate read APIs. Its legacy compatibility mode still accepts a
-Portal Bearer; the production target inserts SAI Identity as the issuer:
+running-estimate read APIs. Its development-only non-CLI compatibility mode
+still accepts a Portal credential. Managed capability/CLI routes accept only
+SAI Identity-issued resource tokens:
 
 ```text
-user -> sai-cli -- OIDC access token --> SAI Identity
-     -> Portal resource API -> authorized site reader -> scheduler
+user -> sai-cli -> SAI Identity device authorization and refresh
+     -> Identity access token -> Portal resource API -> authorized site reader
 ```
 
 The target remote-site path separates authorization from the query hot path:

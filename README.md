@@ -89,7 +89,8 @@ export SAI_REQUIRE_SITE_CAPABILITY=1
 Unmanaged compatibility clients may provide `SAI_API_USERNAME`,
 `SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through a protected runtime
 environment. Managed login nodes use the SAI Identity OIDC device flow and do
-not carry an HMAC secret. An already-issued short-lived `SAI_TOKEN` remains a
+not carry an HMAC secret. Capability-bound CLI routes reject Portal-issued
+legacy credentials. An already-issued short-lived Identity `SAI_TOKEN` remains a
 process-local emergency/compatibility input; neither form belongs in a shell
 profile or TOML file.
 

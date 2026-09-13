@@ -56,8 +56,9 @@ discovery 提供的端点和这些已审查的响应字段；不会猜测 issuer
 refresh 有效期。
 
 Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当前仍有
-历史密码/OTP/HMAC Bearer 兼容链，这是迁移前状态，不是 CLI 长期登录的目标
-合同。`sai-identity` 的 OIDC provider、client registry、credential store
+历史密码/OTP/HMAC Bearer 供其既有非 CLI 消费者使用；CLI capability issuer 和
+三个 CLI read route 只接受 Identity resource token，不保留认证降级开关。
+`sai-identity` 的 OIDC provider、client registry、credential store
 和生产部署尚未完成前，CLI 生产登录门禁保持 blocked。
 
 ## 生命周期与存储
