@@ -62,6 +62,10 @@ Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当�
 
 ## 生命周期与存储
 
+- 首次完整只读流程请求 `openid offline_access sai.compute.read sai.billing.read`。
+  作业和费用是独立 scope，Portal 继续逐次校验业务权限及精确 operation。
+  旧的作业专用会话不会自动获得费用权限；扩展授权范围需一次显式确认，之后
+  沿用自动续期，不要求每次 SSH 登录重新授权。
 - access token 默认由 Identity policy 控制为短期（客户端接受不超过 1 小时）。
 - refresh token 由 Identity 轮换、可撤销并受绝对/闲置生命周期限制；客户端不
   提供不可撤销的“永久 Bearer”。在 SSH 可信的前提下，用户可以数月乃至更久

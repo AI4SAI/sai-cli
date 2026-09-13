@@ -87,10 +87,10 @@ default_profile = "default"
 
 [profiles.default]
 base_url = "https://portal.example.org"
-identity_issuer = "https://id.example.org"
+identity_issuer = "https://id.example.org/realms/sai"
 oidc_client_id = "sai-cli"
-oidc_scope = "openid offline_access sai.compute.read"
-oidc_resource = "https://portal.example.org"
+oidc_scope = "openid offline_access sai.compute.read sai.billing.read"
+oidc_resource = "sai-portal"
 site_id = "site-a"
 username = "alice"
 key_id = "managed-login"

@@ -23,6 +23,13 @@ token and user session; Portal does not issue a second CLI login credential.
 The Identity provider/device endpoint is a separate cross-repository release
 gate and is not yet a production fact in this repository.
 
+The registered CLI read workflow requests `sai.compute.read` for jobs and
+`sai.billing.read` for cost estimates, alongside `openid offline_access`.
+These are independent OAuth scopes. Neither replaces Portal's exact policy
+resolution and operation-bound capability; a jobs-only session cannot read
+cost estimates. Scope expansion requires explicit authorization, not an
+automatic refresh that silently increases access.
+
 The pre-Identity compatibility bootstrap currently retained by Portal uses:
 
 ```text
