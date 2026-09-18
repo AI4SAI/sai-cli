@@ -62,6 +62,10 @@
   command or wheel module. It consumes only a validated controller-local
   snapshot and performs no per-submission file, network, database, subprocess,
   authn-relay, or site-read-gateway call.
+- `site/shell/default_workdir.bash` is a shared site login artifact, not a CLI
+  command or wheel module. It reads only the current user's native default
+  association and lineage for the configured Slurm cluster, without a new
+  authorization service, cache, identity preference, or privileged helper.
 - Portal owns the authoritative account/project/policy projection. This
   repository owns the strict projection-to-Lua renderer and submit-time
   evaluator; native Slurm associations remain the final account authorization

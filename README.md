@@ -28,6 +28,10 @@ The repository also carries a controller-side Slurm policy artifact under
 not add a `sai` submission command or grant job mutation rights. See
 [docs/job-submit-policy.md](docs/job-submit-policy.md).
 
+The separate site login fragment selects the working directory for the user's
+existing default Slurm identity. It belongs to the shared site shell environment,
+not to the CLI command or wheel. See [docs/login-workdir.md](docs/login-workdir.md).
+
 Production login-node mode requires the capability-bound Portal CLI surface.
 The legacy shared Portal endpoint uses `portal_read` policy and may accept
 `agent_only`; managed wrappers therefore set `SAI_REQUIRE_SITE_CAPABILITY=1`

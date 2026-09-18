@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SELF = Path(__file__).resolve()
 TEXT_SUFFIXES = {
     "",
+    ".bash",
     ".cfg",
     ".html",
     ".ini",
