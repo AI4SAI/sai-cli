@@ -167,8 +167,10 @@ function slurm_job_submit(job_desc, part_list, submit_uid)
     end
 
     local qos = nonempty(job_desc.qos) and job_desc.qos or job_desc.default_qos
-    if not exempt_qos[qos] and gpu_count % gpu_multiple ~= 0 then
-        slurm.user_msg("SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple .. ".")
+    local policy_current = snapshot_ready and os.time() < snapshot.expires_at
+    local multiple = policy_current and gpu_multiple or 4
+    if not (policy_current and exempt_qos[qos]) and gpu_count % multiple ~= 0 then
+        slurm.user_msg("SAI GPU policy: GPUs per node must be divisible by " .. multiple .. ".")
         return gres_error
     end
     return slurm.SUCCESS

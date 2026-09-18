@@ -171,6 +171,20 @@ assert(message_contains("no explicit, path-derived, or Slurm default account"))
 local job = new_job({account = nil, tres_per_node = "gres/gpu:4"})
 assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
 assert(job.account == "private-alice")
+local exempt = new_job({tres_per_node = "gres/gpu:7", qos = "gpu-special"})
+assert(slurm_job_submit(exempt, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+"""
+    )
+
+    run_lua(
+        _prelude(snapshot)
+        + """
+local now = 2000000000
+os.time = function() return now end
+local exempt = new_job({tres_per_node = "gres/gpu:7", qos = "gpu-special"})
+assert(slurm_job_submit(exempt, {}, 1000) == slurm.SUCCESS)
+now = 4102444800
+assert(slurm_job_submit(exempt, {}, 1000) == slurm.ESLURM_INVALID_GRES)
 """
     )
 
