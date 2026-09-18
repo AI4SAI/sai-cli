@@ -1,18 +1,21 @@
-local snapshot_path = rawget(_G, "SAI_ACCOUNT_SNAPSHOT_PATH")
-    or "/etc/slurm/sai/account_snapshot.lua"
+local snapshot_path = rawget(_G, "SAI_SUBMIT_POLICY_PATH")
+    or "/etc/slurm/sai/job_submit_policy.lua"
 local loaded, snapshot = pcall(dofile, snapshot_path)
 
 local snapshot_ready = loaded
     and type(snapshot) == "table"
-    and snapshot.schema_version == 2
-    and type(snapshot.expires_at) == "number"
-local exempt_qos = snapshot_ready and snapshot.gpu_multiple_exempt_qos or {}
-local gpu_multiple = snapshot_ready and snapshot.gpu_per_node_multiple or 4
-
-if type(exempt_qos) ~= "table" then exempt_qos = {} end
-if type(gpu_multiple) ~= "number" or gpu_multiple < 1 or gpu_multiple % 1 ~= 0 then
-    gpu_multiple = 4
+    and snapshot.schema_version == 3
+    and type(snapshot.revision) == "string"
+    and type(snapshot.gpu_multiple_exempt_qos) == "table"
+    and type(snapshot.gpu_per_node_multiple) == "number"
+    and snapshot.gpu_per_node_multiple >= 1
+    and snapshot.gpu_per_node_multiple % 1 == 0
+if not snapshot_ready then
+    slurm.log_error("SAI submit policy is missing or invalid; refusing this Lua revision.")
+    return slurm.ERROR
 end
+local exempt_qos = snapshot.gpu_multiple_exempt_qos
+local gpu_multiple = snapshot.gpu_per_node_multiple
 
 local policy_error = slurm.ESLURM_ACCOUNTING_POLICY or slurm.ERROR
 local gres_error = slurm.ESLURM_INVALID_GRES or policy_error
@@ -167,10 +170,8 @@ function slurm_job_submit(job_desc, part_list, submit_uid)
     end
 
     local qos = nonempty(job_desc.qos) and job_desc.qos or job_desc.default_qos
-    local policy_current = snapshot_ready and os.time() < snapshot.expires_at
-    local multiple = policy_current and gpu_multiple or 4
-    if not (policy_current and exempt_qos[qos]) and gpu_count % multiple ~= 0 then
-        slurm.user_msg("SAI GPU policy: GPUs per node must be divisible by " .. multiple .. ".")
+    if not exempt_qos[qos] and gpu_count % gpu_multiple ~= 0 then
+        slurm.user_msg("SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple .. ".")
         return gres_error
     end
     return slurm.SUCCESS

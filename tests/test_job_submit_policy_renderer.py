@@ -8,15 +8,14 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RENDERER = ROOT / "scripts" / "render_job_submit_snapshot.py"
+RENDERER = ROOT / "scripts" / "render_job_submit_policy.py"
 
 
 def _valid_projection() -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "revision": "projection-42",
         "generated_at": 100,
-        "expires_at": 200,
         "gpu_policy": {"per_node_multiple": 4, "exempt_qos": ["z-qos", "a-qos", "a-qos"]},
     }
 

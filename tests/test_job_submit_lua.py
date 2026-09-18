@@ -10,15 +10,14 @@ from _lua_runtime import run_lua
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "site" / "slurm" / "job_submit.lua"
-RENDERER = ROOT / "scripts" / "render_job_submit_snapshot.py"
+RENDERER = ROOT / "scripts" / "render_job_submit_policy.py"
 
 
-def _projection(*, generated_at: int = 1_785_823_200, expires_at: int = 4_102_444_800) -> dict:
+def _projection(*, generated_at: int = 1_785_823_200) -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "revision": "test-1",
         "generated_at": generated_at,
-        "expires_at": expires_at,
         "gpu_policy": {"per_node_multiple": 4, "exempt_qos": ["gpu-special"]},
     }
 
@@ -26,7 +25,7 @@ def _projection(*, generated_at: int = 1_785_823_200, expires_at: int = 4_102_44
 def _snapshot(tmp_path: Path, payload: dict | None = None) -> Path:
     tmp_path.mkdir(parents=True, exist_ok=True)
     source = tmp_path / "projection.json"
-    output = tmp_path / "account_snapshot.lua"
+    output = tmp_path / "job_submit_policy.lua"
     source.write_text(json.dumps(payload or _projection()), encoding="utf-8")
     subprocess.run(
         [sys.executable, str(RENDERER), "--input", str(source), "--output", str(output)],
@@ -37,9 +36,9 @@ def _snapshot(tmp_path: Path, payload: dict | None = None) -> Path:
     return output
 
 
-def _prelude(snapshot: Path) -> str:
+def _prelude(snapshot: Path, *, expected: int = 0) -> str:
     return f"""
-SAI_ACCOUNT_SNAPSHOT_PATH = {json.dumps(str(snapshot))}
+SAI_SUBMIT_POLICY_PATH = {json.dumps(str(snapshot))}
 slurm = {{
     SUCCESS = 0,
     ERROR = -1,
@@ -49,7 +48,8 @@ slurm = {{
 }}
 messages = {{}}
 function slurm.user_msg(message) table.insert(messages, message) end
-assert(dofile({json.dumps(str(PLUGIN))}) == slurm.SUCCESS)
+slurm.log_error = slurm.user_msg
+assert(dofile({json.dumps(str(PLUGIN))}) == {expected})
 
 function new_job(values)
     local job = {{
@@ -127,7 +127,7 @@ assert(message_contains("WorkDir is unresolved"))
     )
 
 
-def test_submit_preserves_account_when_path_or_snapshot_is_unresolved(tmp_path: Path) -> None:
+def test_submit_preserves_account_when_path_is_unresolved(tmp_path: Path) -> None:
     snapshot = _snapshot(tmp_path)
     run_lua(
         _prelude(snapshot)
@@ -164,37 +164,21 @@ assert(message_contains("no explicit, path-derived, or Slurm default account"))
 """
     )
 
-    stale = _snapshot(tmp_path / "stale", _projection(generated_at=1, expires_at=2))
-    run_lua(
-        _prelude(stale)
-        + """
-local job = new_job({account = nil, tres_per_node = "gres/gpu:4"})
-assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
-assert(job.account == "private-alice")
-local exempt = new_job({tres_per_node = "gres/gpu:7", qos = "gpu-special"})
-assert(slurm_job_submit(exempt, {}, 1000) == slurm.ESLURM_INVALID_GRES)
-"""
-    )
 
+def test_policy_is_versioned_configuration_and_invalid_load_is_rejected(tmp_path: Path) -> None:
+    policy = _snapshot(tmp_path, _projection(generated_at=1))
     run_lua(
-        _prelude(snapshot)
+        _prelude(policy)
         + """
-local now = 2000000000
-os.time = function() return now end
 local exempt = new_job({tres_per_node = "gres/gpu:7", qos = "gpu-special"})
+os.time = function() error("static site rules must not depend on a renewal timer") end
 assert(slurm_job_submit(exempt, {}, 1000) == slurm.SUCCESS)
-now = 4102444800
-assert(slurm_job_submit(exempt, {}, 1000) == slurm.ESLURM_INVALID_GRES)
 """
     )
 
     run_lua(
-        _prelude(tmp_path / "missing.lua")
-        + """
-local job = new_job({account = nil, tres_per_node = "gres/gpu:4"})
-assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
-assert(job.account == "private-alice")
-"""
+        _prelude(tmp_path / "missing.lua", expected=-1)
+        + 'assert(message_contains("missing or invalid"))'
     )
 
 

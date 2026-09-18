@@ -32,7 +32,7 @@ The two paths share control-plane projections, not a synchronous dependency:
 ```text
 control plane
   +-- signed capabilities --> site-local read gateway --> sai-cli / TUI
-  +-- account policy projection --> local Lua snapshot --> job_submit.lua
+  +-- versioned GPU rules --> local Lua policy file --> job_submit.lua
 ```
 
 The privileged password `authn-relay` is a third, separate service. Its reset
@@ -51,9 +51,9 @@ The submit hook applies these rules only when a GPU TRES is requested:
 4. Require the summed GPU count per node to be divisible by the projected
    site multiple unless the effective explicit/default QOS is in the projected
    exemption set.
-5. Resolve the target account from `work_dir`; force it and return a warning on
-   mismatch. If the directory or snapshot is unresolved, preserve the
-   requested/default account and return a warning.
+5. Retain an explicit account; otherwise select the account from canonical
+   `work_dir`, then the Slurm default. Return a warning on a mismatch or an
+   unresolved directory, and reject when no account is available.
 
 CPU-only jobs are not affected by the CPU or memory override checks. The first
 version deliberately does not reject `--mincpus`, topology fields,
@@ -122,34 +122,40 @@ The control-plane producer emits strict JSON with this shape:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "revision": "opaque-revision",
   "generated_at": 1785823200,
-  "expires_at": 1785823500,
   "gpu_policy": {
     "per_node_multiple": 4,
     "exempt_qos": ["gpu-special"]
-  },
+  }
 }
 ```
 
-`scripts/render_job_submit_snapshot.py` validates the GPU policy fields, renders
+`scripts/render_job_submit_policy.py` validates the GPU policy fields, renders
 a Lua table, and replaces the output atomically. It does not read Portal
 databases or infer memberships. Portal owns the authoritative naming and
 association facts; the controller uses native Slurm authorization after the
 lexical path decision.
 
-`expires_at` is checked for the projected GPU policy. An expired, missing,
-malformed, or unsupported snapshot disables only the projected GPU exemptions
-and multiple fallback; canonical account derivation remains local and bounded.
-Production publication must reject an invalid GPU policy before it reaches the
-controller.
+Schema 3 is release configuration, like `slurm.conf`, rather than a short-lived
+authorization grant. It contains no account or membership cache and has no
+renewal timer. Portal's canonical QOS catalog produces a revision; an operator
+publishes that validated revision together with the native QOS readback. QOS
+rule changes require the same coordinated release. Native Slurm associations
+and limits remain authoritative on every submission.
+
+The obsolete expiring schema 2 is rejected. A missing or malformed policy file
+rejects the new Lua revision at load time instead of selecting guessed rules;
+Slurm retains its previous valid Lua state on a failed reload. Validate the
+first installation before enabling the plugin. Ordinary publisher downtime
+does not change a running, already approved site policy.
 
 ## Hot-Path Budget
 
 The Lua state loads the GPU policy snapshot once through `dofile`.
 `slurm_job_submit` performs only bounded string checks, direct account
-construction, integer arithmetic, and one clock read for snapshot expiry. It
+construction and integer arithmetic. It
 performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
@@ -168,7 +174,7 @@ The controller-local target layout is:
 
 ```text
 /etc/slurm/job_submit.lua
-/etc/slurm/sai/account_snapshot.lua
+/etc/slurm/sai/job_submit_policy.lua
 ```
 
 First enablement or removal of `JobSubmitPlugins=lua` requires a planned
@@ -177,7 +183,7 @@ Slurm checks only the main `job_submit.lua` modification time on each call, so
 the safe update order is:
 
 1. Render and validate the JSON projection outside the submission path.
-2. Atomically replace `account_snapshot.lua` on every active/standby controller.
+2. Atomically replace `job_submit_policy.lua` on every active/standby controller.
 3. Atomically install the reviewed main script, or advance its mtime to a value
    strictly greater than the previous value so Slurm reloads the Lua state.
 4. Submit bounded positive and negative canaries and read controller logs.
@@ -196,13 +202,13 @@ Repository validation:
 
 ```bash
 .venv/bin/python -m pytest tests/test_job_submit_lua.py \
-  tests/test_job_submit_snapshot_renderer.py
+  tests/test_job_submit_policy_renderer.py
 python3 scripts/check_public_surface.py
 ```
 
 The tests execute the actual Lua script through `liblua`, cover typed GPU TRES,
 QOS exemption, every blocked CPU/memory field, account forcing, standard and
-account-bearing projects, home aliases, suspicious paths, stale snapshots, and
+account-bearing projects, home aliases, suspicious paths, invalid policy loads, and
 modify bypasses. Static guards prove that the submit callback contains no
 runtime external I/O.
 
@@ -213,7 +219,7 @@ Before production enablement, run all of these separately:
   percent throughput regression and no new long-tail controller stalls.
 - `sbatch`, `salloc`, `srun`, array, heterogeneous-job, explicit/default QOS,
   typed/untyped GPU, and proxy-submission canaries.
-- Account association positive and negative cases plus snapshot expiry,
+- Account association positive and negative cases plus invalid policy files,
   malformed reload, publisher outage, and controller failover.
 - Runtime placement for every accepted per-node GPU shape on each relevant
   topology, including odd and near-full shapes on multi-package nodes.
