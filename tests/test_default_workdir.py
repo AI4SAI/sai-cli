@@ -12,7 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "site/shell/default_workdir.bash"
 USER = pwd.getpwuid(os.getuid()).pw_name
 
 
-def _resolve(tmp_path: Path, rows: str, *, native_exit: int = 0):
+def _resolve(tmp_path: Path, rows: str, *, native_exit: int = 0, interactive_command: str | None = None):
     binaries = tmp_path / "bin"
     binaries.mkdir()
     for name, content in {
@@ -23,9 +23,11 @@ def _resolve(tmp_path: Path, rows: str, *, native_exit: int = 0):
         executable.write_text("#!/bin/bash\n" + content)
         executable.chmod(0o755)
     return subprocess.run(
-        ["bash", "--noprofile", "--norc", "-c", 'source "$1"; _sai_default_workdir', "bash", str(SCRIPT)],
-        env={**os.environ, "PATH": f"{binaries}:/usr/bin:/bin", "TEST_ASSOC_ROWS": rows,
+        ["bash", "--noprofile", "--norc", "-ilc" if interactive_command else "-c",
+         interactive_command or 'source "$1"; _sai_default_workdir', "bash", str(SCRIPT)],
+        env={**os.environ, "HOME": str(tmp_path), "PATH": f"{binaries}:/usr/bin:/bin", "TEST_ASSOC_ROWS": rows,
              "TEST_NATIVE_EXIT": str(native_exit)},
+        cwd=tmp_path,
         text=True, capture_output=True, timeout=10,
     )
 
@@ -73,3 +75,13 @@ def test_noninteractive_source_preserves_directory_and_does_not_query(tmp_path):
     )
     assert result.stdout.strip() == str(tmp_path)
     assert result.stderr == ""
+
+
+def test_nested_login_shell_keeps_the_directory_selected_by_the_user(tmp_path):
+    rows = f"cluster-a|private-{USER}|{USER}|/private-{USER}/0-{USER}/"
+    result = _resolve(tmp_path, rows, interactive_command=(
+        'source "$1"; cd "$HOME"; '
+        'bash --noprofile --norc -ilc \'source "$1"; pwd\' bash "$1"'
+    ))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(tmp_path)

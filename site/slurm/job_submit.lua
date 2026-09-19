@@ -57,17 +57,19 @@ local function gpu_request(job_desc)
     return count ~= nil or invalid or off_node, count, invalid or off_node
 end
 
-local function canonical_work_dir(path)
+local function work_dir_components(path)
     if not nonempty(path) or #path > 4096 or string.sub(path, 1, 1) ~= "/" then
-        return false
+        return nil
     end
-    local guarded = path .. "/"
-    if string.find(path, "//", 1, true)
-        or string.find(guarded, "/./", 1, true)
-        or string.find(guarded, "/../", 1, true) then
-        return false
+    local components = {}
+    for component in string.gmatch(path, "[^/]+") do
+        if component == ".." then
+            table.remove(components)
+        elseif component ~= "." then
+            table.insert(components, component)
+        end
     end
-    return true
+    return components
 end
 
 local function canonical_path_token(value)
@@ -77,22 +79,19 @@ local function canonical_path_token(value)
 end
 
 local function inferred_account(job_desc)
-    local path, username = job_desc.work_dir, job_desc.user_name
-    if not canonical_work_dir(path) or not nonempty(username) then return nil end
+    local components, username = work_dir_components(job_desc.work_dir), job_desc.user_name
+    if not components or not nonempty(username) then return nil end
 
-    local root, owner, rest = string.match(path, "^/([^/]+)/([^/]+)(.*)$")
+    local root, owner, child = components[1], components[2], components[3]
     if not canonical_path_token(root) or not canonical_path_token(owner) then return nil end
     if root == "org" then
-        local child = rest and string.match(rest, "^/([^/]+)") or nil
-        if nonempty(child) and string.sub(child, 1, 5) == "proj-" then
-            if not canonical_path_token(child) then return nil end
+        if canonical_path_token(child) and string.sub(child, 1, 5) == "proj-" then
             return child
         end
         return owner
     end
     if root ~= "home" or owner ~= username then return nil end
 
-    local child = rest and string.match(rest, "^/([^/]+)") or nil
     if nonempty(child) and string.sub(child, 1, 8) == "workdir_" then
         return nil
     end

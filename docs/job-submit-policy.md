@@ -101,9 +101,10 @@ Unix usernames cannot use account prefixes. An unknown `proj-*` root is still a
 syntactic candidate; native Slurm association checks remain the authorization
 boundary.
 
-The retired `/home/<user>/workdir_<org>` alias is unresolved. Relative paths,
-repeated separators, `.` or `..`, another user's home path, and malformed
-absolute paths are unresolved.
+The retired `/home/<user>/workdir_<org>` alias is unresolved. Relative paths
+are made absolute by native Slurm clients. The hook collapses repeated separators,
+`.` and `..` lexically without changing Slurm's WorkDir. Another user's Home or
+an unknown root does not imply an account.
 
 Only the organization/user/project identifiers follow the account naming
 contract. Ordinary directory names below that identity prefix do not participate
@@ -118,8 +119,12 @@ Account precedence is fixed:
 4. A submission with no explicit, path-derived, or default account is rejected.
 
 The controller must not call `realpath` or touch shared storage during job
-submission. This is an account-selection policy and usability guard, not proof
-of filesystem ownership.
+submission. An implicit current directory normally comes from the client's
+physical working directory; an explicit `--chdir` symlink is interpreted by its
+submitted path, not its target. Use an explicit account when those differ.
+This policy selects an account; it does not prove filesystem ownership or
+directory existence. Native Slurm associations and filesystem permissions
+enforce those independent boundaries.
 
 ## Projection Contract
 

@@ -96,7 +96,7 @@ assert(slurm_job_submit(project, {}, 1000) == slurm.SUCCESS)
 assert(project.account == "proj-research")
 assert(message_contains("differs from the Slurm default account personal-alice"))
 
-for _, suffix in ipairs({"run 1", "计算/输入文件", "results (final)", "data[1]"}) do
+for _, suffix in ipairs({"run 1", "计算/输入文件", "results (final)", "data[1]", "./计算", "input/../计算", "run//output/"}) do
     local named_directory = new_job({
         work_dir = "/org/org-example/proj-research/" .. suffix,
         default_account = "org-example",
@@ -162,8 +162,11 @@ local suspicious = new_job({
     tres_per_node = "gres/gpu:4",
 })
 assert(slurm_job_submit(suspicious, {}, 1000) == slurm.SUCCESS)
-assert(suspicious.account == "personal-alice")
-assert(message_contains("WorkDir is unresolved"))
+assert(suspicious.account == "private-alice")
+
+local parent_account = new_job({work_dir = "/org//org-example/proj-research/../share/", tres_per_node = "gres/gpu:4"})
+assert(slurm_job_submit(parent_account, {}, 1000) == slurm.SUCCESS)
+assert(parent_account.account == "org-example")
 
 messages = {}
 local other_home = new_job({work_dir = "/home/bob/run", account = nil, tres_per_node = "gres/gpu:4"}) -- public-scan: allow-test-vector

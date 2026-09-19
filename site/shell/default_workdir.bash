@@ -51,7 +51,7 @@ _sai_default_workdir() {
 if [[ $- == *i* && $UID != 0 && -z ${SLURM_JOB_ID:-} \
     && -z ${_SAI_LOGIN_DIRECTORY_ENTERED:-} && $PWD == "$HOME" ]] \
     && shopt -q login_shell; then
-    _SAI_LOGIN_DIRECTORY_ENTERED=1
+    export _SAI_LOGIN_DIRECTORY_ENTERED=1
     if _sai_login_directory=$(_sai_default_workdir); then
         if ! builtin cd -- "$_sai_login_directory" 2>/dev/null; then
             printf '%s\n' 'SAI: the default identity directory is unavailable; current directory retained.' >&2
