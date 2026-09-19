@@ -1,7 +1,8 @@
 # Shared CLI deployment
 
-The release consists of one immutable shared runtime archive and a small node
-integration Debian package. `scripts/build_login_node_deb.py` builds both from
+The release has one immutable shared runtime archive. The small integration
+Debian package is only for an existing package-owned login-node entrypoint;
+compute nodes do not install it. `scripts/build_login_node_deb.py` builds both from
 committed source. The runtime is published once in the existing platform tree;
 node packages never write files into the shared filesystem.
 
@@ -55,8 +56,8 @@ not migrate or invalidate those sessions.
 2. Check Python and mount availability on representative login/compute nodes.
    Run the explicit versioned entrypoint as an ordinary user before activation.
 3. Atomically select `cli/current`. Ensure `/opt/sai/bin/sai` resolves to the
-   selected release. Install the small integration package on client nodes; its
-   post-install check runs `sai --version`.
+   selected release. Update an existing login-node integration package only when
+   its stable entrypoint needs migration. This is not a compute-node release step.
 4. Verify the manifest, executable resolution, authenticated job read and
    non-final cost read with an existing authorized device session. `--version`
    alone does not prove API or authentication behavior.

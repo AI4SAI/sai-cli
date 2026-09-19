@@ -244,25 +244,18 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ### Engineering Taste
 
-- Model the user-visible invariant first. Prefer the design that removes
-  special cases, duplicate state and unnecessary dependencies.
-- A check needs a concrete business, protocol or trust-boundary reason.
-  Stricter is not automatically safer; preserve valid user input and native
-  semantics. Account-name rules do not apply to arbitrary directory names.
-- Validate at the owning boundary. Reuse native authorization, permissions
-  and resource limits instead of recreating them in every layer.
-- Fix the shared cause in its existing owner. Before adding a guard, fallback,
-  wrapper, cache or service, check whether deleting a mistaken rule solves it.
-- Test user outcomes, including ordinary valid inputs outside simplified
-  fixtures. Passing tests do not justify an incorrect abstraction.
-- Finish confirmed correctness fixes; do not discard them merely to stop scope
-  growth. Remove superseded implementations and temporary release residue.
-- Judge the whole operating model before implementing a local step: number of
-  copies, writers, node operations and future update/rollback actions. Passing
-  tests or a working canary cannot justify an unmaintainable deployment model.
-- When the user corrects the architecture, stop widening changes, record the
-  actual deployed state, and reconcile the existing candidate. Do not alternate
-  between adding mechanisms and deleting unfinished work without a final model.
+- Start with the user-visible invariant and one authoritative owner.
+- Keep scripts to a few clear operations using existing tools. Do not hide
+  complexity in long lines, nested helpers or custom deployment frameworks.
+- Every check needs a real business or protocol reason; preserve valid native
+  input. Identifier rules do not constrain arbitrary filenames.
+- Prefer removing a mistaken rule over adding a guard, fallback, cache or service.
+- Judge the whole operating model: one shared publication, few moving parts,
+  simple updates and rollback. Passing tests cannot justify an unmaintainable design.
+- Keep compute nodes clean. Node-local infrastructure changes need explicit scope;
+  ordinary platform scripts and CLI code are consumed from NFS.
+- Finish confirmed fixes, verify real user behavior, and remove task-created
+  residue. Preserve existing configuration, workloads and user data.
 
 - Use the existing `src/` package layout, type hints, frozen dataclasses for
   value objects, and small modules with explicit ownership.

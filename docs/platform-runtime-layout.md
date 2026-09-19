@@ -1,7 +1,8 @@
 # Shared platform runtime layout
 
-Status: target layout and migration contract. The directory migration is not
-implied by deployment of the login or submit-policy artifacts.
+Status: target ownership model, not authorization for a fleet mount migration.
+Only the publisher and one login-node canary currently expose the new root.
+Compute-node mount changes were rolled back; the existing shared roots remain.
 
 ## Responsibilities
 
@@ -36,10 +37,10 @@ versions and rollback boundaries. Do not tie a client update to a scheduler
 restart or make login depend on an OAuth device session.
 
 The `/opt` parent also contains node-local vendor drivers and service packages.
-Do not mount the entire parent over those installations. The migration combines
-the existing environment, site-configuration, job-example and Slurm-site mounts
-into one platform mount: eight shared roots become five. This is a replacement
-of existing mount responsibilities, not a ninth permanent mount.
+Do not mount the entire parent over those installations. Making the platform root visible on all clients is an infrastructure decision,
+separate from publishing code. Do not move platform tools into scientific apps
+or development tools to avoid that decision, and do not modify compute-node
+mounts as an implicit step in a software release.
 
 ## Shared code and local authority
 
@@ -77,7 +78,7 @@ offer explicit version selection, but users must not need `module load` on every
 login merely to access the platform. A managed local PATH entry or compatibility
 link is an integration file, not a second client installation.
 
-## Migration sequence
+## Conditions for a separately scoped infrastructure migration
 
 1. Inventory the configured mounts, source owners and callers. Include native
    login files, node images, Slurm configuration, software modulefiles, Portal
