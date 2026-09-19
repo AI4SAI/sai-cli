@@ -99,21 +99,22 @@ local function inferred_account(work_dir, username)
 end
 
 local function apply_account_policy(job_desc, job_ptr)
-    local modifying = job_ptr ~= nil
-    local work_dir_supplied = job_desc.work_dir ~= nil
-    local account_supplied = nonempty(job_desc.account)
-    if modifying and not work_dir_supplied and not account_supplied then
+    if job_ptr and (job_desc.account == ""
+        or (job_desc.work_dir == nil and job_desc.account == nil)) then
         return true
     end
 
-    local work_dir = work_dir_supplied and job_desc.work_dir
-        or (modifying and job_ptr.work_dir or nil)
-    local username = job_desc.user_name or (modifying and job_ptr.user_name or nil)
+    local work_dir, username = job_desc.work_dir, job_desc.user_name
+    local fallback, label
+    if job_ptr then
+        work_dir = work_dir or job_ptr.work_dir
+        username = job_ptr.user_name or username
+        fallback, label = job_ptr.account, "existing job account "
+    else
+        fallback, label = job_desc.default_account, "the Slurm default account "
+    end
     local inferred = inferred_account(work_dir, username)
     local explicit = nonempty(job_desc.account) and job_desc.account or nil
-    local fallback = modifying
-        and (nonempty(job_ptr.account) and job_ptr.account or nil)
-        or (nonempty(job_desc.default_account) and job_desc.default_account or nil)
     if explicit then
         if inferred and explicit ~= inferred then
             slurm.user_msg("WARNING: SAI account policy: explicit account " .. explicit
@@ -124,18 +125,17 @@ local function apply_account_policy(job_desc, job_ptr)
         return true
     end
     if not nonempty(inferred) then
-        if fallback then
-            job_desc.account = fallback
-            local label = modifying and "existing job account " or "the Slurm default account "
+        if nonempty(fallback) then
+            -- Slurm reuses array update requests; leave each job's account untouched.
+            if not job_ptr then job_desc.account = fallback end
             slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping " .. label .. fallback .. ".")
             return true
         end
-        slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or Slurm default account is available.")
+        slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or " .. label .. "is available.")
         return false
     end
-    job_desc.account = inferred
-    if fallback and fallback ~= inferred then
-        local label = modifying and "existing job account " or "the Slurm default account "
+    if not job_ptr or inferred ~= job_ptr.account then job_desc.account = inferred end
+    if nonempty(fallback) and fallback ~= inferred then
         slurm.user_msg("WARNING: SAI account policy: WorkDir account " .. inferred
             .. " differs from " .. label .. fallback .. "; using WorkDir account.")
     end
@@ -208,10 +208,7 @@ function slurm_job_modify(job_desc, job_ptr, part_list, modify_uid)
     if modify_uid == 0 then return slurm.SUCCESS end
     if not apply_account_policy(job_desc, job_ptr) then return policy_error end
     local effective = {}
-    local changed = job_desc.qos ~= nil
-        or job_desc.account ~= nil
-        or job_desc.work_dir ~= nil
-        or resource_override_error(job_desc) ~= nil
+    local changed = job_desc.qos ~= nil or resource_override_error(job_desc) ~= nil
     for _, field in ipairs({"tres_per_job", "tres_per_node", "tres_per_socket", "tres_per_task"}) do
         effective[field] = job_desc[field] or job_ptr[field]
         changed = changed or job_desc[field] ~= nil

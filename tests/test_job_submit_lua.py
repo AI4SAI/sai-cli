@@ -177,7 +177,7 @@ assert(message_contains("keeping the Slurm default account"))
 messages = {}
 local relative = new_job({work_dir = "relative/run", account = nil, default_account = "", tres_per_node = "gres/gpu:4"})
 assert(slurm_job_submit(relative, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
-assert(message_contains("ERROR: SAI account policy: no explicit, path-derived, or Slurm default account"))
+assert(message_contains("ERROR: SAI account policy: no explicit, path-derived, or the Slurm default account"))
 """
     )
 
@@ -330,11 +330,26 @@ assert(message_contains("explicit account personal-alice differs from WorkDir ac
 messages = {}
 local unresolved = {work_dir = "relative/run"}
 assert(slurm_job_modify(unresolved, current, {}, 1000) == slurm.SUCCESS)
-assert(unresolved.account == "personal-alice")
+assert(unresolved.account == nil)
 assert(message_contains("WorkDir is unresolved; keeping existing job account personal-alice"))
+
+-- Native array updates reuse the request across elements with different accounts.
+current.account = "org-example"
+assert(slurm_job_modify(unresolved, current, {}, 1000) == slurm.SUCCESS)
+assert(unresolved.account == nil)
+assert(message_contains("keeping existing job account org-example"))
+
+-- A matching WorkDir must not add a needless Account update to a running job.
+local matching = {work_dir = "/org/org-example/run"}
+assert(slurm_job_modify(matching, current, {}, 1000) == slurm.SUCCESS)
+assert(matching.account == nil)
 
 messages = {}
 local clear = {account = ""}
+assert(slurm_job_modify(clear, current, {}, 1000) == slurm.SUCCESS)
+assert(clear.account == "")
+assert(#messages == 0)
+clear.work_dir = "/org/org-example/proj-research"
 assert(slurm_job_modify(clear, current, {}, 1000) == slurm.SUCCESS)
 assert(clear.account == "")
 assert(#messages == 0)
@@ -344,6 +359,12 @@ local unrelated = {name = "renamed"}
 assert(slurm_job_modify(unrelated, current, {}, 1000) == slurm.SUCCESS)
 assert(unrelated.account == nil)
 assert(#messages == 0)
+
+-- No default-account fallback on modification, and no revalidation of legacy GPUs.
+assert(slurm_job_modify({work_dir = "/tmp", default_account = "org-example"}, {}, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
+current.tres_per_node = "gres/gpu:3"
+assert(slurm_job_modify({account = "org-example"}, current, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({work_dir = "/tmp"}, current, {}, 1000) == slurm.SUCCESS)
 """
     )
 
@@ -371,6 +392,21 @@ assert(fields.account == nil and fields.partition == nil and fields.qos == "")
 current.tres_per_node = "gres/gpu:4"
 assert(slurm_job_modify(change, current, {}, 1000) == slurm.SUCCESS)
 assert(fields.account == nil and fields.partition == nil and fields.qos == "")
+
+fields.work_dir = "/org/org-example/proj-research/run"
+fields.user_name = "alice"
+fields.tres_per_node = "gres/gpu:8"
+setmetatable(change, {__index = function(_, key)
+    if key == "default_qos" then
+        assert(fields.account == "proj-research" and fields.partition == "gpu-standard")
+        return "normal"
+    end
+    return fields[key]
+end, __newindex = function(_, key, value)
+    fields[key] = value ~= "" and value or nil
+end})
+assert(slurm_job_modify(change, current, {}, 1000) == slurm.SUCCESS)
+assert(fields.account == "proj-research" and fields.partition == nil)
 """
     )
 

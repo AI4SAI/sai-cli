@@ -102,8 +102,10 @@ Unix usernames cannot use account prefixes. An unknown `proj-*` root is still a
 syntactic candidate; native Slurm association checks remain the authorization
 boundary.
 
-The retired `/home/<user>/workdir_<org>` alias is unresolved. Relative paths
-are made absolute by native Slurm clients. The hook collapses repeated separators,
+The retired `/home/<user>/workdir_<org>` alias is unresolved. Submission clients
+make relative paths absolute, but `scontrol update WorkDir=...` forwards them
+verbatim. Use an absolute WorkDir for account inference; an empty or relative
+update keeps the existing account and warns. The hook collapses repeated separators,
 `.` and `..` lexically without changing Slurm's WorkDir. Another user's Home or
 an unknown root does not imply an account.
 
@@ -114,15 +116,13 @@ in authorization; spaces, Unicode and punctuation do not change the account.
 Account precedence is fixed for submission and relevant job modifications:
 
 1. A non-empty account supplied in the current operation is retained; a path
-   mismatch emits a warning. An empty `Account=` remains a native Slurm
-   operation and is validated by Slurm.
+   mismatch emits a warning. On modification, an empty `Account=` remains a
+   native reset operation, including when WorkDir is supplied at the same time.
 2. Without one, an account resolved from the resulting WorkDir is selected; a
    mismatch with the fallback account emits a warning.
 3. An unresolved path keeps the context fallback. Submission uses Slurm's
    default account; a modification uses the existing job account.
-4. Submission with no explicit, path-derived, or default account is rejected.
-   A modification with no existing account fallback is rejected in the same
-   bounded policy path.
+4. If none of the three choices is available, reject with an account diagnostic.
 
 The controller must not call `realpath` or touch shared storage during job
 submission. An implicit current directory normally comes from the client's
@@ -211,12 +211,20 @@ behind; adding GPUs retains the CPU job's CPU/memory settings. This narrow
 restriction avoids accepting an inconsistent resource model. Changing a GPU
 count within an existing GPU job is still validated normally.
 
-Account inference also applies to `scontrol update` when `WorkDir` or a
-non-empty `Account` is present. A WorkDir-only update therefore selects the
-account implied by the new directory; specify both fields in one command when
-an explicit account should be retained. An Account-only update is checked against the job's current
-WorkDir. A name, time, dependency, QOS-only or unrelated update does not infer
-an account. Association authorization, QOS access, partition access and
+Submission and modification call the same account policy function:
+
+| Fields in this update | Account selection |
+| --- | --- |
+| `WorkDir` only | Infer from the new directory; warn when switching accounts or keeping an unresolved fallback. |
+| `Account` only | Keep the supplied account; warn if it differs from the current directory. |
+| Both | Keep the supplied account; compare it with the new directory. |
+
+To change a directory while keeping a chosen account, supply both:
+`scontrol update JobId=12345 WorkDir=/org/org-example/run Account=org-example`.
+Empty `Account=` is left to native Slurm, which rejects it on the matched site
+with association enforcement. Names, time limits, dependencies and QOS-only
+updates do not infer an account. An unresolved array update leaves each
+element's own account intact. Association authorization, QOS access, partition access and
 scheduling limits remain Slurm's responsibility. An accepted update does not
 guarantee immediate execution or preserve queue priority. Multi-job updates
 retain native per-job outcomes.
