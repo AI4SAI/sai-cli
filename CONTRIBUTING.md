@@ -4,12 +4,16 @@ Use focused Conventional Commits such as `docs:`, `feat:`, `fix:`, and
 `test:`. Keep documentation, client behavior, and Portal API contract changes
 reviewable as separate slices when practical.
 
-Before submitting a change:
-
 Apply the engineering-taste rules in `AGENTS.md`: identify the user-visible
 invariant and its owner, remove needless restrictions, and keep native behavior
 unless the product contract explicitly changes it. Review tests for realistic
 valid inputs as well as rejection cases.
+
+Review how an operator will publish, update and remove the result. Shared runtime
+code has one publisher; a release must not require per-compute-node installs.
+Keep one-time infrastructure migrations separate from normal program updates.
+
+Before submitting a change:
 
 1. Run the complete local test suite.
 2. Build the source and wheel artifacts.

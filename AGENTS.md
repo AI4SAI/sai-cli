@@ -154,6 +154,14 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ### Packaging And Production Operations
 
+- Shared platform scripts and the CLI are published once on NFS. Compute nodes
+  consume the same files; do not create per-node runtime copies, CLI packages,
+  release state or script distribution as the normal update mechanism.
+- Reuse the established shared profile and PATH. A new function does not justify
+  a new top-level mount, bootstrap, service or configuration hierarchy.
+- Separate a one-time mount/entrypoint migration from routine software releases.
+  A shared program update must not require client fstab edits or fleet package
+  upgrades. Node-local OS components and private credentials keep their own roles.
 - Runtime roles receive the smallest dependency and credential set needed for
   their job. Optional CLI/TUI dependencies must not leak into center API,
   management UI, or site service packages.
@@ -249,6 +257,12 @@ editing either side. Do not copy private collaboration logs into this repo.
   fixtures. Passing tests do not justify an incorrect abstraction.
 - Finish confirmed correctness fixes; do not discard them merely to stop scope
   growth. Remove superseded implementations and temporary release residue.
+- Judge the whole operating model before implementing a local step: number of
+  copies, writers, node operations and future update/rollback actions. Passing
+  tests or a working canary cannot justify an unmaintainable deployment model.
+- When the user corrects the architecture, stop widening changes, record the
+  actual deployed state, and reconcile the existing candidate. Do not alternate
+  between adding mechanisms and deleting unfinished work without a final model.
 
 - Use the existing `src/` package layout, type hints, frozen dataclasses for
   value objects, and small modules with explicit ownership.
