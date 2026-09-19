@@ -84,7 +84,7 @@ local research = new_job({
 })
 assert(slurm_job_submit(research, {}, 1000) == slurm.SUCCESS)
 assert(research.account == "personal-alice")
-assert(message_contains("explicit account personal-alice differs from WorkDir account proj-research"))
+assert(message_contains("WARNING: SAI account policy: explicit account personal-alice differs from WorkDir account proj-research"))
 
 messages = {}
 local project = new_job({
@@ -136,7 +136,7 @@ local alias = new_job({
 })
 assert(slurm_job_submit(alias, {}, 1000) == slurm.SUCCESS)
 assert(alias.account == "personal-alice")
-assert(message_contains("WorkDir is unresolved"))
+assert(message_contains("WARNING: SAI account policy: WorkDir is unresolved"))
 """
     )
 
@@ -177,7 +177,7 @@ assert(message_contains("keeping the Slurm default account"))
 messages = {}
 local relative = new_job({work_dir = "relative/run", account = nil, default_account = "", tres_per_node = "gres/gpu:4"})
 assert(slurm_job_submit(relative, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
-assert(message_contains("no explicit, path-derived, or Slurm default account"))
+assert(message_contains("ERROR: SAI account policy: no explicit, path-derived, or Slurm default account"))
 """
     )
 
@@ -252,19 +252,67 @@ assert(message_contains("--gpus-per-node"))
     )
 
 
-def test_modify_blocks_policy_owned_fields_for_non_root(tmp_path: Path) -> None:
+def test_modify_validates_resulting_gpu_request_and_preserves_native_updates(tmp_path: Path) -> None:
     snapshot = _snapshot(tmp_path)
     run_lua(
         _prelude(snapshot)
         + """
-local harmless = new_job({name = "renamed"})
-assert(slurm_job_modify(harmless, {}, {}, 1000) == slurm.SUCCESS)
+local gpu = {tres_per_node = "gres/gpu:4", qos = "normal", cpus_per_tres = "gpu:8", mem_per_tres = "gpu:4096"}
+local odd = {tres_per_node = "gres/gpu:7", qos = "gpu-special"}
+for _, current in ipairs({gpu, odd}) do
+    for _, change in ipairs({{name = "renamed"}, {time_limit = 2}, {dependency = ""}, {account = "org-example"}}) do
+        assert(slurm_job_modify(change, current, {}, 1000) == slurm.SUCCESS)
+    end
+end
+assert(slurm_job_modify({qos = "normal"}, gpu, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({tres_per_node = "gres/gpu:8"}, gpu, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({tres_per_node = "gres/gpu:7", qos = "gpu-special"}, gpu, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({qos = "normal", tres_per_node = "gres/gpu:4"}, odd, {}, 1000) == slurm.SUCCESS)
+assert(gpu.tres_per_node == "gres/gpu:4" and odd.qos == "gpu-special")
 
-messages = {}
-local account_change = new_job({account = "org-example"})
-assert(slurm_job_modify(account_change, {}, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
-assert(message_contains("cannot be changed after submission"))
-assert(slurm_job_modify(account_change, {}, {}, 0) == slurm.SUCCESS)
+for _, change in ipairs({{qos = "normal"}, {tres_per_node = "gres/gpu:3", qos = "normal"}}) do
+    messages = {}
+    assert(slurm_job_modify(change, odd, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+    assert(message_contains("ERROR: SAI GPU policy: GPUs per node must be divisible by 4"))
+end
+for _, change in ipairs({{cpus_per_task = 2}, {min_mem_per_node = 1024}, {mem_per_tres = "gpu:1024"}}) do
+    assert(slurm_job_modify(change, {}, {}, 1000) == slurm.SUCCESS)
+    assert(slurm_job_modify(change, gpu, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
+end
+assert(slurm_job_modify({tres_per_job = "gres/gpu:4"}, gpu, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+for _, change in ipairs({{tres_per_node = ""}, {tres_per_node = "gres/"}}) do
+    assert(slurm_job_modify(change, gpu, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+end
+assert(slurm_job_modify({tres_per_node = "gres/gpu:4"}, {min_mem_per_node = 2048}, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+assert(message_contains("resubmit to switch between CPU-only and GPU jobs"))
+assert(slurm_job_modify({tres_per_node = "gres/gpu:3"}, gpu, {}, 0) == slurm.SUCCESS)
+"""
+    )
+
+
+def test_modify_qos_reset_uses_job_association_and_restores_unset_fields(tmp_path: Path) -> None:
+    run_lua(
+        _prelude(_snapshot(tmp_path))
+        + """
+local current = {account = "org-example", partition = "gpu-standard", qos = "gpu-special", tres_per_node = "gres/gpu:7"}
+local fields = {qos = ""}
+local change = setmetatable({}, {
+    __index = function(_, key)
+        if key == "default_qos" then
+            assert(fields.account == "org-example" and fields.partition == "gpu-standard")
+            return "normal"
+        end
+        return fields[key]
+    end,
+    __newindex = function(_, key, value)
+        fields[key] = value ~= "" and value or nil
+    end,
+})
+assert(slurm_job_modify(change, current, {}, 1000) == slurm.ESLURM_INVALID_GRES)
+assert(fields.account == nil and fields.partition == nil and fields.qos == "")
+current.tres_per_node = "gres/gpu:4"
+assert(slurm_job_modify(change, current, {}, 1000) == slurm.SUCCESS)
+assert(fields.account == nil and fields.partition == nil and fields.qos == "")
 """
     )
 

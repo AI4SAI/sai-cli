@@ -104,25 +104,25 @@ local function apply_work_dir_account(job_desc)
     local default_account = nonempty(job_desc.default_account) and job_desc.default_account or nil
     if explicit then
         if inferred and explicit ~= inferred then
-            slurm.user_msg("SAI account policy: explicit account " .. explicit
+            slurm.user_msg("WARNING: SAI account policy: explicit account " .. explicit
                 .. " differs from WorkDir account " .. inferred .. "; keeping explicit account.")
         elseif not inferred then
-            slurm.user_msg("SAI account policy: WorkDir is unresolved; keeping the explicit account.")
+            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping explicit account " .. explicit .. ".")
         end
         return true
     end
     if not nonempty(inferred) then
         if default_account then
             job_desc.account = default_account
-            slurm.user_msg("SAI account policy: WorkDir is unresolved; keeping the Slurm default account.")
+            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping the Slurm default account " .. default_account .. ".")
             return true
         end
-        slurm.user_msg("SAI account policy: no explicit, path-derived, or Slurm default account is available.")
+        slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or Slurm default account is available.")
         return false
     end
     job_desc.account = inferred
     if default_account and default_account ~= inferred then
-        slurm.user_msg("SAI account policy: WorkDir account " .. inferred
+        slurm.user_msg("WARNING: SAI account policy: WorkDir account " .. inferred
             .. " differs from the Slurm default account " .. default_account .. "; using WorkDir account.")
     end
     return true
@@ -130,67 +130,80 @@ end
 
 local function resource_override_error(job_desc)
     if specified_number(job_desc.cpus_per_task, slurm.NO_VAL16) then
-        return "SAI GPU policy: --cpus-per-task is not allowed."
+        return "ERROR: SAI GPU policy: --cpus-per-task is not allowed."
     end
     if nonempty(job_desc.cpus_per_tres) then
-        return "SAI GPU policy: --cpus-per-gpu is not allowed."
+        return "ERROR: SAI GPU policy: --cpus-per-gpu is not allowed."
     end
     if job_desc.min_mem_per_node ~= nil then
-        return "SAI GPU policy: --mem is not allowed."
+        return "ERROR: SAI GPU policy: --mem is not allowed."
     end
     if job_desc.min_mem_per_cpu ~= nil then
-        return "SAI GPU policy: --mem-per-cpu is not allowed."
+        return "ERROR: SAI GPU policy: --mem-per-cpu is not allowed."
     end
     if nonempty(job_desc.mem_per_tres) then
-        return "SAI GPU policy: --mem-per-gpu is not allowed."
+        return "ERROR: SAI GPU policy: --mem-per-gpu is not allowed."
     end
     return nil
 end
 
-function slurm_job_submit(job_desc, part_list, submit_uid)
-    if not apply_work_dir_account(job_desc) then return policy_error end
-
+local function validate_gpu_policy(job_desc, overrides)
     local has_gpu, gpu_count, invalid_gpu_shape = gpu_request(job_desc)
     if not has_gpu then return slurm.SUCCESS end
 
-    local override_error = resource_override_error(job_desc)
+    local override_error = resource_override_error(overrides)
     if override_error then
         slurm.user_msg(override_error)
         return policy_error
     end
     if invalid_gpu_shape or not gpu_count then
-        slurm.user_msg("SAI GPU policy: request GPUs with --gpus-per-node.")
+        slurm.user_msg("ERROR: SAI GPU policy: request GPUs with --gpus-per-node.")
         return gres_error
     end
 
     local qos = nonempty(job_desc.qos) and job_desc.qos or job_desc.default_qos
     if not exempt_qos[qos] and gpu_count % gpu_multiple ~= 0 then
-        slurm.user_msg("SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple .. ".")
+        slurm.user_msg("ERROR: SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple .. ".")
         return gres_error
     end
     return slurm.SUCCESS
 end
 
-local function changes_policy_field(job_desc)
-    return nonempty(job_desc.account)
-        or nonempty(job_desc.qos)
-        or specified_number(job_desc.cpus_per_task, slurm.NO_VAL16)
-        or nonempty(job_desc.cpus_per_tres)
-        or job_desc.min_mem_per_node ~= nil
-        or job_desc.min_mem_per_cpu ~= nil
-        or nonempty(job_desc.mem_per_tres)
-        or nonempty(job_desc.tres_per_job)
-        or nonempty(job_desc.tres_per_node)
-        or nonempty(job_desc.tres_per_socket)
-        or nonempty(job_desc.tres_per_task)
+function slurm_job_submit(job_desc, part_list, submit_uid)
+    if not apply_work_dir_account(job_desc) then return policy_error end
+    return validate_gpu_policy(job_desc, job_desc)
+end
+
+local function updated_qos(job_desc, job_ptr)
+    if job_desc.qos == nil then return job_ptr.qos end
+    if job_desc.qos ~= "" then return job_desc.qos end
+    -- QOS= resets the default for this job's association, not the user's default account.
+    local account, partition = job_desc.account, job_desc.partition
+    if account == nil then job_desc.account = job_ptr.account end
+    if partition == nil then job_desc.partition = job_ptr.partition end
+    local qos = job_desc.default_qos
+    -- The native Lua setters use an empty string to restore an unset field.
+    if account == nil then job_desc.account = "" end
+    if partition == nil then job_desc.partition = "" end
+    return qos
 end
 
 function slurm_job_modify(job_desc, job_ptr, part_list, modify_uid)
-    if modify_uid ~= 0 and changes_policy_field(job_desc) then
-        slurm.user_msg("SAI policy: account, QOS, CPU, memory, and GPU shape cannot be changed after submission.")
-        return policy_error
+    if modify_uid == 0 then return slurm.SUCCESS end
+    local effective = {}
+    local changed = job_desc.qos ~= nil or resource_override_error(job_desc) ~= nil
+    for _, field in ipairs({"tres_per_job", "tres_per_node", "tres_per_socket", "tres_per_task"}) do
+        effective[field] = job_desc[field] or job_ptr[field]
+        changed = changed or job_desc[field] ~= nil
     end
-    return slurm.SUCCESS
+    if not changed then return slurm.SUCCESS end
+    local had_gpu = gpu_request(job_ptr) or contains_gpu(job_ptr.gres_req)
+    if gpu_request(effective) ~= had_gpu then
+        slurm.user_msg("ERROR: SAI GPU policy: resubmit to switch between CPU-only and GPU jobs; native updates retain the old resource settings.")
+        return gres_error
+    end
+    effective.qos = updated_qos(job_desc, job_ptr)
+    return validate_gpu_policy(effective, job_desc)
 end
 
 return slurm.SUCCESS

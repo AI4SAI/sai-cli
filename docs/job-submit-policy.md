@@ -1,13 +1,13 @@
 # Slurm Job Submit Policy
 
-Status: implemented artifact and local Lua tests; not deployed or live-validated
+Status: site artifact; deployment and verification are recorded per revision.
 
 ## Purpose
 
 `site/slurm/job_submit.lua` moves a small set of SAI GPU submission checks from
 late TaskProlog cancellation to immediate controller-side feedback. It also
-selects the Slurm account implied by a canonical submission directory using a
-controller-local projection produced from control-plane facts.
+selects the Slurm account implied by the canonical submission directory naming
+contract. Only the GPU rules use a controller-local policy file.
 
 This is a site artifact carried by the `sai-cli` repository. It is not a CLI
 job-submission command, a scheduler, or an authorization source. The control
@@ -41,7 +41,7 @@ or controller plugin.
 
 ## Submission Rules
 
-The submit hook applies these rules only when a GPU TRES is requested:
+When a GPU TRES is requested, the submit hook applies these rules:
 
 1. Reject explicit `--cpus-per-task` and `--cpus-per-gpu`.
 2. Reject explicit `--mem`, `--mem-per-cpu`, and `--mem-per-gpu`.
@@ -51,9 +51,10 @@ The submit hook applies these rules only when a GPU TRES is requested:
 4. Require the summed GPU count per node to be divisible by the projected
    site multiple unless the effective explicit/default QOS is in the projected
    exemption set.
-5. Retain an explicit account; otherwise select the account from canonical
-   `work_dir`, then the Slurm default. Return a warning on a mismatch or an
-   unresolved directory, and reject when no account is available.
+
+For all submissions, retain an explicit account; otherwise select the account
+from canonical `work_dir`, then the Slurm default. Warn on a mismatch or an
+unresolved directory, and reject when no account is available.
 
 CPU-only jobs are not affected by the CPU or memory override checks. The first
 version deliberately does not reject `--mincpus`, topology fields,
@@ -169,14 +170,47 @@ construction and integer arithmetic. It
 performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
-Warnings use `slurm.user_msg`, which Slurm propagates even when the hook returns
-success. Rejections return a bounded Slurm accounting/GRES error plus the
-specific user message.
+Non-fatal account-selection notices use a visible `WARNING:` prefix and name
+the selected account. Slurm may still prefix `slurm.user_msg` with
+`sbatch: error:`. The command's exit status and job receipt determine whether
+submission succeeded; a later resource or native check can still reject it.
+Policy rejections use `ERROR:` and a Slurm accounting/GRES return code.
 
-The modify hook prevents non-root callers from changing account, QOS, CPU,
-memory, or GPU-shape fields after submission. Name and other non-policy updates
-remain available. This closes the immediate `scontrol update` bypass without
-attempting to reconstruct every array-job modification state.
+## Job Modifications
+
+Use native `scontrol update`. The Lua hook adds no account or QOS permission
+system and does not lock fields merely because they were set at submission.
+
+| Job state | Product rule |
+| --- | --- |
+| Pending | Permit authorized account, QOS, partition and resource changes that satisfy native limits and the same site GPU policy as submission. |
+| Running or suspended | Preserve native restrictions on resource, account and QOS changes. Ordinary users can shorten time limits; increasing them requires native privilege. |
+| Finished | Keep execution and billing history unchanged; a new execution requires a new submission. |
+
+For a relevant update, merge only the four GPU request fields with the existing
+job record and validate the effective QOS and GPU count together. For example,
+changing a seven-GPU job from an exempt QOS to a non-exempt QOS fails; changing
+both its QOS and count to a valid four-GPU request can pass. An empty `QOS=` uses
+Slurm's default for the job's resulting account and partition.
+
+Explicit CPU/memory overrides on GPU jobs retain the submission restriction.
+Do not treat CPU/memory values that Slurm already assigned as new user overrides.
+CPU-only updates, names, dependencies, time limits and other native operations
+remain subject to Slurm permissions and state rules. An unrelated update does
+not revalidate a legacy GPU request. The existing root maintenance exemption is
+retained; no new mutation privileges are granted.
+
+Switching between CPU-only and GPU jobs requires resubmission. On the matched
+Slurm version, clearing `TRESPerNode` can succeed while leaving GPU `ReqTRES`
+behind; adding GPUs retains the CPU job's CPU/memory settings. This narrow
+restriction avoids accepting an inconsistent resource model. Changing a GPU
+count within an existing GPU job is still validated normally.
+
+Account inference happens only at submission. Changing a working directory
+does not silently switch a job's billing account. Association authorization,
+QOS access, partition access and scheduling limits remain Slurm's responsibility.
+An accepted update does not guarantee immediate execution or preserve queue
+priority. Multi-job updates retain native per-job outcomes.
 
 ## Deployment And Reload
 
