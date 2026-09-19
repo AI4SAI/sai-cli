@@ -111,13 +111,18 @@ Only the organization/user/project identifiers follow the account naming
 contract. Ordinary directory names below that identity prefix do not participate
 in authorization; spaces, Unicode and punctuation do not change the account.
 
-Account precedence is fixed:
+Account precedence is fixed for submission and relevant job modifications:
 
-1. An explicit account is retained; a path mismatch emits a warning.
-2. Without an explicit account, a resolved path account is selected; a mismatch
-   with Slurm's default account emits a warning.
-3. An unresolved path keeps Slurm's default account when one exists.
-4. A submission with no explicit, path-derived, or default account is rejected.
+1. A non-empty account supplied in the current operation is retained; a path
+   mismatch emits a warning. An empty `Account=` remains a native Slurm
+   operation and is validated by Slurm.
+2. Without one, an account resolved from the resulting WorkDir is selected; a
+   mismatch with the fallback account emits a warning.
+3. An unresolved path keeps the context fallback. Submission uses Slurm's
+   default account; a modification uses the existing job account.
+4. Submission with no explicit, path-derived, or default account is rejected.
+   A modification with no existing account fallback is rejected in the same
+   bounded policy path.
 
 The controller must not call `realpath` or touch shared storage during job
 submission. An implicit current directory normally comes from the client's
@@ -206,11 +211,15 @@ behind; adding GPUs retains the CPU job's CPU/memory settings. This narrow
 restriction avoids accepting an inconsistent resource model. Changing a GPU
 count within an existing GPU job is still validated normally.
 
-Account inference happens only at submission. Changing a working directory
-does not silently switch a job's billing account. Association authorization,
-QOS access, partition access and scheduling limits remain Slurm's responsibility.
-An accepted update does not guarantee immediate execution or preserve queue
-priority. Multi-job updates retain native per-job outcomes.
+Account inference also applies to `scontrol update` when `WorkDir` or a
+non-empty `Account` is present. A WorkDir-only update therefore selects the
+account implied by the new directory; specify both fields in one command when
+an explicit account should be retained. An Account-only update is checked against the job's current
+WorkDir. A name, time, dependency, QOS-only or unrelated update does not infer
+an account. Association authorization, QOS access, partition access and
+scheduling limits remain Slurm's responsibility. An accepted update does not
+guarantee immediate execution or preserve queue priority. Multi-job updates
+retain native per-job outcomes.
 
 Two native behavior boundaries were observed on Slurm 26.05.1:
 

@@ -78,8 +78,8 @@ local function canonical_path_token(value)
         and string.match(value, "^[a-z][a-z0-9_-]*$") ~= nil
 end
 
-local function inferred_account(job_desc)
-    local components, username = work_dir_components(job_desc.work_dir), job_desc.user_name
+local function inferred_account(work_dir, username)
+    local components = work_dir_components(work_dir)
     if not components or not nonempty(username) then return nil end
 
     local root, owner, child = components[1], components[2], components[3]
@@ -98,10 +98,22 @@ local function inferred_account(job_desc)
     return "private-" .. username
 end
 
-local function apply_work_dir_account(job_desc)
-    local inferred = inferred_account(job_desc)
+local function apply_account_policy(job_desc, job_ptr)
+    local modifying = job_ptr ~= nil
+    local work_dir_supplied = job_desc.work_dir ~= nil
+    local account_supplied = nonempty(job_desc.account)
+    if modifying and not work_dir_supplied and not account_supplied then
+        return true
+    end
+
+    local work_dir = work_dir_supplied and job_desc.work_dir
+        or (modifying and job_ptr.work_dir or nil)
+    local username = job_desc.user_name or (modifying and job_ptr.user_name or nil)
+    local inferred = inferred_account(work_dir, username)
     local explicit = nonempty(job_desc.account) and job_desc.account or nil
-    local default_account = nonempty(job_desc.default_account) and job_desc.default_account or nil
+    local fallback = modifying
+        and (nonempty(job_ptr.account) and job_ptr.account or nil)
+        or (nonempty(job_desc.default_account) and job_desc.default_account or nil)
     if explicit then
         if inferred and explicit ~= inferred then
             slurm.user_msg("WARNING: SAI account policy: explicit account " .. explicit
@@ -112,18 +124,20 @@ local function apply_work_dir_account(job_desc)
         return true
     end
     if not nonempty(inferred) then
-        if default_account then
-            job_desc.account = default_account
-            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping the Slurm default account " .. default_account .. ".")
+        if fallback then
+            job_desc.account = fallback
+            local label = modifying and "existing job account " or "the Slurm default account "
+            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping " .. label .. fallback .. ".")
             return true
         end
         slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or Slurm default account is available.")
         return false
     end
     job_desc.account = inferred
-    if default_account and default_account ~= inferred then
+    if fallback and fallback ~= inferred then
+        local label = modifying and "existing job account " or "the Slurm default account "
         slurm.user_msg("WARNING: SAI account policy: WorkDir account " .. inferred
-            .. " differs from the Slurm default account " .. default_account .. "; using WorkDir account.")
+            .. " differs from " .. label .. fallback .. "; using WorkDir account.")
     end
     return true
 end
@@ -172,7 +186,7 @@ local function validate_gpu_policy(job_desc, overrides)
 end
 
 function slurm_job_submit(job_desc, part_list, submit_uid)
-    if not apply_work_dir_account(job_desc) then return policy_error end
+    if not apply_account_policy(job_desc) then return policy_error end
     return validate_gpu_policy(job_desc, job_desc)
 end
 
@@ -192,8 +206,12 @@ end
 
 function slurm_job_modify(job_desc, job_ptr, part_list, modify_uid)
     if modify_uid == 0 then return slurm.SUCCESS end
+    if not apply_account_policy(job_desc, job_ptr) then return policy_error end
     local effective = {}
-    local changed = job_desc.qos ~= nil or resource_override_error(job_desc) ~= nil
+    local changed = job_desc.qos ~= nil
+        or job_desc.account ~= nil
+        or job_desc.work_dir ~= nil
+        or resource_override_error(job_desc) ~= nil
     for _, field in ipairs({"tres_per_job", "tres_per_node", "tres_per_socket", "tres_per_task"}) do
         effective[field] = job_desc[field] or job_ptr[field]
         changed = changed or job_desc[field] ~= nil

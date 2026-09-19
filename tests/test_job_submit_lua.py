@@ -290,6 +290,64 @@ assert(slurm_job_modify({tres_per_node = "gres/gpu:3"}, gpu, {}, 0) == slurm.SUC
     )
 
 
+def test_modify_uses_submission_account_precedence_for_workdir_and_account(tmp_path: Path) -> None:
+    run_lua(
+        _prelude(_snapshot(tmp_path))
+        + """
+local current = {
+    user_name = "alice",
+    account = "personal-alice",
+    work_dir = "/home/alice/run", -- public-scan: allow-test-vector
+    tres_per_node = "gres/gpu:4",
+    qos = "normal",
+}
+
+local workdir_only = {work_dir = "/org/org-example/proj-research/run"}
+assert(slurm_job_modify(workdir_only, current, {}, 1000) == slurm.SUCCESS)
+assert(workdir_only.account == "proj-research")
+assert(message_contains("differs from existing job account personal-alice"))
+
+messages = {}
+local explicit_only = {account = "proj-research"}
+assert(slurm_job_modify(explicit_only, {
+    user_name = "alice",
+    account = "personal-alice",
+    work_dir = "/home/alice/run", -- public-scan: allow-test-vector
+    tres_per_node = "gres/gpu:4",
+}, {}, 1000) == slurm.SUCCESS)
+assert(explicit_only.account == "proj-research")
+assert(message_contains("differs from WorkDir account private-alice"))
+
+messages = {}
+local both = {
+    work_dir = "/org/org-example/proj-research/run",
+    account = "personal-alice",
+}
+assert(slurm_job_modify(both, current, {}, 1000) == slurm.SUCCESS)
+assert(both.account == "personal-alice")
+assert(message_contains("explicit account personal-alice differs from WorkDir account proj-research"))
+
+messages = {}
+local unresolved = {work_dir = "relative/run"}
+assert(slurm_job_modify(unresolved, current, {}, 1000) == slurm.SUCCESS)
+assert(unresolved.account == "personal-alice")
+assert(message_contains("WorkDir is unresolved; keeping existing job account personal-alice"))
+
+messages = {}
+local clear = {account = ""}
+assert(slurm_job_modify(clear, current, {}, 1000) == slurm.SUCCESS)
+assert(clear.account == "")
+assert(#messages == 0)
+
+messages = {}
+local unrelated = {name = "renamed"}
+assert(slurm_job_modify(unrelated, current, {}, 1000) == slurm.SUCCESS)
+assert(unrelated.account == nil)
+assert(#messages == 0)
+"""
+    )
+
+
 def test_modify_qos_reset_uses_job_association_and_restores_unset_fields(tmp_path: Path) -> None:
     run_lua(
         _prelude(_snapshot(tmp_path))

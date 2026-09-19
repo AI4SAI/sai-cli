@@ -46,7 +46,11 @@ missing directories; and unavailable native services. Keep the previous profile
 and fragment checksums as a rollback pair. Directory layout migration and CLI
 authentication remain separate ownership boundaries.
 
-The submit hook's precedence is explicit account, canonical working-directory
-account, then Slurm default. Deliver the login behavior before enabling that
-account selection policy: a user left in Home would otherwise select their
-personal account even with an organization default.
+The Slurm hook uses the same account precedence for submission and relevant
+updates: an account supplied by the current operation, the account implied by
+the resulting working directory, then a context-specific fallback. Submission
+falls back to Slurm's default account. A modification falls back to the job's
+existing account so an unresolved new directory cannot silently reassign
+billing. Deliver the login behavior before enabling that account selection
+policy: a user left in Home would otherwise select their personal account even
+with an organization default.
