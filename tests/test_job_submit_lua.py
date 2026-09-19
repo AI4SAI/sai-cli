@@ -96,6 +96,20 @@ assert(slurm_job_submit(project, {}, 1000) == slurm.SUCCESS)
 assert(project.account == "proj-research")
 assert(message_contains("differs from the Slurm default account personal-alice"))
 
+for _, suffix in ipairs({"run 1", "计算/输入文件", "results (final)", "data[1]"}) do
+    local named_directory = new_job({
+        work_dir = "/org/org-example/proj-research/" .. suffix,
+        default_account = "org-example",
+        tres_per_node = "gres/gpu:4",
+    })
+    assert(slurm_job_submit(named_directory, {}, 1000) == slurm.SUCCESS)
+    assert(named_directory.account == "proj-research")
+    named_directory.work_dir = "/org/org-example/" .. suffix
+    named_directory.account = nil
+    assert(slurm_job_submit(named_directory, {}, 1000) == slurm.SUCCESS)
+    assert(named_directory.account == "org-example")
+end
+
 messages = {}
 local org = new_job({
     work_dir = "/org/org-example/share/run",

@@ -105,6 +105,10 @@ The retired `/home/<user>/workdir_<org>` alias is unresolved. Relative paths,
 repeated separators, `.` or `..`, another user's home path, and malformed
 absolute paths are unresolved.
 
+Only the organization/user/project identifiers follow the account naming
+contract. Ordinary directory names below that identity prefix do not participate
+in authorization; spaces, Unicode and punctuation do not change the account.
+
 Account precedence is fixed:
 
 1. An explicit account is retained; a path mismatch emits a warning.

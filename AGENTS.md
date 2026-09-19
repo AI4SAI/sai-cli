@@ -234,6 +234,22 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ## Coding Style
 
+### Engineering Taste
+
+- Model the user-visible invariant first. Prefer the design that removes
+  special cases, duplicate state and unnecessary dependencies.
+- A check needs a concrete business, protocol or trust-boundary reason.
+  Stricter is not automatically safer; preserve valid user input and native
+  semantics. Account-name rules do not apply to arbitrary directory names.
+- Validate at the owning boundary. Reuse native authorization, permissions
+  and resource limits instead of recreating them in every layer.
+- Fix the shared cause in its existing owner. Before adding a guard, fallback,
+  wrapper, cache or service, check whether deleting a mistaken rule solves it.
+- Test user outcomes, including ordinary valid inputs outside simplified
+  fixtures. Passing tests do not justify an incorrect abstraction.
+- Finish confirmed correctness fixes; do not discard them merely to stop scope
+  growth. Remove superseded implementations and temporary release residue.
+
 - Use the existing `src/` package layout, type hints, frozen dataclasses for
   value objects, and small modules with explicit ownership.
 - Prefer Python standard-library structured APIs over ad hoc string parsing.

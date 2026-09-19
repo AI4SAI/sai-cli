@@ -6,6 +6,11 @@ reviewable as separate slices when practical.
 
 Before submitting a change:
 
+Apply the engineering-taste rules in `AGENTS.md`: identify the user-visible
+invariant and its owner, remove needless restrictions, and keep native behavior
+unless the product contract explicitly changes it. Review tests for realistic
+valid inputs as well as rejection cases.
+
 1. Run the complete local test suite.
 2. Build the source and wheel artifacts.
 3. Run the disclosure scan documented by the release workflow.
@@ -15,4 +20,3 @@ Before submitting a change:
 Public-facing files must use portable examples. Do not commit private
 hostnames, addresses, node/rack labels, absolute user paths, credentials, raw
 logs, job IDs from active systems, or internal operational worklists.
-

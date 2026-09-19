@@ -67,11 +67,6 @@ local function canonical_work_dir(path)
         or string.find(guarded, "/../", 1, true) then
         return false
     end
-    for component in string.gmatch(path, "[^/]+") do
-        if string.match(component, "^[A-Za-z0-9_.-]+$") == nil then
-            return false
-        end
-    end
     return true
 end
 
@@ -89,8 +84,8 @@ local function inferred_account(job_desc)
     if not canonical_path_token(root) or not canonical_path_token(owner) then return nil end
     if root == "org" then
         local child = rest and string.match(rest, "^/([^/]+)") or nil
-        if nonempty(child) and not canonical_path_token(child) then return nil end
         if nonempty(child) and string.sub(child, 1, 5) == "proj-" then
+            if not canonical_path_token(child) then return nil end
             return child
         end
         return owner
