@@ -76,9 +76,10 @@ logic, not an account, authentication, or submit-hook failure. Disabling
 binding would hide the defect and is not the platform fix.
 
 The submit hook must not reject an otherwise permitted odd GPU shape merely to
-mask a downstream mapper bug. Every shape accepted through an exempt QOS still
-needs a separate runtime-placement regression on each relevant CPU/GPU
-topology. If a site intentionally cannot support a shape, that must become an
+mask a downstream mapper bug. A release that introduces an accepted shape or
+changes its runtime mapping needs a separate placement regression on every
+relevant CPU/GPU topology. Moving an existing submission rule into the controller
+does not change or certify the mapper. If a site intentionally cannot support a shape, that must become an
 explicit projected submission policy with an immediate user diagnostic.
 
 ## Account Projection
@@ -193,6 +194,11 @@ previous main script and snapshot as one rollback pair; restore the snapshot
 first and then advance the restored main script's mtime. Controller failover
 must not expose a different revision.
 
+If rolling back the first enablement after duplicate TaskProlog checks were
+removed, restore and read back the previous TaskProlog first. Then restore the
+previous controller configuration and restart `slurmctld`. Disabling the submit
+plugin without restoring the former enforcement path is not a complete rollback.
+
 Do not update the snapshot in place, place it on shared user storage, or trigger
 reload before all controller-local files are durable.
 
@@ -207,7 +213,7 @@ python3 scripts/check_public_surface.py
 ```
 
 The tests execute the actual Lua script through `liblua`, cover typed GPU TRES,
-QOS exemption, every blocked CPU/memory field, account forcing, standard and
+QOS exemption, every blocked CPU/memory field, explicit/path/default precedence, standard and
 account-bearing projects, home aliases, suspicious paths, invalid policy loads, and
 modify bypasses. Static guards prove that the submit callback contains no
 runtime external I/O.
@@ -220,10 +226,13 @@ Before production enablement, run all of these separately:
 - `sbatch`, `salloc`, `srun`, array, heterogeneous-job, explicit/default QOS,
   typed/untyped GPU, and proxy-submission canaries.
 - Account association positive and negative cases plus invalid policy files,
-  malformed reload, publisher outage, and controller failover.
-- Runtime placement for every accepted per-node GPU shape on each relevant
-  topology, including odd and near-full shapes on multi-package nodes.
-- TaskProlog observation-only overlap, followed by removal only after equivalent
+  malformed reload, and operation without a running publisher. Verify restart
+  recovery on a single-controller site and failover when a standby is configured.
+- Preserve native QOS/partition limits and verify representative existing GPU
+  allocations with task-visible CPU/device readback. A change to accepted shapes
+  or runtime mapping additionally requires all affected shapes and topologies,
+  including odd and near-full shapes on multi-package nodes.
+- Bounded TaskProlog overlap, followed by removal only after equivalent
   submit-time evidence is complete.
 
 Local tests do not prove live `slurmctld`, accounting associations, QOS,
