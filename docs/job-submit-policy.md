@@ -180,6 +180,9 @@ the selected account. Slurm may still prefix `slurm.user_msg` with
 `sbatch: error:`. The command's exit status and job receipt determine whether
 submission succeeded; a later resource or native check can still reject it.
 Policy rejections use `ERROR:` and a Slurm accounting/GRES return code.
+Native `scontrol` reports ordinary-job notices on stderr and array notices on
+stdout; array responses may group elements under one notice. Read back each
+element's Account when updating an array with different existing accounts.
 
 ## Job Modifications
 
