@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 
 import pytest
 
@@ -39,7 +40,7 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     artifact, manifest_path = build(output_dir=tmp_path, allow_dirty=True)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert artifact.is_file()
-    assert manifest["schema_version"] == "sai-cli-login-package/v1"
+    assert manifest["schema_version"] == "sai-cli-login-package/v2"
     assert len(manifest["git_commit"]) == 40
     assert len(manifest["source_sha256"]) == 64
     assert len(manifest["wheel_sha256"]) == 64
@@ -47,7 +48,7 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     assert manifest["runtime_dependencies"] == []
     assert manifest["credential_files"] == []
     assert manifest["rollback"]["strategy"] == "dpkg-reinstall"
-    assert manifest["activation_entrypoint"] == "/opt/sai-cli/bin/sai"
+    assert manifest["activation_entrypoint"] == "/opt/sai/bin/sai"
     assert manifest["compatibility_entrypoints"] == ["/usr/bin/sai"]
     assert "/usr/bin/sai" in manifest["installed_files"]
     assert not any(path.startswith("/usr/lib/sai-cli/") for path in manifest["installed_files"])
@@ -59,8 +60,7 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
         stdout=subprocess.PIPE,
     ).stdout
     assert "./usr/bin/sai" in listing
-    assert "./opt/sai-cli/bin/sai" in listing
-    assert f"./opt/sai-cli/releases/{manifest['version']}/site-packages/sai_cli/" in listing
+    assert "./opt/" not in listing
     assert "./usr/share/sai-cli/package-manifest.json" in listing
     assert "sai_site_runtime" not in listing
     assert "sai_core" not in listing
@@ -69,11 +69,14 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
 
     extracted = tmp_path / "extracted"
     subprocess.run(["dpkg-deb", "-x", str(artifact), str(extracted)], check=True)
-    assert (extracted / "usr/bin/sai").readlink() == Path("/opt/sai-cli/bin/sai")
-    wrapper = extracted / "opt/sai-cli/bin/sai"
-    release = f"/opt/sai-cli/releases/{manifest['version']}/site-packages"
+    assert (extracted / "usr/bin/sai").readlink() == Path("/opt/sai/bin/sai")
+    shared = tmp_path / "shared"
+    with build_module._public_umask(), tarfile.open(tmp_path / manifest["shared_release"]["artifact"]) as archive:
+        archive.extractall(shared, filter="data")
+    wrapper = shared / "cli/releases" / manifest["version"] / "bin/sai"
+    release = f"/opt/sai/cli/releases/{manifest['version']}/site-packages"
     assert release in wrapper.read_text(encoding="utf-8")
-    for path in (extracted / "opt/sai-cli").rglob("*"):
+    for path in shared.rglob("*"):
         expected_mode = 0o755 if path.is_dir() or path == wrapper else 0o644
         assert path.stat().st_mode & 0o777 == expected_mode
 
@@ -146,6 +149,8 @@ def test_repeated_clean_head_builds_are_byte_identical(
     second, second_manifest = build(output_dir=tmp_path / "second", allow_dirty=True)
     assert first.read_bytes() == second.read_bytes()
     assert first_manifest.read_bytes() == second_manifest.read_bytes()
+    runtime = json.loads(first_manifest.read_text())["shared_release"]["artifact"]
+    assert (first.parent / runtime).read_bytes() == (second.parent / runtime).read_bytes()
 
 
 def test_login_node_config_matches_current_settings_contract() -> None:

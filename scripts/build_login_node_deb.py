@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the role-scoped, provenance-bound login-node Debian package."""
+"""Build one shared CLI release and its small node-integration package."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import gzip
 import io
 import json
 import os
@@ -14,6 +15,7 @@ from pathlib import Path, PurePosixPath
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import zipfile
 
@@ -221,8 +223,9 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         _safe_wheel_members(wheel)
 
         stage = root / PACKAGE_NAME
-        release_rel = PurePosixPath("opt/sai-cli/releases") / version / "site-packages"
-        release = stage / str(release_rel)
+        release_rel = PurePosixPath("cli/releases") / version / "site-packages"
+        shared = root / "shared"
+        release = shared / str(release_rel)
         release.mkdir(parents=True)
         with zipfile.ZipFile(wheel) as archive:
             archive.extractall(release)
@@ -230,14 +233,36 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
             path.chmod(0o755 if path.is_dir() else 0o644)
 
         wrapper = (source_dir / "packaging/login-node/sai").read_text(encoding="utf-8")
-        wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/{release_rel.as_posix()}")
-        _write(stage / "opt/sai-cli/bin/sai", wrapper, mode=0o755)
+        wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/opt/sai/{release_rel.as_posix()}")
+        _write(shared / "cli/releases" / version / "bin/sai", wrapper, mode=0o755)
         (stage / "usr/bin").mkdir(parents=True)
-        (stage / "usr/bin/sai").symlink_to("/opt/sai-cli/bin/sai")
+        (stage / "usr/bin/sai").symlink_to("/opt/sai/bin/sai")
         _write(
             stage / "usr/share/sai-cli/examples/config.toml",
             (source_dir / "packaging/login-node/config.toml.example").read_bytes(),
             mode=0o644,
+        )
+
+        shared_artifact = output_dir / f"sai-cli-runtime_{version}.tar.gz"
+        if shared_artifact.exists():
+            raise RuntimeError(f"refusing to overwrite existing artifact: {shared_artifact}")
+        with shared_artifact.open("wb") as raw, gzip.GzipFile(
+            filename="", fileobj=raw, mode="wb", mtime=timestamp
+        ) as compressed, tarfile.open(fileobj=compressed, mode="w") as archive:
+            for path in sorted(shared.rglob("*")):
+                info = archive.gettarinfo(str(path), arcname=path.relative_to(shared).as_posix())
+                info.uid = info.gid = 0
+                info.uname = info.gname = "root"
+                info.mtime = timestamp
+                info.mode = 0o755 if path.is_dir() or path.name == "sai" else 0o644
+                if path.is_file():
+                    with path.open("rb") as content:
+                        archive.addfile(info, content)
+                else:
+                    archive.addfile(info)
+        shared_files = sorted(
+            "/opt/sai/" + path.relative_to(shared).as_posix()
+            for path in shared.rglob("*") if path.is_file()
         )
 
         installed_files = sorted(
@@ -249,7 +274,7 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         installed_files.append("/usr/share/sai-cli/package-manifest.json")
         installed_files.sort()
         manifest = {
-            "schema_version": "sai-cli-login-package/v1",
+            "schema_version": "sai-cli-login-package/v2",
             "source_package": "sai-cli",
             "binary_package": PACKAGE_NAME,
             "role": "login_node_cli",
@@ -263,12 +288,18 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
             "runtime_dependencies": [],
             "credential_files": [],
             "installed_files": installed_files,
-            "activation_entrypoint": "/opt/sai-cli/bin/sai",
+            "activation_entrypoint": "/opt/sai/bin/sai",
+            "shared_release": {
+                "artifact": shared_artifact.name,
+                "sha256": _sha256(shared_artifact),
+                "prefix": f"/opt/sai/cli/releases/{version}",
+                "installed_files": shared_files,
+            },
             "compatibility_entrypoints": ["/usr/bin/sai"],
             "rollback": {
                 "strategy": "dpkg-reinstall",
                 "command": "dpkg -i /path/to/recorded-previous-sai-cli.deb",
-                "scope": "sai-cli package only",
+                "scope": "node integration package; shared CLI selection is restored separately",
             },
         }
         _write(
@@ -284,8 +315,8 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
             "Architecture: all\n"
             "Maintainer: SAI Operations <ops@example.invalid>\n"
             "Depends: python3 (>= 3.11)\n"
-            "Description: Capability-bound read-only SAI login-node client\n"
-            " Installs the thin SAI CLI only; no scheduler, site-agent, database, or secret credential.\n"
+            "Description: Node integration for the shared SAI client\n"
+            " Installs only the PATH entry and non-secret example; client code is published once in the shared platform tree.\n"
         )
         _write(stage / "DEBIAN/control", control, mode=0o644)
         postinst = """#!/bin/sh
