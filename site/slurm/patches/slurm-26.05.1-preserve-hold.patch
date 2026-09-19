@@ -1,0 +1,24 @@
+--- a/src/slurmctld/acct_policy.c
++++ b/src/slurmctld/acct_policy.c
+@@ -4496,6 +4496,7 @@
+ 	job_details_t *details_ptr;
+ 	int rc = SLURM_SUCCESS;
+ 	uint64_t tres_req_cnt[slurmctld_tres_cnt];
++	uint32_t reason = job_ptr->state_reason;
+ 
+ 	/* check to see if we are enforcing associations and the job
+ 	 * is pending or if we are even enforcing limits. */
+@@ -4534,8 +4535,12 @@
+ 	if (!acct_policy_validate(&job_desc, job_ptr->part_ptr,
+ 				  job_ptr->part_ptr_list,
+ 				  job_ptr->assoc_ptr, job_ptr->qos_ptr,
+-				  &job_ptr->state_reason,
++				  &reason,
+ 				  &acct_policy_limit_set, 0)) {
++		/* Limit validation must preserve who owns an existing hold. */
++		if ((job_ptr->state_reason != WAIT_HELD) &&
++		    (job_ptr->state_reason != WAIT_HELD_USER))
++			job_ptr->state_reason = reason;
+ 		info("%s: exceeded association/qos's cpu, node, memory or time limit for %pJ",
+ 		     __func__, job_ptr);
+ 		return SLURM_ERROR;

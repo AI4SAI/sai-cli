@@ -219,10 +219,19 @@ Two native behavior boundaries were observed on Slurm 26.05.1:
   correct CPU, memory and GPU allocation when it ran; use allocation readback
   for runtime claims, not the intermediate pending request.
 - Updating QOS/resources on a user-held job can clear its hold reason while
-  leaving priority zero. The owner then cannot release it. This reproduced
-  with the Lua modify checks bypassed, and remains an open native Slurm issue.
-  Do not add automatic privileged release or claim the hold/update/release
-  workflow is verified until the native defect is resolved.
+  leaving priority zero. The native controller correction in
+  `site/slurm/patches/slurm-26.05.1-preserve-hold.patch` preserves user/admin hold
+  reasons when accounting limits are rechecked. It does not bypass limits or
+  grant release privileges. Native isolated before/after tests verify that
+  users can release their own modified hold and cannot release an admin hold.
+
+The native patch targets upstream `slurm-26-05-1-1`, only in
+`acct_policy_update_pending_job`. Build with the upstream Debian tooling and
+install the controller role package; clients, protocol and shared libraries
+remain at the matched base version. Keep the original package for rollback.
+The patch is a source artifact, excluded from the CLI wheel. Recheck it against
+upstream before the next Slurm upgrade and remove it once upstream carries the
+fix. Production readback remains a separate gate from isolated validation.
 
 ## Deployment And Reload
 
