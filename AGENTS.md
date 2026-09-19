@@ -9,6 +9,9 @@
   both repositories.
 - Read `docs/site-local-read-plane.md` before adding a transport, capability,
   cache, gateway, TUI, resource, storage, or usage feature.
+- Read `docs/platform-runtime-layout.md` before changing shared installation
+  prefixes or login integration. Platform commands do not belong in the
+  development-toolchain tree or receive per-command NFS mounts.
 - This repository is currently private and has no approved open-source
   license. Do not publish packages, releases, tags, or make the repository
   public until maintainers approve a license and release policy.

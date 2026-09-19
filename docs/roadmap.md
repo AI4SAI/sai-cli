@@ -7,15 +7,17 @@ Portal repository.
 ## Site Artifact: controller submission policy
 
 - [x] Minimal `job_submit.lua` submission and modification policy
-- [x] Strict account/GPU policy projection renderer
+- [x] Strict versioned GPU policy renderer; account selection uses native facts
 - [x] Actual-Lua behavior tests without a Python policy reimplementation
 - [x] Snapshot, hot-reload, rollback, failure and performance contracts
-- [ ] Portal authoritative projection producer
-- [ ] Matching-version disposable-controller compatibility test
-- [ ] Live controller canary, peak-rate benchmark and TaskProlog cutover
+- [x] Portal authoritative projection producer
+- [x] Matching-version disposable-controller compatibility test
+- [x] Live controller canary, measured-peak load gate and duplicate TaskProlog checks retired
 
-Acceptance boundary: repository Lua/runtime tests only. The unchecked gates are
-required before enabling `JobSubmitPlugins=lua` or removing TaskProlog policy.
+Acceptance boundary: one site on the matched Slurm version, with native client
+and representative GPU allocation canaries. This does not claim every site,
+topology, MPI mapping or scientific application has been revalidated. Detailed
+operations evidence is kept outside this repository.
 
 ## Milestone 0.1: read-only jobs CLI
 

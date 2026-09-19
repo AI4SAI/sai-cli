@@ -2,6 +2,12 @@
 
 Status: production run card
 
+The current node-local package layout below is an existing deployment consumer,
+not the final shared-runtime architecture. The migration target is the
+[shared platform runtime](platform-runtime-layout.md), where the CLI is a SAI
+platform command and receives no dedicated top-level NFS mount. Do not use the
+current package to install its payload independently into a shared mount.
+
 The login-node artifact is a dedicated `sai-cli` Debian package. It must not be
 added to Portal's center/site roles or to the identity-cache package. The
 package installs the pure-Python CLI in

@@ -47,6 +47,7 @@ login-node package have been deployed.
 - [Site-local read plane](docs/site-local-read-plane.md)
 - [Billing / interactive read-plane freeze](docs/billing-read-plane.md)
 - [Login-node deployment run card](docs/login-node-deployment.md)
+- [Shared platform runtime layout](docs/platform-runtime-layout.md)
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
