@@ -130,19 +130,19 @@ end
 
 local function resource_override_error(job_desc)
     if specified_number(job_desc.cpus_per_task, slurm.NO_VAL16) then
-        return "ERROR: SAI GPU policy: --cpus-per-task is not allowed."
+        return "ERROR: SAI GPU policy: CPUs follow GPU count; omit --cpus-per-task / CPUsPerTask."
     end
     if nonempty(job_desc.cpus_per_tres) then
-        return "ERROR: SAI GPU policy: --cpus-per-gpu is not allowed."
+        return "ERROR: SAI GPU policy: CPUs follow GPU count; omit --cpus-per-gpu / CpusPerTres."
     end
     if job_desc.min_mem_per_node ~= nil then
-        return "ERROR: SAI GPU policy: --mem is not allowed."
+        return "ERROR: SAI GPU policy: memory follows GPU count; omit --mem / MinMemoryNode."
     end
     if job_desc.min_mem_per_cpu ~= nil then
-        return "ERROR: SAI GPU policy: --mem-per-cpu is not allowed."
+        return "ERROR: SAI GPU policy: memory follows GPU count; omit --mem-per-cpu / MinMemoryCPU."
     end
     if nonempty(job_desc.mem_per_tres) then
-        return "ERROR: SAI GPU policy: --mem-per-gpu is not allowed."
+        return "ERROR: SAI GPU policy: memory follows GPU count; omit --mem-per-gpu / MemPerTres."
     end
     return nil
 end
@@ -157,13 +157,15 @@ local function validate_gpu_policy(job_desc, overrides)
         return policy_error
     end
     if invalid_gpu_shape or not gpu_count then
-        slurm.user_msg("ERROR: SAI GPU policy: request GPUs with --gpus-per-node.")
+        slurm.user_msg("ERROR: SAI GPU policy: request GPUs per node with --gpus-per-node / Gres=gpu:N.")
         return gres_error
     end
 
     local qos = nonempty(job_desc.qos) and job_desc.qos or job_desc.default_qos
     if not exempt_qos[qos] and gpu_count % gpu_multiple ~= 0 then
-        slurm.user_msg("ERROR: SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple .. ".")
+        slurm.user_msg("ERROR: SAI GPU policy: GPUs per node must be divisible by " .. gpu_multiple
+            .. " for QOS " .. (qos or "(default)") .. "; requested " .. gpu_count
+            .. ". Change the GPU count or select a permitted QOS for this count.")
         return gres_error
     end
     return slurm.SUCCESS

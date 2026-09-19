@@ -212,6 +212,18 @@ QOS access, partition access and scheduling limits remain Slurm's responsibility
 An accepted update does not guarantee immediate execution or preserve queue
 priority. Multi-job updates retain native per-job outcomes.
 
+Two native behavior boundaries were observed on Slurm 26.05.1:
+
+- A held job's requested memory/billing TRES can still show the old values
+  after changing its GPU count. A live four-to-two GPU canary received the
+  correct CPU, memory and GPU allocation when it ran; use allocation readback
+  for runtime claims, not the intermediate pending request.
+- Updating QOS/resources on a user-held job can clear its hold reason while
+  leaving priority zero. The owner then cannot release it. This reproduced
+  with the Lua modify checks bypassed, and remains an open native Slurm issue.
+  Do not add automatic privileged release or claim the hold/update/release
+  workflow is verified until the native defect is resolved.
+
 ## Deployment And Reload
 
 The controller-local target layout is:
