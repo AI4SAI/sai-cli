@@ -45,20 +45,20 @@ def render_json(payload: dict[str, Any]) -> str:
 
 
 def render_account_status(status: AccountStatus) -> str:
-    lines = ["Identity verification: " + ("current" if status.verification_current else "required")]
+    lines = ["身份认证：" + ("当前有效" if status.verification_current else "当前无有效认证")]
     if status.initial_verification_deadline and not status.verification_current:
         deadline = datetime.fromisoformat(status.initial_verification_deadline.replace("Z", "+00:00"))
-        lines.append(f"Initial verification deadline: {deadline.astimezone().isoformat(timespec='seconds')} (365-day grace period)")
-        lines.append("Complete verification before the deadline to keep new cluster logins and job submissions available.")
+        lines.append(f"首次认证截止：{deadline.astimezone().isoformat(timespec='seconds')}（365 天宽限）")
+        lines.append("请在截止前完成认证，逾期将暂停新的集群登录和作业提交。")
     messages = {
-        "restriction_pending": "New cluster logins and job submissions are being restricted; existing sessions and running jobs are unaffected.",
-        "restricted": "New cluster logins and job submissions are restricted.",
-        "recovery_pending": "Waiting for sites to restore logins and job submissions.",
-        "failed": "Login and job submission status could not be updated. Contact SAI support; do not repeat verification.",
+        "restriction_pending": "正在暂停新的集群登录和作业提交，现有会话及运行中的作业不受影响。",
+        "restricted": "新的集群登录和作业提交已暂停。",
+        "recovery_pending": "正在等待站点恢复登录和作业提交。",
+        "failed": "登录和作业提交状态未能更新，请联系 SAI 运营团队，无需重复认证。",
     }
     if status.access_state in messages:
         lines.append(messages[status.access_state])
-    lines.append(f"Verification: {status.verification_url}")
+    lines.append(f"认证入口：{status.verification_url}")
     return "\n".join(lines) + "\n"
 
 

@@ -21,8 +21,9 @@ sai auth status
 sai auth logout
 ```
 
-`sai auth status --format table` 显示设备会话、控制台确认的本人认证状态、
-首次补认证截止时间和认证入口。它不显示令牌，也不在本地推算权限；受限账号
+`sai auth status --format table` 简洁显示控制台确认的本人认证状态、
+首次补认证截止时间和认证入口，设备会话详情保留在默认 JSON 输出中。
+它不显示令牌，也不在本地推算权限；受限账号
 仍可查询自己的恢复状态，但不能借此查询作业。没有设备授权时仍需先运行
 `sai auth login`。
 

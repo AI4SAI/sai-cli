@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .errors import ContractError
 
 
+ACCOUNT_VERIFICATION_PATH = "/portal/#/portal/account/identity-assurance"
+
 JOB_ITEM_FIELDS = (
     "job_id",
     "array_task_id",
@@ -322,7 +324,7 @@ class AccountStatus:
                 payload, "initial_verification_deadline", request_id=request_id, nullable=True,
             ),
             verification_url=_literal_text(payload, "verification_url", request_id=request_id,
-                expected="/portal/#/portal/account/identity-assurance"),
+                expected=ACCOUNT_VERIFICATION_PATH),
         )
 
     def as_dict(self) -> dict[str, Any]:

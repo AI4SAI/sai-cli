@@ -8,7 +8,7 @@ import os
 import sys
 import time
 from typing import Mapping, Sequence, TextIO
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from . import __version__
 from .auth import (
@@ -19,6 +19,7 @@ from .auth import (
 from .capability import CapabilityProvider
 from .client import JobQuery, PortalClient, clean_states
 from .config import Settings, resolve_settings
+from .contracts import ACCOUNT_VERIFICATION_PATH
 from .errors import AuthenticationError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
 from .render import render_account_status, render_json, render_running_estimate_table, render_table
@@ -303,6 +304,10 @@ def _handle_auth_command(
     if args.auth_command == "status":
         lease = provider.get()
         if oidc_client is None:
+            if output_format == "table":
+                output.write("凭据已读取，当前连接不支持账号认证状态查询。\n"
+                             f"认证入口：{urljoin(provider.transport.base_url, ACCOUNT_VERIFICATION_PATH)}\n")
+                return 0
             _auth_result_output(
                 {
                     "ok": True,
@@ -328,8 +333,8 @@ def _handle_auth_command(
         account = PortalClient(transport=provider.transport, token_provider=provider).account_status(lease=lease)
         if output_format == "json":
             safe["account"] = account.as_dict()
-        _auth_result_output(safe, output_format=output_format, output=output)
-        if output_format == "table":
+            _auth_result_output(safe, output_format=output_format, output=output)
+        else:
             output.write(render_account_status(account))
         return 0
 
@@ -429,7 +434,13 @@ def main(
             output.write(render_table(result))
         return 0
     except SaiCliError as exc:
-        _emit_error(exc, output_format=output_format, stderr=errors)
+        if (args.command == "auth" and args.auth_command == "status"
+                and output_format == "table" and isinstance(exc, AuthenticationError)
+                and (exc.code == "credentials_unavailable" or exc.request_id is not None)):
+            errors.write("请运行 sai auth login 完成 CLI 登录。\n"
+                         f"身份认证：{urljoin(transport.base_url, ACCOUNT_VERIFICATION_PATH)}\n")
+        else:
+            _emit_error(exc, output_format=output_format, stderr=errors)
         return exc.exit_code
     except KeyboardInterrupt:
         interrupted = SaiCliError(code="interrupted", message="operation interrupted", exit_code=130)

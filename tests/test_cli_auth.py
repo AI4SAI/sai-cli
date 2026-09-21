@@ -16,6 +16,7 @@ from sai_cli.cli import main
 class _AuthServer(ThreadingHTTPServer):
     requests: list[dict[str, Any]]
     poll_count: int = 0
+    account_status_code: int = 200
 
 
 class _AuthHandler(BaseHTTPRequestHandler):
@@ -73,6 +74,9 @@ class _AuthHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         self.server.requests.append({"path": self.path, "authorization": self.headers.get("Authorization")})
         if self.path == "/v1/account/cli/status":
+            if self.server.account_status_code != 200:
+                self._json({"detail": {"code": "account_status_unavailable", "message": "Account status unavailable"}}, self.server.account_status_code)
+                return
             self._json({
                 "schema_version": "account.status/v1",
                 "verification_current": True,
@@ -162,8 +166,16 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         table_out = StringIO()
         assert main(["auth", "status", "--format", "table", "--base-url", base_url, "--site", "site-a"],
                     environ=_env(tmp_path, identity_issuer=base_url), stdout=table_out, stderr=StringIO()) == 0
-        assert "Identity verification: current" in table_out.getvalue()
-        assert "access_expires_at:" in table_out.getvalue()
+        assert table_out.getvalue() == f"身份认证：当前有效\n认证入口：{base_url}/portal/#/portal/account/identity-assurance\n"
+        for status_code, expected_exit in ((401, 3), (503, 6)):
+            server.account_status_code = status_code
+            failure_out, failure_err = StringIO(), StringIO()
+            assert main(["auth", "status", "--format", "table", "--base-url", base_url, "--site", "site-a"],
+                        environ=_env(tmp_path, identity_issuer=base_url), stdout=failure_out, stderr=failure_err) == expected_exit
+            assert failure_out.getvalue() == ""
+            assert ("sai auth login" in failure_err.getvalue()) == (status_code == 401)
+            assert ("ERROR [account_status_unavailable]" in failure_err.getvalue()) == (status_code == 503)
+            assert "opaque-access-token" not in failure_err.getvalue()
 
         logout_out = StringIO()
         assert main(
@@ -211,3 +223,26 @@ def test_device_login_without_identity_issuer_is_bounded(tmp_path: Path) -> None
     assert result == 3
     assert json.loads(stderr.getvalue())["error"]["code"] == "credentials_unavailable"
     assert stdout.getvalue() == ""
+
+
+def test_status_without_credentials_gives_login_action_without_starting_authorization(tmp_path: Path) -> None:
+    with _server() as (base_url, server):
+        for output_format in ("table", "json"):
+            out, err = StringIO(), StringIO()
+            assert main(["auth", "status", "--format", output_format, "--base-url", base_url, "--site", "site-a"],
+                        environ=_env(tmp_path, identity_issuer=base_url), stdout=out, stderr=err) == 3
+            assert out.getvalue() == ""
+            if output_format == "table":
+                assert err.getvalue() == f"请运行 sai auth login 完成 CLI 登录。\n身份认证：{base_url}/portal/#/portal/account/identity-assurance\n"
+            else:
+                assert json.loads(err.getvalue())["error"]["code"] == "credentials_unavailable"
+        assert server.requests == []
+        cache = tmp_path / "cache/sai/token-cache.json"
+        cache.parent.mkdir(parents=True, mode=0o700)
+        cache.write_text('{"version":1,"entries":{}}')
+        cache.chmod(0o644)
+        cache_error = StringIO()
+        assert main(["auth", "status", "--format", "table", "--base-url", base_url, "--site", "site-a"],
+                    environ=_env(tmp_path, identity_issuer=base_url), stdout=StringIO(), stderr=cache_error) == 3
+        assert "permissions are not private" in cache_error.getvalue()
+        assert "sai auth login" not in cache_error.getvalue()
