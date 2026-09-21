@@ -27,6 +27,7 @@ operations evidence is kept outside this repository.
 - [x] Existing Bearer token and unmanaged compatibility HMAC bootstrap
 - [x] `sai jobs list` and `sai jobs show`
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
+- [x] `sai resources catalog` against the shared published site catalog DTO
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -42,6 +43,8 @@ production wrapper.
   exact `sai-authz` capability and `entrypoint=cli` shell-access check
 - [ ] Shared cross-repository request/response fixture (the two repositories'
   focused vectors are aligned, but no single shared artifact is published yet)
+- [x] Versioned published site catalog schema and sample shared with Portal
+  WebUI and Pilot; job and running-estimate shared artifacts remain separate work
 - [ ] Production issuer key/epoch deployment and authenticated devstack smoke
 - [ ] SAI Identity OIDC provider/device grant, registered `sai-cli` client, and
   Portal resource-token verifier (owned by the Identity/Portal repositories;

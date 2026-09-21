@@ -4,7 +4,7 @@ Status: read-only commands frozen
 
 ## Command surface
 
-The current release is read-only and exposes three commands:
+The current release exposes read-only job and resource commands:
 
 ```bash
 sai jobs list --site site-a
@@ -17,6 +17,7 @@ sai jobs show 12345 --site site-a --scope project-account \
 sai jobs cost --site site-a
 sai jobs cost --site site-a --scope project-account \
   --account project-example --states R,PD --partition gpu-standard
+sai resources catalog --site site-a --format table
 ```
 
 `--format json` is the default. `--format table` is intended for a person at a
@@ -28,7 +29,14 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, placement, storage, or TUI commands.
+- node topology, placement, storage usage/management, or TUI commands.
+
+`resources catalog` returns published compute specifications, QOS names,
+storage products and prices. It accepts a site and output format, not job
+scope/account/cluster filters. Managed mode uses an Identity-only central read
+route; no site capability, scheduler read or local pricing engine is involved.
+Published capacities are not idle resources or a guarantee of eligibility.
+Unknown capacities remain null in JSON and `unknown` in the table.
 
 `jobs cost` calls Portal `GET /v1/billing/running-estimates`. It reuses the
 list command's scope and narrowing options, validates the independent

@@ -8,6 +8,7 @@ from urllib.parse import quote, urljoin
 
 from .auth import TokenLease, TokenProvider
 from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
+from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .transport import JsonResponse, JsonTransport
@@ -279,6 +280,22 @@ class PortalClient:
         response = self._get_with_lease("/v1/account/cli/status", query={}, lease=lease)
         result = AccountStatus.from_payload(response.payload, request_id=response.request_id)
         return replace(result, verification_url=urljoin(self.transport.base_url, result.verification_url))
+
+    def resource_catalog(self, site_id: str) -> ResourceCatalog:
+        site = clean_token(site_id, field="site", required=True)
+        prefix = "/v1/account/cli/sites" if self._cli_surface_enabled else "/v1/account/sites"
+        path = f"{prefix}/{quote(site, safe='')}/resource-catalog"
+        # Published specifications are central facts, not a site-read operation.
+        lease = self.token_provider.get()
+        try:
+            response = self._get_with_lease(path, query={}, lease=lease)
+        except AuthenticationError:
+            if lease.source != "cache":
+                raise
+            self.token_provider.invalidate(lease)
+            lease = self.token_provider.get(force_exchange=True)
+            response = self._get_with_lease(path, query={}, lease=lease)
+        return ResourceCatalog.from_payload(response.payload, site_id=site, request_id=response.request_id)
 
     def list_jobs(self, query: JobQuery) -> JobResult:
         path = "/v1/slurm/cli/jobs" if self._cli_surface_enabled else "/v1/slurm/jobs"

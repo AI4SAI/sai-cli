@@ -7,6 +7,7 @@ from typing import Any, Iterable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 
 
@@ -152,6 +153,36 @@ def _truncate(text: str, maximum: int) -> str:
 def _line(values: Iterable[str], widths: list[int]) -> str:
     cells = [value.ljust(width) for value, width in zip(values, widths, strict=True)]
     return "  ".join(cells).rstrip()
+
+
+def render_resource_catalog(result: ResourceCatalog) -> str:
+    catalog = result.as_dict()
+
+    def cell(value: object) -> str:
+        return "unknown" if value is None else _truncate(" ".join(str(value).split()), 60)
+
+    def table(headings: list[str], rows: list[list[object]]) -> list[str]:
+        rendered = [[cell(value) for value in row] for row in rows]
+        widths = [max(len(heading), *(len(row[index]) for row in rendered))
+                  for index, heading in enumerate(headings)] if rendered else [len(h) for h in headings]
+        return [_line(headings, widths), *(_line(row, widths) for row in rendered)] if rendered else ["(none published)"]
+
+    lines = [f"Site: {cell(catalog['site_label'])} ({cell(catalog['site_id'])})", "Compute"]
+    lines.extend(table(
+        ["Partition", "Kind", "Nodes", "CPU/node", "GPUs(total)", "GPU model", "Published price"],
+        [[row["name"], row["resource_kind"], row["node_count"], row["cpu_cores_per_node"],
+          row["gpu_count"], row["gpu_model"], row["pricing"]["display"] if row["pricing"] else None]
+         for row in catalog["compute"]],
+    ))
+    lines.extend(("", "Storage"))
+    lines.extend(table(
+        ["Name", "Scope", "Filesystem", "Package price", "Usage price", "Metered"],
+        [[row["name"], row["scope_label"], row["filesystem_type"], row["package_pricing"]["display"],
+          row["usage_pricing"]["display"], "yes" if row["metered_settlement_enabled"] else "no"]
+         for row in catalog["storage"]],
+    ))
+    lines.append("Published specifications and prices; availability, access and final charges are separate.")
+    return "\n".join(lines) + "\n"
 
 
 def render_table(result: JobResult) -> str:

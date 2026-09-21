@@ -1,0 +1,75 @@
+{
+  "compute": [
+    {
+      "cpu_cores_per_node": 32,
+      "cpu_model": null,
+      "gpu_count": 8,
+      "gpu_model": "Example GPU",
+      "name": "gpu-standard",
+      "node_count": 2,
+      "pricing": {
+        "currency": "CNY",
+        "display": "¥1.8 / GPU 卡时",
+        "unit_name": "GPU 卡时",
+        "unit_price": "1.8"
+      },
+      "resource_kind": "gpu",
+      "scenarios": [
+        "Scientific computing",
+        "Model training"
+      ],
+      "summary": "Published GPU resources.\nAvailability requires a separate query.",
+      "supported_qos": [
+        "normal"
+      ],
+      "title": "GPU standard"
+    },
+    {
+      "cpu_cores_per_node": null,
+      "cpu_model": null,
+      "gpu_count": 0,
+      "gpu_model": null,
+      "name": "cpu-standard",
+      "node_count": null,
+      "pricing": null,
+      "resource_kind": "cpu",
+      "scenarios": [],
+      "summary": "",
+      "supported_qos": [],
+      "title": "CPU standard"
+    }
+  ],
+  "schema_version": "site.resource-catalog/v1",
+  "site_id": "site-example",
+  "site_label": "Example site",
+  "storage": [
+    {
+      "description": "Published storage offering.",
+      "filesystem_type": "lustre",
+      "hardware": [
+        {
+          "label": "Filesystem",
+          "value": "lustre"
+        }
+      ],
+      "metered_settlement_enabled": false,
+      "name": "Project storage",
+      "package_pricing": {
+        "currency": "CNY",
+        "display": "¥120 / TiB·月",
+        "unit_name": "TiB-month",
+        "unit_price": "120"
+      },
+      "physical_filesystem_key": "storage-fs-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scope_kind": "organization_project",
+      "scope_label": "Organization and project",
+      "self_service_available": true,
+      "usage_pricing": {
+        "currency": "CNY",
+        "display": "¥12 / TiB·天",
+        "unit_name": "TiB-day",
+        "unit_price": "12"
+      }
+    }
+  ]
+}

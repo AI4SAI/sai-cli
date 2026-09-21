@@ -52,14 +52,15 @@
 - Python 3.11+ is required.
 - The batch CLI has no third-party runtime dependency.
 - The implemented surface is `sai jobs list`, `sai jobs show`, and the
-  non-final `sai jobs cost` running-estimate view.
+  non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`
+  for published specifications and prices (not live capacity or eligibility).
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
 - Development compatibility can call Portal `GET /v1/slurm/jobs`, detail, and
   `GET /v1/billing/running-estimates`. Managed production mode first obtains
   an opaque site-read capability and calls the server-bound
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
-  transport, TUI, resources, placement, and storage remain roadmap items.
+  transport, TUI, live resources, placement, and storage usage remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
@@ -81,6 +82,9 @@
   deployed.
 - Supported user scopes are `self`, `personal-account`, `org-account`, and
   `project-account`. There is no normal-user all scope or raw user filter.
+- Resource catalogs are site-scoped published data. Managed reads use the
+  Identity-only `/v1/account/cli/sites/{site_id}/resource-catalog` route without
+  a site-read capability. Catalog visibility does not grant site/job/file access.
 
 ## Inherited Portal Engineering Lessons
 

@@ -10,6 +10,8 @@ The first implementation milestone is intentionally read-only:
   project scope.
 - `sai jobs show` returns one authorized job.
 - `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
+- `sai resources catalog` reads the same published compute and storage catalog
+  used by WebUI and the SAI Pilot resource tool.
 - JSON is the default output. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
@@ -133,6 +135,7 @@ sai jobs list --scope project-account --account project-example
 sai jobs list --states R,PD --partition gpu-standard --format table
 sai jobs show 12345
 sai jobs cost --states R,PD --format table
+sai resources catalog --site site-a --format table
 ```
 
 Connection options are accepted before or after the leaf command, so both

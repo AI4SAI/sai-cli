@@ -20,9 +20,9 @@ from .capability import CapabilityProvider
 from .client import JobQuery, PortalClient, clean_states
 from .config import Settings, resolve_settings
 from .contracts import ACCOUNT_VERIFICATION_PATH
-from .errors import AuthenticationError, ContractError, SaiCliError
+from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
-from .render import render_account_status, render_json, render_running_estimate_table, render_table
+from .render import render_account_status, render_json, render_resource_catalog, render_running_estimate_table, render_table
 from .transport import JsonTransport
 
 
@@ -56,6 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_job_scope_arguments(cost_parser)
     cost_parser.add_argument("--partition", help="partition narrowing filter")
     _add_format_argument(cost_parser)
+
+    resources = commands.add_parser("resources", help="read published site resource specifications")
+    resource_commands = resources.add_subparsers(dest="resources_command", required=True)
+    catalog_parser = resource_commands.add_parser("catalog", help="show compute and storage specifications and prices")
+    _add_connection_arguments(catalog_parser, suppress_defaults=True)
+    _add_format_argument(catalog_parser)
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -415,6 +421,12 @@ def main(
             token_provider=provider,
             capability_provider=capability_provider,
         )
+        if args.command == "resources":
+            if args.cluster is not None:
+                raise ConfigError("resources catalog is site-scoped and does not accept --cluster")
+            catalog = client.resource_catalog(settings.site_id)
+            output.write(render_json(catalog.as_dict()) if output_format == "json" else render_resource_catalog(catalog))
+            return 0
         query = _job_query(args, settings=settings)
 
         if args.command == "jobs" and args.jobs_command == "list":

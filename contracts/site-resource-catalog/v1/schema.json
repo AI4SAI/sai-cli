@@ -1,0 +1,373 @@
+{
+  "$defs": {
+    "AccountSiteComputeResourceOut": {
+      "additionalProperties": false,
+      "properties": {
+        "cpu_cores_per_node": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cpu Cores Per Node"
+        },
+        "cpu_model": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cpu Model"
+        },
+        "gpu_count": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Gpu Count"
+        },
+        "gpu_model": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Gpu Model"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+          },
+          "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "node_count": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Node Count"
+        },
+        "pricing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccountSiteResourcePriceOut"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resource_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "cpu",
+                "gpu"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource Kind"
+        },
+        "scenarios": {
+          "items": {
+            "maxLength": 4096,
+            "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Scenarios",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 4096,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Summary",
+          "type": "string"
+        },
+        "supported_qos": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+            },
+            "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Supported Qos",
+          "type": "array"
+        },
+        "title": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "title",
+        "resource_kind",
+        "summary",
+        "scenarios",
+        "node_count",
+        "cpu_cores_per_node",
+        "cpu_model",
+        "gpu_count",
+        "gpu_model",
+        "supported_qos",
+        "pricing"
+      ],
+      "title": "AccountSiteComputeResourceOut",
+      "type": "object"
+    },
+    "AccountSiteResourceFactOut": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "AccountSiteResourceFactOut",
+      "type": "object"
+    },
+    "AccountSiteResourcePriceOut": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "display": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Display",
+          "type": "string"
+        },
+        "unit_name": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Unit Name",
+          "type": "string"
+        },
+        "unit_price": {
+          "maxLength": 64,
+          "minLength": 1,
+          "not": {
+            "pattern": "[^0-9.]"
+          },
+          "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+          "title": "Unit Price",
+          "type": "string"
+        }
+      },
+      "required": [
+        "currency",
+        "unit_price",
+        "unit_name",
+        "display"
+      ],
+      "title": "AccountSiteResourcePriceOut",
+      "type": "object"
+    },
+    "AccountSiteStorageResourceOut": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 4096,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Description",
+          "type": "string"
+        },
+        "filesystem_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+          },
+          "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+          "title": "Filesystem Type",
+          "type": "string"
+        },
+        "hardware": {
+          "items": {
+            "$ref": "#/$defs/AccountSiteResourceFactOut"
+          },
+          "maxItems": 128,
+          "title": "Hardware",
+          "type": "array"
+        },
+        "metered_settlement_enabled": {
+          "title": "Metered Settlement Enabled",
+          "type": "boolean"
+        },
+        "name": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "package_pricing": {
+          "$ref": "#/$defs/AccountSiteResourcePriceOut"
+        },
+        "physical_filesystem_key": {
+          "description": "Opaque account-facing key used only to group one physical filesystem.",
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+          },
+          "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+          "title": "Physical Filesystem Key",
+          "type": "string"
+        },
+        "scope_kind": {
+          "enum": [
+            "personal_home",
+            "organization_project"
+          ],
+          "title": "Scope Kind",
+          "type": "string"
+        },
+        "scope_label": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "self_service_available": {
+          "title": "Self Service Available",
+          "type": "boolean"
+        },
+        "usage_pricing": {
+          "$ref": "#/$defs/AccountSiteResourcePriceOut"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "filesystem_type",
+        "physical_filesystem_key",
+        "scope_kind",
+        "scope_label",
+        "hardware",
+        "self_service_available",
+        "metered_settlement_enabled",
+        "package_pricing",
+        "usage_pricing"
+      ],
+      "title": "AccountSiteStorageResourceOut",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "compute": {
+      "items": {
+        "$ref": "#/$defs/AccountSiteComputeResourceOut"
+      },
+      "maxItems": 512,
+      "title": "Compute",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "site.resource-catalog/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+      },
+      "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "site_label": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]*$",
+      "title": "Site Label",
+      "type": "string"
+    },
+    "storage": {
+      "items": {
+        "$ref": "#/$defs/AccountSiteStorageResourceOut"
+      },
+      "maxItems": 512,
+      "title": "Storage",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "site_label",
+    "compute",
+    "storage"
+  ],
+  "title": "AccountSiteResourceCatalogOut",
+  "type": "object"
+}

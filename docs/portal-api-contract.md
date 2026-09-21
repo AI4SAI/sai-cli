@@ -302,3 +302,37 @@ The only accepted URL is `/portal/#/portal/account/identity-assurance`, resolved
 against the configured API origin. The CLI never accepts an arbitrary redirect,
 recalculates deadlines, queries identity databases, or emits credential material.
 Development bootstrap credentials retain their previous local-only status.
+
+## Published site resource catalog
+
+`sai resources catalog` reads `site.resource-catalog/v1`. Managed mode calls
+`GET /v1/account/cli/sites/{site_id}/resource-catalog` with an Identity resource
+Bearer (`sai.compute.read`). Portal resolves the current subject and requires
+shell access `enabled`. The unmanaged development route is
+`GET /v1/account/sites/{site_id}/resource-catalog`, the same route used by WebUI.
+Neither route reads live scheduler state or grants site access; published
+catalog visibility is independent from permission to submit or access files.
+
+There are no query parameters, account selectors or cluster selectors. The
+site's published runtime configuration selects its canonical catalog. Unknown
+or disabled sites fail; a source failure is unavailable, not an empty catalog.
+The managed route does not accept legacy Portal tokens or require a site-read
+capability. Token cache refresh follows the existing one-retry policy.
+
+The recursive allowlist contains `schema_version`, `site_id`, `site_label`,
+`compute` and `storage`. Exact fields, limits and a synthetic example are in
+[the shared contract](../contracts/site-resource-catalog/v1/README.md).
+Nullable specifications must be explicit nulls. Prices are server-provided
+non-negative decimal strings in CNY with their own unit; no client conversion,
+discount, entitlement or final-charge claim is made. `gpu_count` is the
+published total GPU count, unlike the per-node GPU column in the jobs table.
+
+Narrative text preserves ordinary tab/newline whitespace in JSON; the table
+folds it to spaces. Terminal control bytes, invalid types, unsupported versions
+and a different response site are rejected. Unknown additive fields are
+discarded at every modeled level. Pilot receives the identical catalog under
+`published_catalog`, alongside its existing scheduler preparation metadata.
+
+Deploy the matching Portal producer before upgraded CLI/WebUI/Pilot consumers.
+Schema/sample parity and fake HTTP prove local compatibility, not production
+availability. This catalog does not implement hardware topology or utilization.

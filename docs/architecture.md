@@ -21,7 +21,11 @@ The architecture separates three responsibilities:
 ## Current and target paths
 
 The current code release uses control-plane job visibility and
-running-estimate read APIs. Its development-only non-CLI compatibility mode
+running-estimate read APIs, plus the published site resource catalog.
+The catalog shares Portal's WebUI presenter and appears under
+`published_catalog` in Pilot's existing resource tool; Pilot's scheduler
+preparation metadata remains a separate part of that tool response.
+Its development-only non-CLI compatibility mode
 still accepts a Portal credential. Managed capability/CLI routes accept only
 SAI Identity-issued resource tokens:
 
@@ -29,6 +33,9 @@ SAI Identity-issued resource tokens:
 user -> sai-cli -> SAI Identity device authorization and refresh
      -> Identity access token -> Portal resource API -> authorized site reader
 ```
+
+Published resource-catalog reads end at Portal's stored product projection;
+they do not invoke the site reader.
 
 The target remote-site path separates authorization from the query hot path:
 
