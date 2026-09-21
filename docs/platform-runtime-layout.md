@@ -117,7 +117,7 @@ not a claim that FHS mandates these exact category names.
 ### Login status in the existing shared profile
 
 The shared interactive login `bash.profile` may run the existing general command
-`timeout 5s sai --timeout 3 auth status --format table` once per top-level user
+`timeout -k 1s 5s /opt/sai/bin/sai auth status --format table` once per top-level user
 login. Skip root, batch jobs, noninteractive shells and nested login shells;
 export the once marker before invoking it. A failed or unauthenticated status
 read must never block login or launch device authorization automatically. This
