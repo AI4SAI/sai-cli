@@ -155,7 +155,15 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         assert status_payload["client_id"] == "sai-cli"
         assert status_payload["refresh_expires_at"] is None
         assert status_payload["account"]["verification_current"] is True
+        assert status_payload["account"]["verification_url"] == base_url + "/portal/#/portal/account/identity-assurance"
+        assert next(item for item in server.requests if item["path"] == "/v1/account/cli/status")["authorization"] == "Bearer opaque-access-token"
+        assert "opaque-access-token" not in status_out.getvalue()
         assert status_err.getvalue() == ""
+        table_out = StringIO()
+        assert main(["auth", "status", "--format", "table", "--base-url", base_url, "--site", "site-a"],
+                    environ=_env(tmp_path, identity_issuer=base_url), stdout=table_out, stderr=StringIO()) == 0
+        assert "Identity verification: current" in table_out.getvalue()
+        assert "access_expires_at:" in table_out.getvalue()
 
         logout_out = StringIO()
         assert main(

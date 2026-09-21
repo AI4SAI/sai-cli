@@ -19,16 +19,23 @@ from sai_cli.render import render_account_status, render_json, render_running_es
 
 
 def test_account_status_allowlist_and_table_output() -> None:
-    status = AccountStatus.from_payload({
+    payload = {
         "schema_version": "account.status/v1",
         "verification_current": False,
         "access_state": "normal",
         "initial_verification_deadline": "2027-09-21T00:00:00Z",
         "verification_url": "/portal/#/portal/account/identity-assurance",
-        "raw": "drop",
-    }, request_id="account-status")
+        "raw": {"token": "must-not-appear", "evidence": "private"},
+    }
+    status = AccountStatus.from_payload(payload, request_id="account-status")
     assert "raw" not in status.as_dict()
     assert "365" in render_account_status(status)
+    assert "must-not-appear" not in render_json(status.as_dict())
+    for key, value in (("verification_url", "https://outside.example/"),
+                       ("initial_verification_deadline", "2027-09-21T00:00:00"),
+                       ("access_state", "\x1b[31m"), ("verification_current", "true")):
+        with pytest.raises(ContractError):
+            AccountStatus.from_payload({**payload, key: value}, request_id="account-status")
 
 
 def test_contract_allowlists_fields_and_drops_unknown_sensitive_data(job_payload) -> None:
