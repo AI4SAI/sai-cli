@@ -60,6 +60,13 @@ facts or production deployment.
 
 ## Milestone 0.3: optional TUI
 
+The [unified workbench design](unified-workbench.md) defines shared TUI, WebUI,
+and Agent semantics beyond a job list: resource selection, task diagnosis,
+results, usage, and Pilot context. Establish those contracts and task flows
+first. The [digital-twin design](digital-twin-design.md) keeps hardware 3D work
+behind validation of asset, allocation, and telemetry facts. Both documents
+are candidate designs, not completed implementation milestones.
+
 - [ ] Optional TUI dependency group
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
 - [ ] TUI running-usage estimate view; the batch `jobs cost` view already

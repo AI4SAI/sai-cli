@@ -51,6 +51,9 @@ login-node package have been deployed.
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
+- [Product principles](PRODUCT.md)
+- [Unified TUI, WebUI, and Agent workbench (candidate design)](docs/unified-workbench.md)
+- [Hardware digital twin and 3D view (candidate design)](docs/digital-twin-design.md)
 - [Repository guidelines](AGENTS.md)
 
 ## Development status
