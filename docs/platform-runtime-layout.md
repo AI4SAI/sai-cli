@@ -113,3 +113,13 @@ an NFS mount per package. The
 documents versioned software under a shared prefix and installation of common
 code once for multiple hosts. The five-role layout above is the SAI site design,
 not a claim that FHS mandates these exact category names.
+
+### Login status in the existing shared profile
+
+The shared interactive login `bash.profile` may run the existing general command
+`timeout 5s sai --timeout 3 auth status --format table` once per top-level user
+login. Skip root, batch jobs, noninteractive shells and nested login shells;
+export the once marker before invoking it. A failed or unauthenticated status
+read must never block login or launch device authorization automatically. This
+uses the same account DTO as the console; do not add a separate MOTD service,
+credential cache, permission resolver or per-node command installation.

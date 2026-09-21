@@ -288,3 +288,17 @@ found or not visible.
 - Adding a query parameter does not permit the CLI to send it until the client
   contract is reviewed.
 - A local fake server test does not establish live scheduler compatibility.
+
+## Self account status
+
+Managed `sai auth status` calls `GET /v1/account/cli/status` with its existing
+Identity resource Bearer. The route accepts no user, workspace or site selector,
+requires the current subject binding, and remains readable for identity recovery.
+It does not grant job access or require a site-read capability.
+
+The `account.status/v1` DTO contains `verification_current`, `access_state`,
+`initial_verification_deadline` (UTC ISO 8601 or null), and `verification_url`.
+The only accepted URL is `/portal/#/portal/account/identity-assurance`, resolved
+against the configured API origin. The CLI never accepts an arbitrary redirect,
+recalculates deadlines, queries identity databases, or emits credential material.
+Development bootstrap credentials retain their previous local-only status.
