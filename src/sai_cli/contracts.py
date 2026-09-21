@@ -141,7 +141,7 @@ def _nullable_text(
 
 
 def _has_unsafe_control(value: str) -> bool:
-    return any(ord(character) < 32 or ord(character) == 127 for character in value)
+    return any(ord(character) < 32 or 127 <= ord(character) <= 159 for character in value)
 
 
 def _nullable_int(payload: dict[str, Any], key: str, *, request_id: str) -> int | None:
@@ -338,7 +338,13 @@ class JobItem:
     values: dict[str, str | int | None]
 
     @classmethod
-    def from_payload(cls, payload: object, *, request_id: str) -> "JobItem":
+    def from_payload(
+        cls,
+        payload: object,
+        *,
+        request_id: str,
+        text_limits: dict[str, int] | None = None,
+    ) -> "JobItem":
         if not isinstance(payload, dict):
             raise ContractError(request_id=request_id)
         values: dict[str, str | int | None] = {
@@ -355,7 +361,7 @@ class JobItem:
                     payload,
                     key,
                     request_id=request_id,
-                    maximum=128,
+                    maximum=(text_limits or {}).get(key, 128),
                 )
             elif key in _INT_ITEM_FIELDS:
                 values[key] = _nullable_int(payload, key, request_id=request_id)

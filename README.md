@@ -19,8 +19,10 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-Job submission, cancellation, resource mutation, TUI views, and the site-local
-capability gateway remain roadmap items. Running estimates are read from the
+Job submission, cancellation, resource mutation and TUI views remain roadmap
+items. Jobs can optionally read directly from the site-local capability gateway
+through a protected `site_read_base_url` profile setting; deployment is separate.
+Running estimates are read from the
 independent Portal billing DTO; the CLI has no pricing engine or Slurm reader.
 See
 [docs/roadmap.md](docs/roadmap.md) for the exact boundary.
@@ -140,6 +142,11 @@ sai resources catalog --site site-a --format table
 
 Connection options are accepted before or after the leaf command, so both
 `sai --site site-a jobs list` and `sai jobs list --site site-a` work.
+
+The default jobs transport retains the Portal response contract. Opting into
+the direct gateway selects the versioned `jobs/v1` response with an exact
+subject, native observation time and truncation flag; it does not invent a
+Portal membership role. See the [transport contract](docs/portal-api-contract.md#direct-site-job-reads).
 
 ## Verify
 

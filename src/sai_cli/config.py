@@ -11,8 +11,10 @@ import re
 import stat
 import tomllib
 from typing import Any, Mapping
+from urllib.parse import urlsplit, urlunsplit
 
 from .errors import ConfigError
+from .transport import normalize_base_url
 
 
 _PROFILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -51,6 +53,7 @@ _PROFILE_KEYS = {
     "oidc_scope",
     "oidc_resource",
     "require_site_capability",
+    "site_read_base_url",
 }
 _FORBIDDEN_PROFILE_KEYS = {
     "token",
@@ -80,6 +83,7 @@ class Settings:
     managed_login_node: bool = False
     require_site_capability: bool = False
     cluster_id: str | None = None
+    site_read_base_url: str | None = None
 
 
 def default_config_path(environ: Mapping[str, str]) -> Path:
@@ -261,8 +265,36 @@ def _parse_timeout(value: object) -> float:
     return timeout
 
 
+def _site_read_origin(value: object, *, managed: bool) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or any(
+        character.isspace() or ord(character) < 32 or 127 <= ord(character) <= 159
+        for character in value
+    ):
+        raise ConfigError("site_read_base_url must be a trusted HTTPS origin")
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError:
+        raise ConfigError("site_read_base_url is invalid") from None
+    if (
+        parsed.username is not None or parsed.password is not None
+        or parsed.path not in {"", "/"} or "?" in value or "#" in value
+        or "\\" in parsed.netloc or parsed.netloc.endswith(":")
+        or (port is not None and not 1 <= port <= 65535)
+        or (managed and parsed.scheme != "https")
+    ):
+        raise ConfigError("site_read_base_url must be a trusted HTTPS origin")
+    # Reuse transport TLS/loopback policy, never the broad development override.
+    normalize_base_url(value, allow_insecure_http=False)
+    return urlunsplit((parsed.scheme, parsed.netloc.lower(), "", "", ""))
+
+
 def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if environ is None else environ
+    if "SAI_SITE_READ_BASE_URL" in env:
+        raise ConfigError("site_read_base_url must be configured in TOML, not the environment")
     managed = _parse_bool(
         env.get("SAI_MANAGED_LOGIN_NODE"),
         field="SAI_MANAGED_LOGIN_NODE",
@@ -273,6 +305,7 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
             "profile",
             "base_url",
             "site",
+            "cluster",
             "username",
             "key_id",
             "timeout",
@@ -400,6 +433,10 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
     ):
         raise ConfigError("site-read capability is required in production")
 
+    site_read_base_url = _site_read_origin(values.get("site_read_base_url"), managed=managed)
+    if site_read_base_url is not None and (not require_capability or not cluster_id):
+        raise ConfigError("site_read_base_url requires site-read capability mode and an explicit cluster")
+
     return Settings(
         base_url=base_url.rstrip("/"),
         site_id=site_id,
@@ -422,4 +459,5 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
         managed_login_node=managed,
         require_site_capability=require_capability,
         cluster_id=cluster_id,
+        site_read_base_url=site_read_base_url,
     )

@@ -1,8 +1,8 @@
 # Site-Local Interactive Read Plane
 
-Status: target service contract; the shared Portal issuer and the reusable
-Slurm interactive adapter are merged, while the independent gateway service is
-still a deployment gate.
+Status: job list/detail direct transport and native-read gateway code are
+implemented locally; production installation and readback remain separate
+gates. Billing and future storage/resource operations retain their own gates.
 
 ## Purpose and ownership
 
@@ -81,16 +81,23 @@ The CLI sends the capability only in `X-SAI-Capability`. It never receives a
 signing key, accepts a capability from argv/environment/config, or sends the
 Portal Bearer to the gateway.
 
+The client opts in using a trusted TOML `site_read_base_url` origin. Only job
+list/detail use it; catalog, authentication and running cost remain central.
+The read origin participates in the capability cache key. No failed gateway
+read falls back to another source.
+
 ## Request and response
 
 The gateway request is a `GET` with no authorization query parameters; the
 capability carries the authority. The phase-one Portal CLI route uses the
 `billing.running-estimate/v1` DTO. The existing unactivated gateway candidate
 still emits its earlier `billing.running-estimate/v2` shape and must be migrated
-to the frozen v1 contract before that transport is enabled. Both paths use the
-shared `jobs/v1` semantics documented in
-[portal-api-contract.md](portal-api-contract.md). Both include site/cluster,
-resolved subject, source freshness, and an ETag. Unknown additive fields may be
+to the frozen v1 contract before that transport is enabled. Direct jobs use the
+explicit gateway `jobs/v1` envelope documented in
+[portal-api-contract.md](portal-api-contract.md#direct-site-job-reads), while the
+default Portal job envelope remains unchanged. Direct jobs include site/cluster,
+resolved subject, source freshness, truncation and an ETag; no Portal membership
+role is inferred. Unknown additive fields may be
 ignored only after recursive allowlist validation. Paths, scripts,
 environments, raw scheduler data, wallet, ledger, and provider diagnostics are
 never returned.
@@ -130,7 +137,16 @@ resource/pricing revision, capability digest/JTI, and visibility policy. A key
 containing only site or query is invalid. Expired capabilities cannot trigger a
 native read; stale local data is display-only and explicitly marked.
 
-The gateway appends bounded audit records and flushes asynchronously. Records
+The implemented default job path reads on demand with native subject/filter
+arguments and then filters again before limiting. It does not reuse the
+billing collector's cluster-wide cache or synthesize terminal states. Short
+reuse/coalescing is a future measured optimization, not a new required service.
+The ETag describes only authorized normalized output and truncation; unrelated
+job changes cannot alter it.
+
+Before production, the gateway must append bounded audit records and flush
+asynchronously. This remains a rollout gate, not proof supplied by the direct
+transport tests. Records
 contain reference IDs, actor, site, scope, filters, operation, count, freshness,
 and request ID, never capability text, tokens, secrets, scripts, or environment.
 Unknown key/epoch, expired/revoked capability, or an over-limit audit backlog

@@ -59,8 +59,9 @@ def capability_cache_key(
     base_url: str,
     user_token: str,
     request_body: Mapping[str, object],
+    read_origin: str | None = None,
 ) -> str:
-    """Hash the Portal origin and complete exact authorization request."""
+    """Bind the issuer, user, request and optional direct reader origin."""
 
     normalized = {
         "base_url": base_url.rstrip("/"),
@@ -71,6 +72,8 @@ def capability_cache_key(
         ).hexdigest(),
         "request": dict(request_body),
     }
+    if read_origin is not None:
+        normalized["read_origin"] = read_origin.rstrip("/")
     encoded = json.dumps(
         normalized,
         ensure_ascii=True,
@@ -173,6 +176,11 @@ class CapabilityProvider:
             base_url=self.settings.base_url,
             user_token=user_lease.token,
             request_body=body,
+            read_origin=(
+                self.settings.site_read_base_url
+                if operation in {"jobs.list", "jobs.detail"}
+                else None
+            ),
         )
         now = int(self.clock())
         if not force_refresh:

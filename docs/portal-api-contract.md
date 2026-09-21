@@ -336,3 +336,65 @@ discarded at every modeled level. Pilot receives the identical catalog under
 Deploy the matching Portal producer before upgraded CLI/WebUI/Pilot consumers.
 Schema/sample parity and fake HTTP prove local compatibility, not production
 availability. This catalog does not implement hardware topology or utilization.
+
+## Direct site job reads
+
+Optional `site_read_base_url` in the existing TOML profile selects a fixed
+trusted gateway origin for `jobs list/show`. It requires
+`require_site_capability=true` and an explicit `cluster_id`. The address must
+be an HTTPS origin without a path, query, fragment or user information.
+Unmanaged local tests may use loopback HTTP; the broad insecure-development
+switch cannot enable a non-loopback HTTP gateway. There is no argv or
+`SAI_SITE_READ_BASE_URL` override, and Portal responses cannot change the origin.
+
+```toml
+[profiles.default]
+base_url = "https://portal.example.org"
+site_id = "site-a"
+cluster_id = "cluster-a"
+require_site_capability = true
+site_read_base_url = "https://read.example.org"
+```
+
+The client requests the existing exact `jobs.list` or `jobs.detail` capability
+from Portal, then sends a GET to `/v1/site-read/jobs` or
+`/v1/site-read/jobs/{job_id}`. Only `X-SAI-Capability` reaches the gateway;
+Identity Bearer credentials never do. No query parameters are necessary:
+the capability already binds all filters. Capability cache keys include the
+selected read origin. A gateway 401 for a cached capability may renew that
+capability once through Portal; a newly issued capability failure, 403, timeout
+or source failure does not trigger a fallback or an Identity login refresh.
+The issuer's own expired cached Bearer handling remains a bounded retry.
+
+This is an explicit response-contract choice, not an invisible transport swap.
+Direct mode returns the gateway's versioned `jobs/v1` envelope:
+
+- `schema_version`, `site_id`, `cluster_id`, `scope_type`;
+- `subject` containing nullable `slurm_user` and `slurm_account`;
+- `freshness` containing source `squeue|scontrol`, UTC `observed_at`, integer
+  `ttl_seconds` and `age_seconds`, and boolean `stale`;
+- a SHA-256 `etag`, boolean `has_more`, and typed `items`, including the
+  established job fields and `state_label`.
+
+It has no `visibility_role` or `count`: the grant binds a subject rather than a
+Portal membership label, and a bounded page is not a total count. The client
+validates the version, exact site/cluster/scope, any explicit account name,
+per-item subject, filters, limit and requested detail ID. Unknown fields are
+ignored recursively; unsafe text or inconsistent freshness is a contract error.
+Known long/short scheduler state aliases compare equivalently without changing
+the signed request. `has_more` reports authorized results beyond this limit;
+no pagination cursor or complete-history claim is made.
+
+The default gateway now reads native queue/detail on demand under the signed
+filters. It filters the bounded response again before limiting it, normalizes
+native timestamps to UTC, hashes only authorized output, and does not invent
+terminal states for vanished jobs. The adapter has a timeout and rejects
+oversized captured output; the current process runner does not impose a
+streaming memory ceiling. Production load and concurrency require separate
+validation. Explicit test/integration cache injection is not the default path.
+
+Without this setting, existing Portal job JSON is unchanged. Cost, catalog and
+authentication always retain their documented central routes; the gateway's
+older billing v2 candidate is not enabled. Consumers must opt into jobs/v1 and
+deploy the matching gateway producer first. Local subprocess and HTTP tests do
+not prove a live scheduler, installed gateway or production wrapper rollout.

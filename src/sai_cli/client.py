@@ -11,6 +11,7 @@ from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
+from .site_jobs import SiteJobResult
 from .transport import JsonResponse, JsonTransport
 
 
@@ -166,14 +167,70 @@ class PortalClient:
         transport: JsonTransport,
         token_provider: TokenProvider,
         capability_provider: CapabilityProvider | None = None,
+        site_transport: JsonTransport | None = None,
     ) -> None:
+        if site_transport is not None and capability_provider is None:
+            raise ConfigError("site reads require a Portal capability provider")
         self.transport = transport
         self.token_provider = token_provider
         self.capability_provider = capability_provider
+        self.site_transport = site_transport
 
     @property
     def _cli_surface_enabled(self) -> bool:
         return self.capability_provider is not None
+
+    def _acquire_capability(
+        self, request_body: dict[str, object], *, lease: TokenLease,
+        force_refresh: bool = False,
+    ) -> tuple[TokenLease, CapabilityLease]:
+        if self.capability_provider is None:
+            raise ConfigError("site reads require a Portal capability provider")
+        try:
+            capability = self.capability_provider.get(
+                request_body=request_body, user_lease=lease, force_refresh=force_refresh,
+            )
+        except AuthenticationError:
+            if lease.source != "cache":
+                raise
+            self.token_provider.invalidate(lease)
+            lease = self.token_provider.get(force_exchange=True)
+            capability = self.capability_provider.get(
+                request_body=request_body, user_lease=lease, force_refresh=True,
+            )
+        return lease, capability
+
+    def _site_jobs(self, query: JobQuery, *, job_id: str | None = None) -> SiteJobResult:
+        request = query.validated(detail=job_id is not None)
+        operation = "jobs.detail" if job_id is not None else "jobs.list"
+        body = request.capability_request(operation=operation, job_id=job_id)
+        lease, capability = self._acquire_capability(body, lease=self.token_provider.get())
+        path = "/v1/site-read/jobs"
+        if job_id is not None:
+            path += "/" + quote(job_id, safe="")
+        # The gateway receives only the capability. All filters are signed in it.
+        try:
+            response = self.site_transport.request(
+                "GET", path, headers={CAPABILITY_HEADER: capability.token},
+            )
+        except AuthenticationError:
+            if capability.source != "cache":
+                raise
+            self.capability_provider.invalidate(capability)
+            _, capability = self._acquire_capability(body, lease=lease, force_refresh=True)
+            response = self.site_transport.request(
+                "GET", path, headers={CAPABILITY_HEADER: capability.token},
+            )
+        result = SiteJobResult.from_payload(response.payload, request_id=response.request_id)
+        result.require_request_binding(
+            site_id=request.site_id, cluster_id=request.cluster_id,
+            scope=_SCOPES[request.scope], request_id=response.request_id,
+            partition=request.partition, states=request.states,
+            limit=request.limit if job_id is None else None, job_id=job_id,
+            account_name=request.account_name,
+            expected_source="scontrol" if job_id is not None else "squeue",
+        )
+        return result
 
     def _authorized_get(
         self,
@@ -199,24 +256,7 @@ class PortalClient:
                 "job_id": job_id,
                 "limit": query.get("limit"),
             }
-            try:
-                capability = self.capability_provider.get(
-                    request_body=request_body,
-                    user_lease=lease,
-                )
-            except AuthenticationError:
-                # A cached Portal bearer may have expired while the capability
-                # bootstrap is being attempted.  Refresh that bearer once,
-                # then obtain a capability for the new actor session.
-                if lease.source != "cache":
-                    raise
-                self.token_provider.invalidate(lease)
-                lease = self.token_provider.get(force_exchange=True)
-                capability = self.capability_provider.get(
-                    request_body=request_body,
-                    user_lease=lease,
-                    force_refresh=True,
-                )
+            lease, capability = self._acquire_capability(request_body, lease=lease)
         try:
             return self._get_with_lease(
                 path,
@@ -297,7 +337,9 @@ class PortalClient:
             response = self._get_with_lease(path, query={}, lease=lease)
         return ResourceCatalog.from_payload(response.payload, site_id=site, request_id=response.request_id)
 
-    def list_jobs(self, query: JobQuery) -> JobResult:
+    def list_jobs(self, query: JobQuery) -> JobResult | SiteJobResult:
+        if self.site_transport is not None:
+            return self._site_jobs(query)
         path = "/v1/slurm/cli/jobs" if self._cli_surface_enabled else "/v1/slurm/jobs"
         capability_request = (
             query.capability_request(operation="jobs.list")
@@ -323,8 +365,10 @@ class PortalClient:
         )
         return result
 
-    def show_job(self, job_id: str, query: JobQuery) -> JobResult:
+    def show_job(self, job_id: str, query: JobQuery) -> JobResult | SiteJobResult:
         clean_job_id = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
+        if self.site_transport is not None:
+            return self._site_jobs(query, job_id=clean_job_id)
         prefix = "/v1/slurm/cli/jobs" if self._cli_surface_enabled else "/v1/slurm/jobs"
         path = f"{prefix}/{quote(clean_job_id, safe='')}"
         capability_request = (
@@ -350,9 +394,9 @@ class PortalClient:
             scope=_SCOPES[request.scope],
             request_id=response.request_id,
         )
-        if len(result.items) != 1:
+        if len(result.items) != 1 or result.items[0].values["job_id"] != clean_job_id:
             raise ContractError(
-                "the job detail response must contain one item",
+                "the job detail response must contain the requested job",
                 request_id=response.request_id,
             )
         return result

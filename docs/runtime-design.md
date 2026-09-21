@@ -31,6 +31,18 @@ The first release does not implement:
 - automatic fallback from live state to broad accounting queries;
 - node topology, placement, storage usage/management, or TUI commands.
 
+Optional TOML `site_read_base_url` selects direct site reads for `jobs list`
+and `jobs show` only. It requires capability mode and an explicit cluster.
+The origin is HTTPS (unmanaged loopback HTTP for local tests); no argv or
+environment override is accepted. Managed installations use the existing
+protected configuration, not a new per-command mount or file hierarchy.
+
+The gateway receives only a short-lived `X-SAI-Capability`; the Identity Bearer
+stays at Portal. Results use the explicit `jobs/v1` envelope, including subject,
+observation time, freshness, ETag and `has_more`, without a fabricated visibility
+role. Gateway failures stop the request. The cost/catalog/auth commands keep
+their existing central contracts; they do not test a gateway and fall back.
+
 `resources catalog` returns published compute specifications, QOS names,
 storage products and prices. It accepts a site and output format, not job
 scope/account/cluster filters. Managed mode uses an Identity-only central read

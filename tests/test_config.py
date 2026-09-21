@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 
 import pytest
@@ -86,19 +87,101 @@ def test_profile_rejects_secrets(tmp_path: Path, key: str) -> None:
         resolve_settings(_args("--config", str(config)), {})
 
 
-def test_profile_rejects_direct_gateway_fields(tmp_path: Path) -> None:
+def _gateway_config(tmp_path: Path, origin: object = "https://gateway.example.org") -> Path:
     config = tmp_path / "config.toml"
     config.write_text(
         "[profiles.default]\n"
         'base_url = "https://example.org"\n'
         'site_id = "site-a"\n'
-        'site_read_base_url = "https://gateway.example.org"\n',
+        'cluster_id = "cluster-a"\n'
+        'require_site_capability = true\n'
+        f'site_read_base_url = {json.dumps(origin)}\n',
         encoding="utf-8",
     )
     config.chmod(0o644)
+    return config
 
-    with pytest.raises(ConfigError, match="unsupported keys"):
+
+@pytest.mark.parametrize("origin,expected", [
+    ("https://Gateway.example.org/", "https://gateway.example.org"),
+    ("https://gateway.example.org:9443", "https://gateway.example.org:9443"),
+    ("https://[::1]:9443/", "https://[::1]:9443"),
+    ("http://127.0.0.1:8020/", "http://127.0.0.1:8020"),
+    ("http://localhost:8020", "http://localhost:8020"),
+])
+def test_gateway_origin_is_toml_only_and_normalized(tmp_path: Path, origin: str, expected: str) -> None:
+    config = _gateway_config(tmp_path, origin)
+    assert resolve_settings(_args("--config", str(config)), {}).site_read_base_url == expected
+
+
+@pytest.mark.parametrize("origin", [
+    "", 42, True, "https://", "https://gateway.example.org/path",
+    "https://gateway.example.org//", "https://gateway.example.org?",
+    "https://gateway.example.org#", "https://gateway.example.org?token=x",
+    "https://user:password@gateway.example.org", "https://@gateway.example.org",
+    "https://gateway.example.org:0", "https://gateway.example.org:65536",
+    "https://gateway.example.org:notaport", "https://gateway.example.org:",
+    "https://[::1", "http://gateway.example.org", "ftp://gateway.example.org",
+    "https://gateway.example.org\n", "https://gate\tway.example.org",
+    "https://gateway.example.org\x1b", "https://gateway.example.org\x85",
+    "https://gate way.example.org", " https://gateway.example.org",
+    "https://gateway.example.org\\attacker.example.org",
+])
+def test_gateway_rejects_untrusted_origins_even_with_http_override(tmp_path: Path, origin: object) -> None:
+    config = _gateway_config(tmp_path, origin)
+    with pytest.raises(ConfigError):
+        resolve_settings(_args("--config", str(config), "--allow-insecure-http"), {})
+
+
+@pytest.mark.parametrize("removed", ["cluster_id", "require_site_capability"])
+def test_gateway_requires_cluster_and_capability(tmp_path: Path, removed: str) -> None:
+    config = _gateway_config(tmp_path)
+    config.write_text("\n".join(line for line in config.read_text().splitlines()
+                               if not line.startswith(removed)), encoding="utf-8")
+    with pytest.raises(ConfigError, match="explicit cluster"):
         resolve_settings(_args("--config", str(config)), {})
+
+
+@pytest.mark.parametrize("managed", [False, True])
+@pytest.mark.parametrize("value", ["", "https://attacker.example.org"])
+def test_gateway_environment_override_is_rejected(managed: bool, value: str) -> None:
+    with pytest.raises(ConfigError, match="configured in TOML"):
+        resolve_settings(_args(), {
+            "SAI_MANAGED_LOGIN_NODE": "1" if managed else "0",
+            "SAI_SITE_READ_BASE_URL": value,
+        })
+
+
+def test_gateway_config_retains_permissions_and_symlink_checks(tmp_path: Path) -> None:
+    config = _gateway_config(tmp_path)
+    config.chmod(0o664)
+    with pytest.raises(ConfigError, match="permissions are unsafe"):
+        resolve_settings(_args("--config", str(config)), {})
+    config.chmod(0o644)
+    link = tmp_path / "link.toml"
+    link.symlink_to(config)
+    with pytest.raises(ConfigError, match="regular file"):
+        resolve_settings(_args("--config", str(link)), {})
+
+
+@pytest.mark.parametrize("origin,allowed", [
+    ("https://gateway.example.org", True),
+    ("http://127.0.0.1:8020", False),
+])
+def test_managed_gateway_uses_protected_config_and_requires_https(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, origin: str, allowed: bool,
+) -> None:
+    config = _gateway_config(tmp_path, origin)
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
+    monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
+    env = {"SAI_MANAGED_LOGIN_NODE": "1"}
+    if allowed:
+        assert resolve_settings(_args(), env).site_read_base_url == origin
+        with pytest.raises(ConfigError, match="cannot be overridden"):
+            resolve_settings(_args("--cluster", "other-cluster"), env)
+    else:
+        with pytest.raises(ConfigError, match="HTTPS origin"):
+            resolve_settings(_args(), env)
 
 
 def test_missing_base_url_is_bounded(tmp_path: Path) -> None:

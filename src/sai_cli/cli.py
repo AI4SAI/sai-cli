@@ -22,7 +22,11 @@ from .config import Settings, resolve_settings
 from .contracts import ACCOUNT_VERIFICATION_PATH
 from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
-from .render import render_account_status, render_json, render_resource_catalog, render_running_estimate_table, render_table
+from .render import (
+    render_account_status, render_json, render_resource_catalog,
+    render_running_estimate_table, render_site_jobs, render_table,
+)
+from .site_jobs import SiteJobResult
 from .transport import JsonTransport
 
 
@@ -420,6 +424,10 @@ def main(
             transport=transport,
             token_provider=provider,
             capability_provider=capability_provider,
+            site_transport=(
+                JsonTransport(base_url=settings.site_read_base_url, timeout_seconds=settings.timeout_seconds)
+                if settings.site_read_base_url else None
+            ),
         )
         if args.command == "resources":
             if args.cluster is not None:
@@ -442,6 +450,8 @@ def main(
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
             output.write(render_running_estimate_table(result))
+        elif isinstance(result, SiteJobResult):
+            output.write(render_site_jobs(result))
         else:
             output.write(render_table(result))
         return 0

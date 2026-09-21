@@ -1,0 +1,175 @@
+"""Allowlisted native jobs/v1 gateway response and request binding."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import re
+from typing import Any
+
+from .contracts import (
+    JobItem,
+    _nullable_nonempty_text,
+    _nullable_sha256_text,
+    _required_bool,
+    _required_int,
+    _required_text,
+    _timestamp_text,
+    _validate_subject,
+)
+from .errors import ContractError
+
+
+_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}")
+_SCOPES = {"self", "personal_account", "org_account", "project_account"}
+_STATE_SHORT = {
+    "RUNNING": "R",
+    "PENDING": "PD",
+    "COMPLETING": "CG",
+    "SUSPENDED": "S",
+    "COMPLETED": "CD",
+    "FAILED": "F",
+    "CANCELLED": "CA",
+}
+_JOB_TEXT_LIMITS = {
+    "name": 4096,
+    "reason_or_nodelist": 4096,
+    "state": 32,
+    "submit_time": 64,
+    "start_time": 64,
+}
+
+
+@dataclass(frozen=True)
+class SiteJobFreshness:
+    source: str
+    observed_at: str
+    ttl_seconds: int
+    age_seconds: int
+    stale: bool
+
+    @classmethod
+    def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobFreshness":
+        if not isinstance(payload, dict):
+            raise ContractError(request_id=request_id)
+        source = _required_text(payload, "source", request_id=request_id)
+        observed_at = _timestamp_text(payload, "observed_at", request_id=request_id, nullable=False)
+        ttl = _required_int(payload, "ttl_seconds", request_id=request_id)
+        age = _required_int(payload, "age_seconds", request_id=request_id)
+        stale = _required_bool(payload, "stale", request_id=request_id)
+        if (
+            source not in {"squeue", "scontrol"}
+            or observed_at is None
+            or len(observed_at) > 64
+            or stale != (age >= ttl)
+        ):
+            raise ContractError(request_id=request_id)
+        return cls(source, observed_at, ttl, age, stale)
+
+    def as_dict(self) -> dict[str, str | int | bool]:
+        return {
+            "source": self.source,
+            "observed_at": self.observed_at,
+            "ttl_seconds": self.ttl_seconds,
+            "age_seconds": self.age_seconds,
+            "stale": self.stale,
+        }
+
+
+@dataclass(frozen=True)
+class SiteJobResult:
+    site_id: str
+    cluster_id: str
+    scope_type: str
+    slurm_user: str | None
+    slurm_account: str | None
+    items: tuple[JobItem, ...]
+    freshness: SiteJobFreshness
+    etag: str
+    has_more: bool
+
+    @classmethod
+    def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobResult":
+        if not isinstance(payload, dict) or payload.get("schema_version") != "jobs/v1":
+            raise ContractError(request_id=request_id)
+        subject = payload.get("subject")
+        raw_items = payload.get("items")
+        if not isinstance(subject, dict) or not isinstance(raw_items, list) or len(raw_items) > 500:
+            raise ContractError(request_id=request_id)
+        site = _required_text(payload, "site_id", request_id=request_id, maximum=128)
+        cluster = _required_text(payload, "cluster_id", request_id=request_id, maximum=128)
+        scope = _required_text(payload, "scope_type", request_id=request_id, maximum=32)
+        user = _nullable_nonempty_text(subject, "slurm_user", request_id=request_id, maximum=128)
+        account = _nullable_nonempty_text(subject, "slurm_account", request_id=request_id, maximum=128)
+        if scope not in _SCOPES or any(
+            value is not None and _TOKEN_RE.fullmatch(value) is None
+            for value in (site, cluster, user, account)
+        ):
+            raise ContractError(request_id=request_id)
+        _validate_subject(scope=scope, slurm_user=user, slurm_account=account, request_id=request_id)
+        etag = _nullable_sha256_text(payload, "etag", request_id=request_id)
+        if etag is None:
+            raise ContractError(request_id=request_id)
+        items = tuple(
+            JobItem.from_payload(item, request_id=request_id, text_limits=_JOB_TEXT_LIMITS)
+            for item in raw_items
+        )
+        for item in items:
+            values = item.values
+            if (user is not None and values["slurm_user"] != user) or (
+                account is not None and values["slurm_account"] != account
+            ):
+                raise ContractError(request_id=request_id)
+            for key in ("slurm_user", "slurm_account", "state"):
+                _required_text(values, key, request_id=request_id, maximum=128)
+            for key in ("submit_time", "start_time"):
+                _timestamp_text(values, key, request_id=request_id, nullable=True)
+        return cls(
+            site, cluster, scope, user, account, items,
+            SiteJobFreshness.from_payload(payload.get("freshness"), request_id=request_id),
+            etag, _required_bool(payload, "has_more", request_id=request_id),
+        )
+
+    def require_request_binding(
+        self,
+        *,
+        site_id: str,
+        cluster_id: str,
+        scope: str,
+        request_id: str,
+        partition: str | None = None,
+        states: tuple[str, ...] = (),
+        limit: int | None = None,
+        job_id: str | None = None,
+        expected_source: str | None = None,
+        account_name: str | None = None,
+    ) -> None:
+        if (
+            (self.site_id, self.cluster_id, self.scope_type) != (site_id, cluster_id, scope)
+            or (expected_source is not None and self.freshness.source != expected_source)
+            or (account_name is not None and self.slurm_account != account_name)
+            or (limit is not None and len(self.items) > limit)
+            or (job_id is not None and (len(self.items) != 1 or self.has_more))
+        ):
+            raise ContractError(request_id=request_id)
+        allowed_states = {_STATE_SHORT.get(state, state) for state in states}
+        for item in self.items:
+            values = item.values
+            if (
+                (partition is not None and values["partition"] != partition)
+                or (allowed_states and values["state"] not in allowed_states)
+                or (job_id is not None and values["job_id"] != job_id)
+            ):
+                raise ContractError(request_id=request_id)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": "jobs/v1",
+            "site_id": self.site_id,
+            "cluster_id": self.cluster_id,
+            "scope_type": self.scope_type,
+            "subject": {"slurm_user": self.slurm_user, "slurm_account": self.slurm_account},
+            "freshness": self.freshness.as_dict(),
+            "etag": self.etag,
+            "has_more": self.has_more,
+            "items": [item.as_dict() for item in self.items],
+        }

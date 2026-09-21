@@ -95,7 +95,8 @@ does not prove real placement, topology, rate data, or production latency.
   narrowing, cache isolation, and audit reference; the gateway server is not a
   CLI-wheel module
 - [ ] Client capability cache and renewal single-flight
-- [ ] Local-gateway transport behind existing commands
+- [x] Explicit direct gateway transport for `jobs list/show`, capability-only
+  credentials and versioned `jobs/v1`; cost/catalog/auth remain central
 - [ ] Development-stack protocol smoke
 - [ ] Contract fixture usable by CLI/TUI, Portal relay, and a separately owned
   site-local read-only Web client
@@ -104,6 +105,10 @@ does not prove real placement, topology, rate data, or production latency.
 
 Acceptance boundary: protocol implementation. It does not prove a live remote
 site or production package.
+
+The direct-job slice uses on-demand filtered native reads, not the existing
+billing collector's cluster-wide/terminal-state cache. Local HTTP and fixture
+subprocess tests are distinct from live Slurm, deployed gateway and fleet gates.
 
 ## Milestone 0.5: packaging and canary
 

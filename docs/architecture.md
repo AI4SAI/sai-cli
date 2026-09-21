@@ -51,9 +51,11 @@ site-local read gateway -> native scheduler/storage readers
   +-> bounded DTO + freshness + asynchronous audit reference
 ```
 
-The transport changes, but command semantics and response DTOs stay stable.
-The initial implementation must not claim that the site-local capability path
-already exists.
+Command intent and authorization scope stay stable. Explicit direct-job mode
+now consumes the versioned gateway `jobs/v1` DTO rather than silently translating
+it into the Portal envelope: the signed grant has no membership role to invent.
+The existing Portal JSON contract remains the default. The transport code is
+locally tested; service deployment and live-site validation are separate gates.
 
 For an interactive login-node user, the bootstrap is a one-time OAuth/OIDC
 Device Authorization Grant at `sai-identity`: the browser authenticates and

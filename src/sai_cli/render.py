@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
+from .site_jobs import SiteJobResult
 
 
 _COLUMNS = (
@@ -185,19 +186,14 @@ def render_resource_catalog(result: ResourceCatalog) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_table(result: JobResult) -> str:
-    rows = [_row(item) for item in result.items]
+def _job_table_lines(items: tuple[JobItem, ...]) -> list[str]:
+    rows = [_row(item) for item in items]
     widths: list[int] = []
     for key, heading, maximum in _COLUMNS:
         widest = max([len(heading), *(len(row[key]) for row in rows)], default=len(heading))
         widths.append(min(widest, maximum))
 
     lines = [
-        (
-            f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
-            f"Scope: {result.scope}  Source: {result.freshness.source}  "
-            f"Queried: {result.freshness.queried_at}"
-        ),
         _line((heading for _, heading, _ in _COLUMNS), widths),
         _line(("-" * width for width in widths), widths),
     ]
@@ -218,6 +214,27 @@ def render_table(result: JobResult) -> str:
             "Slots may represent requested tasks while pending and allocated CPU slots while running.",
         )
     )
+    return lines
+
+
+def render_table(result: JobResult) -> str:
+    header = (
+        f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+        f"Scope: {result.scope}  Source: {result.freshness.source}  "
+        f"Queried: {result.freshness.queried_at}"
+    )
+    return "\n".join([header, *_job_table_lines(result.items)]) + "\n"
+
+
+def render_site_jobs(result: SiteJobResult) -> str:
+    freshness = result.freshness
+    lines = [
+        f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+        f"Scope: {result.scope_type}  Source: {freshness.source}",
+        f"Observed: {freshness.observed_at}  Age: {freshness.age_seconds}s  "
+        f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
+        *_job_table_lines(result.items),
+    ]
     return "\n".join(lines) + "\n"
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,59 @@ def test_capability_cache_key_binds_origin_request_and_user_token() -> None:
         user_token="token-b",
         request_body=body,
     )
+    assert first == capability_cache_key(
+        base_url="https://portal.example.org", user_token="token-a",
+        request_body=body, read_origin=None,
+    )
+    gateway_a = capability_cache_key(
+        base_url="https://portal.example.org", user_token="token-a",
+        request_body=body, read_origin="https://gateway-a.example.org",
+    )
+    gateway_b = capability_cache_key(
+        base_url="https://portal.example.org", user_token="token-a",
+        request_body=body, read_origin="https://gateway-b.example.org",
+    )
+    assert len({first, gateway_a, gateway_b}) == 3
+
+
+@pytest.mark.parametrize("operation", ["jobs.list", "jobs.detail"])
+def test_job_capability_cache_is_isolated_by_actual_reader_origin(tmp_path: Path, operation: str) -> None:
+    body = _query().capability_request(
+        operation=operation, job_id="123" if operation == "jobs.detail" else None,
+    )
+    transport = FakeTransport()
+    transport.payload["operation"] = operation
+    user = TokenLease(token="user-token", expires_at=None, source="environment")
+    keys = []
+    for origin in ("https://gateway-a.example.org", "https://gateway-b.example.org", None):
+        provider = CapabilityProvider(
+            settings=replace(_settings(tmp_path), site_read_base_url=origin),
+            portal_transport=transport, clock=lambda: 1_700_000_000,
+        )
+        first = provider.get(request_body=body, user_lease=user)
+        second = provider.get(request_body=body, user_lease=user)
+        assert first.source == "exchange" and second.source == "cache"
+        keys.append(first.cache_key)
+    assert len(set(keys)) == 3
+    assert len(transport.calls) == 3
+    assert all(call["json_body"] == body for call in transport.calls)
+
+
+def test_billing_capability_cache_remains_bound_to_portal(tmp_path: Path) -> None:
+    body = _query().capability_request(operation="billing.running-estimate")
+    transport = FakeTransport()
+    transport.payload["operation"] = "billing.running-estimate"
+    user = TokenLease(token="user-token", expires_at=None, source="environment")
+    leases = []
+    for origin in (None, "https://gateway-a.example.org", "https://gateway-b.example.org"):
+        provider = CapabilityProvider(
+            settings=replace(_settings(tmp_path), site_read_base_url=origin),
+            portal_transport=transport, clock=lambda: 1_700_000_000,
+        )
+        leases.append(provider.get(request_body=body, user_lease=user))
+    assert [lease.source for lease in leases] == ["exchange", "cache", "cache"]
+    assert len({lease.cache_key for lease in leases}) == 1
+    assert len(transport.calls) == 1
 
 
 def test_capability_provider_posts_exact_json_and_reuses_opaque_token(

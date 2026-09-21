@@ -60,7 +60,8 @@
   `GET /v1/billing/running-estimates`. Managed production mode first obtains
   an opaque site-read capability and calls the server-bound
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
-  transport, TUI, live resources, placement, and storage usage remain roadmap items.
+  transport is available for job list/detail when explicitly configured; TUI,
+  live resource capacity, placement, and storage usage remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
@@ -85,6 +86,10 @@
 - Resource catalogs are site-scoped published data. Managed reads use the
   Identity-only `/v1/account/cli/sites/{site_id}/resource-catalog` route without
   a site-read capability. Catalog visibility does not grant site/job/file access.
+- Direct job reads use TOML-only `site_read_base_url`, require capability mode,
+  and send only `X-SAI-Capability` to that origin. The versioned gateway jobs/v1
+  DTO differs from the default Portal JSON; no transport failure may trigger a
+  fallback. Cost, catalog and authentication remain on their central routes.
 
 ## Inherited Portal Engineering Lessons
 
