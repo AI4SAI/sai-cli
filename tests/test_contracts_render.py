@@ -31,6 +31,10 @@ def test_account_status_allowlist_and_table_output() -> None:
     assert "raw" not in status.as_dict()
     assert "365" in render_account_status(status)
     assert "must-not-appear" not in render_json(status.as_dict())
+    restoring = AccountStatus.from_payload({**payload, "verification_current": True, "access_state": "restricted"}, request_id="account-status")
+    rendered = render_account_status(restoring)
+    assert "Identity verification: current" in rendered and "restricted" in rendered
+    assert "365" not in rendered and "Complete identity verification" not in rendered
     for key, value in (("verification_url", "https://outside.example/"),
                        ("initial_verification_deadline", "2027-09-21T00:00:00"),
                        ("access_state", "\x1b[31m"), ("verification_current", "true")):

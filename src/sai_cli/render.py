@@ -52,8 +52,8 @@ def render_account_status(status: AccountStatus) -> str:
         lines.append("Complete verification before the deadline to keep new cluster logins and job submissions available.")
     messages = {
         "restriction_pending": "New cluster logins and job submissions are being restricted; existing sessions and running jobs are unaffected.",
-        "restricted": "New cluster logins and job submissions are restricted. Complete identity verification.",
-        "recovery_pending": "Verification is complete; waiting for sites to restore logins and job submissions.",
+        "restricted": "New cluster logins and job submissions are restricted.",
+        "recovery_pending": "Waiting for sites to restore logins and job submissions.",
         "failed": "Login and job submission status could not be updated. Contact SAI support; do not repeat verification.",
     }
     if status.access_state in messages:
