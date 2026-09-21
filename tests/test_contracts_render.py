@@ -6,6 +6,7 @@ import json
 import pytest
 
 from sai_cli.contracts import (
+    AccountStatus,
     JOB_ITEM_FIELDS,
     RUNNING_ESTIMATE_ALLOC_TRES_FIELDS,
     RUNNING_ESTIMATE_ITEM_FIELDS,
@@ -14,7 +15,20 @@ from sai_cli.contracts import (
     RunningEstimateResult,
 )
 from sai_cli.errors import ContractError
-from sai_cli.render import render_json, render_running_estimate_table, render_table
+from sai_cli.render import render_account_status, render_json, render_running_estimate_table, render_table
+
+
+def test_account_status_allowlist_and_table_output() -> None:
+    status = AccountStatus.from_payload({
+        "schema_version": "account.status/v1",
+        "verification_current": False,
+        "access_state": "normal",
+        "initial_verification_deadline": "2027-09-21T00:00:00Z",
+        "verification_url": "/portal/#/portal/account/identity-assurance",
+        "raw": "drop",
+    }, request_id="account-status")
+    assert "raw" not in status.as_dict()
+    assert "365" in render_account_status(status)
 
 
 def test_contract_allowlists_fields_and_drops_unknown_sensitive_data(job_payload) -> None:

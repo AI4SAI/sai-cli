@@ -7,7 +7,7 @@ from typing import Any, Iterable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .contracts import JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
+from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 
 
 _COLUMNS = (
@@ -42,6 +42,24 @@ _RUNNING_ESTIMATE_COLUMNS = (
 
 def render_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+
+
+def render_account_status(status: AccountStatus) -> str:
+    lines = ["Identity verification: " + ("current" if status.verification_current else "required")]
+    if status.initial_verification_deadline and not status.verification_current:
+        deadline = datetime.fromisoformat(status.initial_verification_deadline.replace("Z", "+00:00"))
+        lines.append(f"Initial verification deadline: {deadline.astimezone().isoformat(timespec='seconds')} (365-day grace period)")
+        lines.append("Complete verification before the deadline to keep new cluster logins and job submissions available.")
+    messages = {
+        "restriction_pending": "New cluster logins and job submissions are being restricted; existing sessions and running jobs are unaffected.",
+        "restricted": "New cluster logins and job submissions are restricted. Complete identity verification.",
+        "recovery_pending": "Verification is complete; waiting for sites to restore logins and job submissions.",
+        "failed": "Login and job submission status could not be updated. Contact SAI support; do not repeat verification.",
+    }
+    if status.access_state in messages:
+        lines.append(messages[status.access_state])
+    lines.append(f"Verification: {status.verification_url}")
+    return "\n".join(lines) + "\n"
 
 
 def _duration(seconds: object) -> str:

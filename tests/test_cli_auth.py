@@ -72,6 +72,15 @@ class _AuthHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         self.server.requests.append({"path": self.path, "authorization": self.headers.get("Authorization")})
+        if self.path == "/v1/account/cli/status":
+            self._json({
+                "schema_version": "account.status/v1",
+                "verification_current": True,
+                "access_state": "normal",
+                "initial_verification_deadline": None,
+                "verification_url": "/portal/#/portal/account/identity-assurance",
+            })
+            return
         if self.path == "/.well-known/openid-configuration":
             host, port = self.server.server_address
             self._json(
@@ -145,6 +154,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         assert status_payload["issuer"] == base_url
         assert status_payload["client_id"] == "sai-cli"
         assert status_payload["refresh_expires_at"] is None
+        assert status_payload["account"]["verification_current"] is True
         assert status_err.getvalue() == ""
 
         logout_out = StringIO()

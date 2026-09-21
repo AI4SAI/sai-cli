@@ -1,4 +1,4 @@
-"""Allowlisted Portal job visibility and running-estimate contracts."""
+"""Allowlisted Portal account, job visibility and running-estimate contracts."""
 
 from __future__ import annotations
 
@@ -298,6 +298,37 @@ def _machine_codes(payload: dict[str, Any], key: str, *, request_id: str) -> tup
             raise ContractError(request_id=request_id)
         result.append(value)
     return tuple(result)
+
+
+@dataclass(frozen=True)
+class AccountStatus:
+    verification_current: bool
+    access_state: str
+    initial_verification_deadline: str | None
+    verification_url: str
+
+    @classmethod
+    def from_payload(cls, payload: object, *, request_id: str) -> "AccountStatus":
+        if not isinstance(payload, dict):
+            raise ContractError(request_id=request_id)
+        _literal_text(payload, "schema_version", expected="account.status/v1", request_id=request_id)
+        state = _required_text(payload, "access_state", request_id=request_id, maximum=32)
+        if state not in {"normal", "restriction_pending", "restricted", "recovery_pending", "failed"}:
+            raise ContractError(request_id=request_id)
+        return cls(
+            verification_current=_required_bool(payload, "verification_current", request_id=request_id),
+            access_state=state,
+            initial_verification_deadline=_timestamp_text(
+                payload, "initial_verification_deadline", request_id=request_id, nullable=True,
+            ),
+            verification_url=_literal_text(payload, "verification_url", request_id=request_id,
+                expected="/portal/#/portal/account/identity-assurance"),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"schema_version": "account.status/v1", "verification_current": self.verification_current,
+                "access_state": self.access_state, "initial_verification_deadline": self.initial_verification_deadline,
+                "verification_url": self.verification_url}
 
 
 @dataclass(frozen=True)

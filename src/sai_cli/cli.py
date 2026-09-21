@@ -21,7 +21,7 @@ from .client import JobQuery, PortalClient, clean_states
 from .config import Settings, resolve_settings
 from .errors import AuthenticationError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
-from .render import render_json, render_running_estimate_table, render_table
+from .render import render_account_status, render_json, render_running_estimate_table, render_table
 from .transport import JsonTransport
 
 
@@ -77,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     status_parser = auth_commands.add_parser(
         "status",
-        help="show the current CLI device session status",
+        help="show the current CLI device session and account verification status",
     )
     _add_connection_arguments(status_parser, suppress_defaults=True)
     _add_format_argument(status_parser)
@@ -325,7 +325,12 @@ def _handle_auth_command(
             "access_expires_at": lease.expires_at,
             "refresh_expires_at": refresh[1] if refresh else None,
         }
+        account = PortalClient(transport=provider.transport, token_provider=provider).account_status(lease=lease)
+        if output_format == "json":
+            safe["account"] = account.as_dict()
         _auth_result_output(safe, output_format=output_format, output=output)
+        if output_format == "table":
+            output.write(render_account_status(account))
         return 0
 
     if args.auth_command == "logout":

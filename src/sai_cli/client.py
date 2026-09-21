@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 from .auth import TokenLease, TokenProvider
 from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
-from .contracts import JobResult, RunningEstimateResult
+from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .transport import JsonResponse, JsonTransport
 
@@ -274,6 +274,11 @@ class PortalClient:
             query=query,
             headers=headers,
         )
+
+    def account_status(self, *, lease: TokenLease) -> AccountStatus:
+        response = self._get_with_lease("/v1/account/cli/status", query={}, lease=lease)
+        result = AccountStatus.from_payload(response.payload, request_id=response.request_id)
+        return replace(result, verification_url=urljoin(self.transport.base_url, result.verification_url))
 
     def list_jobs(self, query: JobQuery) -> JobResult:
         path = "/v1/slurm/cli/jobs" if self._cli_surface_enabled else "/v1/slurm/jobs"
