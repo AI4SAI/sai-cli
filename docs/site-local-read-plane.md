@@ -10,6 +10,24 @@ Frequent queue/detail refreshes should not perform central policy resolution on
 every request. Portal makes the relatively rare authorization decision and the
 site gateway reads local native facts under a short-lived capability.
 
+Dynamic facts default to on-demand native reads at the site. The gateway
+normalizes those reads; it is not a replicated scheduler or storage database.
+Coalesce concurrent identical reads and use brief, explicitly timestamped
+reuse where the source cost warrants it. A new UI does not require a central
+telemetry store or an always-running full-inventory collector.
+
+Slurm queue/detail adapters already provide this native-read foundation. A
+future resource-state or Lustre quota operation must extend the reviewed
+operation contract and reuse the native source/parser, without importing the
+write-capable storage adapter's administrative authority. A native quota query
+is distinct from a recursive directory scan; the latter does not belong in
+the synchronous interactive path.
+
+ComputeRun intents, idempotency, execution receipts, membership and settlement
+remain durable control-plane facts. Current native observations do not replace
+those records, and a client refresh cannot advance their state. Historical
+sampling is added only for a named feature with a bounded retention policy.
+
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | Shared contract | capability grant, request, normalized DTO, freshness, bounded error | ORM or native commands |
