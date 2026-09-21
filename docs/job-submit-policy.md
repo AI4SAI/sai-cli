@@ -175,8 +175,28 @@ construction and integer arithmetic. It
 performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
-Non-fatal account-selection notices use a visible `WARNING:` prefix and name
-the selected account. Slurm may still prefix `slurm.user_msg` with
+Non-fatal account notices lead with Chinese and concise English, stating the
+billing consequence, selected Account, reason and native correction command.
+A mismatch can be intentional; it is a request to check billing attribution,
+not evidence of an incorrect charge. For example:
+
+```text
+WARNING: 请核对计费账户 / CHECK BILLING ACCOUNT
+作业运行后，费用将记入 / Charges if run: Account=personal-alice
+目录推导 / WorkDir account: Account=proj-research；本次显式指定优先 / explicit account takes precedence.
+后续提交 / Next submission: --account=<account>
+排队作业更正 / Correct pending job: scontrol update JobId=<jobid> Account=<account>
+```
+
+Replace the placeholders with the intended account and job ID. Updating a job
+omits the next-submission line. Notices appear under the existing mismatch or
+unresolved-path conditions; matching accounts and unrelated updates stay quiet.
+They do not claim submission succeeded, a charge already occurred, or a payer
+was identified from a path. Final monetary settlement remains Portal-owned.
+Plain text works in terminals and captured logs without ANSI color, repeated
+banners or an interactive confirmation that would break native automation.
+
+Slurm may still prefix `slurm.user_msg` with
 `sbatch: error:`. The command's exit status and job receipt determine whether
 submission succeeded; a later resource or native check can still reject it.
 Policy rejections use `ERROR:` and a Slurm accounting/GRES return code.

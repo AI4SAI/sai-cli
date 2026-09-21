@@ -98,6 +98,17 @@ local function inferred_account(work_dir, username)
     return "private-" .. username
 end
 
+local function warn_billing_account(account, reason, modifying)
+    local action = ""
+    if not modifying then
+        action = "\n后续提交 / Next submission: --account=<account>"
+    end
+    slurm.user_msg("WARNING: 请核对计费账户 / CHECK BILLING ACCOUNT\n"
+        .. "作业运行后，费用将记入 / Charges if run: Account=" .. account .. "\n"
+        .. reason .. action
+        .. "\n排队作业更正 / Correct pending job: scontrol update JobId=<jobid> Account=<account>")
+end
+
 local function apply_account_policy(job_desc, job_ptr)
     if job_ptr and (job_desc.account == ""
         or (job_desc.work_dir == nil and job_desc.account == nil)) then
@@ -117,10 +128,11 @@ local function apply_account_policy(job_desc, job_ptr)
     local explicit = nonempty(job_desc.account) and job_desc.account or nil
     if explicit then
         if inferred and explicit ~= inferred then
-            slurm.user_msg("WARNING: SAI account policy: explicit account " .. explicit
-                .. " differs from WorkDir account " .. inferred .. "; keeping explicit account.")
+            warn_billing_account(explicit, "目录推导 / WorkDir account: Account=" .. inferred
+                .. "；本次显式指定优先 / explicit account takes precedence.", job_ptr)
         elseif not inferred then
-            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping explicit account " .. explicit .. ".")
+            warn_billing_account(explicit,
+                "目录无法推导账户，使用本次显式指定 / Unresolved WorkDir; using explicit Account.", job_ptr)
         end
         return true
     end
@@ -128,7 +140,10 @@ local function apply_account_policy(job_desc, job_ptr)
         if nonempty(fallback) then
             -- Slurm reuses array update requests; leave each job's account untouched.
             if not job_ptr then job_desc.account = fallback end
-            slurm.user_msg("WARNING: SAI account policy: WorkDir is unresolved; keeping " .. label .. fallback .. ".")
+            local reason = job_ptr
+                and "目录无法推导账户，保留作业原账户 / Unresolved WorkDir; keeping existing job Account."
+                or "目录无法推导账户，使用默认账户 / Unresolved WorkDir; using Slurm default Account."
+            warn_billing_account(fallback, reason, job_ptr)
             return true
         end
         slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or " .. label .. "is available.")
@@ -136,8 +151,10 @@ local function apply_account_policy(job_desc, job_ptr)
     end
     if not job_ptr or inferred ~= job_ptr.account then job_desc.account = inferred end
     if nonempty(fallback) and fallback ~= inferred then
-        slurm.user_msg("WARNING: SAI account policy: WorkDir account " .. inferred
-            .. " differs from " .. label .. fallback .. "; using WorkDir account.")
+        local reason = job_ptr
+            and "按新目录切换账户 / WorkDir changes billing account: " .. fallback .. " -> " .. inferred
+            or "按目录选择，未使用默认账户 / Using WorkDir instead of default Account=" .. fallback
+        warn_billing_account(inferred, reason, job_ptr)
     end
     return true
 end
