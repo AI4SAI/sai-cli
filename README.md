@@ -19,8 +19,13 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-Job submission, cancellation, resource mutation and TUI views remain roadmap
-items. Jobs can optionally read directly from the site-local capability gateway
+The optional `sai tui` workbench compares published resources, narrows job
+queries, inspects job details and reads non-final running estimates through
+the same clients. Install with `pip install '.[tui]'` and run `sai tui` from
+an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
+
+Job submission, cancellation and resource mutation remain roadmap items.
+Jobs can optionally read directly from the site-local capability gateway
 through a protected `site_read_base_url` profile setting; deployment is separate.
 Running estimates are read from the
 independent Portal billing DTO; the CLI has no pricing engine or Slurm reader.
@@ -55,6 +60,7 @@ login-node package have been deployed.
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
+- [Terminal workbench](docs/terminal-workbench.md)
 - [Product principles](PRODUCT.md)
 - [Unified TUI, WebUI, and Agent workbench (candidate design)](docs/unified-workbench.md)
 - [Hardware digital twin and 3D view (candidate design)](docs/digital-twin-design.md)

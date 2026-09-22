@@ -14,9 +14,10 @@ separately authorized view of hardware, networks and failures.
 
 ## Product Purpose
 
-The implemented product is a read-only compute CLI. Its proposed workbench
-extends that client into an optional TUI sharing Portal-owned business facts
-with WebUI and SAI Pilot. The product contract is described in
+The implemented product is a read-only compute CLI with an optional terminal
+workbench for resource comparison, job inspection and running estimates.
+It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
+workbench design, including task results and Pilot context handoff, is described in
 [the unified workbench design](docs/unified-workbench.md); the design is not an
 implementation or deployment claim.
 

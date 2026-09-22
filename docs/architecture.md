@@ -163,9 +163,9 @@ pricing data or computes a price locally.
 ## Package boundaries
 
 The batch CLI has no third-party runtime dependency. It uses Python 3.11+
-standard-library HTTP, JSON, TOML, and filesystem primitives. A future TUI may
-be shipped as an optional extra; its dependencies must not enter control-plane
-or site-gateway service runtimes.
+standard-library HTTP, JSON, TOML, and filesystem primitives. The Textual
+workbench ships as an optional `tui` extra with a lazy command import; its
+dependencies do not enter control-plane or site-gateway service runtimes.
 
 The implementation is organized around explicit boundaries:
 

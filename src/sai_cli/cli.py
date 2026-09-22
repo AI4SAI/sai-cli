@@ -39,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_connection_arguments(parser)
 
     commands = parser.add_subparsers(dest="command", required=True)
+    tui = commands.add_parser("tui", help="open the optional resource and job workbench")
+    _add_connection_arguments(tui, suppress_defaults=True)
+    _add_job_scope_arguments(tui)
+    tui.add_argument("--partition", help="partition narrowing filter")
+    tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     jobs = commands.add_parser("jobs", help="read authorized scheduler jobs")
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
 
@@ -436,6 +441,18 @@ def main(
             output.write(render_json(catalog.as_dict()) if output_format == "json" else render_resource_catalog(catalog))
             return 0
         query = _job_query(args, settings=settings)
+
+        if args.command == "tui":
+            try:
+                from .tui import Workbench
+            except ModuleNotFoundError as exc:
+                if exc.name not in {"textual", "rich"}:
+                    raise
+                raise ConfigError("TUI dependencies are unavailable; install sai-cli[tui].") from None
+            if not sys.stdin.isatty() or not output.isatty():
+                raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
+            Workbench(client, query).run()
+            return 0
 
         if args.command == "jobs" and args.jobs_command == "list":
             result = client.list_jobs(query)

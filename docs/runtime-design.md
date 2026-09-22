@@ -29,7 +29,14 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, placement, storage usage/management, or TUI commands.
+- node topology, placement, or storage usage/management commands.
+
+`sai tui` is an optional interactive consumer of these same read methods.
+It keeps the configured site/cluster fixed, lets users explicitly apply job
+scope and narrowing filters, compares published partitions, and shows job
+detail and independent running estimates. Its dependencies are an optional
+extra; JSON batch commands do not import or require them. Interaction and
+verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`
 and `jobs show` only. It requires capability mode and an explicit cluster.

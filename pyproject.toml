@@ -29,6 +29,7 @@ Repository = "https://github.com/AI4SAI/sai-cli"
 Issues = "https://github.com/AI4SAI/sai-cli/issues"
 
 [project.optional-dependencies]
+tui = ["textual==8.2.8"]
 dev = [
   "build>=1.2,<2",
   "pytest>=8,<9",

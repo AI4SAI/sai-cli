@@ -70,15 +70,22 @@ first. The [digital-twin design](digital-twin-design.md) keeps hardware 3D work
 behind validation of asset, allocation, and telemetry facts. Both documents
 are candidate designs, not completed implementation milestones.
 
-- [ ] Optional TUI dependency group
+- [x] Optional TUI dependency group and interactive `sai tui` entry
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
-- [ ] TUI running-usage estimate view; the batch `jobs cost` view already
+- [x] TUI running-usage estimate view; the batch `jobs cost` view already
   exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
-- [ ] Local-state keyboard interactions and asynchronous refresh
+- [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
   states
-- [ ] Headless interaction and fake-delay latency tests
+- [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
+
+The first [terminal workbench](terminal-workbench.md) supports two-partition
+comparison, filtered job list/detail, and independent non-final estimates.
+Scope changes discard stale requests; network cancellation remains bounded by
+the HTTP timeout. Only estimates have local snapshot pages, not job-history
+pagination. Task results, settled billing, Pilot context handoff and live
+resource/storage views remain unfinished; this is not the full workbench.
 
 Acceptance boundary: TUI contract against fake or development endpoints. It
 does not prove real placement, topology, rate data, or production latency.

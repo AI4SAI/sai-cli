@@ -60,8 +60,9 @@
   `GET /v1/billing/running-estimates`. Managed production mode first obtains
   an opaque site-read capability and calls the server-bound
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
-  transport is available for job list/detail when explicitly configured; TUI,
-  live resource capacity, placement, and storage usage remain roadmap items.
+  transport is available for job list/detail when explicitly configured.
+  The optional TUI reuses catalog/jobs/estimate clients; live resource capacity,
+  task-result/Pilot handoff, placement and storage usage remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
