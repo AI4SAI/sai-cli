@@ -12,6 +12,8 @@ The first implementation milestone is intentionally read-only:
 - `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.
+- `sai storage quota-summary --workspace-key org:example` reads authorized
+  effective/target quotas and timestamped stored usage, without filesystem access.
 - JSON is the default output. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
@@ -130,7 +132,7 @@ Non-secret defaults can be stored in `~/.config/sai/config.toml`:
 base_url = "https://portal.example.org"
 identity_issuer = "https://id.example.org/realms/sai"
 oidc_client_id = "sai-cli"
-oidc_scope = "openid offline_access sai.compute.read sai.billing.read"
+oidc_scope = "openid offline_access sai.compute.read sai.billing.read sai.storage.read"
 oidc_resource = "sai-portal"
 site_id = "site-a"
 ```

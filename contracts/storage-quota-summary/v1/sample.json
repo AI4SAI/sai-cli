@@ -1,0 +1,19 @@
+{
+  "effective_total_tib": "10.00000000",
+  "inode_hard_limit": 120000,
+  "inode_soft_limit": 100000,
+  "mount_id": "mount-example",
+  "observed_at": "2026-09-23T00:00:00Z",
+  "observed_hard_limit_tib": "12.00000000",
+  "observed_soft_limit_tib": "10.00000000",
+  "quota_updated_at": "2026-09-22T23:59:00Z",
+  "remaining_tib": "6.75000000",
+  "schema_version": "storage.quota-summary/v1",
+  "site_id": "site-example",
+  "source": "portal_quota_observation",
+  "state": "ready",
+  "target_total_tib": "12.00000000",
+  "used_inodes": 1234,
+  "used_tib": "3.25000000",
+  "workspace_key": "org:example"
+}

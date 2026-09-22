@@ -28,6 +28,8 @@ operations evidence is kept outside this repository.
 - [x] `sai jobs list` and `sai jobs show`
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
 - [x] `sai resources catalog` against the shared published site catalog DTO
+- [x] `sai storage quota-summary` and independent TUI Storage view over Portal
+  observations; new storage scope registration is a separate deployment gate
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction

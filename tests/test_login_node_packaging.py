@@ -160,7 +160,7 @@ def test_login_node_config_matches_current_settings_contract() -> None:
     assert 'base_url = "https://portal.example.org"' in config
     assert 'identity_issuer = "https://id.example.org/realms/sai"' in config
     assert 'oidc_client_id = "sai-cli"' in config
-    assert 'oidc_scope = "openid offline_access sai.compute.read sai.billing.read"' in config
+    assert 'oidc_scope = "openid offline_access sai.compute.read sai.billing.read sai.storage.read"' in config
     assert 'cluster_id = "cluster-a"' in config
     assert "require_site_capability = true" in config
     assert "site_read_base_url" not in config

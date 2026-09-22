@@ -23,6 +23,11 @@ write-capable storage adapter's administrative authority. A native quota query
 is distinct from a recursive directory scan; the latter does not belong in
 the synchronous interactive path.
 
+The separate `storage quota-summary` command reads existing Portal observations
+and delivery state. It is a central business read, explicitly labeled by source
+and observation time; it does not enable a native storage operation in this
+gateway or replace the on-demand design.
+
 ComputeRun intents, idempotency, execution receipts, membership and settlement
 remain durable control-plane facts. Current native observations do not replace
 those records, and a client refresh cannot advance their state. Historical

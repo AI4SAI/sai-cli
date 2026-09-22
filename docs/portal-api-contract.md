@@ -398,3 +398,38 @@ authentication always retain their documented central routes; the gateway's
 older billing v2 candidate is not enabled. Consumers must opt into jobs/v1 and
 deploy the matching gateway producer first. Local subprocess and HTTP tests do
 not prove a live scheduler, installed gateway or production wrapper rollout.
+
+## Storage quota summary
+
+`GET /v1/account/cli/storage/quota-summary` uses only `workspace_key` and
+`site_id`. Keys are explicit `personal:<id>`, `org:<id>` or `project:<id>`;
+Slurm account selection never implies storage workspace selection. Extra or
+repeated query keys are rejected. `sai storage quota-summary` supports the
+usual connection option ordering; an explicit cluster selector is rejected.
+
+This Identity-only route requires `sai.storage.read`, a linked active subject
+and shell access enabled. The existing Portal quota service resolves current
+membership and site access. It does not require job submission permission,
+start a runtime, read paths, request site-agent credentials or query Lustre.
+No legacy-token fallback exists, regardless of the jobs transport setting.
+
+The [storage.quota-summary/v1 contract](../contracts/storage-quota-summary/v1/README.md)
+contains scope/mount references, delivery state, target/effective capacity,
+nullable sampled usage and remaining capacity, observed block/inode limits,
+and separate observation/quota-update times. Decimal values remain server
+strings in TiB. Negative remaining capacity is valid; null is not zero.
+Unknown additive fields are discarded; missing modeled fields, wrong scope,
+invalid values or timestamps fail closed. `source=portal_quota_observation`
+always identifies stored facts, even after the user presses Refresh.
+
+`ready` means quota delivery is ready; it is not a live-source guarantee.
+`pending`, `failed`, `drift` and `unavailable` remain data states, not a successful
+quota change. Lack of site access produces the same `unavailable`/null summary
+as the existing WebUI; a source error is an HTTP failure with no partial output.
+Paths, administration actions, subscription details and final money are excluded.
+
+Deployment requires the separate optional storage scope in the Identity client
+registration, the matching Portal producer, and explicit device reauthorization
+when adding the scope to managed configuration. Updating the CLI package does
+not overwrite managed configuration or grant a new scope to cached sessions.
+The registered scope remains subject to Portal authorization on every read.

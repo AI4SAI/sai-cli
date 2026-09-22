@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 from .site_jobs import SiteJobResult
+from .storage_summary import StorageQuotaSummary
 
 
 _COLUMNS = (
@@ -183,6 +184,22 @@ def render_resource_catalog(result: ResourceCatalog) -> str:
          for row in catalog["storage"]],
     ))
     lines.append("Published specifications and prices; availability, access and final charges are separate.")
+    return "\n".join(lines) + "\n"
+
+
+def render_storage_quota_summary(result: StorageQuotaSummary) -> str:
+    values = result.values
+    lines = [
+        f"Workspace: {_display(values['workspace_key'])}  Site: {_display(values['site_id'])}",
+        f"State: {_display(values['state'])}  Source: {_display(values['source'])}",
+        f"Target total TiB: {_display(values['target_total_tib'])}",
+        f"Effective total TiB: {_display(values['effective_total_tib'])}",
+        f"Used TiB: {_display(values['used_tib'])}  Remaining TiB: {_display(values['remaining_tib'])}",
+        f"Observed soft/hard TiB: {_display(values['observed_soft_limit_tib'])}/{_display(values['observed_hard_limit_tib'])}",
+        f"Used inodes: {_display(values['used_inodes'])}  Inode soft/hard: {_display(values['inode_soft_limit'])}/{_display(values['inode_hard_limit'])}",
+        f"Observed at: {_display(values['observed_at'])}  Quota updated: {_display(values['quota_updated_at'])}",
+        "Stored observation; check its time. No live filesystem query or final charge.",
+    ]
     return "\n".join(lines) + "\n"
 
 

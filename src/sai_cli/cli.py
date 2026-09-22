@@ -24,9 +24,11 @@ from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
 from .render import (
     render_account_status, render_json, render_resource_catalog,
-    render_running_estimate_table, render_site_jobs, render_table,
+    render_running_estimate_table, render_site_jobs, render_storage_quota_summary,
+    render_table,
 )
 from .site_jobs import SiteJobResult
+from .storage_summary import clean_workspace_key
 from .transport import JsonTransport
 
 
@@ -44,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_job_scope_arguments(tui)
     tui.add_argument("--partition", help="partition narrowing filter")
     tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
+    tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
     jobs = commands.add_parser("jobs", help="read authorized scheduler jobs")
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
 
@@ -71,6 +74,13 @@ def build_parser() -> argparse.ArgumentParser:
     catalog_parser = resource_commands.add_parser("catalog", help="show compute and storage specifications and prices")
     _add_connection_arguments(catalog_parser, suppress_defaults=True)
     _add_format_argument(catalog_parser)
+
+    storage = commands.add_parser("storage", help="read authorized storage observations")
+    storage_commands = storage.add_subparsers(dest="storage_command", required=True)
+    quota_parser = storage_commands.add_parser("quota-summary", help="show sampled storage quota and usage")
+    _add_connection_arguments(quota_parser, suppress_defaults=True)
+    quota_parser.add_argument("--workspace-key", required=True, help="workspace key, such as personal:<id>")
+    _add_format_argument(quota_parser)
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -440,6 +450,14 @@ def main(
             catalog = client.resource_catalog(settings.site_id)
             output.write(render_json(catalog.as_dict()) if output_format == "json" else render_resource_catalog(catalog))
             return 0
+        if args.command == "storage":
+            if args.cluster is not None:
+                raise ConfigError("storage quota-summary is site-scoped and does not accept --cluster")
+            if args.storage_command != "quota-summary":
+                raise ContractError("the selected storage command is not implemented")
+            result = client.storage_quota_summary(workspace_key=args.workspace_key, site_id=settings.site_id)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_storage_quota_summary(result))
+            return 0
         query = _job_query(args, settings=settings)
 
         if args.command == "tui":
@@ -451,7 +469,8 @@ def main(
                 raise ConfigError("TUI dependencies are unavailable; install sai-cli[tui].") from None
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
-            Workbench(client, query).run()
+            workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
+            Workbench(client, query, storage_workspace_key=workspace).run()
             return 0
 
         if args.command == "jobs" and args.jobs_command == "list":

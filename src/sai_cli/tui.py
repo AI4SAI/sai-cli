@@ -16,7 +16,9 @@ from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ContractError, SaiCliError
+from .render import render_storage_quota_summary
 from .site_jobs import SiteJobResult
+from .storage_summary import StorageQuotaSummary
 
 
 def display(value: object) -> str:
@@ -41,6 +43,8 @@ class Workbench(App):
     DataTable { height: 1fr; min-height: 3; }
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
+    #storage-scroll { height: 1fr; }
+    #storage-summary { height: auto; }
     .hint { height: auto; color: $text-muted; }
     .compact .controls { height: 1; }
     .compact .controls Input, .compact .controls Button,
@@ -55,7 +59,10 @@ class Workbench(App):
         Binding("ctrl+q", "quit", "Quit"),
     ]
 
-    def __init__(self, client: PortalClient, query: JobQuery, *, refresh_seconds: int = 10):
+    def __init__(
+        self, client: PortalClient, query: JobQuery, *, refresh_seconds: int = 10,
+        storage_workspace_key: str | None = None,
+    ):
         super().__init__()
         self.client = client
         self.job_query = query.validated()
@@ -66,6 +73,7 @@ class Workbench(App):
         self.selected_estimate: int | None = None
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
+        self.storage_workspace_key = (storage_workspace_key or "").strip() or None
         self.results: dict[str, object] = {}
         self._failed_views: set[str] = set()
         self.usage_page = 0
@@ -76,13 +84,13 @@ class Workbench(App):
 
     def compose(self) -> ComposeResult:
         yield Static(f"SAI  ·  {self.job_query.site_id}  ·  {self.job_query.cluster_id or 'default cluster'}", id="context", markup=False)
-        with Horizontal(classes="controls"):
+        with Horizontal(classes="controls", id="job-scope-controls"):
             yield Select([(s, s) for s in ("self", "personal-account", "org-account", "project-account")],
                          value=self.job_query.scope, allow_blank=False, id="scope")
             yield Select([("Name", "name"), ("ID", "id")], value="id" if self.job_query.account_id else "name",
                          allow_blank=False, id="selector")
             yield Input(self.job_query.account_name or self.job_query.account_id or "", placeholder="Account", id="account")
-        with Horizontal(classes="controls"):
+        with Horizontal(classes="controls", id="job-filter-controls"):
             yield Input(self.job_query.partition or "", placeholder="Partition", id="partition")
             yield Input(",".join(self.job_query.states), placeholder="States: R,PD", id="states")
             yield Button("Apply", id="apply", variant="primary")
@@ -104,6 +112,14 @@ class Workbench(App):
                 with Horizontal(classes="controls"):
                     yield Button("Previous", id="previous")
                     yield Button("Next", id="next")
+            with TabPane("Storage", id="storage"):
+                with Horizontal(classes="controls"):
+                    yield Input(self.storage_workspace_key or "", placeholder="Workspace key", id="storage-workspace")
+                    yield Button("Load", id="load-storage", variant="primary")
+                yield Static("Existing quota sample; not a live filesystem scan. Workspace is selected independently of job scope.",
+                             classes="hint", markup=False)
+                with VerticalScroll(id="storage-scroll"):
+                    yield Static("Enter a workspace key and choose Load.", id="storage-summary", markup=False)
         with VerticalScroll(id="details-scroll"):
             yield Static("", id="details", markup=False)
         yield Footer()
@@ -129,10 +145,18 @@ class Workbench(App):
         view = event.pane.id or "resources"
         if view == self.view:
             return
+        previous_view = self.view
         self.view = view
         self.selected_job = None
         self.selected_estimate = None
         self._revision += 1
+        for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
+            self.query_one(f"#{name}").display = view != "storage"
+        if view == "storage":
+            self.query_one("#storage-workspace", Input).focus()
+        elif previous_view == "storage":
+            self.query_one(f"#{view}-table", DataTable).focus()
+        self._update_scope_display()
         self.query_one("#details", Static).update("")
         self.request_read()
 
@@ -142,6 +166,9 @@ class Workbench(App):
             self.request_read()
 
     def request_read(self) -> None:
+        if self.view == "storage" and self.storage_workspace_key is None:
+            self.query_one("#status", Static).update("Choose a storage workspace, then Load.")
+            return
         self._failed_views.discard(self.view)
         self._pending = True
         if not self._reading:
@@ -153,9 +180,13 @@ class Workbench(App):
             while self._pending:
                 self._pending = False
                 revision, view, query, selected = self._revision, self.view, self.job_query, self.selected_job
-                self.query_one("#status", Static).update(f"Refreshing {view} · {query.scope} · {query.account_name or query.account_id or 'self'}")
+                workspace = self.storage_workspace_key
+                if view == "storage" and workspace is None:
+                    continue
+                context = workspace if view == "storage" else f"{query.scope} · {query.account_name or query.account_id or 'self'}"
+                self.query_one("#status", Static).update(f"Refreshing {view} · {context}")
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected)
+                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace)
                 except SaiCliError as error:
                     if revision == self._revision:
                         self._read_error(view, error)
@@ -169,9 +200,11 @@ class Workbench(App):
         finally:
             self._reading = False
 
-    def _fetch(self, view: str, query: JobQuery, selected: str | None):
+    def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None):
         if view == "resources":
             return self.client.resource_catalog(query.site_id)
+        if view == "storage":
+            return self.client.storage_quota_summary(workspace_key=workspace, site_id=query.site_id)
         if view == "usage":
             return self.client.running_estimates(query)
         if selected:
@@ -180,7 +213,10 @@ class Workbench(App):
 
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
-        self.query_one(f"#{view}-table", DataTable).clear()
+        if view == "storage":
+            self.query_one("#storage-summary", Static).update("")
+        else:
+            self.query_one(f"#{view}-table", DataTable).clear()
         if view == "resources":
             self.catalog = None
             self.compared.clear()
@@ -193,7 +229,7 @@ class Workbench(App):
     def _read_error(self, view: str, error: SaiCliError) -> None:
         self._failed_views.add(view)
         if isinstance(error, AuthenticationError):
-            for name in ("resources", "jobs", "usage"):
+            for name in ("resources", "jobs", "usage", "storage"):
                 self._clear(name)
             self.paused = True
         else:
@@ -213,7 +249,11 @@ class Workbench(App):
 
     def _present(self, view: str, result: object) -> None:
         status = ""
-        if view == "resources" and isinstance(result, ResourceCatalog):
+        if view == "storage" and isinstance(result, StorageQuotaSummary):
+            self.query_one("#storage-summary", Static).update(render_storage_quota_summary(result))
+            values = result.values
+            status = f"Stored quota sample · {values['state']} · observed {display(values['observed_at'])}"
+        elif view == "resources" and isinstance(result, ResourceCatalog):
             self.catalog = result
             data = result.as_dict()
             rows = [(f"compute:{i}", (r["name"], r["resource_kind"], r["cpu_cores_per_node"], r["gpu_count"],
@@ -345,6 +385,11 @@ class Workbench(App):
         return True
 
     def _update_scope_display(self) -> None:
+        if self.view == "storage":
+            self.query_one("#context", Static).update(
+                f"SAI · {self.job_query.site_id}\nStorage workspace: {self.storage_workspace_key or 'not selected'}"
+            )
+            return
         self.query_one("#context", Static).update(
             f"SAI · {self.job_query.site_id} · {self.job_query.cluster_id or 'default cluster'}\n"
             f"Applied: {self.job_query.scope} · {self.job_query.account_name or self.job_query.account_id or 'self'}"
@@ -352,7 +397,13 @@ class Workbench(App):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "apply":
+        if event.button.id == "load-storage":
+            self.storage_workspace_key = self.query_one("#storage-workspace", Input).value.strip() or None
+            self._revision += 1
+            self._clear("storage")
+            self._update_scope_display()
+            self.request_read()
+        elif event.button.id == "apply":
             self._apply()
         elif event.button.id == "refresh":
             self.action_refresh()
@@ -369,6 +420,19 @@ class Workbench(App):
                 self.selected_estimate = None
                 self.usage_page = max(0, self.usage_page + (1 if event.button.id == "next" else -1))
                 self._present("usage", result)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "storage-workspace" or not self._workbench_ready:
+            return
+        if event.value.strip() == (self.storage_workspace_key or ""):
+            return
+        self.storage_workspace_key = None
+        self._clear("storage")
+        if self.view == "storage":
+            self._revision += 1
+            self._pending = False
+            self._update_scope_display()
+            self.query_one("#status", Static).update("Workspace changed. Choose Load to read its quota sample.")
 
     def action_refresh(self) -> None:
         self.selected_estimate = None

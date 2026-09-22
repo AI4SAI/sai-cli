@@ -65,7 +65,9 @@ Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当�
 
 ## 生命周期与存储
 
-- 首次完整只读流程请求 `openid offline_access sai.compute.read sai.billing.read`。
+- 首次完整只读流程请求 `openid offline_access sai.compute.read sai.billing.read sai.storage.read`。
+  `sai.storage.read` 是独立可选范围；先由 Identity 注册，再更新受管配置并显式
+  执行设备登录取得用户同意。旧 refresh 会话不增权，软件更新不会覆盖现有受管配置。
   作业和费用是独立 scope，Portal 继续逐次校验业务权限及精确 operation。
   旧的作业专用会话不会自动获得费用权限；扩展授权范围需一次显式确认，之后
   沿用自动续期，不要求每次 SSH 登录重新授权。

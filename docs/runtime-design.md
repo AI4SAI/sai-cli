@@ -29,7 +29,12 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, placement, or storage usage/management commands.
+- node topology, placement, live storage reads or storage management commands.
+
+`storage quota-summary --workspace-key personal:example` reads Portal's stored
+quota observation under the independent `sai.storage.read` Identity scope.
+Workspace and site are explicit; this is not an on-demand native storage read.
+No site capability, recursive scan, permission change or fee calculation occurs.
 
 `sai tui` is an optional interactive consumer of these same read methods.
 It keeps the configured site/cluster fixed, lets users explicitly apply job
@@ -116,7 +121,7 @@ default_profile = "default"
 base_url = "https://portal.example.org"
 identity_issuer = "https://id.example.org/realms/sai"
 oidc_client_id = "sai-cli"
-oidc_scope = "openid offline_access sai.compute.read sai.billing.read"
+oidc_scope = "openid offline_access sai.compute.read sai.billing.read sai.storage.read"
 oidc_resource = "sai-portal"
 site_id = "site-a"
 username = "alice"

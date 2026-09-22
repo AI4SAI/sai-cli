@@ -32,7 +32,15 @@ shared login-node package or gateway.
    never a final charge. No match to a job is guessed from its numeric ID.
 
 Storage rows in Resources are published products only, not quota usage or
-file access. There is no empty placeholder for unavailable task-result,
+file access. The separate Storage tab loads a stored quota sample after an
+explicit workspace key and Load; job account/scope never select that workspace.
+`sai tui --storage-workspace-key org:example` preselects it. Editing the workspace
+clears previous data immediately; Load and every refresh reauthorize the read.
+`sai.storage.read` is required. State, effective versus target quotas, nullable
+usage and observation time remain distinct; a negative remaining value means
+the observed usage exceeds the effective quota. No polling action samples Lustre.
+
+There is no empty placeholder for unavailable task-result,
 Pilot handoff, settled billing or hardware telemetry features.
 
 ## Interaction and data behavior

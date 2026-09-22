@@ -91,6 +91,9 @@
   and send only `X-SAI-Capability` to that origin. The versioned gateway jobs/v1
   DTO differs from the default Portal JSON; no transport failure may trigger a
   fallback. Cost, catalog and authentication remain on their central routes.
+- `storage quota-summary` is a separate Identity-only central read with
+  `sai.storage.read`. It exposes allowlisted stored observations and current/target
+  quotas. It never queries native storage, scans paths, changes quotas or charges.
 
 ## Inherited Portal Engineering Lessons
 

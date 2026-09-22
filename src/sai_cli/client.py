@@ -12,6 +12,7 @@ from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .site_jobs import SiteJobResult
+from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .transport import JsonResponse, JsonTransport
 
 
@@ -321,21 +322,37 @@ class PortalClient:
         result = AccountStatus.from_payload(response.payload, request_id=response.request_id)
         return replace(result, verification_url=urljoin(self.transport.base_url, result.verification_url))
 
-    def resource_catalog(self, site_id: str) -> ResourceCatalog:
-        site = clean_token(site_id, field="site", required=True)
-        prefix = "/v1/account/cli/sites" if self._cli_surface_enabled else "/v1/account/sites"
-        path = f"{prefix}/{quote(site, safe='')}/resource-catalog"
-        # Published specifications are central facts, not a site-read operation.
+    def _central_get(self, path: str, *, query: dict[str, str | int | None]) -> JsonResponse:
+        """Read a central resource without obtaining or forwarding a site grant."""
         lease = self.token_provider.get()
         try:
-            response = self._get_with_lease(path, query={}, lease=lease)
+            return self._get_with_lease(path, query=query, lease=lease)
         except AuthenticationError:
             if lease.source != "cache":
                 raise
             self.token_provider.invalidate(lease)
             lease = self.token_provider.get(force_exchange=True)
-            response = self._get_with_lease(path, query={}, lease=lease)
+            return self._get_with_lease(path, query=query, lease=lease)
+
+    def resource_catalog(self, site_id: str) -> ResourceCatalog:
+        site = clean_token(site_id, field="site", required=True)
+        prefix = "/v1/account/cli/sites" if self._cli_surface_enabled else "/v1/account/sites"
+        path = f"{prefix}/{quote(site, safe='')}/resource-catalog"
+        response = self._central_get(path, query={})
         return ResourceCatalog.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
+    def storage_quota_summary(self, *, workspace_key: str, site_id: str) -> StorageQuotaSummary:
+        workspace = clean_workspace_key(workspace_key)
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        path = "/v1/account/cli/storage/quota-summary"
+        query = {"workspace_key": workspace, "site_id": site}
+        response = self._central_get(path, query=query)
+        return StorageQuotaSummary.from_payload(
+            response.payload,
+            workspace_key=workspace,
+            site_id=site,
+            request_id=response.request_id,
+        )
 
     def list_jobs(self, query: JobQuery) -> JobResult | SiteJobResult:
         if self.site_transport is not None:

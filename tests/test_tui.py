@@ -19,6 +19,7 @@ from sai_cli.auth import TokenLease
 from sai_cli.catalog import ResourceCatalog
 from sai_cli.client import JobQuery, PortalClient
 from sai_cli.errors import ForbiddenError
+from sai_cli.storage_summary import StorageQuotaSummary
 from sai_cli.tui import Workbench
 from sai_cli.transport import JsonTransport
 from test_site_transport import http_endpoint
@@ -197,4 +198,124 @@ def test_estimate_pages_use_snapshot_rows_with_nullable_or_duplicate_keys(runnin
             await pilot.press("enter")
             assert app.selected_estimate == 100
             assert "not_started" in str(app.query_one("#details", Static).render())
+    asyncio.run(scenario())
+
+
+def storage_sample(workspace):
+    return {
+        "schema_version": "storage.quota-summary/v1", "workspace_key": workspace,
+        "site_id": "site-a", "mount_id": "mount-example", "state": "drift",
+        "source": "portal_quota_observation", "target_total_tib": "2.00000000",
+        "effective_total_tib": "1.00000000", "used_tib": "1.50000000",
+        "remaining_tib": "-0.50000000", "observed_soft_limit_tib": None,
+        "observed_hard_limit_tib": "1.00000000", "used_inodes": 25,
+        "inode_soft_limit": None, "inode_hard_limit": 100,
+        "observed_at": "2026-09-23T00:00:00Z", "quota_updated_at": None,
+    }
+
+
+def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_payload, monkeypatch):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    denied = False
+
+    def reply(call, count):
+        parsed = urlsplit(call["path"])
+        if parsed.path.endswith("resource-catalog"):
+            return 200, catalog()
+        if parsed.path.endswith("quota-summary"):
+            assert parse_qs(parsed.query) == {"workspace_key": ["personal:storage-user"], "site_id": ["site-a"]}
+            assert call["capability"] is None
+            return (403, {"detail": "denied"}) if denied else (200, storage_sample("personal:storage-user"))
+        return 200, job_payload
+
+    async def scenario(client, calls):
+        app = Workbench(client, JobQuery(site_id="site-a"), refresh_seconds=999)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await settled(app, pilot)
+            app.query_one("#views", TabbedContent).active = "jobs"
+            await settled(app, pilot)
+            app.query_one("#views", TabbedContent).active = "storage"
+            await settled(app, pilot)
+            await pilot.press("f5")
+            app._tick()
+            await settled(app, pilot)
+            assert not any("quota-summary" in call["path"] for call in calls)
+            assert not app.query_one("#job-scope-controls").display
+            assert "not selected" in str(app.query_one("#context", Static).render())
+            app.query_one("#storage-workspace", Input).value = "personal:storage-user"
+            await pilot.click("#load-storage")
+            await settled(app, pilot)
+            data = app.results["storage"].as_dict()
+            assert data == storage_sample("personal:storage-user")
+            content = str(app.query_one("#storage-summary", Static).render())
+            assert "-0.50000000" in content and "drift" in content
+            assert "portal_quota_observation" in content and "2026-09-23T00:00:00Z" in content
+            nonlocal denied
+            denied = True
+            await pilot.press("f5")
+            await settled(app, pilot)
+            assert "storage" not in app.results and "jobs" in app.results and app.catalog is not None
+            assert str(app.query_one("#storage-summary", Static).render()) == ""
+            app.query_one("#views", TabbedContent).active = "jobs"
+            await settled(app, pilot)
+            assert app.query_one("#job-scope-controls").display
+
+    with http_endpoint(reply) as (origin, calls):
+        provider = SimpleNamespace(get=lambda: TokenLease("test-session", None, "environment"))
+        client = PortalClient(transport=JsonTransport(base_url=origin, timeout_seconds=2), token_provider=provider)
+        asyncio.run(scenario(client, calls))
+
+
+def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account():
+    started, release = threading.Event(), threading.Event()
+    calls = []
+
+    class Client:
+        def resource_catalog(self, site):
+            return ResourceCatalog.from_payload(catalog(), site_id=site, request_id="catalog")
+
+        def storage_quota_summary(self, *, workspace_key, site_id):
+            calls.append((workspace_key, site_id))
+            if workspace_key == "personal:storage-user":
+                started.set()
+                assert release.wait(5)
+            return StorageQuotaSummary.from_payload(
+                storage_sample(workspace_key), workspace_key=workspace_key, site_id=site_id, request_id="storage",
+            )
+
+    async def scenario():
+        app = Workbench(Client(), JobQuery(site_id="site-a", scope="org-account", account_name="org-compute"),
+                        storage_workspace_key="personal:storage-user", refresh_seconds=999)
+        async with app.run_test(size=(60, 24)) as pilot:
+            try:
+                await settled(app, pilot)
+                assert calls == []
+                app.query_one("#views", TabbedContent).active = "storage"
+                for _ in range(80):
+                    if started.is_set():
+                        break
+                    await pilot.pause(.02)
+                assert started.is_set()
+                app.query_one("#storage-workspace", Input).value = "project:storage-project"
+                await pilot.pause(.02)
+                assert app.storage_workspace_key is None and "storage" not in app.results
+                assert str(app.query_one("#storage-summary", Static).render()) == ""
+                app._tick()
+                await pilot.click("#load-storage")
+                release.set()
+                await settled(app, pilot)
+                assert calls == [("personal:storage-user", "site-a"), ("project:storage-project", "site-a")]
+                assert app.results["storage"].values["workspace_key"] == "project:storage-project"
+                assert "personal:storage-user" not in str(app.query_one("#storage-summary", Static).render())
+                assert app.job_query.scope == "org-account" and app.job_query.account_name == "org-compute"
+                app.query_one("#storage-workspace", Input).value = ""
+                await pilot.pause(.02)
+                assert "storage" not in app.results
+                await pilot.press("f5")
+                app._tick()
+                await settled(app, pilot)
+                assert len(calls) == 2
+            finally:
+                release.set()
     asyncio.run(scenario())
