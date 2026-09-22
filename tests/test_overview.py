@@ -116,6 +116,11 @@ def test_terminal_panel_fits_width_and_treats_markup_as_text(width):
     assert all(cell_len(line) <= width for line in rendered.splitlines())
     assert "[red]" in rendered and "\x1b" not in rendered
     assert "SAI" in rendered and "未读消息" in rendered
+    value["inbox"]["items"][0]["title"] = "很长的通知标题" * 20
+    parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
+    out = StringIO()
+    Console(file=out, width=width, color_system=None).print(overview_panel(parsed))
+    assert len(out.getvalue().splitlines()) <= 16
 
 
 def test_interactive_overview_refresh_navigation_and_revocation(tmp_path, monkeypatch):

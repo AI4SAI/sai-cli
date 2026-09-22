@@ -23,7 +23,7 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None) -> 
             rows.append(("需核对", "站点登录身份与控制台默认设置不同", "warning"))
     if work_dir is not None:
         safe_dir = "".join(c for c in work_dir if c.isprintable())
-        rows.append(("当前目录", safe_dir, "plain"))
+        rows.append(("当前目录", safe_dir, "path"))
     if access["submit_allowed"] is False:
         rows.append(("提交受限", "请到控制台查看准入状态和处理方式", "warning"))
     if access["state"] == "recovery_pending":
@@ -62,7 +62,7 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None) -> 
             rows.append(("额度到期", "SAI Credit 最早到期 " + expiry.astimezone().strftime("%Y-%m-%d"), "plain"))
     if inbox is not None:
         rows.append(("未读消息", f"{inbox['unread_count']} 条 · 当前身份 / 本站", "plain"))
-        rows.extend(("", item["title"], "plain") for item in inbox["items"])
+        rows.extend(("", item["title"], "message") for item in inbox["items"])
     return rows
 
 
@@ -84,9 +84,11 @@ def overview_panel(overview: AccountOverview, *, work_dir: str | None = None, ba
     grid = Table.grid(padding=(0, 2), expand=True)
     grid.add_column(width=8, no_wrap=True)
     grid.add_column(ratio=1, overflow="fold")
-    styles = {"warning": "bold yellow", "identity": "bold", "money": "bold", "plain": ""}
+    styles = {"warning": "bold yellow", "identity": "bold", "money": "bold"}
     for label, value, kind in overview_rows(overview, work_dir=work_dir):
-        grid.add_row(Text(label, style="cyan" if kind != "warning" else "bold yellow"), Text(value, style=styles[kind]))
+        compact = kind in {"path", "message"}
+        grid.add_row(Text(label, style="cyan" if kind != "warning" else "bold yellow"),
+                     Text(value, style=styles.get(kind, ""), no_wrap=compact, overflow="ellipsis" if compact else "fold"))
     navigation = Text("sai tui", style="cyan")
     if base_url:
         navigation.append(" · 消息中心", style=f"link {overview.messages_url(base_url)}")
