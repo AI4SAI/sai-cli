@@ -1,0 +1,442 @@
+{
+  "$defs": {
+    "OverviewAccess": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "normal",
+            "restricted",
+            "restriction_pending",
+            "recovery_pending",
+            "failed"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "initial_verification_deadline": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Initial Verification Deadline"
+        },
+        "verification_current": {
+          "title": "Verification Current",
+          "type": "boolean"
+        },
+        "submit_allowed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Submit Allowed"
+        }
+      },
+      "required": [
+        "state",
+        "initial_verification_deadline",
+        "verification_current",
+        "submit_allowed"
+      ],
+      "title": "OverviewAccess",
+      "type": "object"
+    },
+    "OverviewContext": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "available",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "workspace_key": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+              },
+              "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Workspace Key"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "personal",
+                "org",
+                "project"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Kind"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label"
+        },
+        "slurm_account": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+              },
+              "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Slurm Account"
+        },
+        "canonical_account": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+              },
+              "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Canonical Account"
+        },
+        "default_account": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+              },
+              "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Default Account"
+        }
+      },
+      "required": [
+        "state",
+        "workspace_key",
+        "kind",
+        "label",
+        "slurm_account",
+        "canonical_account",
+        "default_account"
+      ],
+      "title": "OverviewContext",
+      "type": "object"
+    },
+    "OverviewFunds": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "available",
+            "not_authorized",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "net_balance": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Net Balance"
+        },
+        "available_credit": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available Credit"
+        },
+        "postpaid_available": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Postpaid Available"
+        },
+        "running_cash_exposure": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Running Cash Exposure"
+        },
+        "budget_available": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Budget Available"
+        },
+        "budget_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "limited",
+                "unlimited"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Budget Mode"
+        },
+        "credit_expires_at": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Credit Expires At"
+        }
+      },
+      "required": [
+        "state",
+        "currency",
+        "net_balance",
+        "available_credit",
+        "postpaid_available",
+        "running_cash_exposure",
+        "budget_available",
+        "budget_mode",
+        "credit_expires_at"
+      ],
+      "title": "OverviewFunds",
+      "type": "object"
+    },
+    "OverviewInbox": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "available",
+          "title": "State",
+          "type": "string"
+        },
+        "unread_count": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Unread Count",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/OverviewMessage"
+          },
+          "maxItems": 2,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "state",
+        "unread_count",
+        "items"
+      ],
+      "title": "OverviewInbox",
+      "type": "object"
+    },
+    "OverviewMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+          },
+          "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+          "title": "Message Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 180,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+          "title": "Title",
+          "type": "string"
+        },
+        "created_at": {
+          "maxLength": 64,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "title",
+        "created_at"
+      ],
+      "title": "OverviewMessage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "account.overview/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+      },
+      "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "observed_at": {
+      "maxLength": 64,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "user_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x20\\x7f-\\x9f]"
+      },
+      "pattern": "^[^\\x00-\\x20\\x7f-\\x9f]+$",
+      "title": "User Name",
+      "type": "string"
+    },
+    "context": {
+      "$ref": "#/$defs/OverviewContext"
+    },
+    "funds": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OverviewFunds"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inbox": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OverviewInbox"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "access": {
+      "$ref": "#/$defs/OverviewAccess"
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "observed_at",
+    "user_name",
+    "context",
+    "funds",
+    "inbox",
+    "access"
+  ],
+  "title": "AccountOverviewOut",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

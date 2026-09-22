@@ -22,6 +22,7 @@ from .config import Settings, resolve_settings
 from .contracts import ACCOUNT_VERIFICATION_PATH
 from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
+from .overview_view import render_overview
 from .render import (
     render_account_status, render_json, render_resource_catalog,
     render_running_estimate_table, render_site_allocation, render_site_jobs,
@@ -42,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_connection_arguments(parser)
 
     commands = parser.add_subparsers(dest="command", required=True)
+    overview = commands.add_parser("status", help="show the login identity, funds and unread messages")
+    _add_connection_arguments(overview, suppress_defaults=True)
+    overview.add_argument("--account", help="authorized account applied by the login context")
+    overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
     tui = commands.add_parser("tui", help="open the optional resource and job workbench")
     _add_connection_arguments(tui, suppress_defaults=True)
     _add_job_scope_arguments(tui)
@@ -453,6 +458,24 @@ def main(
                 if settings.site_read_base_url else None
             ),
         )
+        if args.command == "status":
+            if args.cluster is not None:
+                raise ConfigError("status is site-scoped and does not accept --cluster")
+            result = client.account_overview(settings.site_id, account=args.account)
+            if output_format == "json":
+                output.write(render_json(result.as_dict()))
+            elif output_format == "table":
+                output.write(render_overview(result, work_dir=os.getcwd()))
+            else:
+                try:
+                    from rich.console import Console
+                    from .overview_view import overview_panel
+                except ModuleNotFoundError as exc:
+                    if exc.name != "rich":
+                        raise
+                    raise ConfigError("Terminal UI dependencies are unavailable; install sai-cli[tui].") from None
+                Console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url))
+            return 0
         if args.command == "resources":
             if args.cluster is not None:
                 raise ConfigError("resources catalog is site-scoped and does not accept --cluster")
@@ -482,7 +505,7 @@ def main(
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
-            Workbench(client, query, storage_workspace_key=workspace).run()
+            Workbench(client, query, storage_workspace_key=workspace, initial_view="overview").run()
             return 0
 
         if args.command == "jobs" and args.jobs_command == "list":

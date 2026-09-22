@@ -15,6 +15,11 @@ read the parent account record. Both native requests have a two-second timeout.
 No credentials, identity database, broad site-agent API, per-user pointer,
 background worker, or additional cache is involved.
 
+The same native read also supplies the applied Account to the current shell's
+login summary. It is not a new preference or a persisted identity cache. An
+explicit initial directory remains unchanged; the summary can still report
+the native account and let Portal verify its current permission.
+
 | Applied default | Canonical directory |
 | --- | --- |
 | Own personal account | `/home/<user>` |

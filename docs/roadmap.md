@@ -26,12 +26,12 @@ the applied default identity, authorized funds, unread messages and actionable
 access/job/storage issues. It replaces noisy automatic reports and reuses the
 unified workbench's facts and permissions.
 
-- [ ] Coordinated Portal/CLI summary contract and role/scope validation
-- [ ] Proposed `sai status` read command and one shared login integration
+- [x] Coordinated Portal/CLI overview contract and local role/scope validation
+- [x] `sai status` JSON/plain/Rich panel and Textual Overview, with one shared login fragment
 - [ ] Live login latency, privacy, cleanup and user-comprehension validation
 
-Design only. The existing `auth status` recovery route does not expose funds
-or messages; none of these checkboxes is closed by the current login fragment.
+Local implementation only. The existing `auth status` recovery route does not
+expose funds or messages; the overview uses the normal CLI read authority.
 
 ## Milestone 0.1: read-only jobs CLI
 

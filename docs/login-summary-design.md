@@ -1,8 +1,12 @@
 # 登录摘要 / Login summary
 
-状态：candidate design；本次为产品与集成设计，不表示余额、消息摘要或 `sai status` 已实现、部署。
+状态：implementation candidate；`sai status`、Rich登录面板和Textual概览页已有本地实现，生产部署与现场验收单独记录。
 
-更新时间：2026-09-23 05:32:39 +08:00
+更新时间：2026-09-23 07:24:27 +08:00
+
+用户已选定：自动显示摘要面板并立即进入Shell；主动运行 `sai tui` 查看完整工作台。
+当前实现接通身份、资金/预算、本人未读摘要、访问事项，工作台保留已有作业/资源/存储入口。
+金额与消息合同见 [account.overview/v1](../contracts/account-overview/v1/README.md)。
 
 ## 目的与呈现
 
@@ -118,7 +122,8 @@ WARNING   新提交已暂停：组织计算额度不足 → 联系组织管理�
 `/run/motd.dynamic` 或 NFS 公共摘要文件；在认证后的本人交互式登录 shell 中呈现。
 沿用一个 NFS 共享 profile 和 CLI 发布点，不新增挂载、MOTD daemon 或逐计算节点安装。
 
-拟新增 `sai status` 作为工作概览的只读命令，JSON 仍为机器接口，登录显式选择短表格。
+`sai status` 作为工作概览的只读命令，JSON 仍为机器接口，登录显式选择 `--format tui` 的Rich面板；
+`--format table` 保留无UI依赖的纯文本输出。
 它复用现有配置、Identity 会话、DTO 校验和领域客户端，不自动启动 TUI 或 Pilot。
 `sai auth status` 继续负责认证诊断，不逐步塞入钱包和消息功能。
 登录摘要取代旧的自动状态报表与重复认证输出，原有手动帮助/资源查询仍能使用。

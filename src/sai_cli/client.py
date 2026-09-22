@@ -11,6 +11,7 @@ from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
+from .overview import AccountOverview
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .native_quota import NativeQuotaResult
@@ -345,6 +346,14 @@ class PortalClient:
         response = self._get_with_lease("/v1/account/cli/status", query={}, lease=lease)
         result = AccountStatus.from_payload(response.payload, request_id=response.request_id)
         return replace(result, verification_url=urljoin(self.transport.base_url, result.verification_url))
+
+    def account_overview(self, site_id: str, *, account: str | None = None) -> AccountOverview:
+        site = clean_token(site_id, field="site", required=True)
+        selected = clean_token(account, field="account")
+        response = self._central_get("/v1/account/cli/overview",
+            query={"site_id": site, "slurm_account_name": selected})
+        return AccountOverview.from_payload(response.payload, site_id=site, account=selected,
+                                            request_id=response.request_id)
 
     def _central_get(self, path: str, *, query: dict[str, str | int | None]) -> JsonResponse:
         """Read a central resource without obtaining or forwarding a site grant."""

@@ -74,6 +74,7 @@ def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
 
 def _source_files(root: Path = REPO_ROOT) -> list[Path]:
     paths = [root / value for value in SOURCE_PATHS]
+    paths.extend(sorted((root / "packaging/login-node").glob("*-requirements.txt")))
     paths.extend(sorted((root / "src" / "sai_cli").rglob("*.py")))
     if any(not path.is_file() or path.is_symlink() for path in paths):
         raise RuntimeError("login-node package source set is incomplete or unsafe")
@@ -186,7 +187,7 @@ def _public_umask():
         os.umask(previous)
 
 
-def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
+def build(*, output_dir: Path, allow_dirty: bool = False, with_tui: bool = False) -> tuple[Path, Path]:
     """Build the package from the exact committed HEAD snapshot.
 
     ``allow_dirty`` exists for local tests and diagnostics only.  Even when it
@@ -198,6 +199,8 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
     commit, version, clean, remote_reachable, timestamp = _git_provenance(
         allow_dirty=allow_dirty
     )
+    if with_tui:
+        version += ".tui"
     # Validate the checkout-side package inputs before creating the archive.
     _source_files()
     output_dir = output_dir.resolve()
@@ -229,6 +232,21 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
         release.mkdir(parents=True)
         with zipfile.ZipFile(wheel) as archive:
             archive.extractall(release)
+        dependencies = []
+        if with_tui:
+            dependency_dir = root / "tui-wheels"
+            subprocess.run([
+                sys.executable, "-m", "pip", "download", "--no-cache-dir", "--no-deps", "--require-hashes",
+                "--only-binary=:all:", "--dest", str(dependency_dir), "-r",
+                str(source_dir / "packaging/login-node/tui-requirements.txt"),
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=build_environment)
+            for dependency in sorted(dependency_dir.glob("*.whl")):
+                if not dependency.name.endswith("none-any.whl"):
+                    raise RuntimeError("shared terminal dependencies must be pure Python wheels")
+                _safe_wheel_members(dependency)
+                with zipfile.ZipFile(dependency) as archive:
+                    archive.extractall(release)
+                dependencies.append({"wheel": dependency.name, "sha256": _sha256(dependency)})
         for path in release.rglob("*"):
             path.chmod(0o755 if path.is_dir() else 0o644)
 
@@ -285,7 +303,7 @@ def build(*, output_dir: Path, allow_dirty: bool = False) -> tuple[Path, Path]:
             "source_sha256": source_sha256,
             "wheel_filename": wheel.name,
             "wheel_sha256": _sha256(wheel),
-            "runtime_dependencies": [],
+            "runtime_dependencies": dependencies,
             "credential_files": [],
             "installed_files": installed_files,
             "activation_entrypoint": "/opt/sai/bin/sai",
@@ -357,8 +375,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "dist" / "deb")
     parser.add_argument("--allow-dirty", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--with-tui", action="store_true", help="bundle the pinned terminal UI dependencies in the shared release")
     args = parser.parse_args()
-    artifact, manifest = build(output_dir=args.output_dir, allow_dirty=args.allow_dirty)
+    artifact, manifest = build(output_dir=args.output_dir, allow_dirty=args.allow_dirty, with_tui=args.with_tui)
     print(f"SAI_CLI_DEB={artifact}")
     print(f"SAI_CLI_DEB_MANIFEST={manifest}")
     print(f"SAI_CLI_DEB_SHA256={_sha256(artifact)}")

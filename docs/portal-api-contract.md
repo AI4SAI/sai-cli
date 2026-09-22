@@ -291,6 +291,13 @@ found or not visible.
 
 ## Self account status
 
+The separate `GET /v1/account/cli/overview` is the normal-authority login/workbench
+read, documented in [account.overview/v1](../contracts/account-overview/v1/README.md).
+It takes site and an optional authorized applied account, uses `sai.compute.read`
+and enabled shell access, and exposes finance only with `sai.billing.read` and
+the existing workspace financial visibility. It does not inherit the recovery
+route's wider availability or require a native site capability.
+
 Managed `sai auth status` calls `GET /v1/account/cli/status` with its existing
 Identity resource Bearer. The route accepts no user, workspace or site selector,
 requires the current subject binding, and remains readable for identity recovery.

@@ -24,7 +24,7 @@ def _resolve(tmp_path: Path, rows: str, *, native_exit: int = 0, interactive_com
         executable.chmod(0o755)
     return subprocess.run(
         ["bash", "--noprofile", "--norc", "-ilc" if interactive_command else "-c",
-         interactive_command or 'source "$1"; _sai_default_workdir', "bash", str(SCRIPT)],
+         interactive_command or 'source "$1"; _sai_default_context', "bash", str(SCRIPT)],
         env={**os.environ, "HOME": str(tmp_path), "PATH": f"{binaries}:/usr/bin:/bin", "TEST_ASSOC_ROWS": rows,
              "TEST_NATIVE_EXIT": str(native_exit)},
         cwd=tmp_path,
@@ -42,7 +42,7 @@ def test_default_identity_uses_own_site_association(tmp_path, account, lineage, 
     rows = f"cluster-a|{account}|{USER}|{lineage}/0-{USER}/"
     result = _resolve(tmp_path, rows + "\n" + rows)
     assert result.returncode == 0, result.stderr
-    assert result.stdout == expected + "\n"
+    assert result.stdout == account + "\t" + expected + "\n"
 
 
 @pytest.mark.parametrize("rows", [

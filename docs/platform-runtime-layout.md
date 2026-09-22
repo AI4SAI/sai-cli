@@ -116,10 +116,18 @@ not a claim that FHS mandates these exact category names.
 
 ### Login status in the existing shared profile
 
-The shared interactive login `bash.profile` may run the existing general command
-`timeout -k 1s 5s /opt/sai/bin/sai auth status --format table` once per top-level user
+The shared interactive login `bash.profile` runs
+`timeout -k 1s 2s /opt/sai/bin/sai status --format tui` once per top-level user
 login. Skip root, batch jobs, noninteractive shells and nested login shells;
 export the once marker before invoking it. A failed or unauthenticated status
 read must never block login or launch device authorization automatically. This
-uses the same account DTO as the console; do not add a separate MOTD service,
+uses the existing financial and inbox services through the account overview DTO; do not add a separate MOTD service,
 credential cache, permission resolver or per-node command installation.
+
+Inline `site/shell/login_summary.bash` after the default-directory fragment.
+The directory fragment keeps the native applied Account in the current shell;
+the overview request passes it as a selector and Portal reauthorizes it. Retire
+the earlier automatic `auth status`, full aliases and node tables so the panel
+does not duplicate them. Keep their manual commands and the independent
+`sai auth status` recovery diagnostic. Publish the TUI-enabled shared release
+before switching the profile; preserve the previous release/profile for rollback.

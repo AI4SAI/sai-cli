@@ -18,6 +18,8 @@ from .contracts import JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ContractError, SaiCliError
 from .render import render_storage_quota_summary, render_native_quota
 from .native_quota import NativeQuotaResult
+from .overview import AccountOverview
+from .overview_view import overview_panel
 from .site_jobs import SiteJobResult
 from .storage_summary import StorageQuotaSummary
 
@@ -46,6 +48,7 @@ class Workbench(App):
     #details { height: auto; padding: 0 1; }
     #storage-scroll { height: 1fr; }
     #storage-summary { height: auto; }
+    #overview-summary { height: auto; padding: 1 0; }
     .hint { height: auto; color: $text-muted; }
     .compact .controls { height: 1; }
     .compact .controls Input, .compact .controls Button,
@@ -63,12 +66,13 @@ class Workbench(App):
     def __init__(
         self, client: PortalClient, query: JobQuery, *, refresh_seconds: int = 10,
         storage_workspace_key: str | None = None,
+        initial_view: str = "resources",
     ):
         super().__init__()
         self.client = client
         self.job_query = query.validated()
         self.refresh_seconds = refresh_seconds
-        self.view = "resources"
+        self.view = initial_view
         self.paused = False
         self.selected_job: str | None = None
         self.selected_estimate: int | None = None
@@ -98,7 +102,11 @@ class Workbench(App):
             yield Button("Apply", id="apply", variant="primary")
             yield Button("Refresh", id="refresh")
         yield Static("Loading published resources…", id="status", markup=False)
-        with TabbedContent(initial="resources", id="views"):
+        with TabbedContent(initial=self.view, id="views"):
+            with TabPane("概览 / Overview", id="overview"):
+                with VerticalScroll():
+                    yield Static("加载当前身份摘要…", id="overview-summary", markup=False)
+                    yield Button("打开控制台消息", id="overview-messages", disabled=True)
             with TabPane("Resources", id="resources"):
                 yield Static("Enter selects up to two partitions to compare. Published capacity is not idle capacity.", classes="hint", markup=False)
                 yield DataTable(id="resources-table", cursor_type="row")
@@ -137,6 +145,9 @@ class Workbench(App):
         }.items():
             self.query_one(f"#{name}-table", DataTable).add_columns(*columns)
         self._workbench_ready = True
+        if self.view == "overview":
+            for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
+                self.query_one(f"#{name}").display = False
         self._update_scope_display()
         self.set_interval(self.refresh_seconds, self._tick)
         self.request_read()
@@ -156,10 +167,12 @@ class Workbench(App):
         self.selected_estimate = None
         self._revision += 1
         for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
-            self.query_one(f"#{name}").display = view != "storage"
+            self.query_one(f"#{name}").display = view not in {"storage", "overview"}
         if view == "storage":
             self.query_one("#storage-workspace", Input).focus()
-        elif previous_view == "storage":
+        elif view == "overview":
+            self.query_one("#overview-summary", Static).scroll_visible()
+        elif previous_view in {"storage", "overview"}:
             self.query_one(f"#{view}-table", DataTable).focus()
         self._update_scope_display()
         self.query_one("#details", Static).update("")
@@ -207,6 +220,8 @@ class Workbench(App):
             self._reading = False
 
     def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None, storage_source: str = "summary"):
+        if view == "overview":
+            return self.client.account_overview(query.site_id)
         if view == "resources":
             return self.client.resource_catalog(query.site_id)
         if view == "storage":
@@ -221,7 +236,10 @@ class Workbench(App):
 
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
-        if view == "storage":
+        if view == "overview":
+            self.query_one("#overview-summary", Static).update("")
+            self.query_one("#overview-messages", Button).disabled = True
+        elif view == "storage":
             self.query_one("#storage-summary", Static).update("")
         else:
             self.query_one(f"#{view}-table", DataTable).clear()
@@ -237,7 +255,7 @@ class Workbench(App):
     def _read_error(self, view: str, error: SaiCliError) -> None:
         self._failed_views.add(view)
         if isinstance(error, AuthenticationError):
-            for name in ("resources", "jobs", "usage", "storage"):
+            for name in ("resources", "jobs", "usage", "storage", "overview"):
                 self._clear(name)
             self.paused = True
         else:
@@ -257,7 +275,11 @@ class Workbench(App):
 
     def _present(self, view: str, result: object) -> None:
         status = ""
-        if view == "storage" and isinstance(result, StorageQuotaSummary):
+        if view == "overview" and isinstance(result, AccountOverview):
+            self.query_one("#overview-summary", Static).update(overview_panel(result, base_url=self.client.transport.base_url))
+            self.query_one("#overview-messages", Button).disabled = False
+            status = "当前身份摘要 · 消息展示不会标为已读"
+        elif view == "storage" and isinstance(result, StorageQuotaSummary):
             self.query_one("#storage-summary", Static).update(render_storage_quota_summary(result))
             values = result.values
             status = f"Stored quota sample · {values['state']} · observed {display(values['observed_at'])}"
@@ -396,6 +418,9 @@ class Workbench(App):
         return True
 
     def _update_scope_display(self) -> None:
+        if self.view == "overview":
+            self.query_one("#context", Static).update(f"SAI · {self.job_query.site_id}\n默认工作身份 · 本人资金与未读消息")
+            return
         if self.view == "storage":
             self.query_one("#context", Static).update(
                 f"SAI · {self.job_query.site_id}\nStorage workspace: {self.storage_workspace_key or 'not selected'}"
@@ -408,7 +433,11 @@ class Workbench(App):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "load-storage":
+        if event.button.id == "overview-messages":
+            result = self.results.get("overview")
+            if isinstance(result, AccountOverview):
+                self.open_url(result.messages_url(self.client.transport.base_url))
+        elif event.button.id == "load-storage":
             self.storage_workspace_key = self.query_one("#storage-workspace", Input).value.strip() or None
             self._revision += 1
             self._clear("storage")

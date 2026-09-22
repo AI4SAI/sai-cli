@@ -6,6 +6,8 @@ data while keeping authorization decisions out of login-node shell wrappers.
 
 The first implementation milestone is intentionally read-only:
 
+- `sai status --format tui` shows a compact login identity, funds and unread-message
+  panel, then returns to the shell. JSON remains the default for scripts.
 - `sai jobs list` lists jobs in an authorized personal, organization, or
   project scope.
 - `sai jobs show` returns one authorized job.
@@ -65,7 +67,7 @@ login-node package have been deployed.
 - [Login-node deployment run card](docs/login-node-deployment.md)
 - [Shared platform runtime layout](docs/platform-runtime-layout.md)
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
-- [Login summary product design](docs/login-summary-design.md) (proposed)
+- [Login summary contract and design](docs/login-summary-design.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
 - [Terminal workbench](docs/terminal-workbench.md)

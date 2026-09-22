@@ -24,6 +24,13 @@ It is not a new per-command mount. Each node supplies Python 3.11 or later.
 .venv/bin/python scripts/build_login_node_deb.py --output-dir dist/deb
 ```
 
+For the login panel and complete workbench, add `--with-tui`. The publisher
+bundles the hash-pinned pure-Python wheels from `packaging/login-node/tui-requirements.txt`
+into that one shared release and records each wheel digest in the manifest.
+JSON/plain-text users retain the dependency-free base package; consumers never
+run pip or install a local TUI copy. This option changes the shared archive,
+not the node integration package's filesystem ownership.
+
 Formal builds require a clean HEAD reachable from `origin/main`. Build inputs
 come from `git archive`, so ignored files and uncommitted work never enter the
 release. The standard isolated PEP 517 backend builds the wheel. Timestamps,

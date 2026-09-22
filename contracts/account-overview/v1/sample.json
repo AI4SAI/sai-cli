@@ -1,0 +1,48 @@
+{
+  "schema_version": "account.overview/v1",
+  "site_id": "site-a",
+  "observed_at": "2026-09-23T01:00:00Z",
+  "user_name": "alice",
+  "context": {
+    "state": "available",
+    "workspace_key": "org:example",
+    "kind": "org",
+    "label": "示例课题组",
+    "slurm_account": "org-example",
+    "canonical_account": "org-example",
+    "default_account": "org-example"
+  },
+  "funds": {
+    "state": "available",
+    "currency": "CNY",
+    "net_balance": "1280.50000000",
+    "available_credit": "20000.00000000",
+    "postpaid_available": "0.00000000",
+    "running_cash_exposure": "35.80000000",
+    "budget_available": null,
+    "budget_mode": null,
+    "credit_expires_at": null
+  },
+  "inbox": {
+    "state": "available",
+    "unread_count": 4,
+    "items": [
+      {
+        "message_id": "msg-a",
+        "title": "配额申请已完成，可在控制台查看结果",
+        "created_at": "2026-09-22T08:00:00Z"
+      },
+      {
+        "message_id": "msg-b",
+        "title": "有一项协作申请等待您审批",
+        "created_at": "2026-09-22T07:00:00Z"
+      }
+    ]
+  },
+  "access": {
+    "state": "normal",
+    "verification_current": true,
+    "initial_verification_deadline": null,
+    "submit_allowed": true
+  }
+}

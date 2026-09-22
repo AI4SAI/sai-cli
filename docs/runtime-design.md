@@ -7,6 +7,8 @@ Status: read-only commands frozen
 The current release exposes read-only job and resource commands:
 
 ```bash
+sai status --site site-a --format tui
+sai status --site site-a --format json
 sai jobs list --site site-a
 sai jobs list --site site-a --scope org-account --account org-example
 sai jobs list --site site-a --scope project-account --account project-example \
@@ -44,7 +46,8 @@ There is no source fallback. The TUI Storage selector uses the same two client
 methods and clears old-source results immediately. Native deployment requires
 a reviewed readable filesystem anchor; local code does not enable it.
 
-`sai tui` is an optional interactive consumer of these same read methods.
+`sai tui` starts with the default-identity Overview and is an optional interactive
+consumer of these same read methods.
 It keeps the configured site/cluster fixed, lets users explicitly apply job
 scope and narrowing filters, compares published partitions, and shows job
 detail and independent running estimates. Its dependencies are an optional
