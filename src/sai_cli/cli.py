@@ -24,10 +24,10 @@ from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
 from .render import (
     render_account_status, render_json, render_resource_catalog,
-    render_running_estimate_table, render_site_jobs, render_storage_quota_summary,
+    render_running_estimate_table, render_site_allocation, render_site_jobs, render_storage_quota_summary,
     render_table,
 )
-from .site_jobs import SiteJobResult
+from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import clean_workspace_key
 from .transport import JsonTransport
 
@@ -57,11 +57,15 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     _add_format_argument(list_parser)
 
-    show_parser = job_commands.add_parser("show", help="show one authorized job")
-    _add_connection_arguments(show_parser, suppress_defaults=True)
-    show_parser.add_argument("job_id", help="job identifier")
-    _add_job_scope_arguments(show_parser)
-    _add_format_argument(show_parser)
+    for command, description in (
+        ("show", "show one authorized job"),
+        ("allocation", "show a job's allocation snapshot from the site gateway"),
+    ):
+        detail_parser = job_commands.add_parser(command, help=description)
+        _add_connection_arguments(detail_parser, suppress_defaults=True)
+        detail_parser.add_argument("job_id", help="job identifier, including an array task suffix")
+        _add_job_scope_arguments(detail_parser)
+        _add_format_argument(detail_parser)
 
     cost_parser = job_commands.add_parser("cost", help="show non-final running job cost estimates")
     _add_connection_arguments(cost_parser, suppress_defaults=True)
@@ -477,6 +481,8 @@ def main(
             result = client.list_jobs(query)
         elif args.command == "jobs" and args.jobs_command == "show":
             result = client.show_job(args.job_id, query)
+        elif args.command == "jobs" and args.jobs_command == "allocation":
+            result = client.job_allocation(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "cost":
             result = client.running_estimates(query)
         else:
@@ -486,6 +492,8 @@ def main(
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
             output.write(render_running_estimate_table(result))
+        elif isinstance(result, SiteJobAllocationResult):
+            output.write(render_site_allocation(result))
         elif isinstance(result, SiteJobResult):
             output.write(render_site_jobs(result))
         else:

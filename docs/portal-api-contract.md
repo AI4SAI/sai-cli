@@ -73,7 +73,7 @@ The server requires the original user Bearer as well and binds it to the
 capability actor. The issuer and all three CLI read routes reject legacy
 Portal-issued credentials; there is no CLI authentication downgrade switch.
 Development compatibility credentials remain limited to the non-CLI endpoints.
-Operations are exact: `jobs.list`, `jobs.detail`, and
+Operations are exact: `jobs.list`, `jobs.detail`, `jobs.allocation`, and
 `billing.running-estimate` do not imply one another. Missing, expired,
 wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and
@@ -398,6 +398,40 @@ authentication always retain their documented central routes; the gateway's
 older billing v2 candidate is not enabled. Consumers must opt into jobs/v1 and
 deploy the matching gateway producer first. Local subprocess and HTTP tests do
 not prove a live scheduler, installed gateway or production wrapper rollout.
+
+### Job allocation snapshots
+
+`sai jobs allocation JOB_ID` requires the explicit gateway configuration above;
+without it the command fails before making any request. It requests the exact
+`jobs.allocation` capability with the same grant constraints as `jobs.detail`,
+then calls `GET /v1/site-read/jobs/{job_id}/allocation` through the same transport
+and bounded capability renewal. No central job endpoint is an alternative.
+
+The `jobs.allocation/v1` response carries the same `site_id`, `cluster_id`,
+`scope_type`, `subject`, `freshness` and SHA-256 `etag` as `jobs/v1`, with
+`freshness.source=scontrol`. It replaces `items` and `has_more` with:
+
+- `job`: the same 19 allowlisted job fields. `job_id` is the numeric base ID;
+  `array_task_id` is a separate numeric string or null. The combined ID must
+  match the requested job exactly. A base job never substitutes for its task.
+- `scheduler_states`: 1–32 strings matching `[A-Z][A-Z0-9_]{0,31}`, preserving
+  base state and transition flags; the first state must agree with `job.state`
+  after the established long/short normalization. The CLI does not infer allocation from a
+  short job state or discard flags such as `COMPLETING`.
+- `restart_count`: integer 0–65535 or null, from the observed native counter.
+  This is not a persistent attempt identifier; no attempt ID is invented.
+- `allocation`: `status` and `nodes`. `allocated` has 1–4096 unique nodes;
+  `not_allocated` has `[]`; `unavailable` has null. Each node contains only
+  `name` (`[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`), nonnegative integer `cpus`, and
+  nonnegative integer or null `memory_mib`. Zero CPU counts remain zero.
+
+Missing or transitional native allocation facts may be unavailable. Null is
+never translated to zero or an empty allocation. This is a snapshot allocation,
+not physical inventory, GPU utilization, a permanent job attempt, or an aggregate
+of heterogeneous job components. The CLI only validates and displays the
+producer's facts. Unknown fields are discarded at every level. JSON remains the
+default; `--format table` identifies allocated resources and observation freshness,
+with `-` for unavailable numeric values.
 
 ## Storage quota summary
 

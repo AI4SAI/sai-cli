@@ -40,6 +40,8 @@ or messages; none of these checkboxes is closed by the current login fragment.
 - [x] Protected short-lived token cache
 - [x] Existing Bearer token and unmanaged compatibility HMAC bootstrap
 - [x] `sai jobs list` and `sai jobs show`
+- [x] `sai jobs allocation JOB_ID` against the explicit site gateway snapshot
+  (local/fake HTTP; physical assets, utilization and attempt identity remain separate)
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
 - [x] `sai resources catalog` against the shared published site catalog DTO
 - [x] `sai storage quota-summary` and independent TUI Storage view over Portal

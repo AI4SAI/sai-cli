@@ -114,10 +114,10 @@ def test_capability_cache_key_binds_origin_request_and_user_token() -> None:
     assert len({first, gateway_a, gateway_b}) == 3
 
 
-@pytest.mark.parametrize("operation", ["jobs.list", "jobs.detail"])
+@pytest.mark.parametrize("operation", ["jobs.list", "jobs.detail", "jobs.allocation"])
 def test_job_capability_cache_is_isolated_by_actual_reader_origin(tmp_path: Path, operation: str) -> None:
     body = _query().capability_request(
-        operation=operation, job_id="123" if operation == "jobs.detail" else None,
+        operation=operation, job_id=None if operation == "jobs.list" else "123",
     )
     transport = FakeTransport()
     transport.payload["operation"] = operation

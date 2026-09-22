@@ -46,6 +46,23 @@ def job_payload() -> dict[str, Any]:
 
 
 @pytest.fixture
+def site_allocation_payload(job_payload) -> dict[str, Any]:
+    return {
+        "schema_version": "jobs.allocation/v1",
+        "site_id": "site-a", "cluster_id": "cluster-a", "scope_type": "self",
+        "subject": {"slurm_user": "alice", "slurm_account": None},
+        "freshness": {"source": "scontrol", "observed_at": "2026-09-23T00:00:00Z",
+                      "ttl_seconds": 5, "age_seconds": 1, "stale": False},
+        "etag": "a" * 64, "job": job_payload["items"][0],
+        "scheduler_states": ["RUNNING"], "restart_count": None,
+        "allocation": {"status": "allocated", "nodes": [
+            {"name": "compute-a", "cpus": 0, "memory_mib": None},
+            {"name": "compute-b", "cpus": 8, "memory_mib": 16384},
+        ]},
+    }
+
+
+@pytest.fixture
 def running_estimate_payload() -> dict[str, Any]:
     common = {
         "slurm_job_db_index": None,

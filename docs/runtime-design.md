@@ -29,7 +29,7 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, placement, live storage reads or storage management commands.
+- node topology, physical assets, utilization, live storage reads or storage management commands.
 
 `storage quota-summary --workspace-key personal:example` reads Portal's stored
 quota observation under the independent `sai.storage.read` Identity scope.
@@ -44,7 +44,9 @@ extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`
-and `jobs show` only. It requires capability mode and an explicit cluster.
+and `jobs show`. `jobs allocation JOB_ID` requires this direct gateway setting
+and returns the versioned allocation snapshot; it has no central fallback.
+These reads require capability mode and an explicit cluster.
 The origin is HTTPS (unmanaged loopback HTTP for local tests); no argv or
 environment override is accepted. Managed installations use the existing
 protected configuration, not a new per-command mount or file hierarchy.

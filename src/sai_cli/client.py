@@ -11,7 +11,7 @@ from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
-from .site_jobs import SiteJobResult
+from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .transport import JsonResponse, JsonTransport
 
@@ -134,9 +134,9 @@ class JobQuery:
     ) -> dict[str, object]:
         """Build the exact JSON body consumed by Portal's capability issuer."""
 
-        detail = operation == "jobs.detail"
+        detail = operation in {"jobs.detail", "jobs.allocation"}
         query = self.validated(detail=detail)
-        if operation not in {"jobs.list", "jobs.detail", "billing.running-estimate"}:
+        if operation not in {"jobs.list", "jobs.detail", "jobs.allocation", "billing.running-estimate"}:
             raise ConfigError("operation is unsupported")
         if query.cluster_id is None:
             raise ConfigError(
@@ -201,14 +201,18 @@ class PortalClient:
             )
         return lease, capability
 
-    def _site_jobs(self, query: JobQuery, *, job_id: str | None = None) -> SiteJobResult:
-        request = query.validated(detail=job_id is not None)
-        operation = "jobs.detail" if job_id is not None else "jobs.list"
+    def _site_get(
+        self, request: JobQuery, *, operation: str, job_id: str | None = None,
+    ) -> JsonResponse:
+        if self.site_transport is None or self.capability_provider is None:
+            raise ConfigError("this command requires site_read_base_url and capability mode")
         body = request.capability_request(operation=operation, job_id=job_id)
         lease, capability = self._acquire_capability(body, lease=self.token_provider.get())
         path = "/v1/site-read/jobs"
         if job_id is not None:
             path += "/" + quote(job_id, safe="")
+        if operation == "jobs.allocation":
+            path += "/allocation"
         # The gateway receives only the capability. All filters are signed in it.
         try:
             response = self.site_transport.request(
@@ -222,6 +226,13 @@ class PortalClient:
             response = self.site_transport.request(
                 "GET", path, headers={CAPABILITY_HEADER: capability.token},
             )
+        return response
+
+    def _site_jobs(self, query: JobQuery, *, job_id: str | None = None) -> SiteJobResult:
+        request = query.validated(detail=job_id is not None)
+        response = self._site_get(
+            request, operation="jobs.detail" if job_id is not None else "jobs.list", job_id=job_id,
+        )
         result = SiteJobResult.from_payload(response.payload, request_id=response.request_id)
         result.require_request_binding(
             site_id=request.site_id, cluster_id=request.cluster_id,
@@ -230,6 +241,20 @@ class PortalClient:
             limit=request.limit if job_id is None else None, job_id=job_id,
             account_name=request.account_name,
             expected_source="scontrol" if job_id is not None else "squeue",
+        )
+        return result
+
+    def job_allocation(self, job_id: str, query: JobQuery) -> SiteJobAllocationResult:
+        identifier = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
+        if not re.fullmatch(r"[0-9]+(?:_[0-9]+)?", identifier):
+            raise ConfigError("allocation requires a numeric job ID or numeric job_task ID")
+        request = query.validated(detail=True)
+        response = self._site_get(request, operation="jobs.allocation", job_id=identifier)
+        result = SiteJobAllocationResult.from_payload(response.payload, request_id=response.request_id)
+        result.require_request_binding(
+            site_id=request.site_id, cluster_id=request.cluster_id,
+            scope=_SCOPES[request.scope], request_id=response.request_id,
+            job_id=identifier, states=request.states, account_name=request.account_name,
         )
         return result
 

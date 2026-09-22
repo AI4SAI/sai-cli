@@ -9,6 +9,8 @@ The first implementation milestone is intentionally read-only:
 - `sai jobs list` lists jobs in an authorized personal, organization, or
   project scope.
 - `sai jobs show` returns one authorized job.
+- `sai jobs allocation JOB_ID` reads a job's current allocation snapshot from
+  an explicitly configured capability-bound site gateway.
 - `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.

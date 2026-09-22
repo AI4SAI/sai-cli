@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
-from .site_jobs import SiteJobResult
+from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary
 
 
@@ -252,6 +252,27 @@ def render_site_jobs(result: SiteJobResult) -> str:
         f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
         *_job_table_lines(result.items),
     ]
+    return "\n".join(lines) + "\n"
+
+
+def render_site_allocation(result: SiteJobAllocationResult) -> str:
+    freshness = result.freshness
+    lines = [
+        f"Site: {result.site_id}  Cluster: {result.cluster_id}  Scope: {result.scope_type}",
+        f"Source: {freshness.source}  Observed: {freshness.observed_at}  "
+        f"Age: {freshness.age_seconds}s  Stale: {'yes' if freshness.stale else 'no'}",
+        f"Job: {_display(result.job.values['job_id'])}  "
+        f"Array task: {_display(result.job.values['array_task_id'])}  "
+        f"Scheduler states: {', '.join(result.scheduler_states)}",
+        f"Restart count: {_display(result.restart_count)}  Allocation: {result.allocation_status}",
+    ]
+    if result.nodes:
+        rows = [(node.name, str(node.cpus), _display(node.memory_mib)) for node in result.nodes]
+        headings = ("Node", "Allocated CPUs", "Allocated memory (MiB)")
+        widths = [max(len(heading), *(len(row[index]) for row in rows))
+                  for index, heading in enumerate(headings)]
+        lines.extend((_line(headings, widths), _line(("-" * width for width in widths), widths)))
+        lines.extend(_line(row, widths) for row in rows)
     return "\n".join(lines) + "\n"
 
 

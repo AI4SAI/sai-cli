@@ -77,8 +77,9 @@ typed `interactive-read-grant.v1` payload:
 
 Portal derives the exact compound subject through the existing resolver with
 `entrypoint=cli` and active shell access. Site-read operations are exact and
-independent: `jobs.list`, `jobs.detail`, and `billing.running-estimate`.
-Neither job operation grants billing. The gateway verifies issuer, audience,
+independent: `jobs.list`, `jobs.detail`, `jobs.allocation`, and `billing.running-estimate`.
+No job operation grants billing. Allocation uses the same exact job grant
+constraints as detail. The gateway verifies issuer, audience,
 surface, site, operation, key/epoch, time window, JTI revocation, grant shape,
 and request subset before invoking the adapter.
 
@@ -87,7 +88,8 @@ signing key, accepts a capability from argv/environment/config, or sends the
 Portal Bearer to the gateway.
 
 The client opts in using a trusted TOML `site_read_base_url` origin. Only job
-list/detail use it; catalog, authentication and running cost remain central.
+list/detail and the explicit allocation command use it; catalog, authentication
+and running cost remain central.
 The read origin participates in the capability cache key. No failed gateway
 read falls back to another source.
 
@@ -107,11 +109,13 @@ ignored only after recursive allowlist validation. Paths, scripts,
 environments, raw scheduler data, wallet, ledger, and provider diagnostics are
 never returned.
 
-The reusable site runtime adapter has exactly two interactive reads:
+The reusable site runtime adapter supports these bounded native reads:
 
 - `squeue --json`, with optional user/account/partition/state narrowing and a
   bounded result limit;
-- `scontrol show job <ids> --json`, for detail reads.
+- `scontrol show job <ids> --json`, for detail and allocation snapshots;
+- `scontrol show hostnames <expression>`, only to expand an observed allocation's
+  host expression. This does not query all-node state or physical inventory.
 
 It has no `sacct`, enforcement, reservation, metadata, provisioning, quota, or
 write method. Commands run without sudo, with explicit timeout and output

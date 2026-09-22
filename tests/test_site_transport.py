@@ -117,31 +117,75 @@ def test_two_origins_keep_identity_at_portal_and_exact_grant_at_gateway(tmp_path
 
 
 @pytest.mark.parametrize("status", [401, 403, 503])
-def test_fresh_capability_failure_does_not_retry_or_fall_back(tmp_path, site_payload, status):
+@pytest.mark.parametrize("command", [["jobs", "list"], ["jobs", "allocation", "12345"]])
+def test_fresh_capability_failure_does_not_retry_or_fall_back(tmp_path, site_payload, status, command):
     with http_endpoint(issuer) as (portal, issued), http_endpoint(lambda *_: (status, {"detail": "unavailable"})) as (gateway, reads):
         config = profile(tmp_path, portal, gateway)
-        result, output, errors = invoke(config, tmp_path, ["jobs", "list"])
+        result, output, errors = invoke(config, tmp_path, command)
         assert result != 0 and output == "" and json.loads(errors)["error"]
     assert len(reads) == len(issued) == 1
     assert reads[0]["bearer"] is None
 
 
 @pytest.mark.parametrize("renewed_status", [200, 401])
-def test_cached_capability_renews_once_without_sending_or_refreshing_bearer(tmp_path, site_payload, renewed_status):
+@pytest.mark.parametrize("allocation", [False, True])
+def test_cached_capability_renews_once_without_sending_or_refreshing_bearer(
+    tmp_path, site_payload, site_allocation_payload, renewed_status, allocation,
+):
+    payload = site_allocation_payload if allocation else site_payload
+    command = ["jobs", "allocation", "12345"] if allocation else ["jobs", "list"]
     def gateway_reply(call, count):
         status = 200 if count == 1 else 401 if count == 2 else renewed_status
-        return status, site_payload if status == 200 else {"detail": "expired"}
+        return status, payload if status == 200 else {"detail": "expired"}
 
     with http_endpoint(issuer) as (portal, issued), http_endpoint(gateway_reply) as (gateway, reads):
         config = profile(tmp_path, portal, gateway)
-        assert invoke(config, tmp_path, ["jobs", "list"])[0] == 0
-        result, output, _ = invoke(config, tmp_path, ["jobs", "list"])
+        assert invoke(config, tmp_path, command)[0] == 0
+        result, output, _ = invoke(config, tmp_path, command)
         assert (result == 0) == (renewed_status == 200)
         if renewed_status == 401:
             assert output == ""
     assert len(issued) == 2 and len(reads) == 3
     assert [c["capability"] for c in reads] == ["opaque-capability-1", "opaque-capability-1", "opaque-capability-2"]
     assert all(c["bearer"] is None for c in reads)
+
+
+def test_allocation_uses_exact_operation_and_gateway_path(tmp_path, site_allocation_payload):
+    site_allocation_payload["job"]["array_task_id"] = "7"
+    with http_endpoint(issuer) as (portal, issued), http_endpoint(
+        lambda *_: (200, site_allocation_payload),
+    ) as (gateway, reads):
+        config = profile(tmp_path, portal, gateway)
+        for options in (["--site", "site-a", "jobs", "allocation", "12345_7"],
+                        ["jobs", "allocation", "12345_7", "--site", "site-a", "--format", "table"]):
+            result, output, errors = invoke(config, tmp_path, options)
+            assert result == 0, errors
+            if options[-1] == "table":
+                assert "Array task: 7" in output and "compute-a" in output
+            else:
+                assert json.loads(output) == site_allocation_payload
+        site_allocation_payload["job"]["array_task_id"] = None
+        result, output, errors = invoke(config, tmp_path, ["jobs", "allocation", "12345_7"])
+        assert result == 7 and output == ""
+    assert len(issued) == 1
+    assert issued[0]["body"] == {
+        "operation": "jobs.allocation", "site_id": "site-a", "cluster_id": "cluster-a",
+        "scope_type": "self", "slurm_account_id": None, "slurm_account_name": None,
+        "partition": None, "states": [], "job_id": "12345_7", "limit": None,
+    }
+    assert all(c["path"] == "/v1/site-read/jobs/12345_7/allocation" and c["bearer"] is None for c in reads)
+
+
+@pytest.mark.parametrize("capability", [False, True])
+def test_allocation_requires_explicit_gateway_without_central_calls(tmp_path, capability):
+    with http_endpoint(issuer) as (portal, calls):
+        config = tmp_path / "config.toml"
+        config.write_text('[profiles.default]\nsite_id="site-a"\ncluster_id="cluster-a"\n'
+                          f'base_url={json.dumps(portal)}\nrequire_site_capability={str(capability).lower()}\n')
+        config.chmod(0o600)
+        result, output, errors = invoke(config, tmp_path, ["jobs", "allocation", "12345"])
+    assert result == 2 and output == "" and "site_read_base_url" in errors
+    assert calls == []
 
 
 def test_cost_and_catalog_stay_central_when_native_job_origin_is_configured(tmp_path, running_estimate_payload):
