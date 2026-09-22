@@ -1,6 +1,9 @@
 # Native quota observation contract
 
-Status: local implementation candidate; deployment and live acceptance are separate.
+Status: merged implementation; deployment and live acceptance are separate.
+
+Producer: Portal `1dc290cffba86d587f68ab0921071f22aa3a486e`. Deploy the matching
+issuer and native gateway before enabling this consumer's native source.
 
 `storage.native-quota/v1` contains only authorized physical quota subjects read
 on demand. It is independent of `storage.quota-summary/v1`, which describes
