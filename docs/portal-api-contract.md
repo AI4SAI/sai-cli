@@ -401,6 +401,9 @@ not prove a live scheduler, installed gateway or production wrapper rollout.
 
 ### Job allocation snapshots
 
+Producer reference: `sai-portal` commit `9e3b12243`,
+`contracts/job-allocation/v1/README.md`. Deploy that producer before consumers.
+
 `sai jobs allocation JOB_ID` requires the explicit gateway configuration above;
 without it the command fails before making any request. It requests the exact
 `jobs.allocation` capability with the same grant constraints as `jobs.detail`,
