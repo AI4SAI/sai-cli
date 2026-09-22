@@ -167,7 +167,7 @@ def _safe_wheel_members(path: Path) -> list[zipfile.ZipInfo]:
             raise RuntimeError("wheel contains an unsafe member")
         names.add(member.filename)
         mode = member.external_attr >> 16
-        if mode and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+        if stat.S_IFMT(mode) not in {0, stat.S_IFREG, stat.S_IFDIR}:
             raise RuntimeError("wheel contains a non-regular member")
     return members
 

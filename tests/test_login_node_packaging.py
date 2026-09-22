@@ -7,6 +7,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
+import stat
+import zipfile
 
 import pytest
 
@@ -15,6 +17,20 @@ from scripts.build_login_node_deb import build
 
 
 _HAS_SETUPTOOLS = importlib.util.find_spec("setuptools") is not None
+
+
+def test_dependency_wheel_permissions_without_file_type_are_valid_but_links_are_not(tmp_path):
+    wheel = tmp_path / "dependency.whl"
+    member = zipfile.ZipInfo("example/METADATA")
+    member.external_attr = 0o644 << 16
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(member, "Name: example\n")
+    assert len(build_module._safe_wheel_members(wheel)) == 1
+    member.external_attr = (stat.S_IFLNK | 0o777) << 16
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(member, "outside")
+    with pytest.raises(RuntimeError, match="non-regular"):
+        build_module._safe_wheel_members(wheel)
 
 
 @pytest.fixture
