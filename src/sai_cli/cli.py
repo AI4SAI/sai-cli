@@ -24,7 +24,8 @@ from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
 from .oidc import OidcPending, OidcSlowDown
 from .render import (
     render_account_status, render_json, render_resource_catalog,
-    render_running_estimate_table, render_site_allocation, render_site_jobs, render_storage_quota_summary,
+    render_running_estimate_table, render_site_allocation, render_site_jobs,
+    render_storage_quota_summary, render_native_quota,
     render_table,
 )
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -81,10 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     storage = commands.add_parser("storage", help="read authorized storage observations")
     storage_commands = storage.add_subparsers(dest="storage_command", required=True)
-    quota_parser = storage_commands.add_parser("quota-summary", help="show sampled storage quota and usage")
-    _add_connection_arguments(quota_parser, suppress_defaults=True)
-    quota_parser.add_argument("--workspace-key", required=True, help="workspace key, such as personal:<id>")
-    _add_format_argument(quota_parser)
+    for command, help_text in (
+        ("quota-summary", "show sampled storage quota and usage"),
+        ("native-quota", "read authorized Lustre quota subjects on demand"),
+    ):
+        quota_parser = storage_commands.add_parser(command, help=help_text)
+        _add_connection_arguments(quota_parser, suppress_defaults=True)
+        quota_parser.add_argument("--workspace-key", required=True, help="workspace key, such as personal:<id>")
+        _add_format_argument(quota_parser)
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -456,11 +461,14 @@ def main(
             return 0
         if args.command == "storage":
             if args.cluster is not None:
-                raise ConfigError("storage quota-summary is site-scoped and does not accept --cluster")
-            if args.storage_command != "quota-summary":
-                raise ContractError("the selected storage command is not implemented")
-            result = client.storage_quota_summary(workspace_key=args.workspace_key, site_id=settings.site_id)
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_storage_quota_summary(result))
+                raise ConfigError("storage reads are site-scoped and do not accept --cluster")
+            if args.storage_command == "native-quota":
+                result = client.storage_native_quota(workspace_key=args.workspace_key, site_id=settings.site_id)
+                rendered = render_native_quota
+            else:
+                result = client.storage_quota_summary(workspace_key=args.workspace_key, site_id=settings.site_id)
+                rendered = render_storage_quota_summary
+            output.write(render_json(result.as_dict()) if output_format == "json" else rendered(result))
             return 0
         query = _job_query(args, settings=settings)
 

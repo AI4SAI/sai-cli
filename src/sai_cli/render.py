@@ -11,6 +11,7 @@ from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary
+from .native_quota import NativeQuotaResult
 
 
 _COLUMNS = (
@@ -200,6 +201,24 @@ def render_storage_quota_summary(result: StorageQuotaSummary) -> str:
         f"Observed at: {_display(values['observed_at'])}  Quota updated: {_display(values['quota_updated_at'])}",
         "Stored observation; check its time. No live filesystem query or final charge.",
     ]
+    return "\n".join(lines) + "\n"
+
+
+def render_native_quota(result: NativeQuotaResult) -> str:
+    values = result.values
+    lines = [
+        f"Workspace: {_display(values['workspace_key'])}  Site: {_display(values['site_id'])}",
+        f"Source: lustre_quota  Query completed: {_display(values['as_of'])}",
+        "Authorized quota subjects; these rows are not an organization pool total.",
+        "Native limits use 0 for unlimited. Counters are exact bytes and inodes.",
+    ]
+    for row in values["items"]:
+        lines.extend([
+            "", f"{_display(row['label'])} ({_display(row['kind'])})",
+            f"Quota: {_display(row['quota_ref'])}  Observed: {_display(row['observed_at'])}",
+            f"Used bytes: {row['used_bytes']}  Soft/hard bytes: {row['block_soft_bytes']}/{row['block_hard_bytes']}",
+            f"Used inodes: {row['used_inodes']}  Soft/hard inodes: {row['inode_soft']}/{row['inode_hard']}",
+        ])
     return "\n".join(lines) + "\n"
 
 

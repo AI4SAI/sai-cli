@@ -319,3 +319,52 @@ def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account
             finally:
                 release.set()
     asyncio.run(scenario())
+
+
+def test_storage_source_switch_discards_late_stored_sample():
+    from sai_cli.native_quota import NativeQuotaResult
+    from test_native_quota import native_payload
+
+    started, release = threading.Event(), threading.Event()
+    calls = []
+
+    class Client:
+        def resource_catalog(self, site):
+            return ResourceCatalog.from_payload(catalog(), site_id=site, request_id="catalog")
+
+        def storage_quota_summary(self, *, workspace_key, site_id):
+            calls.append("stored")
+            started.set()
+            assert release.wait(5)
+            return StorageQuotaSummary.from_payload(storage_sample(workspace_key),
+                workspace_key=workspace_key, site_id=site_id, request_id="stored")
+
+        def storage_native_quota(self, *, workspace_key, site_id):
+            calls.append("native")
+            return NativeQuotaResult.from_payload(native_payload(),
+                workspace_key=workspace_key, site_id=site_id, request_id="native")
+
+    async def scenario():
+        app = Workbench(Client(), JobQuery(site_id="site-a"), storage_workspace_key="project:example", refresh_seconds=999)
+        async with app.run_test(size=(60, 24)) as pilot:
+            try:
+                await settled(app, pilot)
+                app.query_one("#views", TabbedContent).active = "storage"
+                for _ in range(80):
+                    if started.is_set():
+                        break
+                    await pilot.pause(.02)
+                assert started.is_set()
+                app.query_one("#storage-source", Select).value = "native"
+                await pilot.pause(.02)
+                assert "storage" not in app.results
+                release.set()
+                await settled(app, pilot)
+                assert calls == ["stored", "native"]
+                assert isinstance(app.results["storage"], NativeQuotaResult)
+                content = str(app.query_one("#storage-summary", Static).render())
+                assert "lustre_quota" in content and "portal_quota_observation" not in content
+                assert "Native Lustre quota" in str(app.query_one("#status", Static).render())
+            finally:
+                release.set()
+    asyncio.run(scenario())

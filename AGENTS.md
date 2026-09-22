@@ -62,7 +62,7 @@
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
   transport is available for job list/detail when explicitly configured.
   The optional TUI reuses catalog/jobs/estimate clients; live resource capacity,
-  task-result/Pilot handoff, placement and storage usage remain roadmap items.
+  task-result/Pilot handoff and placement remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
@@ -94,6 +94,10 @@
 - `storage quota-summary` is a separate Identity-only central read with
   `sai.storage.read`. It exposes allowlisted stored observations and current/target
   quotas. It never queries native storage, scans paths, changes quotas or charges.
+- `storage native-quota` uses an independent `storage.quota.read` capability and
+  the trusted site origin for on-demand Lustre project-quota subjects. The TUI
+  chooses stored/native sources explicitly. Native rows are not organization
+  pool totals; gateway deployment and actual service-UID access remain separate.
 
 ## Inherited Portal Engineering Lessons
 

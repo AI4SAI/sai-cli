@@ -11,6 +11,7 @@ from .auth import TokenLease, _validate_token
 from .cache import TokenCache
 from .config import Settings
 from .errors import AuthenticationError, ContractError
+from .storage_summary import clean_workspace_key
 from .transport import JsonTransport
 
 
@@ -19,6 +20,9 @@ CAPABILITY_PATH = "/v1/authz/site-read"
 CAPABILITY_SCHEMA = "sai-site-read-capability/v1"
 CAPABILITY_AUDIENCE = "sai-site-read"
 CAPABILITY_SURFACE = "site-read"
+STORAGE_OPERATION = "storage.quota.read"
+STORAGE_CAPABILITY_PATH = "/v1/authz/storage-read"
+STORAGE_CAPABILITY_SCHEMA = "sai-storage-read-capability/v1"
 
 _OPERATIONS = frozenset(
     {
@@ -111,6 +115,17 @@ class CapabilityProvider:
         if not isinstance(request_body, Mapping):
             raise ContractError("the site-read capability request is invalid")
         body = dict(request_body)
+        if body.get("operation") == STORAGE_OPERATION:
+            if set(body) != {"operation", "site_id", "workspace_key"}:
+                raise ContractError("the storage capability request is invalid")
+            if not isinstance(body["site_id"], str) or not body["site_id"].strip():
+                raise ContractError("the storage capability site is invalid")
+            if clean_workspace_key(body["workspace_key"]) != body["workspace_key"]:
+                raise ContractError("the storage capability workspace is invalid")
+            return self._exchange(
+                body, operation=STORAGE_OPERATION, user_lease=user_lease,
+                force_refresh=force_refresh,
+            )
         if set(body) != _REQUEST_FIELDS:
             raise ContractError("the site-read capability request is invalid")
         operation = body.get("operation")
@@ -168,6 +183,15 @@ class CapabilityProvider:
             body.get("job_id") is not None or limit is not None
         ):
             raise ContractError("the site-read capability request is invalid")
+        return self._exchange(
+            body, operation=operation, user_lease=user_lease,
+            force_refresh=force_refresh,
+        )
+
+    def _exchange(
+        self, body: dict[str, object], *, operation: str,
+        user_lease: TokenLease, force_refresh: bool,
+    ) -> CapabilityLease:
         if not isinstance(user_lease, TokenLease) or not user_lease.token:
             raise AuthenticationError(
                 "the user session is unavailable",
@@ -179,7 +203,7 @@ class CapabilityProvider:
             request_body=body,
             read_origin=(
                 self.settings.site_read_base_url
-                if operation in {"jobs.list", "jobs.detail", "jobs.allocation"}
+                if operation in {"jobs.list", "jobs.detail", "jobs.allocation", STORAGE_OPERATION}
                 else None
             ),
         )
@@ -196,9 +220,10 @@ class CapabilityProvider:
 
         response = self.portal_transport.request(
             "POST",
-            CAPABILITY_PATH,
+            STORAGE_CAPABILITY_PATH if operation == STORAGE_OPERATION else CAPABILITY_PATH,
             headers={"Authorization": f"Bearer {user_lease.token}"},
-            json_body=body,
+            json_body=({key: value for key, value in body.items() if key != "operation"}
+                       if operation == STORAGE_OPERATION else body),
         )
         payload = response.payload
         if not isinstance(payload, Mapping):
@@ -207,13 +232,14 @@ class CapabilityProvider:
                 request_id=response.request_id,
             )
         required_echo = {
-            "schema_version": CAPABILITY_SCHEMA,
+            "schema_version": STORAGE_CAPABILITY_SCHEMA if operation == STORAGE_OPERATION else CAPABILITY_SCHEMA,
             "audience": CAPABILITY_AUDIENCE,
             "surface": CAPABILITY_SURFACE,
             "operation": operation,
             "site_id": body.get("site_id"),
-            "cluster_id": body.get("cluster_id"),
         }
+        binding_field = "workspace_key" if operation == STORAGE_OPERATION else "cluster_id"
+        required_echo[binding_field] = body.get(binding_field)
         if any(payload.get(field) != value for field, value in required_echo.items()):
             raise ContractError(
                 "the site-read capability response is invalid",

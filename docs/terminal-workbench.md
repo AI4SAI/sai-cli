@@ -32,13 +32,19 @@ shared login-node package or gateway.
    never a final charge. No match to a job is guessed from its numeric ID.
 
 Storage rows in Resources are published products only, not quota usage or
-file access. The separate Storage tab loads a stored quota sample after an
+file access. The separate Storage tab selects a stored quota sample or an
+on-demand native Lustre quota query after an
 explicit workspace key and Load; job account/scope never select that workspace.
 `sai tui --storage-workspace-key org:example` preselects it. Editing the workspace
 clears previous data immediately; Load and every refresh reauthorize the read.
 `sai.storage.read` is required. State, effective versus target quotas, nullable
 usage and observation time remain distinct; a negative remaining value means
-the observed usage exceeds the effective quota. No polling action samples Lustre.
+the observed usage exceeds the effective quota. Native mode instead shows exact
+byte/inode counters from authorized physical quota subjects. Native zero limits
+mean unlimited; rows are not a whole organization pool total. It requires the
+configured site gateway and never falls back to stored data. Changing source
+clears old results immediately and discards late responses from the previous
+source, using the same serialized reader.
 
 There is no empty placeholder for unavailable task-result,
 Pilot handoff, settled billing or hardware telemetry features.
@@ -81,7 +87,7 @@ real infrastructure acceptance.
 
 The full [unified workbench](unified-workbench.md) still needs authorized
 task/results contracts, selected-object Pilot handoff, richer resource
-eligibility and native storage/telemetry reads. The existing privileged Lustre
-write adapter cannot be attached to this UI as a read service: establish a
-native read permission and exact filesystem/quota-subject contract first,
-alongside the current Portal directory model. Keep 3D after truthful data.
+eligibility and hardware telemetry. Native storage quota is implemented locally;
+site installation, service-UID permissions and real Lustre behavior still require
+acceptance. The privileged storage write adapter is not used by this UI or
+packaged with the read gateway. Keep 3D after truthful data.

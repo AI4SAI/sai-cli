@@ -470,3 +470,40 @@ registration, the matching Portal producer, and explicit device reauthorization
 when adding the scope to managed configuration. Updating the CLI package does
 not overwrite managed configuration or grant a new scope to cached sessions.
 The registered scope remains subject to Portal authorization on every read.
+
+## Native storage quota
+
+`storage native-quota` requires a trusted `site_read_base_url`. The CLI sends
+only `workspace_key` and `site_id` to `POST /v1/authz/storage-read` with the
+Identity resource Bearer and `sai.storage.read`; Portal requires active shell
+access and resolves current workspace/site visibility plus typed project-ID
+assignments. Read permission is independent of submission and quota enforcement.
+The response is `sai-storage-read-capability/v1`, with the existing capability,
+expiry, audience/surface fields and exact operation/site/workspace echoes.
+
+The subsequent `GET /v1/site-read/storage/native-quota` has no query parameters
+and only `X-SAI-Capability`. The site checks its protected mount/namespace mapping
+and actual Lustre filesystem source before an unprivileged `lfs quota -p` query.
+It checks the returned project subject and strictly parses native counters.
+Neither credentials nor paths or raw project IDs appear in the public result.
+
+The [shared DTO](../contracts/storage-native-quota/v1/README.md) is
+`storage.native-quota/v1`, with `source=lustre_quota` and
+`coverage=authorized_quota_subjects`. Each row has exact decimal-string byte
+and inode counters, native soft/hard limits, safe references/label and UTC
+query completion time. Native zero limits mean unlimited. Per-row times may
+differ; this is not an atomic filesystem snapshot or a full organization pool
+total. Shared directories do not gain a separate quota or permission to see
+the organization's root. Sponsored-home funding is not aggregated here.
+
+At most 64 subjects and a 16 KiB capability are supported; an oversized scope
+fails explicitly, without truncation. There is no pagination or historical-data
+claim. Source failure, inaccurate native values and expired capabilities never
+fall back to stored summary data. Data responses are not cached; capability
+renewal uses the existing bounded policy and includes the trusted read origin
+in its cache key. Unknown additive response fields are discarded recursively.
+
+This issuer is CLI-specific. WebUI/Pilot require their own entrypoint policy
+before consuming the same native DTO; this route does not expand Agent grants.
+Installation and a read as the actual gateway service UID on the actual Lustre
+client remain separate deployment/acceptance gates.

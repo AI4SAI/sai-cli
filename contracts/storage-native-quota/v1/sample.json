@@ -1,0 +1,25 @@
+{
+  "schema_version": "storage.native-quota/v1",
+  "site_id": "site-a",
+  "workspace_key": "project:example",
+  "source": "lustre_quota",
+  "coverage": "authorized_quota_subjects",
+  "as_of": "2026-09-23T00:00:01Z",
+  "items": [
+    {
+      "quota_ref": "quota-example",
+      "allocation_ref": "allocation-example",
+      "mount_id": "mount-a",
+      "kind": "project",
+      "label": "Project example",
+      "observed_at": "2026-09-23T00:00:00Z",
+      "used_bytes": "4096",
+      "used_inodes": "2",
+      "block_soft_bytes": "1048576",
+      "block_hard_bytes": "2097152",
+      "inode_soft": "100",
+      "inode_hard": "200"
+    }
+  ],
+  "etag": "822fe2046a85a99fd87c93278b4816a307c851ce9aad1f0a709497aad559f4e5"
+}

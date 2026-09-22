@@ -29,12 +29,20 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, physical assets, utilization, live storage reads or storage management commands.
+- node topology, physical assets, utilization or storage management commands.
 
 `storage quota-summary --workspace-key personal:example` reads Portal's stored
 quota observation under the independent `sai.storage.read` Identity scope.
 Workspace and site are explicit; this is not an on-demand native storage read.
 No site capability, recursive scan, permission change or fee calculation occurs.
+
+`storage native-quota --workspace-key project:example` instead obtains a separate
+`storage.quota.read` capability and reads native Lustre quota subjects from the
+configured gateway. Its exact byte/inode counters and per-subject observation
+times describe physical quotas, not the organization's whole funding pool.
+There is no source fallback. The TUI Storage selector uses the same two client
+methods and clears old-source results immediately. Native deployment requires
+a reviewed readable filesystem anchor; local code does not enable it.
 
 `sai tui` is an optional interactive consumer of these same read methods.
 It keeps the configured site/cluster fixed, lets users explicitly apply job
@@ -43,10 +51,10 @@ detail and independent running estimates. Its dependencies are an optional
 extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 
-Optional TOML `site_read_base_url` selects direct site reads for `jobs list`
-and `jobs show`. `jobs allocation JOB_ID` requires this direct gateway setting
-and returns the versioned allocation snapshot; it has no central fallback.
-These reads require capability mode and an explicit cluster.
+Optional TOML `site_read_base_url` selects direct site reads for `jobs list`,
+`jobs show` and `storage native-quota`. `jobs allocation JOB_ID` also requires
+this setting and returns the versioned allocation snapshot without a central
+fallback. These reads require capability mode and an explicit cluster.
 The origin is HTTPS (unmanaged loopback HTTP for local tests); no argv or
 environment override is accepted. Managed installations use the existing
 protected configuration, not a new per-command mount or file hierarchy.

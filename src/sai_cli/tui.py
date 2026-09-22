@@ -16,7 +16,8 @@ from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ContractError, SaiCliError
-from .render import render_storage_quota_summary
+from .render import render_storage_quota_summary, render_native_quota
+from .native_quota import NativeQuotaResult
 from .site_jobs import SiteJobResult
 from .storage_summary import StorageQuotaSummary
 
@@ -74,6 +75,7 @@ class Workbench(App):
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
         self.storage_workspace_key = (storage_workspace_key or "").strip() or None
+        self.storage_source = "summary"
         self.results: dict[str, object] = {}
         self._failed_views: set[str] = set()
         self.usage_page = 0
@@ -114,9 +116,12 @@ class Workbench(App):
                     yield Button("Next", id="next")
             with TabPane("Storage", id="storage"):
                 with Horizontal(classes="controls"):
+                    yield Select([("Stored quota summary", "summary"), ("Native Lustre quota", "native")],
+                                 value="summary", allow_blank=False, id="storage-source")
+                with Horizontal(classes="controls"):
                     yield Input(self.storage_workspace_key or "", placeholder="Workspace key", id="storage-workspace")
                     yield Button("Load", id="load-storage", variant="primary")
-                yield Static("Existing quota sample; not a live filesystem scan. Workspace is selected independently of job scope.",
+                yield Static("Choose the source explicitly. Native quota shows authorized subjects, not the whole organization pool.",
                              classes="hint", markup=False)
                 with VerticalScroll(id="storage-scroll"):
                     yield Static("Enter a workspace key and choose Load.", id="storage-summary", markup=False)
@@ -181,12 +186,13 @@ class Workbench(App):
                 self._pending = False
                 revision, view, query, selected = self._revision, self.view, self.job_query, self.selected_job
                 workspace = self.storage_workspace_key
+                storage_source = self.storage_source
                 if view == "storage" and workspace is None:
                     continue
                 context = workspace if view == "storage" else f"{query.scope} · {query.account_name or query.account_id or 'self'}"
                 self.query_one("#status", Static).update(f"Refreshing {view} · {context}")
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace)
+                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source)
                 except SaiCliError as error:
                     if revision == self._revision:
                         self._read_error(view, error)
@@ -200,10 +206,12 @@ class Workbench(App):
         finally:
             self._reading = False
 
-    def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None):
+    def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None, storage_source: str = "summary"):
         if view == "resources":
             return self.client.resource_catalog(query.site_id)
         if view == "storage":
+            if storage_source == "native":
+                return self.client.storage_native_quota(workspace_key=workspace, site_id=query.site_id)
             return self.client.storage_quota_summary(workspace_key=workspace, site_id=query.site_id)
         if view == "usage":
             return self.client.running_estimates(query)
@@ -253,6 +261,9 @@ class Workbench(App):
             self.query_one("#storage-summary", Static).update(render_storage_quota_summary(result))
             values = result.values
             status = f"Stored quota sample · {values['state']} · observed {display(values['observed_at'])}"
+        elif view == "storage" and isinstance(result, NativeQuotaResult):
+            self.query_one("#storage-summary", Static).update(render_native_quota(result))
+            status = f"Native Lustre quota · queried {result.values['as_of']}"
         elif view == "resources" and isinstance(result, ResourceCatalog):
             self.catalog = result
             data = result.as_dict()
@@ -420,6 +431,17 @@ class Workbench(App):
                 self.selected_estimate = None
                 self.usage_page = max(0, self.usage_page + (1 if event.button.id == "next" else -1))
                 self._present("usage", result)
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "storage-source" or not self._workbench_ready:
+            return
+        if event.value not in {"summary", "native"} or event.value == self.storage_source:
+            return
+        self.storage_source = event.value
+        self._revision += 1
+        self._clear("storage")
+        if self.view == "storage":
+            self.request_read()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id != "storage-workspace" or not self._workbench_ready:

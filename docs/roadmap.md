@@ -46,6 +46,8 @@ or messages; none of these checkboxes is closed by the current login fragment.
 - [x] `sai resources catalog` against the shared published site catalog DTO
 - [x] `sai storage quota-summary` and independent TUI Storage view over Portal
   observations; new storage scope registration is a separate deployment gate
+- [x] Explicit `storage native-quota` and TUI source selection over authorized
+  on-demand Lustre project quota subjects; native service-UID acceptance pending
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -103,7 +105,8 @@ comparison, filtered job list/detail, and independent non-final estimates.
 Scope changes discard stale requests; network cancellation remains bounded by
 the HTTP timeout. Only estimates have local snapshot pages, not job-history
 pagination. Task results, settled billing, Pilot context handoff and live
-resource/storage views remain unfinished; this is not the full workbench.
+resource views remain unfinished. Native storage shows authorized quota subjects,
+not an organization pool aggregate; this is not the full workbench.
 
 Acceptance boundary: TUI contract against fake or development endpoints. It
 does not prove real placement, topology, rate data, or production latency.
@@ -122,6 +125,8 @@ does not prove real placement, topology, rate data, or production latency.
 - [ ] Client capability cache and renewal single-flight
 - [x] Explicit direct gateway transport for `jobs list/show`, capability-only
   credentials and versioned `jobs/v1`; cost/catalog/auth remain central
+- [x] Independent typed storage grant and `storage.native-quota/v1`; strict
+  filesystem/subject binding and no fallback to stored observations
 - [ ] Development-stack protocol smoke
 - [ ] Contract fixture usable by CLI/TUI, Portal relay, and a separately owned
   site-local read-only Web client

@@ -16,6 +16,8 @@ The first implementation milestone is intentionally read-only:
   used by WebUI and the SAI Pilot resource tool.
 - `sai storage quota-summary --workspace-key org:example` reads authorized
   effective/target quotas and timestamped stored usage, without filesystem access.
+- `sai storage native-quota --workspace-key project:example` reads authorized
+  Lustre project quota subjects on demand through the configured site gateway.
 - JSON is the default output. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
@@ -25,7 +27,8 @@ The first implementation milestone is intentionally read-only:
 
 The optional `sai tui` workbench compares published resources, narrows job
 queries, inspects job details and reads non-final running estimates through
-the same clients. Install with `pip install '.[tui]'` and run `sai tui` from
+the same clients. Storage has an independent workspace and explicit stored/native
+source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
 
 Job submission, cancellation and resource mutation remain roadmap items.

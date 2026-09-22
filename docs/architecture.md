@@ -25,6 +25,10 @@ running-estimate read APIs, plus the published site resource catalog.
 The catalog shares Portal's WebUI presenter and appears under
 `published_catalog` in Pilot's existing resource tool; Pilot's scheduler
 preparation metadata remains a separate part of that tool response.
+Storage has two explicit contracts: central business quota observations and
+on-demand native quota subjects through the site gateway. Both use existing
+Portal storage visibility; native reads never import a storage administration
+adapter into the CLI or present a physical project quota as a whole funding pool.
 Its development-only non-CLI compatibility mode
 still accepts a Portal credential. Managed capability/CLI routes accept only
 SAI Identity-issued resource tokens:

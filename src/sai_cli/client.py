@@ -13,6 +13,7 @@ from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
+from .native_quota import NativeQuotaResult
 from .transport import JsonResponse, JsonTransport
 
 
@@ -201,18 +202,29 @@ class PortalClient:
             )
         return lease, capability
 
-    def _site_get(
-        self, request: JobQuery, *, operation: str, job_id: str | None = None,
-    ) -> JsonResponse:
-        if self.site_transport is None or self.capability_provider is None:
-            raise ConfigError("this command requires site_read_base_url and capability mode")
+    def _site_jobs(self, query: JobQuery, *, job_id: str | None = None) -> SiteJobResult:
+        request = query.validated(detail=job_id is not None)
+        operation = "jobs.detail" if job_id is not None else "jobs.list"
         body = request.capability_request(operation=operation, job_id=job_id)
-        lease, capability = self._acquire_capability(body, lease=self.token_provider.get())
         path = "/v1/site-read/jobs"
         if job_id is not None:
             path += "/" + quote(job_id, safe="")
-        if operation == "jobs.allocation":
-            path += "/allocation"
+        response = self._site_get(path, body=body)
+        result = SiteJobResult.from_payload(response.payload, request_id=response.request_id)
+        result.require_request_binding(
+            site_id=request.site_id, cluster_id=request.cluster_id,
+            scope=_SCOPES[request.scope], request_id=response.request_id,
+            partition=request.partition, states=request.states,
+            limit=request.limit if job_id is None else None, job_id=job_id,
+            account_name=request.account_name,
+            expected_source="scontrol" if job_id is not None else "squeue",
+        )
+        return result
+
+    def _site_get(self, path: str, *, body: dict[str, object]) -> JsonResponse:
+        if self.site_transport is None or self.capability_provider is None:
+            raise ConfigError("native reads require a configured site_read_base_url and capability mode")
+        lease, capability = self._acquire_capability(body, lease=self.token_provider.get())
         # The gateway receives only the capability. All filters are signed in it.
         try:
             response = self.site_transport.request(
@@ -228,28 +240,15 @@ class PortalClient:
             )
         return response
 
-    def _site_jobs(self, query: JobQuery, *, job_id: str | None = None) -> SiteJobResult:
-        request = query.validated(detail=job_id is not None)
-        response = self._site_get(
-            request, operation="jobs.detail" if job_id is not None else "jobs.list", job_id=job_id,
-        )
-        result = SiteJobResult.from_payload(response.payload, request_id=response.request_id)
-        result.require_request_binding(
-            site_id=request.site_id, cluster_id=request.cluster_id,
-            scope=_SCOPES[request.scope], request_id=response.request_id,
-            partition=request.partition, states=request.states,
-            limit=request.limit if job_id is None else None, job_id=job_id,
-            account_name=request.account_name,
-            expected_source="scontrol" if job_id is not None else "squeue",
-        )
-        return result
-
     def job_allocation(self, job_id: str, query: JobQuery) -> SiteJobAllocationResult:
         identifier = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
         if not re.fullmatch(r"[0-9]+(?:_[0-9]+)?", identifier):
             raise ConfigError("allocation requires a numeric job ID or numeric job_task ID")
         request = query.validated(detail=True)
-        response = self._site_get(request, operation="jobs.allocation", job_id=identifier)
+        response = self._site_get(
+            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/allocation",
+            body=request.capability_request(operation="jobs.allocation", job_id=identifier),
+        )
         result = SiteJobAllocationResult.from_payload(response.payload, request_id=response.request_id)
         result.require_request_binding(
             site_id=request.site_id, cluster_id=request.cluster_id,
@@ -376,6 +375,18 @@ class PortalClient:
             response.payload,
             workspace_key=workspace,
             site_id=site,
+            request_id=response.request_id,
+        )
+
+    def storage_native_quota(self, *, workspace_key: str, site_id: str) -> NativeQuotaResult:
+        workspace = clean_workspace_key(workspace_key)
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        response = self._site_get(
+            "/v1/site-read/storage/native-quota",
+            body={"operation": "storage.quota.read", "workspace_key": workspace, "site_id": site},
+        )
+        return NativeQuotaResult.from_payload(
+            response.payload, workspace_key=workspace, site_id=site,
             request_id=response.request_id,
         )
 

@@ -1,8 +1,8 @@
 # Site-Local Interactive Read Plane
 
-Status: job list/detail direct transport and native-read gateway code are
+Status: job list/detail and native Lustre quota transport/gateway code are
 implemented locally; production installation and readback remain separate
-gates. Billing and future storage/resource operations retain their own gates.
+gates. Billing and future resource operations retain their own gates.
 
 ## Purpose and ownership
 
@@ -17,7 +17,7 @@ reuse where the source cost warrants it. A new UI does not require a central
 telemetry store or an always-running full-inventory collector.
 
 Slurm queue/detail adapters already provide this native-read foundation. A
-future resource-state or Lustre quota operation must extend the reviewed
+future resource-state operation must extend the reviewed
 operation contract and reuse the native source/parser, without importing the
 write-capable storage adapter's administrative authority. A native quota query
 is distinct from a recursive directory scan; the latter does not belong in
@@ -87,9 +87,9 @@ The CLI sends the capability only in `X-SAI-Capability`. It never receives a
 signing key, accepts a capability from argv/environment/config, or sends the
 Portal Bearer to the gateway.
 
-The client opts in using a trusted TOML `site_read_base_url` origin. Only job
-list/detail and the explicit allocation command use it; catalog, authentication
-and running cost remain central.
+The client opts in using a trusted TOML `site_read_base_url` origin. Job
+list/detail, allocation and explicit native quota use it; catalog, stored quota
+summary, authentication and running cost remain central.
 The read origin participates in the capability cache key. No failed gateway
 read falls back to another source.
 
@@ -121,6 +121,27 @@ It has no `sacct`, enforcement, reservation, metadata, provisioning, quota, or
 write method. Commands run without sudo, with explicit timeout and output
 bounds. A source failure returns a bounded unavailable result; it never falls
 back to broad accounting or a guessed empty success.
+
+## Native Lustre quota
+
+The independent `storage.quota.read` operation uses `storage-read-grant.v1`;
+it does not add storage subjects to the Slurm grant. Portal binds each current
+typed project-ID assignment to its filesystem namespace and mount, using the
+existing workspace/site and directory visibility policy. The gateway shares
+the original signature, epoch, revocation and expiry verifier.
+
+Its protected mount mapping supplies a readable quota anchor and exact expected
+native filesystem source. The gateway checks `findmnt`, then executes only
+`lfs quota -p` for authorized subjects. It has no sudo or write adapter. Its
+pure parser is shared with the existing storage readback implementation, without
+shipping storage administration code in the gateway package.
+
+The [native quota DTO](../contracts/storage-native-quota/v1/README.md) separates
+subject observations from business pool totals and stored delivery state. A
+failed, partial or inaccurate native query returns an error, never old data.
+Commands have a deadline and a captured-output limit; the runner still has no
+streaming memory ceiling. Protected binding configuration and service-UID access
+must be verified on the real site before enabling this optional operation.
 
 ## Running gross estimate
 
