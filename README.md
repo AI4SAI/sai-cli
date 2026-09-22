@@ -60,6 +60,7 @@ login-node package have been deployed.
 - [Login-node deployment run card](docs/login-node-deployment.md)
 - [Shared platform runtime layout](docs/platform-runtime-layout.md)
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
+- [Login summary product design](docs/login-summary-design.md) (proposed)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
 - [Terminal workbench](docs/terminal-workbench.md)

@@ -19,6 +19,20 @@ and representative GPU allocation canaries. This does not claim every site,
 topology, MPI mapping or scientific application has been revalidated. Detailed
 operations evidence is kept outside this repository.
 
+## Login summary: product design
+
+The [login summary design](login-summary-design.md) defines a compact view of
+the applied default identity, authorized funds, unread messages and actionable
+access/job/storage issues. It replaces noisy automatic reports and reuses the
+unified workbench's facts and permissions.
+
+- [ ] Coordinated Portal/CLI summary contract and role/scope validation
+- [ ] Proposed `sai status` read command and one shared login integration
+- [ ] Live login latency, privacy, cleanup and user-comprehension validation
+
+Design only. The existing `auth status` recovery route does not expose funds
+or messages; none of these checkboxes is closed by the current login fragment.
+
 ## Milestone 0.1: read-only jobs CLI
 
 - [x] Installable Python package and `sai` console entry point
