@@ -50,6 +50,11 @@ The separate site login fragment selects the working directory for the user's
 existing default Slurm identity. It belongs to the shared site shell environment,
 not to the CLI command or wheel. See [docs/login-workdir.md](docs/login-workdir.md).
 
+The shared Tcl module preflight checks the current process's numeric groups and
+offers a short access hint without a network request. It is a separate site
+artifact; see [software module access](docs/software-access.md) for its trusted
+binding, publication and validation boundaries.
+
 Production login-node mode requires the capability-bound Portal CLI surface.
 The legacy shared Portal endpoint uses `portal_read` policy and may accept
 `agent_only`; managed wrappers therefore set `SAI_REQUIRE_SITE_CAPABILITY=1`

@@ -209,6 +209,12 @@ database, or shared storage. Full policy, snapshot and rollout semantics are in
 
 ## Validation boundaries
 
+The separate `site/modules/software_access.tcl` artifact reads only the current
+process's numeric groups and a published software/GID definition. It does not
+call the CLI or implement Portal grant policy. Portal and the site executor share
+one package-owned access definition; native software file permissions remain the
+execution boundary. See [software module access](software-access.md).
+
 - Unit and CLI contract tests prove parsing, mapping, caching, redaction, DTO
   validation, and rendering only.
 - A local fake HTTP server proves request/response integration only.

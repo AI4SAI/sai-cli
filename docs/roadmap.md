@@ -19,6 +19,16 @@ and representative GPU allocation canaries. This does not claim every site,
 topology, MPI mapping or scientific application has been revalidated. Detailed
 operations evidence is kept outside this repository.
 
+## Site artifact: software module access
+
+- [x] One Tcl load checker over the process's native GIDs, with no remote request
+- [x] Versioned inert software/GID data contract and third-software behavior tests
+- [ ] Matching Portal/site binding release and protected shared publication
+- [ ] VASP/Gaussian real-user grant/revoke and module/file-access acceptance
+
+See [software module access](software-access.md). Local Tcl behavior does not
+prove a site deployment or refresh the groups of existing sessions.
+
 ## Login summary: product design
 
 The [login summary design](login-summary-design.md) defines a compact view of

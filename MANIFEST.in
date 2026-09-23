@@ -10,4 +10,5 @@ recursive-include site *.lua
 recursive-include site *.bash
 recursive-include site *.patch
 recursive-include packaging/login-node *.txt
+recursive-include site *.tcl
 recursive-include tests *.py
