@@ -54,6 +54,8 @@
 - The implemented surface is `sai jobs list`, `sai jobs show`, and the
   non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`
   for published specifications and prices (not live capacity or eligibility).
+  `sai status` reads the authorized account overview (funds and unread messages);
+  its inline panel returns to Shell, while `sai tui` opens the full workbench.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
 - Development compatibility can call Portal `GET /v1/slurm/jobs`, detail, and
@@ -174,6 +176,8 @@ editing either side. Do not copy private collaboration logs into this repo.
 - Shared platform scripts and the CLI are published once on NFS. Compute nodes
   consume the same files; do not create per-node runtime copies, CLI packages,
   release state or script distribution as the normal update mechanism.
+- Managed non-secret CLI connection settings live once at
+  `/opt/sai/cli/config.toml`; do not replicate them into compute-node `/etc`.
 - Reuse the established shared profile and PATH. A new function does not justify
   a new top-level mount, bootstrap, service or configuration hierarchy.
 - Separate a one-time mount/entrypoint migration from routine software releases.
@@ -262,6 +266,10 @@ editing either side. Do not copy private collaboration logs into this repo.
 ### Engineering Taste
 
 - Start with the user-visible invariant and one authoritative owner.
+- A new login summary must preserve useful existing information until an
+  equivalent default presentation exists; manual lookup alone is not equivalent.
+- Keep the applied login identity consistent across the directory, summary and
+  workbench overview. Job scopes and storage workspaces remain independent.
 - Keep scripts to a few clear operations using existing tools. Do not hide
   complexity in long lines, nested helpers or custom deployment frameworks.
 - Every check needs a real business or protocol reason; preserve valid native
