@@ -1,6 +1,6 @@
 # Software module access
 
-Status: candidate; deployment and real-user acceptance are separate gates.
+Status: implemented; deployment acceptance is recorded separately below.
 
 Commercial-software authorization remains a Portal fact. Active grant sources
 are combined there and the existing revision-bound site task applies one
@@ -44,6 +44,22 @@ permission evidence, and there is no root exception or per-session allow marker.
 Old processes retain their group credentials: refreshing NSS does not update an
 existing shell or stop an already-running application.
 
+The existing site identity-refresh task handles effective permission changes.
+Refresh the changed user's SSSD entry on identity consumers; NFS servers using
+`manage-gids` also need their native server group cache invalidated. That NFS
+invalidation is server-wide. Missing cache entries are normal for new users;
+actual refresh failures must prevent a successful consumption receipt. Verify
+both membership and file access before declaring the change effective.
+Refresh traffic scales with permission changes and target count, not daily
+active users or module loads. Bulk changes require bounded delivery; this is
+not a claim of measured peak capacity.
+
+Module metadata must remain readable without access to the installation. If a
+module sources an environment script from a restricted directory, use the native
+Tcl load/remove modes around that operation; `show`, `help` and `spider` need only
+the module's public metadata. This applies to every such environment script and
+does not add a software-specific authorization rule.
+
 ## Acceptance and rollout
 
 Preserve existing group names and restricted software-directory permissions.
@@ -59,3 +75,11 @@ grant-source union and revoke semantics, old/new sessions and direct file
 access. A third configured test software must use the same code. Include a
 representative compute-node read through the existing mount. Local Tcl tests do
 not prove the real Portal/FreeIPA task chain, installed Lmod or NFS enforcement.
+
+Bounded site acceptance completed with both software families: shared module
+and file access from a login node and a representative compute node, denial
+without membership, source-union retention and final-source revocation through
+Portal tasks and five identity consumers. An existing shell retained its GIDs
+after revocation while new file opens were denied by NFS. This does not claim
+termination of running programs, every-site coverage or a load-test result.
+Private operations evidence and rollback artifacts are kept outside this repo.

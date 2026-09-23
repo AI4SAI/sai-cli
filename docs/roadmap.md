@@ -23,8 +23,8 @@ operations evidence is kept outside this repository.
 
 - [x] One Tcl load checker over the process's native GIDs, with no remote request
 - [x] Versioned inert software/GID data contract and third-software behavior tests
-- [ ] Matching Portal/site binding release and protected shared publication
-- [ ] VASP/Gaussian real-user grant/revoke and module/file-access acceptance
+- [x] Matching Portal/site binding release and protected shared publication
+- [x] VASP/Gaussian bounded site grant/revoke and module/file-access acceptance
 
 See [software module access](software-access.md). Local Tcl behavior does not
 prove a site deployment or refresh the groups of existing sessions.
