@@ -110,6 +110,8 @@ are candidate designs, not completed implementation milestones.
   array-task identity, paused refresh and complete F5 replacement (local HTTP only)
 - [x] Open in Web for an inspected job using Portal-owned workspace mapping,
   observation comparison and a visible same-origin link (local HTTP/Textual only)
+- [x] Explicit project-scoped Tasks with owner-only managed-run history, detail,
+  bounded stdout/stderr and output-file pages (local validation; no runtime start)
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
@@ -125,7 +127,7 @@ Web navigation rechecks the exact job and workspace and carries the prior
 observation as comparison evidence; it does not launch or renew a Pilot task.
 Scope changes discard stale requests; network cancellation remains bounded by
 the HTTP timeout. Only estimates have local snapshot pages, not job-history
-pagination. Task results, settled billing, Pilot context handoff and live
+pagination. Native output preview/deep links, settled billing and live
 resource views remain unfinished. Native storage shows authorized quota subjects,
 not an organization pool aggregate; this is not the full workbench.
 

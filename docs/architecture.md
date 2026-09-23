@@ -41,6 +41,21 @@ user -> sai-cli -> SAI Identity device authorization and refresh
 Published resource-catalog reads end at Portal's stored product projection;
 they do not invoke the site reader.
 
+Managed-run reads reuse Portal's existing ComputeRun records and readback
+services. The CLI supplies an explicit project/site and reads only its own runs;
+current project membership/site and CLI read admission are independent of
+submission, payer activation and Pilot Session grants. State is a persisted
+execution receipt, not a refreshed Slurm queue observation. It includes no final
+billing projection. No scheduler-ID-to-Run relationship is guessed.
+
+Managed stdout/stderr and output-file metadata require current applied file READ
+permission for the Run's frozen mount lineage. They reuse the existing dedicated
+interactive-read site adapter; this is a Portal-brokered read, not a new direct
+site capability. The CLI never receives that credential. The two file methods
+use bounded HTTP responses and refuse redirects. The artifact list represents
+current files under declared output roots, not immutable results or file-content
+permission. Native Pilot preview keeps its separate owner.
+
 The target remote-site path separates authorization from the query hot path:
 
 ```text

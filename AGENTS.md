@@ -114,6 +114,15 @@
   the trusted site origin for on-demand Lustre project-quota subjects. The TUI
   chooses stored/native sources explicitly. Native rows are not organization
   pool totals; gateway deployment and actual service-UID access remain separate.
+- `runs list/show/logs/files` and TUI Tasks use independent Identity-only
+  owner/project/site reads of existing ComputeRuns. Recorded state is not live
+  scheduler state or final billing. Current file READ is checked separately;
+  logs and declared output metadata reuse the bounded dedicated interactive-read
+  adapter. This adds no Run writer, submission permission or Pilot activation.
+- Log text and output-relative names are explicit fields of this separately
+  authorized contract. JSON escapes terminal controls without losing decoded
+  data; human output renders them visibly. Arbitrary paths, raw provider errors
+  and unknown response fields remain excluded.
 
 ## Inherited Portal Engineering Lessons
 

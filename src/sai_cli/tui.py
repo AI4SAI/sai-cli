@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterable
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
 from rich.text import Text
 from rich.table import Table
@@ -20,6 +21,10 @@ from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ContractError, ForbiddenError, SaiCliError
 from .job_web_context import JobWebContext
+from .managed_runs import (
+    ManagedReadResult, ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
+    clean_tasks_workspace, render_managed_runs, terminal_log,
+)
 from .render import render_storage_quota_summary, render_native_quota
 from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
@@ -56,6 +61,32 @@ def allocation_panel(result: SiteJobAllocationResult) -> Group:
         table.add_row(Text(node.name), Text(str(node.cpus)), Text(display(node.memory_mib)))
     hint = Text("Auto refresh paused while inspecting allocation. F5 reads a new snapshot; Esc returns.")
     return Group(header, table, hint) if result.nodes else Group(header, hint)
+
+
+def task_file_panel(result: ManagedRunLogs | ManagedRunArtifacts) -> Group:
+    data = result.values
+    page = "Last page" if data["complete"] else "More pages: choose Next"
+    if isinstance(result, ManagedRunLogs):
+        if not data["available"]:
+            return Group(Text("Log is not available yet. Refresh to retry."))
+        return Group(Text(f"{data['stream']} · {page}"),
+                     Text(terminal_log(data["content"])))
+    if not data["items"]:
+        return Group(Text("No output files in this page."), Text(page))
+    rows = []
+    for item in data["items"]:
+        rows.extend((Text(terminal_log(item["relative_path"]), style="bold", overflow="fold"),
+                     Text(f"{item['size_bytes']} bytes", overflow="fold"),
+                     Text(modified_time_text(item["modified_at_ns"]), overflow="fold"), Text("")))
+    return Group(*rows, Text(page))
+
+
+def modified_time_text(nanoseconds: int) -> str:
+    try:
+        instant = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=nanoseconds // 1_000_000_000)
+    except OverflowError:
+        return f"Modified: {nanoseconds} ns since Unix epoch (outside calendar range)"
+    return "Modified UTC: " + instant.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class Workbench(App):
@@ -98,6 +129,7 @@ class Workbench(App):
     def __init__(
         self, client: PortalClient, query: JobQuery, *, refresh_seconds: int = 10,
         storage_workspace_key: str | None = None,
+        tasks_workspace_key: str | None = None,
         overview_account: str | None = None,
         initial_view: str = "resources",
     ):
@@ -113,6 +145,11 @@ class Workbench(App):
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
         self.storage_workspace_key = (storage_workspace_key or "").strip() or None
+        self.tasks_workspace_key = clean_tasks_workspace(tasks_workspace_key) if tasks_workspace_key else None
+        self.selected_run: str | None = None
+        self.task_mode = "list"
+        self.task_cursor: str | None = None
+        self.task_file_page: ManagedRunLogs | ManagedRunArtifacts | None = None
         self.overview_account = overview_account
         self.storage_source = "summary"
         self.results: dict[str, object] = {}
@@ -160,6 +197,20 @@ class Workbench(App):
                     web_button = Button("Open Web", id="open-job-web", disabled=True, tooltip="Open this job in Web (W)")
                     web_button.display = False
                     yield web_button
+            with TabPane("Tasks", id="tasks"):
+                with Horizontal(classes="controls"):
+                    yield Input(self.tasks_workspace_key or "", placeholder="project:<id>", id="tasks-workspace")
+                    yield Button("Load", id="load-tasks", variant="primary")
+                yield Static("My managed runs · Enter opens a task. Stored state, not the live queue.", classes="hint", markup=False)
+                yield DataTable(id="tasks-table", cursor_type="row")
+                with Horizontal(classes="controls"):
+                    yield Button("Details", id="task-detail", disabled=True)
+                    yield Button("Stdout", id="task-stdout", disabled=True)
+                    yield Button("Stderr", id="task-stderr", disabled=True)
+                    yield Button("Files", id="task-files", disabled=True)
+                with Horizontal(classes="controls"):
+                    yield Button("Start", id="task-start", disabled=True)
+                    yield Button("Next", id="task-next", disabled=True)
             with TabPane("Running estimates", id="usage"):
                 yield Static("Non-final estimates. Published prices and final charges are separate.", classes="hint", markup=False)
                 yield DataTable(id="usage-table", cursor_type="row")
@@ -190,13 +241,14 @@ class Workbench(App):
         for name, columns in {
             "resources": ("Partition / storage", "Kind", "CPU/node", "GPUs total", "Price"),
             "jobs": ("Job", "Name", "State", "Partition", "Reason / nodes"),
+            "tasks": ("Run", "Title", "State", "Scheduler ID", "Observed UTC"),
             "usage": ("Job", "State", "Estimate", "Gross CNY", "Before credit CNY"),
         }.items():
             self.query_one(f"#{name}-table", DataTable).add_columns(*columns)
         self._workbench_ready = True
-        if self.view == "overview":
-            for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
-                self.query_one(f"#{name}").display = False
+        for name in ("job-scope-controls", "job-filter-controls"):
+            self.query_one(f"#{name}").display = self.view not in {"storage", "overview", "tasks"}
+        self.query_one("#details-scroll").display = self.view not in {"storage", "overview"}
         self._update_scope_display()
         self.set_interval(self.refresh_seconds, self._tick)
         self.request_read()
@@ -212,15 +264,21 @@ class Workbench(App):
             return
         previous_view = self.view
         self._discard_allocation()
+        self._clear_task_files()
         self.view = view
         self.selected_job = None
         self.job_mode = "detail"
         self.selected_estimate = None
         self._revision += 1
-        for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
-            self.query_one(f"#{name}").display = view not in {"storage", "overview"}
+        for name in ("job-scope-controls", "job-filter-controls"):
+            self.query_one(f"#{name}").display = view not in {"storage", "overview", "tasks"}
+        self.query_one("#details-scroll").display = view not in {"storage", "overview"}
         if view == "storage":
             self.query_one("#storage-workspace", Input).focus()
+        elif view == "tasks":
+            self.task_mode = "detail" if self.selected_run else "list"
+            self.task_cursor = None
+            self.query_one("#tasks-workspace", Input).focus()
         elif view == "overview":
             self.query_one("#overview-summary", Static).scroll_visible()
         elif previous_view in {"storage", "overview"}:
@@ -232,6 +290,7 @@ class Workbench(App):
     def _tick(self) -> None:
         if (not self.paused and not self._reading and self.view not in self._failed_views
                 and not (self.view == "usage" and self.selected_estimate is not None)
+                and not (self.view == "tasks" and self.task_mode in {"stdout", "stderr", "files"})
                 and not (self.view == "jobs" and self.job_mode == "allocation" and self.selected_job is not None)):
             self.request_read()
 
@@ -240,6 +299,9 @@ class Workbench(App):
         self._update_web_button()
         if self.view == "storage" and self.storage_workspace_key is None:
             self.query_one("#status", Static).update("Choose a storage workspace, then Load.")
+            return
+        if self.view == "tasks" and self.tasks_workspace_key is None:
+            self.query_one("#status", Static).update("Enter a project workspace, then Load to find your managed runs.")
             return
         self._failed_views.discard(self.view)
         self._pending = True
@@ -250,6 +312,7 @@ class Workbench(App):
             self._reading = True
             self.run_worker(self._read_loop())
         self._update_web_button()
+        self._update_task_actions()
 
     async def _read_loop(self) -> None:
         try:
@@ -265,12 +328,15 @@ class Workbench(App):
                 workspace = self.storage_workspace_key
                 storage_source = self.storage_source
                 job_mode = self.job_mode
+                task_request = (self.tasks_workspace_key, self.task_mode, self.selected_run, self.task_cursor)
                 if view == "storage" and workspace is None:
                     continue
-                context = workspace if view == "storage" else f"{query.scope} · {query.account_name or query.account_id or 'self'}"
+                if view == "tasks" and task_request[0] is None:
+                    continue
+                context = task_request[0] if view == "tasks" else workspace if view == "storage" else f"{query.scope} · {query.account_name or query.account_id or 'self'}"
                 self.query_one("#status", Static).update(f"Refreshing {view} · {context}")
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source, job_mode)
+                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source, job_mode, task_request)
                 except SaiCliError as error:
                     if revision == self._revision:
                         self._read_error(view, error)
@@ -279,7 +345,10 @@ class Workbench(App):
                         self._read_error(view, ContractError("The view could not be loaded."))
                 else:
                     if revision == self._revision:
-                        self.results[view] = result
+                        if view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts)):
+                            self.task_file_page = result
+                        else:
+                            self.results[view] = result
                         self._present(view, result)
                         if view == "jobs" and selected is not None:
                             self._job_detail_revision = revision
@@ -287,6 +356,7 @@ class Workbench(App):
             self._reading = False
             if self.is_running:
                 self._update_web_button()
+                self._update_task_actions()
 
     def _update_web_button(self) -> None:
         button = self.query_one("#open-job-web", Button)
@@ -333,6 +403,10 @@ class Workbench(App):
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         yield from super().get_system_commands(screen)
+        yield SystemCommand("My managed tasks", "Find your runs in an explicitly selected project", self.action_tasks)
+        if self.view == "tasks" and isinstance(self.results.get("tasks"), ManagedRunDetail):
+            for mode, label in (("detail", "Task details"), ("stdout", "Read task stdout"), ("stderr", "Read task stderr"), ("files", "List output files")):
+                yield SystemCommand(label, "Read this managed run in the applied project", lambda mode=mode: self._inspect_task(mode))
         if self._can_inspect_job():
             yield SystemCommand("View allocation", "Read the selected job's allocated nodes", self.action_view_allocation)
         button = self.query_one("#open-job-web", Button)
@@ -400,8 +474,79 @@ class Workbench(App):
                 self.query_one("#status", Static).update("Web link ready. Open it in your browser." if link_ready else
                                                        "The job Web context could not be loaded. Open in Web to retry.")
 
+    def action_tasks(self) -> None:
+        self.query_one("#views", TabbedContent).active = "tasks"
+
+    def _clear_task_files(self) -> None:
+        self.task_file_page = None
+        if self.view == "tasks":
+            result = self.results.get("tasks")
+            self.query_one("#details", Static).update(Text(render_managed_runs(result)) if isinstance(result, ManagedRunDetail) else "")
+        self._update_task_actions()
+
+    def _update_task_actions(self) -> None:
+        result = self.results.get("tasks")
+        busy = self._reading or self._pending
+        rows = isinstance(result, ManagedRunList) and bool(result.values["items"])
+        detail = isinstance(result, ManagedRunDetail) and result.values["run"]["run_ref"] == self.selected_run
+        for name in ("detail", "stdout", "stderr", "files"):
+            self.query_one(f"#task-{name}", Button).disabled = not (detail or (name == "detail" and rows))
+        page = result if self.task_mode == "list" else self.task_file_page
+        more = page is not None and bool(page.values.get("has_more") if isinstance(page, ManagedRunList)
+            else page.values["truncated"] if isinstance(page, ManagedRunLogs) else not page.values["complete"])
+        self.query_one("#task-next", Button).disabled = busy or not more or page.values.get("next_cursor") is None
+        self.query_one("#task-start", Button).disabled = busy or not self.tasks_workspace_key or self.task_mode == "detail"
+
+    def _inspect_task(self, mode: str, *, run_ref: str | None = None) -> None:
+        if self.view != "tasks" or self.tasks_workspace_key is None:
+            return
+        result = self.results.get("tasks")
+        if isinstance(result, ManagedRunList):
+            if mode != "detail" or not result.values["items"]:
+                return
+            table = self.query_one("#tasks-table", DataTable)
+            run_ref = run_ref or table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
+            if not any(run["run_ref"] == run_ref for run in result.values["items"]):
+                return
+        elif isinstance(result, ManagedRunDetail):
+            run_ref = result.values["run"]["run_ref"]
+        else:
+            return
+        self.selected_run = run_ref
+        self.task_mode, self.task_cursor = mode, None
+        self._revision += 1
+        self._clear_task_files()
+        self.request_read()
+
+    def _task_page(self, *, start: bool) -> None:
+        if self.view != "tasks" or self.task_mode == "detail" or self.tasks_workspace_key is None:
+            return
+        button = self.query_one("#task-start" if start else "#task-next", Button)
+        if button.disabled:
+            return
+        page = self.results.get("tasks") if self.task_mode == "list" else self.task_file_page
+        if not start and page is None:
+            return
+        self.task_cursor = None if start else page.values["next_cursor"]
+        self._revision += 1
+        self._clear_task_files()
+        if self.task_mode == "list":
+            self.results.pop("tasks", None)
+            self.query_one("#tasks-table", DataTable).clear()
+        self.request_read()
+
     def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None,
-               storage_source: str = "summary", job_mode: str = "detail"):
+               storage_source: str = "summary", job_mode: str = "detail", task_request: tuple = ()):
+        if view == "tasks":
+            task_workspace, mode, run, cursor = task_request
+            scope = {"workspace_key": task_workspace, "site_id": query.site_id}
+            if mode == "list":
+                return self.client.list_managed_runs(**scope, limit=50, cursor=cursor)
+            if mode == "detail":
+                return self.client.managed_run(run, **scope)
+            if mode in {"stdout", "stderr"}:
+                return self.client.managed_run_logs(run, **scope, stream=mode, cursor=cursor, max_bytes=65536)
+            return self.client.managed_run_artifacts(run, **scope, cursor=cursor, limit=100)
         if view == "overview":
             return self.client.account_overview(query.site_id, account=self.overview_account)
         if view == "resources":
@@ -420,6 +565,11 @@ class Workbench(App):
 
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
+        if view == "tasks":
+            self.selected_run = None
+            self.task_mode = "list"
+            self.task_cursor = None
+            self._clear_task_files()
         if view == "jobs":
             self._job_detail_revision = None
             self.query_one("#open-job-web", Button).display = False
@@ -442,8 +592,12 @@ class Workbench(App):
 
     def _read_error(self, view: str, error: SaiCliError) -> None:
         self._failed_views.add(view)
+        if view == "tasks" and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
+            self._clear_task_files()
+            self.query_one("#status", Static).update(f"{error.message} · {error.code}")
+            return
         if isinstance(error, AuthenticationError):
-            for name in ("resources", "jobs", "usage", "storage", "overview"):
+            for name in ("resources", "jobs", "usage", "storage", "overview", "tasks"):
                 self._clear(name)
             self.selected_job = None
             self.job_mode = "detail"
@@ -467,7 +621,24 @@ class Workbench(App):
 
     def _present(self, view: str, result: object) -> None:
         status = ""
-        if view == "overview" and isinstance(result, AccountOverview):
+        if view == "tasks" and isinstance(result, ManagedReadResult):
+            data = result.values
+            if isinstance(result, (ManagedRunList, ManagedRunDetail)):
+                runs = data["items"] if isinstance(result, ManagedRunList) else [data["run"]]
+                self._rows("tasks", [(row["run_ref"], (
+                    row["run_ref"], terminal_log(row["title"]) if row["title"] is not None else None,
+                    row["status"], row["scheduler_ref"], row["last_observed_at"],
+                )) for row in runs])
+                if isinstance(result, ManagedRunList):
+                    self.query_one("#details", Static).update("Select a managed run to inspect its status, logs and output files." if runs else "No managed runs in this project.")
+                else:
+                    self.query_one("#details", Static).update(Text(render_managed_runs(result)))
+                status = f"Managed run records · queried {data['queried_at']}"
+            else:
+                self.query_one("#details", Static).update(task_file_panel(result))
+                status = f"{self.task_mode} · observed {data['observed_at']} · manual refresh"
+            self._update_task_actions()
+        elif view == "overview" and isinstance(result, AccountOverview):
             self.query_one("#overview-summary", Static).update(overview_panel(result, base_url=self.client.transport.base_url))
             self.query_one("#overview-messages", Button).disabled = False
             status = "当前身份摘要 · 消息展示不会标为已读"
@@ -568,6 +739,8 @@ class Workbench(App):
                 )
         elif event.data_table.id == "jobs-table":
             self._inspect_job("detail", row_key=key)
+        elif event.data_table.id == "tasks-table":
+            self._inspect_task("detail", run_ref=key)
         elif event.data_table.id == "usage-table":
             result = self.results.get("usage")
             if isinstance(result, RunningEstimateResult):
@@ -611,6 +784,10 @@ class Workbench(App):
         return True
 
     def _update_scope_display(self) -> None:
+        if self.view == "tasks":
+            self.query_one("#context", Static).update(
+                f"SAI · {self.job_query.site_id}\nMy managed tasks · {self.tasks_workspace_key or 'choose a project'}")
+            return
         if self.view == "overview":
             self.query_one("#context", Static).update(f"SAI · {self.job_query.site_id}\n默认工作身份 · 本人资金与未读消息")
             return
@@ -626,7 +803,22 @@ class Workbench(App):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id in {"view-job", "view-allocation"}:
+        if event.button.id == "load-tasks":
+            try:
+                workspace = clean_tasks_workspace(self.query_one("#tasks-workspace", Input).value.strip())
+            except SaiCliError as error:
+                self.query_one("#status", Static).update(error.message)
+                return
+            self.tasks_workspace_key = workspace
+            self._revision += 1
+            self._clear("tasks")
+            self._update_scope_display()
+            self.request_read()
+        elif event.button.id in {"task-detail", "task-stdout", "task-stderr", "task-files"}:
+            self._inspect_task(event.button.id.removeprefix("task-"))
+        elif event.button.id in {"task-start", "task-next"}:
+            self._task_page(start=event.button.id == "task-start")
+        elif event.button.id in {"view-job", "view-allocation"}:
             if event.button.id == "view-allocation":
                 self.action_view_allocation()
             else:
@@ -699,6 +891,17 @@ class Workbench(App):
             self.request_read()
 
     def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "tasks-workspace" and self._workbench_ready:
+            if event.value.strip() != (self.tasks_workspace_key or ""):
+                self.tasks_workspace_key = None
+                self._clear("tasks")
+                if self.view == "tasks":
+                    self._revision += 1
+                    self._pending = False
+                    self._update_scope_display()
+                    self.query_one("#status", Static).update("Project changed. Choose Load to read your managed tasks.")
+                self._update_task_actions()
+            return
         if event.input.id != "storage-workspace" or not self._workbench_ready:
             return
         if event.value.strip() == (self.storage_workspace_key or ""):
@@ -713,6 +916,9 @@ class Workbench(App):
 
     def action_refresh(self) -> None:
         self.selected_estimate = None
+        if self.view == "tasks":
+            self._revision += 1
+            self._clear_task_files()
         if self.view == "jobs":
             self._revision += 1
             if self.job_mode == "allocation":
@@ -727,6 +933,11 @@ class Workbench(App):
             self.action_refresh()
 
     def action_back(self) -> None:
+        if self.view == "tasks" and self.selected_run:
+            self._revision += 1
+            self._clear("tasks")
+            self.request_read()
+            return
         if self.selected_estimate is not None:
             self.selected_estimate = None
             self.query_one("#details", Static).update("")

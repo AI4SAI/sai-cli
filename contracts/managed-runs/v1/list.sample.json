@@ -1,0 +1,26 @@
+{
+  "schema_version": "compute.runs/v1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "source": "portal_run_receipts",
+  "queried_at": "2030-01-01T00:06:00Z",
+  "items": [
+    {
+      "run_ref": "run-example-1",
+      "title": "simulation.py",
+      "status": "completed",
+      "state_revision": 4,
+      "cluster_id": "cluster-a",
+      "scheduler_ref": "12345",
+      "scheduler_state": "COMPLETED",
+      "accepted_at": "2030-01-01T00:00:00Z",
+      "queued_at": "2030-01-01T00:00:01Z",
+      "started_at": "2030-01-01T00:00:05Z",
+      "finished_at": "2030-01-01T00:05:00Z",
+      "last_observed_at": "2030-01-01T00:05:05Z",
+      "error_code": null
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}

@@ -46,6 +46,15 @@ write-capable site-agent process, and it is not packaged in the CLI wheel.
 
 ## Capability
 
+Managed-run logs and declared output-file listings retain their existing
+ComputeRun readback path through Portal and its dedicated `interactive-read`
+site credential. The CLI holds only its Identity token and sends no file path,
+username or site secret. Portal checks current file READ and frozen mount
+lineage before calling the two bounded site methods. Those methods reject
+redirects and responses above 1 MiB; the log content itself is at most 64 KiB
+and an output page at most 100 files. This does not create a file capability in
+the native jobs/quota gateway or a second filesystem reader.
+
 The outer token is exactly the `sai-authz` v1 envelope. Product fields are the
 typed `interactive-read-grant.v1` payload:
 

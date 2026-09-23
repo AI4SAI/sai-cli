@@ -53,6 +53,29 @@ def build_parser() -> argparse.ArgumentParser:
     tui.add_argument("--partition", help="partition narrowing filter")
     tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
+    tui.add_argument("--tasks-workspace-key", help="independent managed-run workspace (project:<id>)")
+    runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
+    run_commands = runs.add_subparsers(dest="runs_command", required=True)
+    for command, description in (
+        ("list", "list your managed computations, including completed runs"),
+        ("show", "show the recorded state of one managed computation"),
+        ("logs", "read a bounded page of a managed run's stdout or stderr"),
+        ("files", "list current files in a managed run's declared outputs"),
+    ):
+        run_parser = run_commands.add_parser(command, help=description)
+        _add_connection_arguments(run_parser, suppress_defaults=True)
+        run_parser.add_argument("--workspace-key", required=True, help="authorized project:<id> workspace")
+        if command != "list":
+            run_parser.add_argument("run_ref", help="managed run reference returned by runs list")
+        if command in {"list", "files"}:
+            run_parser.add_argument("--limit", type=int, default=50 if command == "list" else 100,
+                                    help="maximum rows in one page (1-100)")
+        if command in {"list", "logs", "files"}:
+            run_parser.add_argument("--cursor", help="next cursor returned by the previous page")
+        if command == "logs":
+            run_parser.add_argument("--stream", choices=("stdout", "stderr"), default="stdout")
+            run_parser.add_argument("--max-bytes", type=int, default=65536, help="maximum log bytes (1-65536)")
+        _add_format_argument(run_parser)
     jobs = commands.add_parser("jobs", help="read authorized scheduler jobs")
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
 
@@ -505,6 +528,22 @@ def main(
                 rendered = render_storage_quota_summary
             output.write(render_json(result.as_dict()) if output_format == "json" else rendered(result))
             return 0
+        if args.command == "runs":
+            from .managed_runs import render_managed_runs
+            if args.cluster is not None:
+                raise ConfigError("managed runs are site-scoped and do not accept --cluster")
+            scope = {"workspace_key": args.workspace_key, "site_id": settings.site_id}
+            if args.runs_command == "list":
+                result = client.list_managed_runs(**scope, limit=args.limit, cursor=args.cursor)
+            elif args.runs_command == "show":
+                result = client.managed_run(args.run_ref, **scope)
+            elif args.runs_command == "logs":
+                result = client.managed_run_logs(args.run_ref, **scope, stream=args.stream,
+                                                 cursor=args.cursor, max_bytes=args.max_bytes)
+            else:
+                result = client.managed_run_artifacts(args.run_ref, **scope, cursor=args.cursor, limit=args.limit)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_managed_runs(result))
+            return 0
         query = _job_query(args, settings=settings)
 
         if args.command == "tui":
@@ -517,7 +556,11 @@ def main(
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
+            tasks_workspace = clean_workspace_key(args.tasks_workspace_key) if args.tasks_workspace_key else None
+            if tasks_workspace is not None and not tasks_workspace.startswith("project:"):
+                raise ConfigError("managed runs require an explicit project workspace")
             Workbench(client, query, storage_workspace_key=workspace,
+                      tasks_workspace_key=tasks_workspace,
                       overview_account=login_account, initial_view="overview").run()
             return 0
 

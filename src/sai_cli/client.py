@@ -13,6 +13,10 @@ from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .job_web_context import JobWebContext
+from .managed_runs import (
+    ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
+    clean_run_ref, clean_tasks_workspace,
+)
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .native_quota import NativeQuotaResult
@@ -383,6 +387,54 @@ class PortalClient:
             lease = self.token_provider.get(force_exchange=True)
             return self._get_with_lease(path, query=query, lease=lease)
 
+    def _managed_read(self, *, workspace_key: str, site_id: str, run_ref: str | None = None,
+                      suffix: str = "", **parameters: str | int | None) -> JsonResponse:
+        workspace = clean_tasks_workspace(workspace_key)
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        path = "/v1/compute/cli/runs"
+        if run_ref is not None:
+            path += "/" + quote(clean_run_ref(run_ref), safe="") + suffix
+        return self._central_get(path, query={"workspace_key": workspace, "site_id": site, **parameters})
+
+    def list_managed_runs(self, *, workspace_key: str, site_id: str, limit: int = 50,
+                          cursor: str | None = None) -> ManagedRunList:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("run limit must be between 1 and 100")
+        if cursor is not None:
+            clean_run_ref(cursor)
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, limit=limit, cursor=cursor)
+        return ManagedRunList.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                          limit=limit, cursor=cursor, request_id=response.request_id)
+
+    def managed_run(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunDetail:
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref)
+        return ManagedRunDetail.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                            run_ref=run_ref, request_id=response.request_id)
+
+    def managed_run_logs(self, run_ref: str, *, workspace_key: str, site_id: str, stream: str = "stdout",
+                         cursor: str | None = None, max_bytes: int = 65536) -> ManagedRunLogs:
+        if stream not in {"stdout", "stderr"}:
+            raise ConfigError("log stream must be stdout or stderr")
+        if type(max_bytes) is not int or not 1 <= max_bytes <= 65536:
+            raise ConfigError("log max_bytes must be between 1 and 65536")
+        if cursor is not None and (not isinstance(cursor, str) or re.fullmatch(rf"log-{stream}-(?:0|[1-9][0-9]{{0,18}})", cursor) is None
+                                   or int(cursor.rsplit("-", 1)[1]) > 2**63 - 1):
+            raise ConfigError("log cursor is invalid for this stream")
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/logs",
+                                      stream=stream, cursor=cursor, max_bytes=max_bytes)
+        return ManagedRunLogs.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                          run_ref=run_ref, stream=stream, cursor=cursor, max_bytes=max_bytes, request_id=response.request_id)
+
+    def managed_run_artifacts(self, run_ref: str, *, workspace_key: str, site_id: str,
+                             cursor: str | None = None, limit: int = 100) -> ManagedRunArtifacts:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("output file limit must be between 1 and 100")
+        if cursor is not None and (not isinstance(cursor, str) or re.fullmatch(r"0|[1-9][0-9]{0,8}", cursor) is None):
+            raise ConfigError("output file cursor is invalid")
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/artifacts",
+                                      cursor=cursor, limit=limit)
+        return ManagedRunArtifacts.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                               run_ref=run_ref, cursor=cursor, limit=limit, request_id=response.request_id)
     def resource_catalog(self, site_id: str) -> ResourceCatalog:
         site = clean_token(site_id, field="site", required=True)
         prefix = "/v1/account/cli/sites" if self._cli_surface_enabled else "/v1/account/sites"

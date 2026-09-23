@@ -45,7 +45,9 @@ _RUNNING_ESTIMATE_COLUMNS = (
 
 
 def render_json(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+    # JSON already escapes C0; escape the remaining terminal control range too.
+    return encoded.translate({value: f"\\u{value:04x}" for value in range(127, 160)}) + "\n"
 
 
 def render_account_status(status: AccountStatus) -> str:

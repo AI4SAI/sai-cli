@@ -133,6 +133,29 @@ establish that authorization boundary.
 
 ## Scope selection
 
+### Managed tasks
+
+`runs list`, `runs show RUN_REF`, `runs logs RUN_REF` and `runs files RUN_REF`
+require `--workspace-key project:ID` and the configured or explicit site. The
+current producer owns project-backed ComputeRuns. These commands reject an
+explicit `--cluster`; each task's recorded cluster is a returned fact. Run
+references come from the task list, not from numeric scheduler IDs.
+
+List/file pages accept `--limit` (1–100) and the previous response's `--cursor`.
+Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
+JSON remains the default; table mode displays log control bytes as escaped text.
+JSON also escapes terminal control ranges while preserving decoded content.
+
+Tasks in `sai tui` uses its own project input or `--tasks-workspace-key`, without
+inheriting the Jobs account, storage workspace or Overview's default identity.
+The existing worker serializes all reads. Run metadata may refresh; log and
+output pages are explicit, one-page observations. Next/Start replace the page;
+they do not append an unbounded log. Changing project, mode or tab invalidates
+late responses. File-read denial clears only the file observation; task-scope
+denial clears Tasks, and authentication failure clears all protected views.
+
+### Scheduler jobs
+
 `--scope` accepts `self`, `personal-account`, `org-account`, or
 `project-account`.
 

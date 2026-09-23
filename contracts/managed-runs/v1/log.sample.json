@@ -1,0 +1,18 @@
+{
+  "schema_version": "compute-run-log.v1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "run_ref": "run-example-1",
+  "stream": "stdout",
+  "available": true,
+  "content": "calculation complete\nenergy = -1.250000\n",
+  "cursor": "log-stdout-0",
+  "next_cursor": "log-stdout-40",
+  "truncated": false,
+  "complete": true,
+  "observed_at": "2030-01-01T00:06:00Z",
+  "freshness": {
+    "source": "site-agent",
+    "queried_at": "2030-01-01T00:06:00Z"
+  }
+}

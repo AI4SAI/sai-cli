@@ -14,6 +14,9 @@ The first implementation milestone is intentionally read-only:
 - `sai jobs allocation JOB_ID` reads a job's current allocation snapshot from
   an explicitly configured capability-bound site gateway.
 - `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
+- `sai runs list/show/logs/files --workspace-key project:example` reads your
+  managed computations, including completed runs, bounded logs and output-file
+  metadata. Task records and current file reads remain separate sources.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.
 - `sai storage quota-summary --workspace-key org:example` reads authorized
@@ -47,6 +50,11 @@ submission time or restart count requires a TUI refresh before navigation.
 Storage has an independent workspace and explicit stored/native
 source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
+
+Tasks uses an independently chosen project. It finds your accepted managed runs
+after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
+Stderr and Files read one bounded page only when requested. Reading does not
+start Pilot, renew its model window, submit work or grant file access.
 
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
@@ -175,6 +183,8 @@ sai jobs list --states R,PD --partition gpu-standard --format table
 sai jobs show 12345
 sai jobs cost --states R,PD --format table
 sai resources catalog --site site-a --format table
+sai runs list --workspace-key project:example --site site-a
+sai runs logs run-example --workspace-key project:example --stream stderr --format table
 ```
 
 Connection options are accepted before or after the leaf command, so both

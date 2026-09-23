@@ -62,8 +62,8 @@ configured site gateway and never falls back to stored data. Changing source
 clears old results immediately and discards late responses from the previous
 source, using the same serialized reader.
 
-There is no empty placeholder for unavailable task-result,
-Pilot handoff, settled billing or hardware telemetry features.
+The workbench does not add placeholders for unavailable native result preview,
+settled billing or hardware telemetry features.
 
 ## Interaction and data behavior
 
@@ -94,6 +94,21 @@ Pilot handoff, settled billing or hardware telemetry features.
 - Narrow/short windows use compact controls; details scroll vertically and
   tables can scroll horizontally. Comparison remains a table of the same
   validated facts, not a new product or pricing model.
+
+## Managed tasks and output pages
+
+Tasks keeps an explicit project workspace independent of Jobs and Storage.
+Use Load to discover your accepted managed runs, including terminal runs no
+longer present in the live queue. Enter opens the recorded status and its source
+time. It does not query Slurm or turn an uncertain submission into success.
+
+Stdout, Stderr and Files are explicit reads under the task's current file
+permissions. They replace a single bounded page; Next follows the returned
+cursor and Start returns to the first page. Logs and file pages do not auto-poll,
+and changing the project clears earlier protected data. A denied directory does
+not hide still-authorized task metadata. Output filenames describe current files
+under the declared roots, not a sealed result version. Pilot's native document
+preview remains the file viewer; this terminal slice does not create one.
 
 ## Continue in the console
 
@@ -146,9 +161,11 @@ UI rows, not invented business identifiers. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.
 
-The full [unified workbench](unified-workbench.md) still needs authorized
-task/results contracts, selected-object Pilot handoff, richer resource
-eligibility and hardware telemetry. Native storage quota is implemented locally;
+The full [unified workbench](unified-workbench.md) still needs managed-task result
+navigation, richer resource eligibility and hardware telemetry. Managed task
+history, logs and output listings now reuse the existing Run/readback contracts;
+job context can continue into the console's existing Pilot handoff.
+Native storage quota is implemented locally;
 site installation, service-UID permissions and real Lustre behavior still require
 acceptance. The privileged storage write adapter is not used by this UI or
 packaged with the read gateway. Keep 3D after truthful data.

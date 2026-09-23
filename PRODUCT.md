@@ -15,9 +15,11 @@ separately authorized view of hardware, networks and failures.
 ## Product Purpose
 
 The implemented product is a read-only compute CLI with an optional terminal
-workbench for resource comparison, job inspection and running estimates.
+workbench for resource comparison, job allocation, managed task history,
+logs, output listings, storage quota and running estimates. Authorized job
+context can continue into the console and its existing Pilot flow.
 It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
-workbench design, including task results and Pilot context handoff, is described in
+workbench design, including hardware telemetry and result navigation, is described in
 [the unified workbench design](docs/unified-workbench.md); the design is not an
 implementation or deployment claim.
 

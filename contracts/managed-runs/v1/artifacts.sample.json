@@ -1,0 +1,24 @@
+{
+  "schema_version": "compute-run-artifacts.v1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "run_ref": "run-example-1",
+  "cursor": "0",
+  "next_cursor": null,
+  "complete": true,
+  "observed_at": "2030-01-01T00:06:00Z",
+  "freshness": {
+    "source": "site-agent",
+    "queried_at": "2030-01-01T00:06:00Z"
+  },
+  "items": [
+    {
+      "artifact_ref": "artifact-0123456789abcdef0123456789abcdef01234567",
+      "display_name": "outputs/energy result.txt",
+      "relative_path": "outputs/energy result.txt",
+      "kind": "file",
+      "size_bytes": 40,
+      "modified_at_ns": 1893456300000000001
+    }
+  ]
+}

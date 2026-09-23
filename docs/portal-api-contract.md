@@ -103,6 +103,41 @@ revoking an independently valid self observation. Source/identity denials retain
 their existing clearing behavior. `503/job_navigation_unavailable` means missing
 or ambiguous ownership; it never triggers a default-workspace fallback.
 
+## Managed runs and declared outputs
+
+Identity-only central routes consume `sai.compute.read` and current CLI access:
+
+```text
+GET /v1/compute/cli/runs
+GET /v1/compute/cli/runs/{run_ref}
+GET /v1/compute/cli/runs/{run_ref}/logs
+GET /v1/compute/cli/runs/{run_ref}/artifacts
+```
+
+Every route requires the explicit `workspace_key` and `site_id`. The list is
+owner-only and uses descending accepted time plus run reference, with a scoped
+last-row reference as its next cursor. A cursor from another actor/workspace/site
+cannot broaden the query. State/detail expose allowlisted `compute.runs/v1` and
+`compute.run/v1` receipts; final charges, worker internals and correlation IDs
+are excluded. Current project READ can inspect an owned run without submission,
+active payer, writable files or a current Pilot activation.
+
+Logs and artifact metadata reuse `compute-run-log.v1` and
+`compute-run-artifacts.v1`, adding explicit workspace/site response binding.
+Each call separately requires the current applied READ permission for the
+frozen directory. `run_file_read_denied` does not imply that task state became
+inaccessible. Logs preserve the stream-bound byte cursor, UTF-8 byte count,
+availability and completion; unavailable is not an empty completed log. Files
+are the current declared outputs, including exact size/nanosecond metadata and
+relative display names, not a content-addressed archive or download grant.
+
+The four paired schemas and examples are in `contracts/managed-runs/v1`.
+Paired Portal producer: `d0894c10815d5e3ba8a39a1117ee96cad2190ac6`.
+This identifies source compatibility, not a deployed server version.
+Unknown extra fields are dropped. File content is a specifically authorized
+log field; it never enables arbitrary file paths or native command output in
+errors. No client-side pricing, new task record or polling daemon is added.
+
 ## List jobs
 
 ```text

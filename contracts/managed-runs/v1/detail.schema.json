@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One authorized Portal managed Run receipt",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "maxLength": 64,
+      "format": "date-time",
+      "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "run_ref": {
+          "$ref": "#/$defs/reference"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "not": {
+                "pattern": "[/\\x00-\\x1f\\x7f]"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "canceled",
+            "canceling",
+            "needs_attention"
+          ]
+        },
+        "state_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cluster_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]*$",
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          }
+        },
+        "scheduler_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scheduler_state": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accepted_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "queued_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_observed_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "run_ref",
+        "title",
+        "status",
+        "state_revision",
+        "cluster_id",
+        "scheduler_ref",
+        "scheduler_state",
+        "accepted_at",
+        "queued_at",
+        "started_at",
+        "finished_at",
+        "last_observed_at",
+        "error_code"
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "compute.run/v1"
+    },
+    "workspace_key": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 128,
+      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "source": {
+      "const": "portal_run_receipts"
+    },
+    "queried_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    }
+  },
+  "required": [
+    "schema_version",
+    "workspace_key",
+    "site_id",
+    "source",
+    "queried_at",
+    "run"
+  ]
+}
