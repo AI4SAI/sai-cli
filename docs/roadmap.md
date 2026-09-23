@@ -106,6 +106,8 @@ are candidate designs, not completed implementation milestones.
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
 - [x] TUI running-usage estimate view; the batch `jobs cost` view already
   exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
+- [x] Separate TUI allocation inspection over one site snapshot, including exact
+  array-task identity, paused refresh and complete F5 replacement (local HTTP only)
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
@@ -113,7 +115,10 @@ are candidate designs, not completed implementation milestones.
 - [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
 
 The first [terminal workbench](terminal-workbench.md) supports two-partition
-comparison, filtered job list/detail, and independent non-final estimates.
+comparison, filtered job list/detail, allocation inspection, and independent
+non-final estimates. Allocation shows the response's nodes, CPU/memory, freshness
+and restart count with explicit allocated/not-allocated/unavailable states.
+It does not provide measured utilization, GPU placement or physical location.
 Scope changes discard stale requests; network cancellation remains bounded by
 the HTTP timeout. Only estimates have local snapshot pages, not job-history
 pagination. Task results, settled billing, Pilot context handoff and live

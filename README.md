@@ -28,11 +28,15 @@ The first implementation milestone is intentionally read-only:
   user does not log in again for every SSH connection.
 
 The optional `sai tui` workbench compares published resources, narrows job
-queries, inspects job details and reads non-final running estimates through
-the same clients, starting with the default-identity Overview. Managed login
+queries, inspects job details or allocation snapshots, and reads non-final running
+estimates through the same clients, starting with the default-identity Overview. Managed login
 shows the summary panel and returns to Shell; the full workbench opens manually.
 Existing login help, rules, quota/resource status and notes remain available
 automatically, with directory selection before quota reads.
+View allocation requires the configured site gateway and shows one response's
+job, nodes, freshness and restart count. Automatic
+refresh pauses during inspection; F5 replaces the whole snapshot. This is allocated
+CPU/memory data, not measured utilization or physical location.
 Storage has an independent workspace and explicit stored/native
 source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).

@@ -156,6 +156,22 @@ def test_detail_binding_requires_one_exact_job_and_no_truncation(site_jobs_paylo
             SiteJobResult.from_payload(payload, request_id="detail").require_request_binding(**request)
 
 
+@pytest.mark.parametrize("task", ["0", "7"])
+def test_detail_binding_uses_canonical_array_identity(site_jobs_payload, task):
+    site_jobs_payload["items"][0]["array_task_id"] = task
+    result = SiteJobResult.from_payload(site_jobs_payload, request_id="array-detail")
+    request = dict(site_id="site-a", cluster_id="cluster-a", scope="self", request_id="array-detail")
+    result.require_request_binding(job_id=f"12345_{task}", **request)
+    assert result.items[0].canonical_id == f"12345_{task}"
+    for wrong in ("12345", "12345_8"):
+        with pytest.raises(ContractError):
+            result.require_request_binding(job_id=wrong, **request)
+    site_jobs_payload["items"][0].update(job_id=f"12345_{task}", array_task_id=None)
+    SiteJobResult.from_payload(site_jobs_payload, request_id="array-detail").require_request_binding(
+        job_id=f"12345_{task}", **request,
+    )
+
+
 @pytest.mark.parametrize("requested,returned", [("RUNNING", "R"), ("PENDING", "PD"), ("CONFIGURING", "CONFIGURING")])
 def test_state_binding_accepts_documented_native_aliases_only(site_jobs_payload, requested, returned):
     site_jobs_payload["items"][0]["state"] = returned

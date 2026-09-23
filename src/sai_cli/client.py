@@ -456,7 +456,7 @@ class PortalClient:
             scope=_SCOPES[request.scope],
             request_id=response.request_id,
         )
-        if len(result.items) != 1 or result.items[0].values["job_id"] != clean_job_id:
+        if len(result.items) != 1 or result.items[0].canonical_id != clean_job_id:
             raise ContractError(
                 "the job detail response must contain the requested job",
                 request_id=response.request_id,

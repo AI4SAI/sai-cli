@@ -16,6 +16,7 @@ sai jobs list --site site-a --scope project-account --account project-example \
 sai jobs show 12345 --site site-a
 sai jobs show 12345 --site site-a --scope project-account \
   --account project-example
+sai jobs allocation 12345_0 --site site-a --cluster cluster-a
 sai jobs cost --site site-a
 sai jobs cost --site site-a --scope project-account \
   --account project-example --states R,PD --partition gpu-standard
@@ -52,7 +53,14 @@ On managed login nodes, `sai status` and Overview retain the applied login Accou
 an explicit `status --account` overrides it, while job and storage scopes remain independent.
 It keeps the configured site/cluster fixed, lets users explicitly apply job
 scope and narrowing filters, compares published partitions, and shows job
-detail and independent running estimates. Its dependencies are an optional
+detail, allocation snapshots and independent running estimates. View allocation
+uses one response for the job, node CPU/memory, freshness and restart count,
+without merging a previous detail response. Inspection pauses automatic refresh;
+F5 clears and replaces the full snapshot. Changing object, mode, applied scope
+or tab, or pressing Escape, clears the allocation and discards late responses.
+Array-task identity includes task zero for both detail and allocation. Allocation
+states remain explicit; utilization and physical location are not inferred.
+Its dependencies are an optional
 extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 

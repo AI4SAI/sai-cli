@@ -51,7 +51,8 @@
 
 - Python 3.11+ is required.
 - The batch CLI has no third-party runtime dependency.
-- The implemented surface is `sai jobs list`, `sai jobs show`, and the
+- The implemented surface includes `sai jobs list`, `sai jobs show`,
+  `sai jobs allocation`, and the
   non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`
   for published specifications and prices (not live capacity or eligibility).
   `sai status` reads the authorized account overview (funds and unread messages);
@@ -62,9 +63,13 @@
   `GET /v1/billing/running-estimates`. Managed production mode first obtains
   an opaque site-read capability and calls the server-bound
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
-  transport is available for job list/detail when explicitly configured.
-  The optional TUI reuses catalog/jobs/estimate clients; live resource capacity,
-  task-result/Pilot handoff and placement remain roadmap items.
+  transport is available for job list/detail/allocation when explicitly configured.
+  The optional TUI reuses catalog/jobs/estimate clients and exposes separate job
+  detail and allocation actions. Allocation displays one response's job, nodes,
+  CPU/memory, freshness and restart count; it pauses automatic refresh and F5
+  clears and replaces the whole snapshot. Array-task identity preserves task zero.
+  Live resource capacity, task-result/Pilot handoff, measured utilization and
+  physical/GPU placement remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local

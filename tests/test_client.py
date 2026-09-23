@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from sai_cli.client import JobQuery, clean_states
-from sai_cli.errors import ConfigError
+from sai_cli.client import JobQuery, PortalClient, clean_states
+from sai_cli.errors import ConfigError, ContractError
 
 
 def test_job_query_maps_hyphenated_scope_and_narrowing_filters() -> None:
@@ -105,3 +105,26 @@ def test_capability_request_uses_strict_json_shape() -> None:
 def test_capability_request_rejects_missing_cluster() -> None:
     with pytest.raises(ConfigError, match="cluster"):
         JobQuery(site_id="site-a").capability_request(operation="jobs.list")
+
+
+@pytest.mark.parametrize("task", ["0", "7"])
+def test_central_show_binds_exact_canonical_array_identity(job_payload, task, monkeypatch):
+    from types import SimpleNamespace
+    from urllib.parse import urlsplit
+    from sai_cli.auth import TokenLease
+    from sai_cli.transport import JsonTransport
+    from test_site_transport import http_endpoint
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    job_payload["items"][0]["array_task_id"] = task
+    with http_endpoint(lambda *_: (200, job_payload)) as (origin, requests):
+        client = PortalClient(transport=JsonTransport(base_url=origin, timeout_seconds=2), token_provider=SimpleNamespace(
+            get=lambda: TokenLease("test-token", None, "environment")))
+        query = JobQuery(site_id="site-a", cluster_id="cluster-a")
+        assert client.show_job(f"12345_{task}", query).items[0].canonical_id == f"12345_{task}"
+        for wrong in ("12345", "12345_8"):
+            with pytest.raises(ContractError):
+                client.show_job(wrong, query)
+        job_payload["items"][0].update(job_id=f"12345_{task}", array_task_id=None)
+        assert client.show_job(f"12345_{task}", query).items[0].canonical_id == f"12345_{task}"
+    assert urlsplit(requests[0]["path"]).path == f"/v1/slurm/jobs/12345_{task}"

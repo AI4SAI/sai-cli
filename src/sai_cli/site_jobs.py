@@ -187,7 +187,7 @@ class SiteJobResult(_SiteJobContext):
             values = item.values
             if ((partition is not None and values["partition"] != partition)
                     or (allowed_states and values["state"] not in allowed_states)
-                    or (job_id is not None and values["job_id"] != job_id)):
+                    or (job_id is not None and item.canonical_id != job_id)):
                 raise ContractError(request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
@@ -271,11 +271,8 @@ class SiteJobAllocationResult(_SiteJobContext):
     ) -> None:
         super().require_request_binding(expected_source="scontrol", **context)
         values = self.job.values
-        identity = values["job_id"]
-        if values["array_task_id"] is not None:
-            identity = f"{identity}_{values['array_task_id']}"
         allowed_states = {_STATE_SHORT.get(state, state) for state in states}
-        if identity != job_id or (allowed_states and values["state"] not in allowed_states):
+        if self.job.canonical_id != job_id or (allowed_states and values["state"] not in allowed_states):
             raise ContractError(request_id=context["request_id"])
 
     def as_dict(self) -> dict[str, Any]:

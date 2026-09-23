@@ -337,6 +337,12 @@ class AccountStatus:
 class JobItem:
     values: dict[str, str | int | None]
 
+    @property
+    def canonical_id(self) -> str:
+        """Compose the identity from fields already validated at the DTO boundary."""
+        job_id, task = self.values["job_id"], self.values["array_task_id"]
+        return str(job_id) if task is None else f"{job_id}_{task}"
+
     @classmethod
     def from_payload(
         cls,

@@ -29,12 +29,23 @@ Storage keep their independent, explicitly selected scopes.
 2. Use View jobs to apply the most recently selected partition to the Jobs
    view. Change scope, account name/ID, partition or states and select Apply.
    The applied context remains visible; draft controls do not change authority.
-3. Press Enter on a job for its separately authorized detail. Escape returns
-   to the list. Native site-read mode is used when explicitly configured;
-   otherwise the existing Portal transport is used. Neither path falls back.
+3. Press Enter on a job or choose View details for its separately authorized
+   detail. View allocation instead requests one allocation snapshot from the
+   explicitly configured site gateway. Escape returns to the list. Ordinary
+   detail uses native site-read mode when configured and the existing Portal
+   transport otherwise. Allocation requires native configuration and capability
+   mode; missing configuration displays an error. Neither path falls back.
 4. Open Running estimates to request the independent billing DTO. Enter shows
    one item's amounts, price revision, source time and uncertainty. This is
    never a final charge. No match to a job is guessed from its numeric ID.
+
+Allocation inspection takes job identity, scheduler states, restart count,
+observation time/freshness and node CPU/memory rows from one response. It never
+combines an earlier job detail with a newer node list. `allocated`,
+`not_allocated` and `unavailable` remain distinct; unknown memory remains unknown.
+Array tasks retain their complete identity, including task zero (`12345_0`),
+for both detail and allocation requests. These observations do not report
+measured utilization, GPU placement, racks or physical topology.
 
 Storage rows in Resources are published products only, not quota usage or
 file access. The separate Storage tab selects a stored quota sample or an
@@ -61,6 +72,10 @@ Pilot handoff, settled billing or hardware telemetry features.
 - The active view refreshes every ten seconds; inactive views do not poll.
   Inspecting an estimate pauses that view's automatic refresh to preserve its
   exact snapshot. Escape or a manual refresh leaves that inspection.
+- Inspecting an allocation also pauses automatic refresh. F5 or Refresh clears
+  the old allocation immediately and requests a complete replacement snapshot;
+  inspection remains paused. Changing job, detail/allocation mode, applied scope
+  or tab, or pressing Escape, discards the allocation and any late response.
 - One background reader serializes client calls, including credential refresh.
   Repeated requests coalesce into the latest requested view/context. Changing
   scope clears old data and invalidates in-flight results. Network calls are
@@ -83,9 +98,12 @@ Pilot handoff, settled billing or hardware telemetry features.
 ## Validation and remaining work
 
 Headless tests exercise the real HTTP client through resource comparison,
-partition selection, detail requests and independently denied estimates.
+partition selection, detail/allocation requests and independently denied estimates.
+Allocation tests use separate local Portal and gateway HTTP origins, array tasks
+including zero, snapshot replacement, denied reads and missing configuration.
 Delayed-result tests exercise scope replacement, old permission failures and
-request coalescing. Nullable/duplicate estimate identities use snapshot-local
+request coalescing, including job/mode/tab changes during allocation reads.
+Nullable/duplicate estimate identities use snapshot-local
 UI rows, not invented business identifiers. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.

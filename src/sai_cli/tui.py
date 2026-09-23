@@ -7,6 +7,7 @@ from dataclasses import replace
 
 from rich.text import Text
 from rich.table import Table
+from rich.console import Group
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
@@ -20,13 +21,38 @@ from .render import render_storage_quota_summary, render_native_quota
 from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
 from .overview_view import overview_panel
-from .site_jobs import SiteJobResult
+from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary
 
 
 def display(value: object) -> str:
     """Catalog prose may contain line breaks; table cells remain single-line."""
     return "Unknown" if value is None else " ".join(str(value).split())
+
+
+def allocation_panel(result: SiteJobAllocationResult) -> Group:
+    job, freshness = result.job.values, result.freshness
+    state = {
+        "allocated": "Allocated",
+        "not_allocated": "No nodes allocated in this observation",
+        "unavailable": "Allocation unavailable for this observation",
+    }[result.allocation_status]
+    header = Text("\n".join((
+        f"Job: {result.job.canonical_id} · {display(job['name'])}",
+        f"State: {', '.join(result.scheduler_states)} · Restart count: {display(result.restart_count)}",
+        f"Submitted UTC: {display(job['submit_time'])}",
+        f"Started UTC: {display(job['start_time'])}",
+        f"Source: {freshness.source} · Observed: {freshness.observed_at}",
+        f"Age: {freshness.age_seconds}s · Stale: {freshness.stale}",
+        state,
+    )))
+    table = Table(box=None, expand=True, padding=(0, 1))
+    for column in ("Node", "Allocated CPUs", "Memory (MiB)"):
+        table.add_column(column)
+    for node in result.nodes or ():
+        table.add_row(Text(node.name), Text(str(node.cpus)), Text(display(node.memory_mib)))
+    hint = Text("Auto refresh paused while inspecting allocation. F5 reads a new snapshot; Esc returns.")
+    return Group(header, table, hint) if result.nodes else Group(header, hint)
 
 
 class Workbench(App):
@@ -76,6 +102,7 @@ class Workbench(App):
         self.view = initial_view
         self.paused = False
         self.selected_job: str | None = None
+        self.job_mode = "detail"
         self.selected_estimate: int | None = None
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
@@ -118,6 +145,9 @@ class Workbench(App):
             with TabPane("Jobs", id="jobs"):
                 yield Static(f"At most {self.job_query.limit} jobs. Enter opens authorized detail.", classes="hint", markup=False)
                 yield DataTable(id="jobs-table", cursor_type="row")
+                with Horizontal(classes="controls"):
+                    yield Button("View details", id="view-job")
+                    yield Button("View allocation", id="view-allocation")
             with TabPane("Running estimates", id="usage"):
                 yield Static("Non-final estimates. Published prices and final charges are separate.", classes="hint", markup=False)
                 yield DataTable(id="usage-table", cursor_type="row")
@@ -164,8 +194,10 @@ class Workbench(App):
         if view == self.view:
             return
         previous_view = self.view
+        self._discard_allocation()
         self.view = view
         self.selected_job = None
+        self.job_mode = "detail"
         self.selected_estimate = None
         self._revision += 1
         for name in ("job-scope-controls", "job-filter-controls", "details-scroll"):
@@ -182,7 +214,8 @@ class Workbench(App):
 
     def _tick(self) -> None:
         if (not self.paused and not self._reading and self.view not in self._failed_views
-                and not (self.view == "usage" and self.selected_estimate is not None)):
+                and not (self.view == "usage" and self.selected_estimate is not None)
+                and not (self.view == "jobs" and self.job_mode == "allocation" and self.selected_job is not None)):
             self.request_read()
 
     def request_read(self) -> None:
@@ -202,12 +235,13 @@ class Workbench(App):
                 revision, view, query, selected = self._revision, self.view, self.job_query, self.selected_job
                 workspace = self.storage_workspace_key
                 storage_source = self.storage_source
+                job_mode = self.job_mode
                 if view == "storage" and workspace is None:
                     continue
                 context = workspace if view == "storage" else f"{query.scope} · {query.account_name or query.account_id or 'self'}"
                 self.query_one("#status", Static).update(f"Refreshing {view} · {context}")
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source)
+                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source, job_mode)
                 except SaiCliError as error:
                     if revision == self._revision:
                         self._read_error(view, error)
@@ -221,7 +255,8 @@ class Workbench(App):
         finally:
             self._reading = False
 
-    def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None, storage_source: str = "summary"):
+    def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None,
+               storage_source: str = "summary", job_mode: str = "detail"):
         if view == "overview":
             return self.client.account_overview(query.site_id, account=self.overview_account)
         if view == "resources":
@@ -233,6 +268,8 @@ class Workbench(App):
         if view == "usage":
             return self.client.running_estimates(query)
         if selected:
+            if job_mode == "allocation":
+                return self.client.job_allocation(selected, replace(query, partition=None))
             return self.client.show_job(selected, replace(query, partition=None))
         return self.client.list_jobs(query)
 
@@ -259,6 +296,10 @@ class Workbench(App):
         if isinstance(error, AuthenticationError):
             for name in ("resources", "jobs", "usage", "storage", "overview"):
                 self._clear(name)
+            self.selected_job = None
+            self.job_mode = "detail"
+            self._revision += 1
+            self._pending = False
             self.paused = True
         else:
             self._clear(view)
@@ -299,13 +340,19 @@ class Workbench(App):
             self.compared = [name for name in self.compared if any(r["name"] == name for r in data["compute"])]
             self._comparison()
             status = "Published specifications · refreshed" if rows else "No published resources at this site"
+        elif isinstance(result, SiteJobAllocationResult):
+            job, freshness = result.job, result.freshness
+            self._rows("jobs", [("0", (job.canonical_id, *(job.values[k] for k in
+                ("name", "state", "partition", "reason_or_nodelist"))))])
+            self.query_one("#details", Static).update(allocation_panel(result))
+            status = f"Allocation · {freshness.observed_at} · refresh paused"
         elif isinstance(result, (JobResult, SiteJobResult)):
-            self._rows(view, [(str(i), tuple(r.values[k] for k in
-                ("job_id", "name", "state", "partition", "reason_or_nodelist"))) for i, r in enumerate(result.items)])
+            self._rows(view, [(str(i), (r.canonical_id, *(r.values[k] for k in
+                ("name", "state", "partition", "reason_or_nodelist")))) for i, r in enumerate(result.items)])
             if self.selected_job:
                 item = result.items[0].values if result.items else {}
-                text = "\n".join(f"{label}: {display(item.get(key))}" for key, label in (
-                    ("job_id", "Job"), ("name", "Name"), ("state_label", "State"),
+                text = f"Job: {result.items[0].canonical_id}\n" + "\n".join(f"{label}: {display(item.get(key))}" for key, label in (
+                    ("name", "Name"), ("state_label", "State"),
                     ("reason_or_nodelist", "Reason / nodes"), ("partition", "Partition"),
                     ("qos", "QOS"), ("slurm_user", "User"), ("slurm_account", "Account"),
                     ("nodes", "Nodes"), ("gpus_per_node", "GPU / node"), ("slots", "Slots"),
@@ -371,13 +418,7 @@ class Workbench(App):
                     + f"\nMetered settlement enabled: {row['metered_settlement_enabled']}"
                 )
         elif event.data_table.id == "jobs-table":
-            result = self.results.get("jobs")
-            if not isinstance(result, (JobResult, SiteJobResult)):
-                return
-            self.selected_job = str(result.items[int(key)].values["job_id"])
-            self._revision += 1
-            self.query_one("#details", Static).update("")
-            self.request_read()
+            self._inspect_job("detail", row_key=key)
         elif event.data_table.id == "usage-table":
             result = self.results.get("usage")
             if isinstance(result, RunningEstimateResult):
@@ -409,6 +450,7 @@ class Workbench(App):
             return False
         self.job_query = query
         self.selected_job = None
+        self.job_mode = "detail"
         self.selected_estimate = None
         self._revision += 1
         for view in ("resources", "jobs", "usage"):
@@ -435,7 +477,9 @@ class Workbench(App):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "overview-messages":
+        if event.button.id in {"view-job", "view-allocation"}:
+            self._inspect_job("allocation" if event.button.id == "view-allocation" else "detail")
+        elif event.button.id == "overview-messages":
             result = self.results.get("overview")
             if isinstance(result, AccountOverview):
                 self.open_url(result.messages_url(self.client.transport.base_url))
@@ -463,6 +507,30 @@ class Workbench(App):
                 self.usage_page = max(0, self.usage_page + (1 if event.button.id == "next" else -1))
                 self._present("usage", result)
 
+    def _discard_allocation(self) -> None:
+        if isinstance(self.results.get("jobs"), SiteJobAllocationResult):
+            self._clear("jobs")
+
+    def _inspect_job(self, mode: str, *, row_key: str | None = None) -> None:
+        result = self.results.get("jobs")
+        selected = self.selected_job
+        if isinstance(result, (JobResult, SiteJobResult)):
+            table = self.query_one("#jobs-table", DataTable)
+            if row_key is None and table.row_count:
+                row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
+            if row_key is not None:
+                selected = result.items[int(row_key)].canonical_id
+        elif isinstance(result, SiteJobAllocationResult):
+            selected = result.job.canonical_id
+        if selected is None:
+            self.query_one("#status", Static).update("Select a job to inspect.")
+            return
+        self._discard_allocation()
+        self.selected_job, self.job_mode = selected, mode
+        self._revision += 1
+        self.query_one("#details", Static).update("")
+        self.request_read()
+
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id != "storage-source" or not self._workbench_ready:
             return
@@ -489,6 +557,10 @@ class Workbench(App):
 
     def action_refresh(self) -> None:
         self.selected_estimate = None
+        if self.view == "jobs" and self.job_mode == "allocation":
+            self._revision += 1
+            self._discard_allocation()
+            self.query_one("#details", Static).update("")
         self.request_read()
 
     def action_pause(self) -> None:
@@ -503,7 +575,9 @@ class Workbench(App):
             self.query_one("#details", Static).update("")
             self.request_read()
         if self.selected_job:
+            self._discard_allocation()
             self.selected_job = None
+            self.job_mode = "detail"
             self._revision += 1
             self.query_one("#details", Static).update("")
             self.request_read()
