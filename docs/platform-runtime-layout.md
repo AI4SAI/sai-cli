@@ -1,8 +1,9 @@
 # Shared platform runtime layout
 
-Status: target ownership model, not authorization for a fleet mount migration.
-Only the publisher and one login-node canary currently expose the new root.
-Compute-node mount changes were rolled back; the existing shared roots remain.
+Status: shared runtime layout supported by the source and packaging.
+Actual mount coverage, remaining legacy consumers and site acceptance are
+recorded in the operations plan. Source support does not prove fleet migration
+completion or authorize another infrastructure change.
 
 ## Responsibilities
 
@@ -130,7 +131,8 @@ credential cache, permission resolver or per-node command installation.
 
 Inline `site/shell/login_summary.bash` after the default-directory fragment.
 The directory fragment keeps the native applied Account in the current shell;
-the overview request passes it as a selector and Portal reauthorizes it. Retire
+managed `sai status` and the TUI Overview also reuse that exported Account.
+The overview request passes it as a selector and Portal reauthorizes it. Retire
 the earlier automatic `auth status`, which duplicates the new account panel.
 Preserve existing aliases, rules, storage/GPU/CPU status and notes during the
 same once-per-login block. Query quota after directory selection. The new panel

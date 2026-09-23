@@ -1,6 +1,7 @@
 # Terminal workbench
 
-Status: implemented read-only client; local interaction/HTTP validation only.
+Status: implemented read-only client. Source tests cover interaction and HTTP;
+deployment coverage and real-user acceptance are recorded separately.
 
 Install the optional extra and use the existing connection configuration:
 
@@ -16,6 +17,10 @@ and override restrictions. Installing the extra locally does not deploy a
 shared login-node package or gateway.
 
 ## A useful first workflow
+
+The workbench starts with Overview: identity, authorized funds and unread
+messages. On managed nodes it retains the applied login Account; Jobs and
+Storage keep their independent, explicitly selected scopes.
 
 1. Open Resources and press Enter on one or two partitions. Compare CPU/GPU
    model, per-node CPU cores, total GPUs, nodes, QOS and published prices in

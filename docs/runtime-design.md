@@ -89,11 +89,11 @@ does not expose a `sai jobs submit` command.
 Unimplemented command families remain in the roadmap rather than appearing as
 placeholders that return fake data.
 
-The current legacy Portal endpoint uses `portal_read` authorization and can
-accept an `agent_only` account. Production login-node rollout remains blocked
-until (a) SAI Identity issues the registered Portal-audience token, (b) Portal
-verifies that token and its CLI surface, and (c) the server-verifiable CLI
-surface enforces shell access `enabled`; client headers or local checks cannot
+The legacy Portal endpoint uses `portal_read` authorization and can
+accept an `agent_only` account. Managed login-node operation requires
+(a) SAI Identity to issue the registered Portal-audience token, (b) Portal to
+verify that token and its CLI surface, and (c) the server-verifiable CLI
+surface to enforce shell access `enabled`; client headers or local checks cannot
 establish that authorization boundary.
 
 ## Scope selection

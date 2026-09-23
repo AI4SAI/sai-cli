@@ -29,7 +29,11 @@ The first implementation milestone is intentionally read-only:
 
 The optional `sai tui` workbench compares published resources, narrows job
 queries, inspects job details and reads non-final running estimates through
-the same clients. Storage has an independent workspace and explicit stored/native
+the same clients, starting with the default-identity Overview. Managed login
+shows the summary panel and returns to Shell; the full workbench opens manually.
+Existing login help, rules, quota/resource status and notes remain available
+automatically, with directory selection before quota reads.
+Storage has an independent workspace and explicit stored/native
 source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
 
@@ -104,7 +108,8 @@ python3 -m venv .venv
 ```
 
 Managed nodes use the shared client under `/opt/sai/cli`,
-with a small Debian integration package owning `/usr/bin/sai`. Installation,
+the root-owned shared settings `/opt/sai/cli/config.toml`, and a small Debian
+integration package owning `/usr/bin/sai`. Installation,
 configuration, canary, and rollback are documented in the
 [deployment run card](docs/login-node-deployment.md).
 

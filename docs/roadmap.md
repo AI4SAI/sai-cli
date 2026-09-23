@@ -29,18 +29,20 @@ operations evidence is kept outside this repository.
 See [software module access](software-access.md). Local Tcl behavior does not
 prove a site deployment or refresh the groups of existing sessions.
 
-## Login summary: product design
+## Login summary
 
 The [login summary design](login-summary-design.md) defines a compact view of
 the applied default identity, authorized funds, unread messages and actionable
-access/job/storage issues. It adds an account panel while retaining existing
-login information and reuses the unified workbench's facts and permissions.
+access issues. It adds to the existing login help, rules, quota/resource status
+and notes, and reuses the workbench's facts and permissions.
 
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
 - [x] `sai status` JSON/plain/Rich panel and Textual Overview, with one shared login fragment
 - [ ] Live login latency, privacy, cleanup and user-comprehension validation
 
-Local implementation only. The existing `auth status` recovery route does not
+Implementation and target deployment coverage are tracked separately; live
+acceptance and remaining consumers are recorded in the operations plan.
+The existing `auth status` recovery route does not
 expose funds or messages; the overview uses the normal CLI read authority.
 
 ## Milestone 0.1: read-only jobs CLI
@@ -152,7 +154,7 @@ subprocess tests are distinct from live Slurm, deployed gateway and fleet gates.
 
 ## Milestone 0.5: packaging and canary
 
-- [ ] Login-node package and optional TUI extra
+- [x] Shared client package and optional TUI extra
 - [ ] Package-managed legacy wrapper templates
 - [ ] Install manifest, forbidden-content guard, and rollback artifact
 - [ ] Read-only live scheduler comparison with an authorized sample scope
@@ -161,7 +163,7 @@ subprocess tests are distinct from live Slurm, deployed gateway and fleet gates.
 Production rollout and fleet-wide replacement require a separate operations
 plan and approval.
 
-The batch-only login-node Debian package, full-SHA manifest, and canary run card
-are implemented as local candidates. These checkboxes remain open until a
-clean pushed commit is built and target install/readback/rollback evidence is
-captured; local packaging tests do not mark production complete.
+The shared archive, optional TUI dependency bundle, small login integration
+Debian package, full-SHA manifest and canary run card are implemented.
+Target install/readback, latency and rollback evidence remain separate
+operational acceptance gates; package builds do not prove fleet completion.
