@@ -86,7 +86,7 @@ Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当�
   `~/.local/share/sai/credentials.json`），目录 `0700`、文件 `0600`，原子
   替换并拒绝符号链接。access token 仍使用现有短期 cache。
 - 多个 CLI 进程通过用户凭据锁串行化 refresh，避免 rotating token 的竞态。
-- managed login-node 的 `/etc/sai-cli/config.toml` 只提供非敏感 Portal/
+- managed login-node 的 `/opt/sai/cli/config.toml` 只提供非敏感 Portal/
   Identity origin、client ID、scope 和 resource；refresh token 始终由当前
   Unix 用户持有，不能由 root 配置文件共享，也不能放入 package 或 wrapper。
 

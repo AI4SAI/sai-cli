@@ -2,6 +2,10 @@
 if [[ $HOSTNAME =~ login && $- == *i* && $EUID != 0 && -z ${SLURM_JOB_ID:-} \
     && -z ${SLURM_JOBID:-} && -z ${_SAI_LOGIN_SUMMARY_SHOWN:-} ]] && shopt -q login_shell; then
     export _SAI_LOGIN_SUMMARY_SHOWN=1
+    cat /opt/sai/shell/aliases.txt
+    source /opt/sai/shell/rules.bash
+    source /opt/sai/shell/status.bash
+    source /opt/sai/shell/notes.bash
     _sai_summary_args=(status --format tui)
     if [[ -n ${_SAI_LOGIN_ACCOUNT:-} ]]; then
         _sai_summary_args+=(--account "$_SAI_LOGIN_ACCOUNT")

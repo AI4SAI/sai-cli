@@ -103,7 +103,7 @@ def test_managed_wrapper_forces_capability_mode_without_secret_inputs() -> None:
     )
     assert "SAI_ENV=production" in wrapper
     assert "SAI_MANAGED_LOGIN_NODE=1" in wrapper
-    assert "SAI_CONFIG=/etc/sai-cli/config.toml" in wrapper
+    assert "SAI_CONFIG=/opt/sai/cli/config.toml" in wrapper
     assert "python3 -I -P -B -c" in wrapper
     assert "SAI_TOKEN" not in wrapper
     assert "SHARED_SECRET" not in wrapper

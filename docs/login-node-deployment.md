@@ -45,7 +45,8 @@ multiple nodes against the same shared runtime files.
 
 ## Configuration and authentication
 
-`/etc/sai-cli/config.toml` remains a root-owned, non-secret external input. It is
+`/opt/sai/cli/config.toml` is a root-owned, non-secret shared input.
+Publish it once with the managed site settings; compute nodes need no config copy. It is
 not overwritten by the package. Its ownership and permissions are validated by
 the client because it selects credential destinations.
 

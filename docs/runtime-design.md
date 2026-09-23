@@ -232,7 +232,7 @@ credentials may store an explicit null expiry; access tokens and pending device
 codes still require a finite expiry. Unknown expiry does not imply permanent
 validity: the issuer enforces idle limits, revocation, and account state.
 
-Managed `/etc/sai-cli/config.toml` additionally requires a root-owned regular
+Managed `/opt/sai/cli/config.toml` additionally requires a root-owned regular
 file beneath root-owned, non-group/world-writable, non-symlink directories.
 This applies only to the managed path; XDG paths retain per-user rules.
 

@@ -25,6 +25,7 @@ entry belongs under `/opt/sai/bin`, with immutable client releases under
   bin/sai                 stable user entry
   cli/releases/<version>/ client code and provenance
   cli/current             selected client release
+  cli/config.toml         root-owned non-secret managed site connection settings
   shell/                  common profile, aliases and login directory selection
   runtime/                site CPU/GPU/IB environment and mapping assets
   slurm/                  scheduler integration source and release artifacts
@@ -54,6 +55,9 @@ mounts as an implicit step in a software release.
   existing local configuration hierarchy. Runtime state remains in the owning
   service's local state directory. User refresh credentials stay in protected
   per-user caches, outside the shared software tree.
+- The managed CLI reads its non-secret connection settings from
+  `/opt/sai/cli/config.toml`. Publish that file once with root ownership and
+  public read permission; do not replicate it into each compute node's `/etc`.
 - Native Lmod supplies the environment-module bootstrap. Do not build another
   profile discovery framework, module cache or service to select releases.
 - Portal remains the owner of default identity and QOS policy. The login
@@ -127,7 +131,10 @@ credential cache, permission resolver or per-node command installation.
 Inline `site/shell/login_summary.bash` after the default-directory fragment.
 The directory fragment keeps the native applied Account in the current shell;
 the overview request passes it as a selector and Portal reauthorizes it. Retire
-the earlier automatic `auth status`, full aliases and node tables so the panel
-does not duplicate them. Keep their manual commands and the independent
+the earlier automatic `auth status`, which duplicates the new account panel.
+Preserve existing aliases, rules, storage/GPU/CPU status and notes during the
+same once-per-login block. Query quota after directory selection. The new panel
+adds funds and inbox information; it is not a replacement for operational facts
+it does not yet contain. Keep manual commands and the independent
 `sai auth status` recovery diagnostic. Publish the TUI-enabled shared release
 before switching the profile; preserve the previous release/profile for rollback.

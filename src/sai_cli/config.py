@@ -18,7 +18,7 @@ from .transport import normalize_base_url
 
 
 _PROFILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-_MANAGED_CONFIG_PATH = Path("/etc/sai-cli/config.toml")
+_MANAGED_CONFIG_PATH = Path("/opt/sai/cli/config.toml")
 _MANAGED_CONFIG_OWNER_UID = 0
 _MANAGED_OVERRIDE_ENV = (
     "SAI_API_BASE_URL",
