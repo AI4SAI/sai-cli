@@ -1,0 +1,12 @@
+{
+  "schema_version": "jobs.web-context/v1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-example",
+  "cluster_id": "cluster-example",
+  "scope_type": "project_account",
+  "slurm_account_id": "account-example",
+  "job_id": "123_0",
+  "observed_at": "2030-01-01T00:05:00Z",
+  "submit_time": "2030-01-01T00:00:00Z",
+  "restart_count": 0
+}

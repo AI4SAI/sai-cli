@@ -298,7 +298,10 @@ def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account
                     await pilot.pause(.02)
                 assert started.is_set()
                 app.query_one("#storage-workspace", Input).value = "project:storage-project"
-                await pilot.pause(.02)
+                for _ in range(80):
+                    if app.storage_workspace_key is None:
+                        break
+                    await pilot.pause(.02)
                 assert app.storage_workspace_key is None and "storage" not in app.results
                 assert str(app.query_one("#storage-summary", Static).render()) == ""
                 app._tick()

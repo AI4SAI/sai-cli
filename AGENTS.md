@@ -68,6 +68,15 @@
   detail and allocation actions. Allocation displays one response's job, nodes,
   CPU/memory, freshness and restart count; it pauses automatic refresh and F5
   clears and replaces the whole snapshot. Array-task identity preserves task zero.
+  Open in Web uses an Identity-only central job web-context read and Portal's
+  authoritative workspace mapping. It carries the inspected observation to a
+  same-origin Jobs link, retains a visible link for remote terminals, and never
+  infers the workspace from an account name or the default Overview identity.
+  The complete URL is copied only by an explicit Copy link action. A/W shortcuts
+  and the native command palette reuse the same context-sensitive actions;
+  ordinary filter input keeps its typing behavior.
+  A known submission/restart change requires refreshing the TUI before navigation;
+  links and pending navigation clear on context changes or authorization failure.
   Live resource capacity, task-result/Pilot handoff, measured utilization and
   physical/GPU placement remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.

@@ -64,6 +64,33 @@ Its dependencies are an optional
 extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 
+Open in Web appears after successful job detail or allocation inspection. Its
+one-time action uses the same serialized reader to call Identity-only
+`GET /v1/slurm/cli/jobs/{job_id}/web-context`; it sends no site capability.
+Portal resolves the actual job account's workspace, including a self-scope job
+running under an organization or project account. The CLI validates the
+`jobs.web-context/v1` mapping and constructs a fixed Jobs link on its configured
+Portal origin. Neither the default Overview identity nor account naming supplies
+the workspace. The action does not start Pilot or alter the applied job scope.
+
+The link carries the inspected snapshot's observation time, nullable submission
+time and nullable restart count as comparison evidence. If both sides know a
+submission time or restart count and it has changed, the TUI keeps its snapshot
+and asks for a refresh instead of navigating. Job IDs and these timestamps do not
+prove permanent execution identity. The browser reauthorizes and reads current
+data, independently of the displayed list limit.
+
+The short link remains visible and clickable when the terminal has no local
+browser; Copy link explicitly sends the complete URL to the terminal clipboard.
+Nothing is copied automatically. Compact buttons remain visible at forty columns.
+A opens allocation and W prepares the Web link outside editable controls; the
+same context-sensitive actions appear in Textual's native Ctrl+P command palette.
+Refresh, scope/object changes and denied reads clear the link. Duplicate clicks
+coalesce; late responses after a revision change cannot open a browser, and polling
+never requests navigation. A `job_navigation_workspace_denied` response preserves
+the authorized self snapshot while explaining that its workspace cannot be opened;
+other authorization failures retain the existing view-clearing rules.
+
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`,
 `jobs show` and `storage native-quota`. `jobs allocation JOB_ID` also requires
 this setting and returns the versioned allocation snapshot without a central

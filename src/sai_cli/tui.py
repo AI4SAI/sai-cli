@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 from dataclasses import replace
 
 from rich.text import Text
 from rich.table import Table
 from rich.console import Group
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
+from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Input, Select, Static, TabbedContent, TabPane
 
 from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobResult, RunningEstimateResult
-from .errors import AuthenticationError, ContractError, SaiCliError
+from .errors import AuthenticationError, ContractError, ForbiddenError, SaiCliError
+from .job_web_context import JobWebContext
 from .render import render_storage_quota_summary, render_native_quota
 from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
@@ -72,6 +75,7 @@ class Workbench(App):
     DataTable { height: 1fr; min-height: 3; }
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
+    #job-web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
     #storage-scroll { height: 1fr; }
     #storage-summary { height: auto; }
     #overview-summary { height: auto; padding: 1 0; }
@@ -86,6 +90,8 @@ class Workbench(App):
         Binding("f5", "refresh", "Refresh"),
         Binding("f6", "pause", "Pause / resume"),
         Binding("escape", "back", "Back to list"),
+        Binding("a", "view_allocation", "Allocation"),
+        Binding("w", "open_job_web", "Open Web"),
         Binding("ctrl+q", "quit", "Quit"),
     ]
 
@@ -115,6 +121,9 @@ class Workbench(App):
         self._revision = 0
         self._pending = False
         self._reading = False
+        self._job_detail_revision: int | None = None
+        self._web_request: tuple[int, JobQuery, JobResult | SiteJobResult | SiteJobAllocationResult] | None = None
+        self._job_web_url: str | None = None
         self._workbench_ready = False
 
     def compose(self) -> ComposeResult:
@@ -143,11 +152,14 @@ class Workbench(App):
                     yield Button("View jobs", id="use-partition")
                     yield Button("Clear comparison", id="clear-comparison")
             with TabPane("Jobs", id="jobs"):
-                yield Static(f"At most {self.job_query.limit} jobs. Enter opens authorized detail.", classes="hint", markup=False)
+                yield Static(f"At most {self.job_query.limit} jobs in this scope.", id="jobs-hint", classes="hint", markup=False)
                 yield DataTable(id="jobs-table", cursor_type="row")
                 with Horizontal(classes="controls"):
-                    yield Button("View details", id="view-job")
-                    yield Button("View allocation", id="view-allocation")
+                    yield Button("Details", id="view-job", tooltip="View the selected job's details")
+                    yield Button("Allocation", id="view-allocation", tooltip="View allocation (A)")
+                    web_button = Button("Open Web", id="open-job-web", disabled=True, tooltip="Open this job in Web (W)")
+                    web_button.display = False
+                    yield web_button
             with TabPane("Running estimates", id="usage"):
                 yield Static("Non-final estimates. Published prices and final charges are separate.", classes="hint", markup=False)
                 yield DataTable(id="usage-table", cursor_type="row")
@@ -166,6 +178,11 @@ class Workbench(App):
                 with VerticalScroll(id="storage-scroll"):
                     yield Static("Enter a workspace key and choose Load.", id="storage-summary", markup=False)
         with VerticalScroll(id="details-scroll"):
+            web_row = Horizontal(classes="controls", id="job-web-link-row")
+            web_row.display = False
+            with web_row:
+                yield Static("", id="job-web-link", markup=False)
+                yield Button("Copy link", id="copy-job-web", disabled=True)
             yield Static("", id="details", markup=False)
         yield Footer()
 
@@ -219,18 +236,30 @@ class Workbench(App):
             self.request_read()
 
     def request_read(self) -> None:
+        self._clear_web_link()
+        self._update_web_button()
         if self.view == "storage" and self.storage_workspace_key is None:
             self.query_one("#status", Static).update("Choose a storage workspace, then Load.")
             return
         self._failed_views.discard(self.view)
         self._pending = True
+        self._start_reader()
+
+    def _start_reader(self) -> None:
         if not self._reading:
             self._reading = True
             self.run_worker(self._read_loop())
+        self._update_web_button()
 
     async def _read_loop(self) -> None:
         try:
-            while self._pending:
+            while self._pending or self._web_request is not None:
+                if self._web_request is not None:
+                    revision, query, snapshot = self._web_request
+                    self._web_request = None
+                    if revision == self._revision:
+                        await self._read_web_context(revision, query, snapshot)
+                    continue
                 self._pending = False
                 revision, view, query, selected = self._revision, self.view, self.job_query, self.selected_job
                 workspace = self.storage_workspace_key
@@ -252,8 +281,124 @@ class Workbench(App):
                     if revision == self._revision:
                         self.results[view] = result
                         self._present(view, result)
+                        if view == "jobs" and selected is not None:
+                            self._job_detail_revision = revision
         finally:
             self._reading = False
+            if self.is_running:
+                self._update_web_button()
+
+    def _update_web_button(self) -> None:
+        button = self.query_one("#open-job-web", Button)
+        result = self.results.get("jobs")
+        valid = (isinstance(result, SiteJobAllocationResult) and result.job.canonical_id == self.selected_job) or (
+            isinstance(result, (JobResult, SiteJobResult)) and len(result.items) == 1
+            and result.items[0].canonical_id == self.selected_job
+        )
+        button.display = self.view == "jobs" and valid and self._job_detail_revision == self._revision
+        button.disabled = self._reading or self._pending or self._web_request is not None
+        hint = "Enter details · A allocation" if self._can_inspect_job() else f"At most {self.job_query.limit} jobs in this scope."
+        if button.display and not button.disabled:
+            hint += " · W Web"
+        self.query_one("#jobs-hint", Static).update(hint)
+        self.refresh_bindings()
+
+    def _can_inspect_job(self) -> bool:
+        result = self.results.get("jobs")
+        return self.view == "jobs" and (isinstance(result, SiteJobAllocationResult) or (
+            isinstance(result, (JobResult, SiteJobResult)) and bool(result.items)
+        ))
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action in {"view_allocation", "open_job_web"}:
+            if self.focused and any(isinstance(widget, (Input, Select)) for widget in self.focused.ancestors_with_self):
+                return None
+            if action == "view_allocation":
+                return True if self._can_inspect_job() else None
+            button = self.query_one("#open-job-web", Button)
+            return True if button.display and not button.disabled else None
+        return super().check_action(action, parameters)
+
+    def action_view_allocation(self) -> None:
+        if self._can_inspect_job():
+            self._inspect_job("allocation")
+
+    def action_open_job_web(self) -> None:
+        self._open_job_in_web()
+
+    def action_copy_job_link(self) -> None:
+        if self.view == "jobs" and self._job_web_url is not None:
+            self.copy_to_clipboard(self._job_web_url)
+            self.query_one("#status", Static).update("Paste the Web link in your browser.")
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        yield from super().get_system_commands(screen)
+        if self._can_inspect_job():
+            yield SystemCommand("View allocation", "Read the selected job's allocated nodes", self.action_view_allocation)
+        button = self.query_one("#open-job-web", Button)
+        if button.display and not button.disabled:
+            yield SystemCommand("Open in Web", "Resolve this job's workspace and prepare a browser link", self.action_open_job_web)
+        if self.view == "jobs" and self._job_web_url is not None:
+            yield SystemCommand("Copy job Web link", "Copy the complete link to your terminal clipboard", self.action_copy_job_link)
+
+    def _open_job_in_web(self) -> None:
+        button = self.query_one("#open-job-web", Button)
+        if not button.display or button.disabled:
+            return
+        snapshot = self.results.get("jobs")
+        if not isinstance(snapshot, (JobResult, SiteJobResult, SiteJobAllocationResult)):
+            return
+        self._clear_web_link()
+        self._web_request = (self._revision, replace(self.job_query, cluster_id=snapshot.cluster_id), snapshot)
+        self._start_reader()
+
+    def _clear_web_link(self) -> None:
+        self._job_web_url = None
+        link = self.query_one("#job-web-link", Static)
+        link.update("")
+        self.query_one("#job-web-link-row", Horizontal).display = False
+        self.query_one("#copy-job-web", Button).disabled = True
+
+    async def _read_web_context(self, revision: int, query: JobQuery,
+                                snapshot: JobResult | SiteJobResult | SiteJobAllocationResult) -> None:
+        job = snapshot.job if isinstance(snapshot, SiteJobAllocationResult) else snapshot.items[0]
+        link_ready = False
+        self.query_one("#status", Static).update("Resolving this job's Web workspace…")
+        try:
+            target = await asyncio.to_thread(self.client.job_web_context, job.canonical_id, query)
+            if revision != self._revision:
+                return
+            if not isinstance(target, JobWebContext):
+                raise ContractError("The job Web context is invalid.")
+            observed = snapshot.freshness.queried_at if isinstance(snapshot, JobResult) else snapshot.freshness.observed_at
+            submitted = job.values["submit_time"]
+            restart = snapshot.restart_count if isinstance(snapshot, SiteJobAllocationResult) else None
+            url = target.web_url(self.client.transport.base_url, observed_at=observed,
+                                 submit_time=submitted, restart_count=restart)
+            if target.changed_since(submit_time=submitted, restart_count=restart):
+                self.query_one("#status", Static).update("The job observation changed. Refresh this view before opening Web.")
+                return
+            self._job_web_url = url
+            link = Text("Open job in browser", style=f"link {url}")
+            self.query_one("#job-web-link", Static).update(link)
+            self.query_one("#job-web-link-row", Horizontal).display = True
+            self.query_one("#copy-job-web", Button).disabled = False
+            self.call_after_refresh(self.query_one("#job-web-link-row", Horizontal).scroll_visible, animate=False)
+            link_ready = True
+            self.open_url(url)
+            self.query_one("#status", Static).update("Web link ready. Open it in your browser.")
+        except SaiCliError as error:
+            if revision == self._revision:
+                if isinstance(error, AuthenticationError) or (
+                    isinstance(error, ForbiddenError) and error.code != "job_navigation_workspace_denied"
+                ):
+                    self._read_error("jobs", error)
+                else:
+                    self.query_one("#status", Static).update(f"{error.message} · {error.code} · Open in Web to retry")
+        except Exception:
+            if revision == self._revision:
+                self.query_one("#status", Static).update("Web link ready. Open it in your browser." if link_ready else
+                                                       "The job Web context could not be loaded. Open in Web to retry.")
 
     def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None,
                storage_source: str = "summary", job_mode: str = "detail"):
@@ -275,6 +420,10 @@ class Workbench(App):
 
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
+        if view == "jobs":
+            self._job_detail_revision = None
+            self.query_one("#open-job-web", Button).display = False
+            self._clear_web_link()
         if view == "overview":
             self.query_one("#overview-summary", Static).update("")
             self.query_one("#overview-messages", Button).disabled = True
@@ -478,7 +627,14 @@ class Workbench(App):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id in {"view-job", "view-allocation"}:
-            self._inspect_job("allocation" if event.button.id == "view-allocation" else "detail")
+            if event.button.id == "view-allocation":
+                self.action_view_allocation()
+            else:
+                self._inspect_job("detail")
+        elif event.button.id == "open-job-web":
+            self.action_open_job_web()
+        elif event.button.id == "copy-job-web":
+            self.action_copy_job_link()
         elif event.button.id == "overview-messages":
             result = self.results.get("overview")
             if isinstance(result, AccountOverview):
@@ -557,10 +713,11 @@ class Workbench(App):
 
     def action_refresh(self) -> None:
         self.selected_estimate = None
-        if self.view == "jobs" and self.job_mode == "allocation":
+        if self.view == "jobs":
             self._revision += 1
-            self._discard_allocation()
-            self.query_one("#details", Static).update("")
+            if self.job_mode == "allocation":
+                self._discard_allocation()
+                self.query_one("#details", Static).update("")
         self.request_read()
 
     def action_pause(self) -> None:

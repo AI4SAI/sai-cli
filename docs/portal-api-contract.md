@@ -79,6 +79,30 @@ wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and
 are not a production CLI fallback.
 
+## Job workspace navigation
+
+The TUI's explicit Open Web action calls Identity-only
+`GET /v1/slurm/cli/jobs/{job_id}/web-context` with the original site, cluster,
+scope and exact account selector plus `source_preference=live`. It sends the
+Portal Bearer only, with no capability or direct-site request from the client.
+Portal reuses its capability-only relay for one current allocation observation,
+then resolves the native runtime account to its unique current workspace owner.
+Both source read and destination membership/site/user-account visibility are
+checked; compute-submit and payer authority are not navigation prerequisites.
+
+The shared `jobs.web-context/v1` schema/sample are in
+`contracts/job-web-context/v1`. The ten allowlisted fields identify the workspace,
+site, cluster, destination account scope/ID, canonical job ID and observation/
+submission/restart evidence. The server returns no arbitrary URL or credential.
+Original account scopes remain bound to the same account; self can resolve to
+any currently authorized account kind. Unknown added response fields are dropped.
+
+The client constructs a fixed same-origin Jobs link carrying bounded observation
+context. `403/job_navigation_workspace_denied` refuses the destination without
+revoking an independently valid self observation. Source/identity denials retain
+their existing clearing behavior. `503/job_navigation_unavailable` means missing
+or ambiguous ownership; it never triggers a default-workspace fallback.
+
 ## List jobs
 
 ```text

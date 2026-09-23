@@ -37,6 +37,13 @@ View allocation requires the configured site gateway and shows one response's
 job, nodes, freshness and restart count. Automatic
 refresh pauses during inspection; F5 replaces the whole snapshot. This is allocated
 CPU/memory data, not measured utilization or physical location.
+Open in Web resolves the selected job's workspace through Portal and provides a
+link to that job in the console, including terminals without a local browser.
+The compact link has an explicit Copy link action; A/W and the native Ctrl+P
+command palette expose the same allocation and Web actions without taking text
+from filter inputs.
+The browser checks access again and reads a current snapshot. A changed known
+submission time or restart count requires a TUI refresh before navigation.
 Storage has an independent workspace and explicit stored/native
 source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).

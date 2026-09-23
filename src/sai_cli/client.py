@@ -12,6 +12,7 @@ from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
+from .job_web_context import JobWebContext
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .native_quota import NativeQuotaResult
@@ -354,6 +355,21 @@ class PortalClient:
             query={"site_id": site, "slurm_account_name": selected})
         return AccountOverview.from_payload(response.payload, site_id=site, account=selected,
                                             request_id=response.request_id)
+
+    def job_web_context(self, job_id: str, query: JobQuery) -> JobWebContext:
+        identifier = clean_token(job_id, field="job ID", required=True, maximum=128) or ""
+        if not re.fullmatch(r"[0-9]+(?:_[0-9]+)?", identifier):
+            raise ConfigError("Web navigation requires a numeric job ID or numeric job_task ID")
+        request = query.validated()
+        response = self._central_get("/v1/slurm/cli/jobs/" + quote(identifier, safe="") + "/web-context", query={
+            "site_id": request.site_id, "cluster_id": request.cluster_id, "scope_type": _SCOPES[request.scope],
+            "slurm_account_id": request.account_id, "slurm_account_name": request.account_name,
+            "source_preference": "live",
+        })
+        result = JobWebContext.from_payload(response.payload, request_id=response.request_id)
+        result.require_request_binding(site_id=request.site_id, cluster_id=request.cluster_id, scope=_SCOPES[request.scope],
+                                       account_id=request.account_id, job_id=identifier, request_id=response.request_id)
+        return result
 
     def _central_get(self, path: str, *, query: dict[str, str | int | None]) -> JsonResponse:
         """Read a central resource without obtaining or forwarding a site grant."""

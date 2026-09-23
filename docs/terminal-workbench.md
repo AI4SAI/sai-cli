@@ -97,6 +97,44 @@ Pilot handoff, settled billing or hardware telemetry features.
 
 ## Validation and remaining work
 
+### Continue in the console
+
+After a successful job detail or allocation read, Open Web asks Portal to
+resolve that exact observed job to its current authorized workspace. It does
+not infer a project from an account name or the Overview's default identity.
+The same reader handles this request; changing context discards a late link.
+Known submission/restart changes ask for a fresh terminal snapshot first.
+
+The fixed same-origin console link opens that job directly, including array
+task zero and jobs outside the first list page. The browser authenticates again
+and reads a complete current allocation. Older observation evidence is retained
+only for an explicit changed/unknown notice, never as permanent execution ID.
+If self job read is still allowed but the destination workspace is denied, the
+terminal keeps the original observation and shows the navigation refusal.
+
+Keyboard actions share the visible controls: A opens allocation, W prepares
+the Web link, and Ctrl+P lists available actions through Textual's native command
+palette. Text inputs and selectors retain their own keys. The three compact
+controls remain visible at 40 columns. A short clickable link and explicit Copy
+link action work when an SSH host has no desktop browser; copying uses the
+terminal's clipboard support and never runs automatically.
+
+### Interaction references
+
+Reviewed on 2026-09-23:
+
+- [Codex footer source](https://github.com/openai/codex/blob/b7add4df3d95e2d41249e54d3c3a1bd14680848a/codex-rs/tui/src/bottom_pane/footer.rs)
+  adjusts hints to available width and editing/running context.
+- [Claude Code interactive-mode documentation](https://code.claude.com/docs/en/interactive-mode)
+  distinguishes editing, dialog and running-task keyboard behavior. This is
+  documentation evidence, not a claim to have inspected its implementation.
+- [OpenCode keybindings](https://opencode.ai/docs/keybinds/) document command
+  discovery and explicit key combinations that avoid editing conflicts.
+
+SAI reuses these interaction principles through existing Textual controls and
+actions. It does not introduce another Agent loop, permission system or command
+framework. Wider task/result navigation and hardware correlation remain separate.
+
 Headless tests exercise the real HTTP client through resource comparison,
 partition selection, detail/allocation requests and independently denied estimates.
 Allocation tests use separate local Portal and gateway HTTP origins, array tasks
