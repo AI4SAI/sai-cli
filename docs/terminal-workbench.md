@@ -29,8 +29,8 @@ Storage keep their independent, explicitly selected scopes.
 2. Use View jobs to apply the most recently selected partition to the Jobs
    view. Change scope, account name/ID, partition or states and select Apply.
    The applied context remains visible; draft controls do not change authority.
-3. Press Enter on a job or choose View details for its separately authorized
-   detail. View allocation instead requests one allocation snapshot from the
+3. Press Enter on a job or choose Details for its separately authorized
+   detail. Allocation instead requests one allocation snapshot from the
    explicitly configured site gateway. Escape returns to the list. Ordinary
    detail uses native site-read mode when configured and the existing Portal
    transport otherwise. Allocation requires native configuration and capability
@@ -95,9 +95,7 @@ Pilot handoff, settled billing or hardware telemetry features.
   tables can scroll horizontally. Comparison remains a table of the same
   validated facts, not a new product or pricing model.
 
-## Validation and remaining work
-
-### Continue in the console
+## Continue in the console
 
 After a successful job detail or allocation read, Open Web asks Portal to
 resolve that exact observed job to its current authorized workspace. It does
@@ -119,7 +117,7 @@ controls remain visible at 40 columns. A short clickable link and explicit Copy
 link action work when an SSH host has no desktop browser; copying uses the
 terminal's clipboard support and never runs automatically.
 
-### Interaction references
+## Interaction references
 
 Reviewed on 2026-09-23:
 
@@ -134,6 +132,8 @@ Reviewed on 2026-09-23:
 SAI reuses these interaction principles through existing Textual controls and
 actions. It does not introduce another Agent loop, permission system or command
 framework. Wider task/result navigation and hardware correlation remain separate.
+
+## Validation and remaining work
 
 Headless tests exercise the real HTTP client through resource comparison,
 partition selection, detail/allocation requests and independently denied estimates.
