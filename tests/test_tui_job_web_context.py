@@ -81,7 +81,7 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
             await settled(app, pilot)
             await open_web(app, pilot)
             assert len(opened) == 1
-            assert str(app.query_one("#job-web-link", Static).content.style) == f"link {opened[-1]}"
+            assert str(app.query_one("#web-link", Static).content.style) == f"link {opened[-1]}"
             context = json.loads(parse_qs(urlsplit(opened[-1]).fragment.split("?", 1)[1])["job_context"][0])
             assert context == {"workspace_key": "project:project-example", "site_id": "site-a", "cluster_id": "cluster-a",
                 "job_id": "12345_0", "observed_at": site_allocation_payload["freshness"]["observed_at"],
@@ -90,7 +90,7 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
             assert app.overview_account == "org-unrelated"
             await pilot.click("#view-allocation")
             await settled(app, pilot)
-            assert not app.query_one("#job-web-link-row", Horizontal).display
+            assert not app.query_one("#web-link-row", Horizontal).display
             snapshot = app.results["jobs"]
             for changed in ("submit_time", "restart_count"):
                 original = mapping[changed]
@@ -110,7 +110,7 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
             for failure in ((403, "job_navigation_workspace_denied"), (503, "source_unavailable")):
                 await open_web(app, pilot)
                 assert app.results["jobs"] is snapshot and len(opened) == 2
-                assert not app.query_one("#job-web-link-row", Horizontal).display
+                assert not app.query_one("#web-link-row", Horizontal).display
                 assert failure[1] in str(app.query_one("#status", Static).render())
             failure = (403, "site_read_not_authorized")
             await open_web(app, pilot)
@@ -163,23 +163,23 @@ def test_headless_browser_failure_keeps_a_clickable_copyable_link_until_scope_ch
             await settled(app, pilot)
             snapshot = app.results["jobs"]
             await open_web(app, pilot)
-            link = app.query_one("#job-web-link", Static)
+            link = app.query_one("#web-link", Static)
             url = JobWebContext.from_payload(sample(), request_id="web").web_url(client.transport.base_url,
                 observed_at=snapshot.freshness.queried_at, submit_time=snapshot.items[0].values["submit_time"], restart_count=None)
-            assert app.query_one("#job-web-link-row", Horizontal).display
+            assert app.query_one("#web-link-row", Horizontal).display
             assert str(link.content) == "Open job in browser" and str(link.content.style) == f"link {url}"
-            assert app._job_web_url == url and app.clipboard == ""
+            assert app._web_url == url and app.clipboard == ""
             assert "Web link ready" in str(app.query_one("#status", Static).render())
-            await pilot.click("#copy-job-web")
+            await pilot.click("#copy-web-link")
             assert app.clipboard == url
             assert app.results["jobs"] is snapshot and link.region.width <= app.size.width
-            app.save_screenshot(str(tmp_path / "job-web-link.svg"))
+            app.save_screenshot(str(tmp_path / "web-link.svg"))
             app.query_one("#scope", Select).value = "org-account"
             app.query_one("#account", Input).value = "org-example"
             await pilot.click("#apply")
             await settled(app, pilot)
-            assert not app.query_one("#job-web-link-row", Horizontal).display and str(link.content) == ""
-            assert app._job_web_url is None
+            assert not app.query_one("#web-link-row", Horizontal).display and str(link.content) == ""
+            assert app._web_url is None
             assert app.results["jobs"].scope == "org_account"
     with http_endpoint(reply) as (origin, calls):
         client = PortalClient(transport=JsonTransport(base_url=origin, timeout_seconds=2),
@@ -318,17 +318,17 @@ def test_compact_job_actions_shortcuts_palette_and_explicit_copy(width, job_payl
             await pilot.press("w")
             await settled(app, pilot)
             assert calls == ["allocation", "web"] and len(opened) == 1 and copied == []
-            row = app.query_one("#job-web-link-row", Horizontal)
-            copy_button = app.query_one("#copy-job-web", Button)
+            row = app.query_one("#web-link-row", Horizontal)
+            copy_button = app.query_one("#copy-web-link", Button)
             assert row.region.height == 1 and copy_button.region.right <= width
             app.save_screenshot(str(tmp_path / f"job-actions-{width}.svg"))
-            await pilot.click("#copy-job-web")
+            await pilot.click("#copy-web-link")
             assert copied == opened and app.clipboard == opened[0]
             await palette(app, pilot, "Open in Web")
             assert calls == ["allocation", "web", "web"] and len(opened) == 2 and len(copied) == 1
             await palette(app, pilot, "View allocation")
             assert calls == ["allocation", "web", "web", "allocation"]
-            assert app._job_web_url is None and not row.display
+            assert app._web_url is None and not row.display
             assert "Copy job Web link" not in [command.title for command in app.get_system_commands(app.screen)]
     asyncio.run(scenario())
 

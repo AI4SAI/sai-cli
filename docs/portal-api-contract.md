@@ -132,11 +132,20 @@ are the current declared outputs, including exact size/nanosecond metadata and
 relative display names, not a content-addressed archive or download grant.
 
 The four paired schemas and examples are in `contracts/managed-runs/v1`.
-Paired Portal producer: `d0894c10815d5e3ba8a39a1117ee96cad2190ac6`.
+Paired Portal producer: `d48e200cd0e40594b11f5cb5568d59430ec7533d`.
 This identifies source compatibility, not a deployed server version.
 Unknown extra fields are dropped. File content is a specifically authorized
 log field; it never enables arbitrary file paths or native command output in
 errors. No client-side pricing, new task record or polling daemon is added.
+
+The console reuses these four DTOs under browser-authenticated
+`/v1/account/compute/runs` and the corresponding run/logs/artifacts paths.
+The route fixes `entrypoint=portal_read`, allowing the existing `agent_only`
+read policy while CLI routes still require shell access `enabled`. The caller
+cannot choose the entrypoint. Both surfaces resolve current account, project,
+site and owner-only Run visibility, with file READ checked separately.
+The task deep link is a fixed same-origin workspace `runs?run_ref=...` route.
+It is an object selector, not a credential, Pilot admission or file-content grant.
 
 ## List jobs
 

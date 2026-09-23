@@ -120,11 +120,14 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
 
     async def scenario(client, calls):
         nonlocal failure
+        opened = []
         app = Workbench(client, JobQuery(site_id="site-a", scope="org-account", account_name="org-unrelated"),
                         initial_view="tasks", storage_workspace_key="project:other", overview_account="other-account", refresh_seconds=999)
+        app.open_url = opened.append
         async with app.run_test(size=(40, 24)) as pilot:
             await settled(app, pilot)
             assert calls == [] and app.tasks_workspace_key is None
+            assert app.query_one("#open-task-web", Button).disabled
             app.query_one("#tasks-workspace", Input).value = "project:project-example"
             await click(app, pilot, "#load-tasks")
             assert isinstance(app.results["tasks"], ManagedRunList)
@@ -145,11 +148,28 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[1]) == "train\\x85part.sh"
             for width in (40, 60, 100):
                 await pilot.resize_terminal(width, 24)
-                for name in ("task-detail", "task-stdout", "task-stderr", "task-files", "task-start", "task-next"):
+                for name in ("task-detail", "task-stdout", "task-stderr", "task-files", "task-start", "task-next", "open-task-web"):
                     button = app.query_one(f"#{name}", Button)
                     assert 0 <= button.region.x < button.region.right <= width
                 app.save_screenshot(str(tmp_path / f"managed-task-{width}.svg"))
+            assert opened == [] and app.clipboard == ""
+            before = len(calls)
+            app.query_one("#tasks-workspace", Input).focus()
+            await pilot.pause(.01)
+            assert app.check_action("open_web", ()) is None
+            await command(app, pilot, "Open in Web")
+            assert len(calls) == before
+            url = urlsplit(opened[-1])
+            assert (url.scheme, url.netloc) == (urlsplit(client.transport.base_url).scheme, urlsplit(client.transport.base_url).netloc)
+            assert url.path == "/portal/" and url.query == ""
+            route, query = url.fragment.split("?", 1)
+            assert route == "/portal/workspaces/project%3Aproject-example/site-a/runs"
+            assert parse_qs(query) == {"run_ref": ["run-example-1"]}
+            assert app._web_url == opened[-1] and app.clipboard == ""
+            await click(app, pilot, "#copy-web-link")
+            assert app.clipboard == opened[-1]
             await command(app, pilot, "Read task stdout")
+            assert app._web_url is None
             assert isinstance(app.task_file_page, ManagedRunLogs)
             assert "first page" in details(app) and "\\x1b[red]literal\\x07" in details(app)
             before = len(calls)
@@ -171,10 +191,12 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert app.task_file_page is None and app.results["tasks"] is metadata
             assert "second.txt" not in details(app) and "completed" in details(app)
             assert "run_file_read_denied" in str(app.query_one("#status", Static).render())
+            assert not app.query_one("#open-task-web", Button).disabled
             failure = (403, "run_scope_denied")
             app.results["storage"] = object()
             await click(app, pilot, "#task-detail")
             assert "tasks" not in app.results and "storage" in app.results and app.selected_run is None
+            assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
             failure = None
             await click(app, pilot, "#load-tasks")
             app.query_one("#tasks-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
@@ -183,6 +205,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             failure = (401, "authentication_failed")
             await click(app, pilot, "#task-stdout")
             assert app.results == {} and app.task_file_page is None and app.paused
+            assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
             assert app.job_query.account_name == "org-unrelated" and app.overview_account == "other-account"
 
     with http_endpoint(reply) as (origin, calls):

@@ -110,6 +110,17 @@ not hide still-authorized task metadata. Output filenames describe current files
 under the declared roots, not a sealed result version. Pilot's native document
 preview remains the file viewer; this terminal slice does not create one.
 
+After loading a task's details, Open Web (W or the command palette) opens that
+exact managed run in the console's read-only task page. The link contains only
+the applied project, site and run reference; it uses the configured Portal
+origin. The browser authenticates and authorizes the read again, including
+separate file permission checks. It can open a historical run without reading
+the first list page, an active scheduler account or a Pilot runtime.
+The shared visible link and Copy link action also work over SSH without a local
+desktop browser. Refreshing, changing project or losing task access clears the
+link; typing in a text input never triggers W. Neither navigation nor copying
+starts a computation, changes the default identity or extends a runtime window.
+
 ## Continue in the console
 
 After a successful job detail or allocation read, Open Web asks Portal to
@@ -161,7 +172,7 @@ UI rows, not invented business identifiers. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.
 
-The full [unified workbench](unified-workbench.md) still needs managed-task result
+The full [unified workbench](unified-workbench.md) still needs direct Pilot result
 navigation, richer resource eligibility and hardware telemetry. Managed task
 history, logs and output listings now reuse the existing Run/readback contracts;
 job context can continue into the console's existing Pilot handoff.

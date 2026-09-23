@@ -112,6 +112,8 @@ are candidate designs, not completed implementation milestones.
   observation comparison and a visible same-origin link (local HTTP/Textual only)
 - [x] Explicit project-scoped Tasks with owner-only managed-run history, detail,
   bounded stdout/stderr and output-file pages (local validation; no runtime start)
+- [x] Exact managed-run Web navigation to the independently authorized console
+  task page, without requiring an active scheduler account or starting Pilot
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
@@ -127,7 +129,8 @@ Web navigation rechecks the exact job and workspace and carries the prior
 observation as comparison evidence; it does not launch or renew a Pilot task.
 Scope changes discard stale requests; network cancellation remains bounded by
 the HTTP timeout. Only estimates have local snapshot pages, not job-history
-pagination. Native output preview/deep links, settled billing and live
+pagination. Managed Tasks have server keyset pages and an exact Web detail link.
+Direct Pilot output preview links, settled billing and live
 resource views remain unfinished. Native storage shows authorized quota subjects,
 not an organization pool aggregate; this is not the full workbench.
 

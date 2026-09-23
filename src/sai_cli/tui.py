@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from webbrowser import Error as BrowserError
 
 from rich.text import Text
 from rich.table import Table
@@ -106,7 +107,7 @@ class Workbench(App):
     DataTable { height: 1fr; min-height: 3; }
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
-    #job-web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
+    #web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
     #storage-scroll { height: 1fr; }
     #storage-summary { height: auto; }
     #overview-summary { height: auto; padding: 1 0; }
@@ -122,7 +123,7 @@ class Workbench(App):
         Binding("f6", "pause", "Pause / resume"),
         Binding("escape", "back", "Back to list"),
         Binding("a", "view_allocation", "Allocation"),
-        Binding("w", "open_job_web", "Open Web"),
+        Binding("w", "open_web", "Open Web"),
         Binding("ctrl+q", "quit", "Quit"),
     ]
 
@@ -160,7 +161,7 @@ class Workbench(App):
         self._reading = False
         self._job_detail_revision: int | None = None
         self._web_request: tuple[int, JobQuery, JobResult | SiteJobResult | SiteJobAllocationResult] | None = None
-        self._job_web_url: str | None = None
+        self._web_url: str | None = None
         self._workbench_ready = False
 
     def compose(self) -> ComposeResult:
@@ -211,6 +212,7 @@ class Workbench(App):
                 with Horizontal(classes="controls"):
                     yield Button("Start", id="task-start", disabled=True)
                     yield Button("Next", id="task-next", disabled=True)
+                    yield Button("Open Web", id="open-task-web", disabled=True, tooltip="Open this task in Web (W)")
             with TabPane("Running estimates", id="usage"):
                 yield Static("Non-final estimates. Published prices and final charges are separate.", classes="hint", markup=False)
                 yield DataTable(id="usage-table", cursor_type="row")
@@ -229,11 +231,11 @@ class Workbench(App):
                 with VerticalScroll(id="storage-scroll"):
                     yield Static("Enter a workspace key and choose Load.", id="storage-summary", markup=False)
         with VerticalScroll(id="details-scroll"):
-            web_row = Horizontal(classes="controls", id="job-web-link-row")
+            web_row = Horizontal(classes="controls", id="web-link-row")
             web_row.display = False
             with web_row:
-                yield Static("", id="job-web-link", markup=False)
-                yield Button("Copy link", id="copy-job-web", disabled=True)
+                yield Static("", id="web-link", markup=False)
+                yield Button("Copy link", id="copy-web-link", disabled=True)
             yield Static("", id="details", markup=False)
         yield Footer()
 
@@ -380,12 +382,12 @@ class Workbench(App):
         ))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action in {"view_allocation", "open_job_web"}:
+        if action in {"view_allocation", "open_web"}:
             if self.focused and any(isinstance(widget, (Input, Select)) for widget in self.focused.ancestors_with_self):
                 return None
             if action == "view_allocation":
                 return True if self._can_inspect_job() else None
-            button = self.query_one("#open-job-web", Button)
+            button = self.query_one("#open-task-web" if self.view == "tasks" else "#open-job-web", Button)
             return True if button.display and not button.disabled else None
         return super().check_action(action, parameters)
 
@@ -393,12 +395,18 @@ class Workbench(App):
         if self._can_inspect_job():
             self._inspect_job("allocation")
 
-    def action_open_job_web(self) -> None:
-        self._open_job_in_web()
+    def action_open_web(self) -> None:
+        if self.view != "tasks":
+            self._open_job_in_web()
+            return
+        if not self._can_open_task_web():
+            return
+        result = self.results["tasks"]
+        self._show_web_link(result.web_url(self.client.transport.base_url), "Open task in browser")
 
-    def action_copy_job_link(self) -> None:
-        if self.view == "jobs" and self._job_web_url is not None:
-            self.copy_to_clipboard(self._job_web_url)
+    def action_copy_web_link(self) -> None:
+        if self.view in {"jobs", "tasks"} and self._web_url is not None:
+            self.copy_to_clipboard(self._web_url)
             self.query_one("#status", Static).update("Paste the Web link in your browser.")
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
@@ -411,9 +419,11 @@ class Workbench(App):
             yield SystemCommand("View allocation", "Read the selected job's allocated nodes", self.action_view_allocation)
         button = self.query_one("#open-job-web", Button)
         if button.display and not button.disabled:
-            yield SystemCommand("Open in Web", "Resolve this job's workspace and prepare a browser link", self.action_open_job_web)
-        if self.view == "jobs" and self._job_web_url is not None:
-            yield SystemCommand("Copy job Web link", "Copy the complete link to your terminal clipboard", self.action_copy_job_link)
+            yield SystemCommand("Open in Web", "Resolve this job's workspace and prepare a browser link", self.action_open_web)
+        elif self._can_open_task_web():
+            yield SystemCommand("Open in Web", "Open this managed task in its project and site", self.action_open_web)
+        if self.view in {"jobs", "tasks"} and self._web_url is not None:
+            yield SystemCommand("Copy Web link", "Copy the complete link to your terminal clipboard", self.action_copy_web_link)
 
     def _open_job_in_web(self) -> None:
         button = self.query_one("#open-job-web", Button)
@@ -427,11 +437,24 @@ class Workbench(App):
         self._start_reader()
 
     def _clear_web_link(self) -> None:
-        self._job_web_url = None
-        link = self.query_one("#job-web-link", Static)
+        self._web_url = None
+        link = self.query_one("#web-link", Static)
         link.update("")
-        self.query_one("#job-web-link-row", Horizontal).display = False
-        self.query_one("#copy-job-web", Button).disabled = True
+        self.query_one("#web-link-row", Horizontal).display = False
+        self.query_one("#copy-web-link", Button).disabled = True
+
+    def _show_web_link(self, url: str, label: str) -> None:
+        self._web_url = url
+        self.query_one("#web-link", Static).update(Text(label, style=f"link {url}"))
+        row = self.query_one("#web-link-row", Horizontal)
+        row.display = True
+        self.query_one("#copy-web-link", Button).disabled = False
+        self.call_after_refresh(row.scroll_visible, animate=False)
+        self.query_one("#status", Static).update("Web link ready. Open it in your browser.")
+        try:
+            self.open_url(url)
+        except (OSError, BrowserError):
+            self.query_one("#status", Static).update("Web link ready. Use Copy link to open it in your browser.")
 
     async def _read_web_context(self, revision: int, query: JobQuery,
                                 snapshot: JobResult | SiteJobResult | SiteJobAllocationResult) -> None:
@@ -452,15 +475,8 @@ class Workbench(App):
             if target.changed_since(submit_time=submitted, restart_count=restart):
                 self.query_one("#status", Static).update("The job observation changed. Refresh this view before opening Web.")
                 return
-            self._job_web_url = url
-            link = Text("Open job in browser", style=f"link {url}")
-            self.query_one("#job-web-link", Static).update(link)
-            self.query_one("#job-web-link-row", Horizontal).display = True
-            self.query_one("#copy-job-web", Button).disabled = False
-            self.call_after_refresh(self.query_one("#job-web-link-row", Horizontal).scroll_visible, animate=False)
             link_ready = True
-            self.open_url(url)
-            self.query_one("#status", Static).update("Web link ready. Open it in your browser.")
+            self._show_web_link(url, "Open job in browser")
         except SaiCliError as error:
             if revision == self._revision:
                 if isinstance(error, AuthenticationError) or (
@@ -496,6 +512,15 @@ class Workbench(App):
             else page.values["truncated"] if isinstance(page, ManagedRunLogs) else not page.values["complete"])
         self.query_one("#task-next", Button).disabled = busy or not more or page.values.get("next_cursor") is None
         self.query_one("#task-start", Button).disabled = busy or not self.tasks_workspace_key or self.task_mode == "detail"
+        self.query_one("#open-task-web", Button).disabled = not self._can_open_task_web()
+        self.refresh_bindings()
+
+    def _can_open_task_web(self) -> bool:
+        result = self.results.get("tasks")
+        return (self.view == "tasks" and not self._reading and not self._pending
+                and isinstance(result, ManagedRunDetail) and result.values["run"]["run_ref"] == self.selected_run
+                and result.values["workspace_key"] == self.tasks_workspace_key
+                and result.values["site_id"] == self.job_query.site_id)
 
     def _inspect_task(self, mode: str, *, run_ref: str | None = None) -> None:
         if self.view != "tasks" or self.tasks_workspace_key is None:
@@ -566,6 +591,7 @@ class Workbench(App):
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
         if view == "tasks":
+            self._clear_web_link()
             self.selected_run = None
             self.task_mode = "list"
             self.task_cursor = None
@@ -823,10 +849,10 @@ class Workbench(App):
                 self.action_view_allocation()
             else:
                 self._inspect_job("detail")
-        elif event.button.id == "open-job-web":
-            self.action_open_job_web()
-        elif event.button.id == "copy-job-web":
-            self.action_copy_job_link()
+        elif event.button.id in {"open-job-web", "open-task-web"}:
+            self.action_open_web()
+        elif event.button.id == "copy-web-link":
+            self.action_copy_web_link()
         elif event.button.id == "overview-messages":
             result = self.results.get("overview")
             if isinstance(result, AccountOverview):

@@ -1,6 +1,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -22,6 +23,17 @@ def parse(kind, data=None, **changes):
     if kind in {"list", "artifacts"}: kwargs.update(limit=100, cursor=None)
     if kind == "log": kwargs.update(stream="stdout", cursor=None, max_bytes=65536)
     return KINDS[kind].from_payload(data, **{**kwargs, **changes})
+
+
+def test_run_web_link_preserves_exact_reference_and_only_the_portal_origin():
+    data = sample("detail")
+    data["run"]["run_ref"] = "run:example+1"
+    result = parse("detail", data, run_ref="run:example+1")
+    url = urlsplit(result.web_url("https://console.example.test/prefix?ignored=1#old"))
+    assert (url.scheme, url.netloc, url.path, url.query) == ("https", "console.example.test", "/portal/", "")
+    route, query = url.fragment.split("?", 1)
+    assert route == "/portal/workspaces/project%3Aproject-example/site-a/runs"
+    assert parse_qs(query) == {"run_ref": ["run:example+1"]}
 
 
 @pytest.mark.parametrize("kind", KINDS)

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 import re
 from typing import Any
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 from .contracts import _required_text, _timestamp_text
 from .errors import ConfigError, ContractError
@@ -159,6 +160,13 @@ class ManagedRunList(ManagedReadResult):
 
 @dataclass(frozen=True)
 class ManagedRunDetail(ManagedReadResult):
+    def web_url(self, base_url: str) -> str:
+        origin = urlsplit(base_url)
+        route = (f"/portal/workspaces/{quote(self.values['workspace_key'], safe='')}/"
+                 f"{quote(self.values['site_id'], safe='')}/runs")
+        fragment = route + "?" + urlencode({"run_ref": self.values["run"]["run_ref"]})
+        return urlunsplit((origin.scheme, origin.netloc, "/portal/", "", fragment))
+
     @classmethod
     def from_payload(cls, payload: object, *, workspace_key: str, site_id: str, run_ref: str, request_id: str) -> ManagedRunDetail:
         data, result = _receipt_context(payload, "compute.run/v1", workspace_key, site_id, request_id)
