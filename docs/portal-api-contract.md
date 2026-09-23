@@ -132,7 +132,7 @@ are the current declared outputs, including exact size/nanosecond metadata and
 relative display names, not a content-addressed archive or download grant.
 
 The four paired schemas and examples are in `contracts/managed-runs/v1`.
-Paired Portal producer: `d48e200cd0e40594b11f5cb5568d59430ec7533d`.
+Paired Portal producer: `159d81291965d105147c4d4c1b1ad9d075db14f3`.
 This identifies source compatibility, not a deployed server version.
 Unknown extra fields are dropped. File content is a specifically authorized
 log field; it never enables arbitrary file paths or native command output in
