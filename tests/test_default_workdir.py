@@ -85,3 +85,12 @@ def test_nested_login_shell_keeps_the_directory_selected_by_the_user(tmp_path):
     ))
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == str(tmp_path)
+
+
+def test_applied_account_is_available_to_child_commands(tmp_path):
+    rows = f"cluster-a|org-example|{USER}|/org-example/0-{USER}/"
+    result = _resolve(tmp_path, rows, interactive_command=(
+        'source "$1"; bash --noprofile --norc -c \'printf "%s\\n" "$_SAI_LOGIN_ACCOUNT"\''
+    ))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "org-example\n"

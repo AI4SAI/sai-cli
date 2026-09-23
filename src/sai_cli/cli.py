@@ -458,10 +458,12 @@ def main(
                 if settings.site_read_base_url else None
             ),
         )
+        login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
         if args.command == "status":
             if args.cluster is not None:
                 raise ConfigError("status is site-scoped and does not accept --cluster")
-            result = client.account_overview(settings.site_id, account=args.account)
+            account = args.account if args.account is not None else login_account
+            result = client.account_overview(settings.site_id, account=account)
             if output_format == "json":
                 output.write(render_json(result.as_dict()))
             elif output_format == "table":
@@ -505,7 +507,8 @@ def main(
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
-            Workbench(client, query, storage_workspace_key=workspace, initial_view="overview").run()
+            Workbench(client, query, storage_workspace_key=workspace,
+                      overview_account=login_account, initial_view="overview").run()
             return 0
 
         if args.command == "jobs" and args.jobs_command == "list":

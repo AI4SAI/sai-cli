@@ -33,8 +33,8 @@ prove a site deployment or refresh the groups of existing sessions.
 
 The [login summary design](login-summary-design.md) defines a compact view of
 the applied default identity, authorized funds, unread messages and actionable
-access/job/storage issues. It replaces noisy automatic reports and reuses the
-unified workbench's facts and permissions.
+access/job/storage issues. It adds an account panel while retaining existing
+login information and reuses the unified workbench's facts and permissions.
 
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
 - [x] `sai status` JSON/plain/Rich panel and Textual Overview, with one shared login fragment

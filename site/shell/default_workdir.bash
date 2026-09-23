@@ -55,6 +55,7 @@ if [[ $- == *i* && $UID != 0 && -z ${SLURM_JOB_ID:-} && -z ${SLURM_JOBID:-} \
     export _SAI_LOGIN_DIRECTORY_ENTERED=1
     if _sai_login_context=$(_sai_default_context); then
         IFS=$'\t' read -r _SAI_LOGIN_ACCOUNT _sai_login_directory <<< "$_sai_login_context"
+        export _SAI_LOGIN_ACCOUNT
         if [[ $PWD == "$HOME" ]] && ! builtin cd -- "$_sai_login_directory" 2>/dev/null; then
             printf '%s\n' 'SAI: the default identity directory is unavailable; current directory retained.' >&2
         fi

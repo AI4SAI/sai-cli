@@ -48,6 +48,8 @@ a reviewed readable filesystem anchor; local code does not enable it.
 
 `sai tui` starts with the default-identity Overview and is an optional interactive
 consumer of these same read methods.
+On managed login nodes, `sai status` and Overview retain the applied login Account;
+an explicit `status --account` overrides it, while job and storage scopes remain independent.
 It keeps the configured site/cluster fixed, lets users explicitly apply job
 scope and narrowing filters, compares published partitions, and shows job
 detail and independent running estimates. Its dependencies are an optional

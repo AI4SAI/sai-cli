@@ -66,6 +66,7 @@ class Workbench(App):
     def __init__(
         self, client: PortalClient, query: JobQuery, *, refresh_seconds: int = 10,
         storage_workspace_key: str | None = None,
+        overview_account: str | None = None,
         initial_view: str = "resources",
     ):
         super().__init__()
@@ -79,6 +80,7 @@ class Workbench(App):
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
         self.storage_workspace_key = (storage_workspace_key or "").strip() or None
+        self.overview_account = overview_account
         self.storage_source = "summary"
         self.results: dict[str, object] = {}
         self._failed_views: set[str] = set()
@@ -221,7 +223,7 @@ class Workbench(App):
 
     def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None, storage_source: str = "summary"):
         if view == "overview":
-            return self.client.account_overview(query.site_id)
+            return self.client.account_overview(query.site_id, account=self.overview_account)
         if view == "resources":
             return self.client.resource_catalog(query.site_id)
         if view == "storage":

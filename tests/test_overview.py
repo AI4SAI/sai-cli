@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 from io import StringIO
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
@@ -9,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from sai_cli.auth import TokenLease
+from sai_cli import config as config_module
 from sai_cli.cli import main
 from sai_cli.client import JobQuery, PortalClient
 from sai_cli.errors import ContractError
@@ -101,6 +103,36 @@ def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, m
     assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
 
 
+@pytest.mark.parametrize("managed,explicit,expected", [
+    (True, None, "org-applied"),
+    (True, "org-example", "org-example"),
+    (False, None, None),
+])
+def test_status_retains_managed_login_account_and_explicit_override(tmp_path, monkeypatch, managed, explicit, expected):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    def reply(call, _):
+        query = parse_qs(urlsplit(call["path"]).query)
+        assert query == {"site_id": ["site-a"], **({"slurm_account_name": [expected]} if expected else {})}
+        value = sample()
+        value["context"]["slurm_account"] = expected or "org-example"
+        return 200, value
+    with http_endpoint(reply) as (origin, calls):
+        config = tmp_path / "managed.toml"
+        config.write_text(f'[profiles.default]\nbase_url = "{origin}"\nsite_id = "site-a"\nrequire_site_capability = true\n')
+        config.chmod(0o644)
+        monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
+        monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
+        args = ["status", *(["--account", explicit] if explicit else [])]
+        out, err = StringIO(), StringIO()
+        rc = main(args, environ={"SAI_TOKEN": "test-bearer", "SAI_CONFIG": str(config),
+                  "SAI_MANAGED_LOGIN_NODE": "1" if managed else "0", "_SAI_LOGIN_ACCOUNT": "org-applied"},
+                  stdout=out, stderr=err)
+        assert rc == 0 and not err.getvalue(), err.getvalue()
+        assert json.loads(out.getvalue())["context"]["slurm_account"] == (expected or "org-example")
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize("width", [40, 80, 120])
 def test_terminal_panel_fits_width_and_treats_markup_as_text(width):
     pytest.importorskip("rich")
@@ -132,14 +164,18 @@ def test_interactive_overview_refresh_navigation_and_revocation(tmp_path, monkey
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     denied = False
     def reply(call, _):
+        assert parse_qs(urlsplit(call["path"]).query) == {"site_id": ["site-a"], "slurm_account_name": ["org-example"]}
         return (403, {"detail": "scope unavailable"}) if denied else (200, sample())
     async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="overview", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a", scope="org-account", account_name="org-jobs"),
+                        overview_account="org-example", storage_workspace_key="org:storage",
+                        initial_view="overview", refresh_seconds=999)
         opened = []
         app.open_url = opened.append
         async with app.run_test(size=(80, 24)) as pilot:
             await settled(app, pilot)
             assert "overview" in app.results and not app.query_one("#job-scope-controls").display
+            assert app.job_query.account_name == "org-jobs" and app.storage_workspace_key == "org:storage"
             await pilot.click("#overview-messages")
             assert opened == [app.results["overview"].messages_url(client.transport.base_url)]
             nonlocal denied
