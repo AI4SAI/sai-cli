@@ -1,16 +1,19 @@
 import asyncio
+import builtins
 from copy import deepcopy
 from io import StringIO
 import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
+from threading import Event, current_thread
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from sai_cli.auth import TokenLease
 from sai_cli import config as config_module
+from sai_cli import cli as cli_module
 from sai_cli.cli import main
 from sai_cli.client import JobQuery, PortalClient
 from sai_cli.errors import ContractError
@@ -85,9 +88,11 @@ def test_missing_default_does_not_hide_personal_verification_action():
     assert "¥0" not in text
 
 
-def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, monkeypatch):
+@pytest.mark.parametrize("output_format", ["json", "table"])
+def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, monkeypatch, output_format):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    monkeypatch.setattr(cli_module, "_load_overview_console", lambda: pytest.fail("batch status must not load UI"))
     def reply(call, _):
         parsed = urlsplit(call["path"])
         assert parsed.path == "/v1/account/cli/overview"
@@ -96,10 +101,13 @@ def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, m
     with http_endpoint(reply) as (origin, calls):
         for args in (["--site", "site-a", "status"], ["status", "--site", "site-a"]):
             out, err = StringIO(), StringIO()
-            rc = main([*args, "--account", "org-example", "--base-url", origin],
+            rc = main([*args, "--account", "org-example", "--format", output_format, "--base-url", origin],
                       environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)}, stdout=out, stderr=err)
             assert rc == 0 and not err.getvalue()
-            assert json.loads(out.getvalue())["inbox"]["unread_count"] == 4
+            if output_format == "json":
+                assert json.loads(out.getvalue())["inbox"]["unread_count"] == 4
+            else:
+                assert "未读消息  4 条" in out.getvalue()
     assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
 
 
@@ -131,6 +139,55 @@ def test_status_retains_managed_login_account_and_explicit_override(tmp_path, mo
         assert rc == 0 and not err.getvalue(), err.getvalue()
         assert json.loads(out.getvalue())["context"]["slurm_account"] == (expected or "org-example")
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("http_status,missing_rich,expected_exit", [
+    (200, False, 0), (403, False, 4), (200, True, 2), (403, True, 4),
+])
+def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monkeypatch, http_status, missing_rich, expected_exit):
+    pytest.importorskip("rich")
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    import_started, response_ready = Event(), Event()
+    workers = []
+    caller = current_thread()
+    original_load = cli_module._load_overview_console
+    original_read = PortalClient.account_overview
+    original_import = builtins.__import__
+
+    def load_console():
+        workers.append(current_thread())
+        import_started.set()
+        assert response_ready.wait(2)
+        return original_load()
+
+    def read(client, *args, **kwargs):
+        assert current_thread() is caller
+        return original_read(client, *args, **kwargs)
+
+    def import_module(name, *args, **kwargs):
+        if missing_rich and name == "rich.console":
+            raise ModuleNotFoundError("No module named 'rich'", name="rich")
+        return original_import(name, *args, **kwargs)
+
+    def reply(call, _):
+        assert import_started.wait(2)
+        response_ready.set()
+        return http_status, sample() if http_status == 200 else {"detail": "scope unavailable"}
+
+    monkeypatch.setattr(cli_module, "_load_overview_console", load_console)
+    monkeypatch.setattr(PortalClient, "account_overview", read)
+    monkeypatch.setattr(builtins, "__import__", import_module)
+    with http_endpoint(reply) as (origin, calls):
+        out, err = StringIO(), StringIO()
+        rc = main(["status", "--format", "tui", "--site", "site-a", "--base-url", origin],
+                  environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)}, stdout=out, stderr=err)
+    assert rc == expected_exit and len(calls) == 1
+    assert len(workers) == 1 and workers[0] is not caller and not workers[0].is_alive()
+    assert bool(out.getvalue()) is (expected_exit == 0)
+    assert bool(err.getvalue()) is (expected_exit != 0)
+    if expected_exit == 2:
+        assert "install sai-cli[tui]" in err.getvalue()
 
 
 @pytest.mark.parametrize("width", [40, 80, 120])

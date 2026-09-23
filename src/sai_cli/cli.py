@@ -410,6 +410,16 @@ def _emit_error(error: SaiCliError, *, output_format: str, stderr: TextIO) -> No
     stderr.write(f"ERROR [{error.code}]: {error.message}{suffix}\n")
 
 
+def _load_overview_console() -> type:
+    try:
+        from rich.console import Console
+    except ModuleNotFoundError as exc:
+        if exc.name != "rich":
+            raise
+        raise ConfigError("Terminal UI dependencies are unavailable; install sai-cli[tui].") from None
+    return Console
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -463,20 +473,20 @@ def main(
             if args.cluster is not None:
                 raise ConfigError("status is site-scoped and does not accept --cluster")
             account = args.account if args.account is not None else login_account
+            if output_format == "tui":
+                from concurrent.futures import ThreadPoolExecutor
+                from .overview_view import overview_panel
+                with ThreadPoolExecutor(max_workers=1) as worker:
+                    loading = worker.submit(_load_overview_console)
+                    result = client.account_overview(settings.site_id, account=account)
+                    console = loading.result()
+                console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url))
+                return 0
             result = client.account_overview(settings.site_id, account=account)
             if output_format == "json":
                 output.write(render_json(result.as_dict()))
-            elif output_format == "table":
-                output.write(render_overview(result, work_dir=os.getcwd()))
             else:
-                try:
-                    from rich.console import Console
-                    from .overview_view import overview_panel
-                except ModuleNotFoundError as exc:
-                    if exc.name != "rich":
-                        raise
-                    raise ConfigError("Terminal UI dependencies are unavailable; install sai-cli[tui].") from None
-                Console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url))
+                output.write(render_overview(result, work_dir=os.getcwd()))
             return 0
         if args.command == "resources":
             if args.cluster is not None:
