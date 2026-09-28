@@ -559,6 +559,9 @@ registration, not proof of current physical incarnation, utilization, full
 rack occupancy or a stable execution identity. Local fixtures are not site
 asset verification or deployment acceptance.
 
+Paired Portal producer: `02c32da4835bcbf5bd33d83d3f4fb14eac3e1591`.
+The placement schema/sample are byte-identical across Portal, CLI and Pilot.
+
 ## Storage quota summary
 
 `GET /v1/account/cli/storage/quota-summary` uses only `workspace_key` and
