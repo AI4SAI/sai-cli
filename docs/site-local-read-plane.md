@@ -130,6 +130,11 @@ The reusable site runtime adapter supports these bounded native reads:
 - `scontrol show hostnames <expression>`, only to expand an observed allocation's
   host expression. This does not query all-node state or physical inventory.
 
+The paired `jobs.allocation/v2` projection also reads `gres_detail` from that
+same job response. Slurm JSON already enables detail. Index-to-node binding
+uses the native ordered expansion before sorting; it adds no node-state query.
+Unknown GRES remains null independently of valid CPU/memory observations.
+
 It has no `sacct`, enforcement, reservation, metadata, provisioning, quota, or
 write method. Commands run without sudo, with explicit timeout and output
 bounds. A source failure returns a bounded unavailable result; it never falls

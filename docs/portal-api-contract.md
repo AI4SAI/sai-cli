@@ -485,8 +485,10 @@ not prove a live scheduler, installed gateway or production wrapper rollout.
 
 ### Job allocation snapshots
 
-Producer reference: `sai-portal` commit `9e3b12243`,
-`contracts/job-allocation/v1/README.md`. Deploy that producer before consumers.
+The shared producer/consumer contract is `contracts/job-allocation/v2/README.md`.
+The v2 migration must pair the gateway, Portal relay, CLI and Pilot consumers.
+It replaces v1 without interpreting an older response as complete v2 evidence.
+Paired Portal producer: `3cf695ad8e9c6fe8f05fe00ed72d1f81e4dbf782`.
 
 `sai jobs allocation JOB_ID` requires the explicit gateway configuration above;
 without it the command fails before making any request. It requests the exact
@@ -494,7 +496,7 @@ without it the command fails before making any request. It requests the exact
 then calls `GET /v1/site-read/jobs/{job_id}/allocation` through the same transport
 and bounded capability renewal. No central job endpoint is an alternative.
 
-The `jobs.allocation/v1` response carries the same `site_id`, `cluster_id`,
+The `jobs.allocation/v2` response carries the same `site_id`, `cluster_id`,
 `scope_type`, `subject`, `freshness` and SHA-256 `etag` as `jobs/v1`, with
 `freshness.source=scontrol`. It replaces `items` and `has_more` with:
 
@@ -509,8 +511,19 @@ The `jobs.allocation/v1` response carries the same `site_id`, `cluster_id`,
   This is not a persistent attempt identifier; no attempt ID is invented.
 - `allocation`: `status` and `nodes`. `allocated` has 1–4096 unique nodes;
   `not_allocated` has `[]`; `unavailable` has null. Each node contains only
-  `name` (`[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`), nonnegative integer `cpus`, and
-  nonnegative integer or null `memory_mib`. Zero CPU counts remain zero.
+  `name` (`[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`), nonnegative integer `cpus`,
+  nonnegative integer or null `memory_mib`, and nullable `gres`.
+  Zero CPU counts remain zero. GRES entries contain `name`, nullable `type`,
+  exact nonnegative int64 `count` and nullable sorted unique int32 `indices`.
+  Per node there are at most 32 entries, unique by name/type; per entry at most
+  4096 indices, with length equal to count. Whole observations allow at most
+  4096 entries and 65,536 indices. An unavailable layer is null, not zero.
+
+The producer binds `gres_detail` to the same job's native node index and ordered
+hostnames expansion before sorting output. IDX observations provide Slurm-local
+indices; CNT and shared MPS/shard observations provide quantities only. Counts
+retain the named GRES units. No original GRES text, per-slot shared capacity,
+UUID, CUDA index, MIG parent or physical slot leaves this projection.
 
 Missing or transitional native allocation facts may be unavailable. Null is
 never translated to zero or an empty allocation. This is a snapshot allocation,

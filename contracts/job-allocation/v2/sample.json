@@ -1,0 +1,70 @@
+{
+  "allocation": {
+    "nodes": [
+      {
+        "cpus": 0,
+        "memory_mib": null,
+        "name": "node-a",
+        "gres": [
+          {
+            "name": "gpu",
+            "type": "accelerator",
+            "count": 2,
+            "indices": [
+              0,
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "cpus": 8,
+        "memory_mib": 16384,
+        "name": "node-b",
+        "gres": null
+      }
+    ],
+    "status": "allocated"
+  },
+  "cluster_id": "cluster-a",
+  "etag": "aa092e17981194ba93cd718e864f85b20e6628aa9e0ccf74ef051014afea81ad",
+  "freshness": {
+    "age_seconds": 1,
+    "observed_at": "2026-09-23T00:00:01Z",
+    "source": "scontrol",
+    "stale": false,
+    "ttl_seconds": 5
+  },
+  "job": {
+    "array_task_id": "0",
+    "elapsed_seconds": 1,
+    "gpus_per_node": null,
+    "job_id": "12345",
+    "mem_per_unit": null,
+    "name": "research-run",
+    "nodes": 2,
+    "partition": "cpu-standard",
+    "priority": 100,
+    "qos": "normal",
+    "reason_or_nodelist": "node-a,node-b",
+    "run_wait_seconds": null,
+    "slots": 8,
+    "slurm_account": "project-example",
+    "slurm_user": "alice",
+    "start_time": "2026-09-23T00:00:00Z",
+    "state": "R",
+    "state_label": "运行中",
+    "submit_time": "2026-09-22T23:30:00Z"
+  },
+  "restart_count": 0,
+  "scheduler_states": [
+    "RUNNING"
+  ],
+  "schema_version": "jobs.allocation/v2",
+  "scope_type": "project_account",
+  "site_id": "site-a",
+  "subject": {
+    "slurm_account": "project-example",
+    "slurm_user": "alice"
+  }
+}

@@ -45,8 +45,11 @@ observation time/freshness and node CPU/memory rows from one response. It never
 combines an earlier job detail with a newer node list. `allocated`,
 `not_allocated` and `unavailable` remain distinct; unknown memory remains unknown.
 Array tasks retain their complete identity, including task zero (`12345_0`),
-for both detail and allocation requests. These observations do not report
-measured utilization, GPU placement, racks or physical topology.
+for both detail and allocation requests. The v2 response includes bounded node
+GRES entries when native evidence can be bound to the node: resource name/type,
+allocated quantity and optional Slurm-local indices. Shared quantities retain
+their own units. Missing evidence stays unknown; these values do not establish
+physical GPU placement, MIG parent identity, measured utilization, racks or topology.
 
 Storage rows in Resources are published products only, not quota usage or
 file access. The separate Storage tab selects a stored quota sample or an

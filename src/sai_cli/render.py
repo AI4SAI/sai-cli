@@ -288,13 +288,32 @@ def render_site_allocation(result: SiteJobAllocationResult) -> str:
         f"Restart count: {_display(result.restart_count)}  Allocation: {result.allocation_status}",
     ]
     if result.nodes:
-        rows = [(node.name, str(node.cpus), _display(node.memory_mib)) for node in result.nodes]
-        headings = ("Node", "Allocated CPUs", "Allocated memory (MiB)")
+        rows = [(node.name, str(node.cpus), _display(node.memory_mib),
+                 "Unknown" if node.gres is None else "; ".join(
+                     f"{item.name}{':' + item.type if item.type is not None else ''}: {item.count}"
+                     f" (Slurm indices: {'Unknown' if item.indices is None else format_allocation_indices(item.indices)})"
+                     for item in node.gres)) for node in result.nodes]
+        headings = ("Node", "Allocated CPUs", "Allocated memory (MiB)", "Allocated GRES (Slurm units)")
         widths = [max(len(heading), *(len(row[index]) for row in rows))
                   for index, heading in enumerate(headings)]
         lines.extend((_line(headings, widths), _line(("-" * width for width in widths), widths)))
         lines.extend(_line(row, widths) for row in rows)
+        lines.append("Slurm resource units and indices do not identify CUDA/NVML devices, physical slots or MIG parents.")
     return "\n".join(lines) + "\n"
+
+
+def format_allocation_indices(indices: tuple[int, ...]) -> str:
+    """Keep every scheduler index while compressing adjacent ranges for display."""
+    ranges: list[str] = []
+    start = end = indices[0]
+    for index in indices[1:]:
+        if index == end + 1:
+            end = index
+            continue
+        ranges.append(str(start) if start == end else f"{start}-{end}")
+        start = end = index
+    ranges.append(str(start) if start == end else f"{start}-{end}")
+    return ", ".join(ranges)
 
 
 def render_running_estimate_table(result: RunningEstimateResult) -> str:

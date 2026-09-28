@@ -114,6 +114,13 @@ MESSAGES = {
     "allocated": ("已分配", "Allocated"), "not_allocated": ("本次观测没有节点分配", "No nodes allocated in this observation"),
     "allocation_unavailable": ("本次观测的节点分配未知", "Allocation unavailable for this observation"),
     "allocated_cpus": ("已分配 CPU", "Allocated CPUs"), "memory_mib": ("内存 MiB", "Memory (MiB)"),
+    "allocated_gres": ("已分配资源（Slurm 单位）", "Allocated resources (Slurm units)"),
+    "gres_count": ("数量 {count}", "Count {count}"),
+    "gres_indices": ("Slurm 索引", "Slurm indices"),
+    "gres_units_hint": (
+        "数量与索引采用 Slurm 定义，不能用于识别 CUDA/NVML 设备、物理插槽或 MIG 父设备。",
+        "Slurm units and indices do not identify CUDA/NVML devices, physical slots or MIG parents.",
+    ),
     "snapshot_paused": ("此快照暂停自动刷新；F5 更新，Esc 返回", "Snapshot auto refresh paused; F5 updates, Esc returns"),
     "user": ("用户", "User"), "qos": ("QOS", "QOS"), "gpu_node": ("GPU/节点", "GPU / node"),
     "slots": ("槽位", "Slots"), "elapsed": ("运行秒数", "Elapsed seconds"),

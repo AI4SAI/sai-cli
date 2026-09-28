@@ -7,6 +7,7 @@ from rich.text import Text
 
 from .managed_runs import ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, terminal_log
 from .native_quota import NativeQuotaResult
+from .render import format_allocation_indices
 from .site_jobs import SiteJobAllocationResult
 from .storage_summary import StorageQuotaSummary
 from .tui_messages import MESSAGES, Messages
@@ -85,7 +86,20 @@ def allocation_panel(result: SiteJobAllocationResult, language: str = "en-US") -
     for node in result.nodes or ():
         table.add_row(Text(node.name), Text(str(node.cpus)), Text(display(node.memory_mib, language)))
     hint = Text(t("snapshot_paused"))
-    return Group(header, table, hint) if result.nodes else Group(header, hint)
+    if not result.nodes:
+        return Group(header, hint)
+    resources: list[Text] = [Text(t("allocated_gres"), style="bold")]
+    for node in result.nodes:
+        resources.append(Text(node.name, style="bold", overflow="fold"))
+        if node.gres is None:
+            resources.append(Text(t("unknown")))
+        else:
+            for item in node.gres:
+                resource = item.name + (":" + item.type if item.type is not None else "")
+                indices = t("unknown") if item.indices is None else format_allocation_indices(item.indices)
+                resources.append(Text(f"{resource} · {t('gres_count', count=item.count)}\n"
+                                      f"{t('gres_indices')}: {indices}", overflow="fold"))
+    return Group(header, table, *resources, Text(t("gres_units_hint")), hint)
 
 
 def storage_panel(result: StorageQuotaSummary | NativeQuotaResult, language: str) -> Group:

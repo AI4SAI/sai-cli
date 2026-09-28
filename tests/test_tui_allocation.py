@@ -21,6 +21,7 @@ from sai_cli.overview import AccountOverview
 from sai_cli.site_jobs import SiteJobAllocationResult
 from sai_cli.transport import JsonTransport
 from sai_cli.tui import Workbench
+from sai_cli.tui_views import allocation_panel
 from test_capability import _settings
 from test_overview import sample as overview_sample
 from test_site_transport import http_endpoint, issuer
@@ -31,6 +32,27 @@ def detail_text(app, width=60):
     output = StringIO()
     Console(file=output, width=width, color_system=None).print(app.query_one("#details", Static).content)
     return output.getvalue()
+
+
+@pytest.mark.parametrize("language", ["zh-CN", "en-US"])
+@pytest.mark.parametrize("width", [40, 60, 100])
+def test_allocation_panel_keeps_gres_units_indices_and_unknown_readable(site_allocation_payload, language, width):
+    site_allocation_payload["allocation"]["nodes"][1]["gres"] = [
+        {"name": "gpu", "type": "example", "count": 4, "indices": [0, 1, 2, 7]},
+        {"name": "mps", "type": None, "count": 100, "indices": None},
+        {"name": "shard", "type": None, "count": 0, "indices": None},
+    ]
+    result = SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="panel")
+    output = StringIO()
+    Console(file=output, width=width, color_system=None).print(allocation_panel(result, language))
+    text = output.getvalue()
+    for expected in ("compute-a", "compute-b", "gpu:example", "mps", "shard", "0-2, 7",
+                     "数量 100" if language == "zh-CN" else "Count 100",
+                     "数量 0" if language == "zh-CN" else "Count 0",
+                     "未知" if language == "zh-CN" else "Unknown"):
+        assert expected in text
+    assert ("Slurm 索引" if language == "zh-CN" else "Slurm indices") in text
+    assert "CUDA/NVML" in text
 
 
 def test_http_allocation_uses_exact_array_id_and_refreshes_one_complete_snapshot(tmp_path, job_payload, site_allocation_payload, monkeypatch):

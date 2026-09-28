@@ -68,6 +68,9 @@
   detail and allocation actions. Allocation displays one response's job, nodes,
   CPU/memory, freshness and restart count; it pauses automatic refresh and F5
   clears and replaces the whole snapshot. Array-task identity preserves task zero.
+  The v2 allocation DTO adds bounded GRES name/type/quantity and optional native
+  Slurm indices from the same observation. These are not physical GPU/CUDA
+  identities or utilization; shared quantities retain their own resource units.
   Open in Web uses an Identity-only central job web-context read and Portal's
   authoritative workspace mapping. It carries the inspected observation to a
   same-origin Jobs link, retains a visible link for remote terminals, and never

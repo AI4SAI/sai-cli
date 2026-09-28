@@ -196,10 +196,44 @@ class SiteJobResult(_SiteJobContext):
 
 
 @dataclass(frozen=True)
+class SiteAllocationGres:
+    name: str
+    type: str | None
+    count: int
+    indices: tuple[int, ...] | None
+
+    @classmethod
+    def from_payload(cls, payload: object, *, request_id: str) -> "SiteAllocationGres":
+        if not isinstance(payload, dict):
+            raise ContractError(request_id=request_id)
+        name = _required_text(payload, "name", request_id=request_id, maximum=128)
+        resource_type = _nullable_nonempty_text(payload, "type", request_id=request_id, maximum=128)
+        if any(value is not None and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}", value) is None
+               for value in (name, resource_type)):
+            raise ContractError(request_id=request_id)
+        count = _required_int(payload, "count", request_id=request_id)
+        if count > 2**63 - 1 or "indices" not in payload:
+            raise ContractError(request_id=request_id)
+        indices = payload["indices"]
+        if indices is not None and (
+            not isinstance(indices, list) or not 1 <= len(indices) <= 4096 or len(indices) != count
+            or any(type(index) is not int or not 0 <= index <= 2**31 - 1 for index in indices)
+            or indices != sorted(set(indices))
+        ):
+            raise ContractError(request_id=request_id)
+        return cls(name, resource_type, count, None if indices is None else tuple(indices))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "type": self.type, "count": self.count,
+                "indices": None if self.indices is None else list(self.indices)}
+
+
+@dataclass(frozen=True)
 class SiteAllocationNode:
     name: str
     cpus: int
     memory_mib: int | None
+    gres: tuple[SiteAllocationGres, ...] | None
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteAllocationNode":
@@ -208,8 +242,22 @@ class SiteAllocationNode:
         name = _required_text(payload, "name", request_id=request_id, maximum=128)
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", name):
             raise ContractError(request_id=request_id)
+        if "gres" not in payload:
+            raise ContractError(request_id=request_id)
+        gres = payload["gres"]
+        if gres is not None and (not isinstance(gres, list) or not 1 <= len(gres) <= 32):
+            raise ContractError(request_id=request_id)
+        parsed_gres = None if gres is None else tuple(
+            SiteAllocationGres.from_payload(item, request_id=request_id) for item in gres
+        )
+        if parsed_gres is not None and len({(item.name, item.type) for item in parsed_gres}) != len(parsed_gres):
+            raise ContractError(request_id=request_id)
         return cls(name, _required_int(payload, "cpus", request_id=request_id),
-                   _nullable_int(payload, "memory_mib", request_id=request_id))
+                   _nullable_int(payload, "memory_mib", request_id=request_id), parsed_gres)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "cpus": self.cpus, "memory_mib": self.memory_mib,
+                "gres": None if self.gres is None else [item.as_dict() for item in self.gres]}
 
 
 @dataclass(frozen=True)
@@ -222,7 +270,7 @@ class SiteJobAllocationResult(_SiteJobContext):
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobAllocationResult":
-        if not isinstance(payload, dict) or payload.get("schema_version") != "jobs.allocation/v1":
+        if not isinstance(payload, dict) or payload.get("schema_version") != "jobs.allocation/v2":
             raise ContractError(request_id=request_id)
         context = _SiteJobContext.from_payload(payload, request_id=request_id)
         job = context.read_job(payload.get("job"), request_id=request_id)
@@ -259,8 +307,14 @@ class SiteJobAllocationResult(_SiteJobContext):
         parsed_nodes = None if nodes is None else tuple(
             SiteAllocationNode.from_payload(node, request_id=request_id) for node in nodes
         )
-        if parsed_nodes and len({node.name for node in parsed_nodes}) != len(parsed_nodes):
-            raise ContractError(request_id=request_id)
+        if parsed_nodes:
+            names = [node.name for node in parsed_nodes]
+            if names != sorted(set(names)):
+                raise ContractError(request_id=request_id)
+            resource_count = sum(len(node.gres or ()) for node in parsed_nodes)
+            index_count = sum(len(item.indices or ()) for node in parsed_nodes for item in node.gres or ())
+            if resource_count > 4096 or index_count > 65536:
+                raise ContractError(request_id=request_id)
         return cls(
             **vars(context), job=job, restart_count=restart_count,
             scheduler_states=tuple(states), allocation_status=status, nodes=parsed_nodes,
@@ -276,10 +330,10 @@ class SiteJobAllocationResult(_SiteJobContext):
             raise ContractError(request_id=context["request_id"])
 
     def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": "jobs.allocation/v1", **super().as_dict(),
+        return {"schema_version": "jobs.allocation/v2", **super().as_dict(),
                 "job": self.job.as_dict(), "restart_count": self.restart_count,
                 "scheduler_states": list(self.scheduler_states),
                 "allocation": {"status": self.allocation_status,
                                "nodes": None if self.nodes is None else [
-                                   {"name": node.name, "cpus": node.cpus, "memory_mib": node.memory_mib}
+                                   node.as_dict()
                                    for node in self.nodes]}}

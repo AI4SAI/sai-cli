@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
 import json
+from pathlib import Path
 
 import pytest
 
@@ -197,7 +198,8 @@ def test_gateway_table_shows_observation_and_truncation_without_guessing(site_jo
 def test_allocation_preserves_snapshot_values_and_recursively_drops_unknown_fields(site_allocation_payload):
     payload = deepcopy(site_allocation_payload)
     for row in (payload, payload["job"], payload["subject"], payload["freshness"],
-                payload["allocation"], *payload["allocation"]["nodes"]):
+                payload["allocation"], *payload["allocation"]["nodes"],
+                *payload["allocation"]["nodes"][1]["gres"]):
         row["raw_secret"] = "must-not-render"
     result = SiteJobAllocationResult.from_payload(payload, request_id="allocation")
     assert result.as_dict() == site_allocation_payload
@@ -205,6 +207,8 @@ def test_allocation_preserves_snapshot_values_and_recursively_drops_unknown_fiel
     table = render_site_allocation(result)
     assert "compute-a" in table and "0" in table and "16384" in table
     assert "Restart count: -" in table and "Allocated CPUs" in table and "Allocated memory (MiB)" in table
+    assert "gpu:example: 2 (Slurm indices: 0, 2)" in table
+    assert "Allocated GRES (Slurm units)" in table and "Unknown" in table
     assert "must-not-render" not in table + render_json(result.as_dict())
     for status, nodes in (("not_allocated", []), ("unavailable", None)):
         payload.update(restart_count=0, scheduler_states=["COMPLETED", "COMPLETING"])
@@ -216,8 +220,16 @@ def test_allocation_preserves_snapshot_values_and_recursively_drops_unknown_fiel
         assert "Restart count: 0" in render_site_allocation(result)
 
 
+def test_allocation_published_v2_fixture_round_trip():
+    fixture = Path(__file__).resolve().parents[1] / "contracts/job-allocation/v2/sample.json"
+    payload = json.loads(fixture.read_text())
+    result = SiteJobAllocationResult.from_payload(payload, request_id="shared-allocation")
+    assert result.as_dict() == payload
+
+
 @pytest.mark.parametrize("mutate", [
     lambda p: p.update(schema_version="jobs/v1"),
+    lambda p: p.update(schema_version="jobs.allocation/v1"),
     lambda p: p.pop("restart_count"),
     lambda p: p.update(restart_count=True),
     lambda p: p.update(restart_count=-1),
@@ -233,11 +245,13 @@ def test_allocation_preserves_snapshot_values_and_recursively_drops_unknown_fiel
     lambda p: p["allocation"].update(status="not_allocated"),
     lambda p: p["allocation"].update(nodes=[]),
     lambda p: p["allocation"].update(nodes=p["allocation"]["nodes"] * 2049),
+    lambda p: p["allocation"]["nodes"].reverse(),
     lambda p: p["allocation"]["nodes"][0].update(name="x" * 129),
     lambda p: p["allocation"]["nodes"][0].update(name="node\n"),
     lambda p: p["allocation"]["nodes"][0].update(name="node+1"),
     lambda p: p["allocation"]["nodes"][0].update(cpus=True),
     lambda p: p["allocation"]["nodes"][0].update(memory_mib=-1),
+    lambda p: p["allocation"]["nodes"][0].pop("gres"),
     lambda p: p["allocation"]["nodes"][1].update(name="compute-a"),
     lambda p: p["job"].update(slurm_user="bob"),
     lambda p: p["job"].update(job_id="12345_7"),
@@ -259,3 +273,73 @@ def test_allocation_binds_exact_array_task_and_site(site_allocation_payload):
                      {"cluster_id": "other"}, {"scope": "org_account"}, {"states": ("PD",)}):
         with pytest.raises(ContractError):
             result.require_request_binding(**{**request, **mismatch})
+
+
+@pytest.mark.parametrize("gres", [
+    [], {}, "gpu:2", [None],
+    [{"name": "gpu", "type": None, "count": 1, "indices": None}] * 2,
+    [{"name": f"resource-{index}", "type": None, "count": 1, "indices": None} for index in range(33)],
+])
+def test_allocation_rejects_invalid_or_duplicate_resource_lists(site_allocation_payload, gres):
+    site_allocation_payload["allocation"]["nodes"][0]["gres"] = gres
+    with pytest.raises(ContractError):
+        SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="gres")
+
+
+@pytest.mark.parametrize("field,invalid", [
+    ("name", ""), ("name", "gpu:example"), ("name", "gpu\n"), ("name", "gpu\x1b"),
+    ("name", "x" * 129), ("name", None), ("name", 1),
+    ("type", ""), ("type", "gpu\x9b"), ("type", "x" * 129), ("type", True),
+    ("count", True), ("count", 2.0), ("count", -1), ("count", 2**63), ("count", None),
+    ("indices", []), ("indices", [0]), ("indices", [2, 0]), ("indices", [0, 0]),
+    ("indices", [True, 2]), ("indices", [0.0, 2]), ("indices", [-1, 2]),
+    ("indices", [0, 2**31]), ("indices", "0,2"), ("indices", list(range(4097))),
+])
+def test_allocation_rejects_invalid_resource_units(site_allocation_payload, field, invalid):
+    site_allocation_payload["allocation"]["nodes"][1]["gres"][0][field] = invalid
+    with pytest.raises(ContractError):
+        SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="gres")
+
+
+@pytest.mark.parametrize("field", ["name", "type", "count", "indices"])
+def test_allocation_requires_each_resource_field(site_allocation_payload, field):
+    del site_allocation_payload["allocation"]["nodes"][1]["gres"][0][field]
+    with pytest.raises(ContractError):
+        SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="gres")
+
+
+def test_allocation_preserves_zero_count_shared_units_unknown_indices_and_native_bounds(site_allocation_payload):
+    gres = [
+        {"name": "gpu", "type": None, "count": 0, "indices": None},
+        {"name": "mps", "type": "example+type", "count": 100, "indices": None},
+        {"name": "shard", "type": None, "count": 2**63 - 1, "indices": None},
+        {"name": "gpu", "type": "example", "count": 4096, "indices": list(range(4095)) + [2**31 - 1]},
+    ]
+    site_allocation_payload["allocation"]["nodes"][1]["gres"] = gres
+    result = SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="gres")
+    assert result.as_dict() == site_allocation_payload
+    assert isinstance(result.nodes[1].gres, tuple) and isinstance(result.nodes[1].gres[3].indices, tuple)
+    table = render_site_allocation(result)
+    assert "gpu: 0 (Slurm indices: Unknown)" in table
+    assert "mps:example+type: 100" in table
+    assert "0-4094, 2147483647" in table
+    assert "100 GPUs" not in table
+
+
+@pytest.mark.parametrize("count,gres", [
+    (128, [{"name": f"resource-{index}", "type": None, "count": 0, "indices": None} for index in range(32)]),
+    (16, [{"name": "gpu", "type": None, "count": 4096, "indices": list(range(4096))}]),
+])
+def test_allocation_whole_observation_resource_and_index_budgets(site_allocation_payload, count, gres):
+    site_allocation_payload["allocation"]["nodes"] = [
+        {"name": f"node-{index:04}", "cpus": 1, "memory_mib": None, "gres": deepcopy(gres)}
+        for index in range(count)
+    ]
+    result = SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="budget")
+    assert result.as_dict() == site_allocation_payload
+    site_allocation_payload["allocation"]["nodes"].append({
+        "name": "node-last", "cpus": 1, "memory_mib": None,
+        "gres": [{"name": "gpu", "type": None, "count": 1, "indices": [0]}],
+    })
+    with pytest.raises(ContractError):
+        SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="budget")
