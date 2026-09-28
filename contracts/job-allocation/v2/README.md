@@ -92,6 +92,13 @@ and [JSON serialization](https://github.com/SchedMD/slurm/blob/slurm-25-05-0-1/s
 site samples. Current service-UID/version and native mixed/typed/shared output
 require separate on-site readback.
 
+On 2026-09-29 one running, non-array, single-node typed IDX observation from
+Slurm 26.05.1 / data_parser v0.0.45 was read with an existing low-privilege site
+identity and replayed successfully through this parser. The redacted fixture
+preserves native field types and binding. This limited native-source check does
+not establish the deployed gateway/authentication chain or coverage of shared,
+count-only, array, multi-node or physical-device cases.
+
 This is a job-scoped snapshot. Names, submit/start times and restart counts are
 not permanent asset or execution-attempt IDs. Requested capacities, planned
 nodes, step `used` fields, all-node load, health and physical
