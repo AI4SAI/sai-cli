@@ -1,6 +1,7 @@
 include AGENTS.md
 include CONTRIBUTING.md
 include PRODUCT.md
+include DESIGN.md
 include README.md
 include SECURITY.md
 recursive-include docs *.md

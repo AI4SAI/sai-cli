@@ -119,6 +119,11 @@
   scheduler state or final billing. Current file READ is checked separately;
   logs and declared output metadata reuse the bounded dedicated interactive-read
   adapter. This adds no Run writer, submission permission or Pilot activation.
+- `runs workspaces` and the TUI project picker use `compute.workspaces/v1`,
+  a bounded current-authorization page of task projects. Labels are display
+  text; exact workspace keys are selectors. Discovery does not grant file,
+  submission, billing or other workspace access. CLI TUI language selection
+  changes fixed presentation copy only; JSON contracts stay stable.
 - Log text and output-relative names are explicit fields of this separately
   authorized contract. JSON escapes terminal controls without losing decoded
   data; human output renders them visibly. Arbitrary paths, raw provider errors

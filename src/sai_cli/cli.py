@@ -54,9 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
     tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
     tui.add_argument("--tasks-workspace-key", help="independent managed-run workspace (project:<id>)")
+    tui.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="workbench display language (default: zh-CN)")
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
+        ("workspaces", "list projects where you may read your managed computations"),
         ("list", "list your managed computations, including completed runs"),
         ("show", "show the recorded state of one managed computation"),
         ("logs", "read a bounded page of a managed run's stdout or stderr"),
@@ -64,13 +66,14 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         run_parser = run_commands.add_parser(command, help=description)
         _add_connection_arguments(run_parser, suppress_defaults=True)
-        run_parser.add_argument("--workspace-key", required=True, help="authorized project:<id> workspace")
-        if command != "list":
+        if command != "workspaces":
+            run_parser.add_argument("--workspace-key", required=True, help="authorized project:<id> workspace")
+        if command not in {"list", "workspaces"}:
             run_parser.add_argument("run_ref", help="managed run reference returned by runs list")
-        if command in {"list", "files"}:
-            run_parser.add_argument("--limit", type=int, default=50 if command == "list" else 100,
+        if command in {"workspaces", "list", "files"}:
+            run_parser.add_argument("--limit", type=int, default=100 if command == "files" else 50,
                                     help="maximum rows in one page (1-100)")
-        if command in {"list", "logs", "files"}:
+        if command in {"workspaces", "list", "logs", "files"}:
             run_parser.add_argument("--cursor", help="next cursor returned by the previous page")
         if command == "logs":
             run_parser.add_argument("--stream", choices=("stdout", "stderr"), default="stdout")
@@ -532,8 +535,10 @@ def main(
             from .managed_runs import render_managed_runs
             if args.cluster is not None:
                 raise ConfigError("managed runs are site-scoped and do not accept --cluster")
-            scope = {"workspace_key": args.workspace_key, "site_id": settings.site_id}
-            if args.runs_command == "list":
+            scope = {"workspace_key": getattr(args, "workspace_key", None), "site_id": settings.site_id}
+            if args.runs_command == "workspaces":
+                result = client.list_run_workspaces(site_id=settings.site_id, limit=args.limit, cursor=args.cursor)
+            elif args.runs_command == "list":
                 result = client.list_managed_runs(**scope, limit=args.limit, cursor=args.cursor)
             elif args.runs_command == "show":
                 result = client.managed_run(args.run_ref, **scope)
@@ -561,7 +566,7 @@ def main(
                 raise ConfigError("managed runs require an explicit project workspace")
             Workbench(client, query, storage_workspace_key=workspace,
                       tasks_workspace_key=tasks_workspace,
-                      overview_account=login_account, initial_view="overview").run()
+                      overview_account=login_account, initial_view="overview", language=args.language).run()
             return 0
 
         if args.command == "jobs" and args.jobs_command == "list":

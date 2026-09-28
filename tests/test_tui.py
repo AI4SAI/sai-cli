@@ -89,7 +89,7 @@ def test_workbench_resource_comparison_to_job_and_estimate_over_http(tmp_path, j
             await pilot.press("down", "enter")
             assert app.selected_estimate == 1
             detail = str(app.query_one("#details", Static).render())
-            assert "not_started" in detail and "Unknown" in detail
+            assert "Not started" in detail and "Unknown" in detail
             app._tick()
             await pilot.pause(.05)
             assert str(app.query_one("#details", Static).render()) == detail
@@ -197,7 +197,7 @@ def test_estimate_pages_use_snapshot_rows_with_nullable_or_duplicate_keys(runnin
             table.focus()
             await pilot.press("enter")
             assert app.selected_estimate == 100
-            assert "not_started" in str(app.query_one("#details", Static).render())
+            assert "Not started" in str(app.query_one("#details", Static).render())
     asyncio.run(scenario())
 
 
@@ -242,14 +242,16 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
             await settled(app, pilot)
             assert not any("quota-summary" in call["path"] for call in calls)
             assert not app.query_one("#job-scope-controls").display
-            assert "not selected" in str(app.query_one("#context", Static).render())
+            assert "Not selected" in str(app.query_one("#context", Static).render())
             app.query_one("#storage-workspace", Input).value = "personal:storage-user"
             await pilot.click("#load-storage")
             await settled(app, pilot)
             data = app.results["storage"].as_dict()
             assert data == storage_sample("personal:storage-user")
-            content = str(app.query_one("#storage-summary", Static).render())
-            assert "-0.50000000" in content and "drift" in content
+            output = StringIO()
+            Console(file=output, color_system=None).print(app.query_one("#storage-summary", Static).content)
+            content = output.getvalue()
+            assert "-0.50000000" in content and "Needs review" in content
             assert "portal_quota_observation" in content and "2026-09-23T00:00:00Z" in content
             nonlocal denied
             denied = True
@@ -313,7 +315,10 @@ def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account
                 assert "personal:storage-user" not in str(app.query_one("#storage-summary", Static).render())
                 assert app.job_query.scope == "org-account" and app.job_query.account_name == "org-compute"
                 app.query_one("#storage-workspace", Input).value = ""
-                await pilot.pause(.02)
+                for _ in range(80):
+                    if app.storage_workspace_key is None:
+                        break
+                    await pilot.pause(.02)
                 assert "storage" not in app.results
                 await pilot.press("f5")
                 app._tick()
@@ -365,9 +370,12 @@ def test_storage_source_switch_discards_late_stored_sample():
                 await settled(app, pilot)
                 assert calls == ["stored", "native"]
                 assert isinstance(app.results["storage"], NativeQuotaResult)
-                content = str(app.query_one("#storage-summary", Static).render())
+                output = StringIO()
+                Console(file=output, color_system=None).print(app.query_one("#storage-summary", Static).content)
+                content = output.getvalue()
+                assert "quota-example" in content and "Kind: project" in content
                 assert "lustre_quota" in content and "portal_quota_observation" not in content
-                assert "Native Lustre quota" in str(app.query_one("#status", Static).render())
+                assert "Native quota" in str(app.query_one("#status", Static).render())
             finally:
                 release.set()
     asyncio.run(scenario())

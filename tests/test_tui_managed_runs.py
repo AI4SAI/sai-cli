@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("textual")
 from rich.console import Console
-from textual.widgets import Button, DataTable, Input, Static, TabbedContent
+from textual.widgets import Button, DataTable, Input, Select, Static, TabbedContent
 
 from sai_cli.auth import TokenLease
 from sai_cli.client import JobQuery, PortalClient
@@ -17,6 +17,7 @@ from sai_cli.managed_runs import ManagedRunList, ManagedRunDetail, ManagedRunLog
 from sai_cli.tui import Workbench, modified_time_text, task_file_panel
 from sai_cli.transport import JsonTransport
 from test_managed_runs_contract import sample
+from test_managed_workspaces import sample as workspace_sample
 from test_site_transport import http_endpoint
 from test_tui import settled
 
@@ -76,6 +77,9 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
         assert call["method"] == "GET" and call["bearer"] == "Bearer identity-token" and call["capability"] is None
         path = urlsplit(call["path"]).path
         query = parse_qs(urlsplit(call["path"]).query)
+        if path.endswith("/workspaces"):
+            assert query == {"site_id": ["site-a"], "limit": ["50"]}
+            return 200, workspace_sample()
         assert query["workspace_key"] == ["project:project-example"] and query["site_id"] == ["site-a"]
         assert not set(query) & {"scope_type", "slurm_account_name", "cluster_id", "username", "user"}
         if failure:
@@ -126,13 +130,13 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
         app.open_url = opened.append
         async with app.run_test(size=(40, 24)) as pilot:
             await settled(app, pilot)
-            assert calls == [] and app.tasks_workspace_key is None
+            assert len(calls) == 1 and app.tasks_workspace_key is None
             assert app.query_one("#open-task-web", Button).disabled
-            app.query_one("#tasks-workspace", Input).value = "project:project-example"
-            await click(app, pilot, "#load-tasks")
+            app.query_one("#tasks-project", Select).value = "project:project-example"
+            await settled(app, pilot)
             assert isinstance(app.results["tasks"], ManagedRunList)
             assert app.results["tasks"].values["items"][0]["title"] == "train\x85part.sh"
-            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[1]) == "train\\x85part.sh"
+            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
             assert not app.query_one("#task-next", Button).disabled
             await click(app, pilot, "#task-next")
             assert app.results["tasks"].values["items"][0]["run_ref"] == "run-example-2"
@@ -142,21 +146,20 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             await settled(app, pilot)
             metadata = app.results["tasks"]
             assert isinstance(metadata, ManagedRunDetail) and metadata.values["run"]["status"] == "completed"
-            assert app.selected_run == "run-example-1" and "not live queue state" in details(app)
+            assert app.selected_run == "run-example-1" and "not a live queue observation" in details(app)
             assert metadata.as_dict()["run"]["title"] == "train\x85part.sh"
+            assert "Record revision: 4" in details(app) and "Scheduler state: COMPLETED" in details(app)
             assert "train\\x85part.sh" in details(app) and "\x85" not in details(app)
-            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[1]) == "train\\x85part.sh"
+            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
             for width in (40, 60, 100):
                 await pilot.resize_terminal(width, 24)
                 for name in ("task-detail", "task-stdout", "task-stderr", "task-files", "task-start", "task-next", "open-task-web"):
                     button = app.query_one(f"#{name}", Button)
-                    assert 0 <= button.region.x < button.region.right <= width
+                    if button.display:
+                        assert 0 <= button.region.x < button.region.right <= width
                 app.save_screenshot(str(tmp_path / f"managed-task-{width}.svg"))
             assert opened == [] and app.clipboard == ""
             before = len(calls)
-            app.query_one("#tasks-workspace", Input).focus()
-            await pilot.pause(.01)
-            assert app.check_action("open_web", ()) is None
             await command(app, pilot, "Open in Web")
             assert len(calls) == before
             url = urlsplit(opened[-1])
@@ -189,7 +192,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             failure = (403, "run_file_read_denied")
             await click(app, pilot, "#task-files")
             assert app.task_file_page is None and app.results["tasks"] is metadata
-            assert "second.txt" not in details(app) and "completed" in details(app)
+            assert "second.txt" not in details(app) and "Completed" in details(app)
             assert "run_file_read_denied" in str(app.query_one("#status", Static).render())
             assert not app.query_one("#open-task-web", Button).disabled
             failure = (403, "run_scope_denied")
@@ -198,7 +201,9 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert "tasks" not in app.results and "storage" in app.results and app.selected_run is None
             assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
             failure = None
-            await click(app, pilot, "#load-tasks")
+            await click(app, pilot, "#load-projects")
+            app.query_one("#tasks-project", Select).value = "project:project-example"
+            await settled(app, pilot)
             app.query_one("#tasks-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
             for name in ("resources", "jobs", "usage", "storage", "overview"):
                 app.results[name] = object()
@@ -212,13 +217,16 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
         asyncio.run(scenario(client_for(origin), calls))
 
 
-@pytest.mark.parametrize("transition", ["workspace", "mode", "tab", "escape"])
+@pytest.mark.parametrize("transition", ["workspace", "mode", "tab", "escape", "discovery"])
 def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transition):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     started, release = threading.Event(), threading.Event()
     def reply(call, _):
         path = urlsplit(call["path"]).path
+        if path.endswith("/workspaces") and transition == "discovery" and not release.is_set():
+            started.set(); assert release.wait(5)
+            return 401, {"detail": "old discovery expired"}
         if path.endswith("/logs"):
             query = parse_qs(urlsplit(call["path"]).query)
             if query["stream"] == ["stdout"]:
@@ -227,21 +235,42 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             result = sample("log")
             result.update(stream="stderr", cursor="log-stderr-0", next_cursor="log-stderr-40")
             return 200, result
+        if path.endswith("/workspaces"): return 200, workspace_sample()
         if path.endswith("/runs"): return 200, sample("list")
         return 200, sample("detail")
     async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a"), tasks_workspace_key="project:project-example", initial_view="tasks", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"),
+                        tasks_workspace_key=None if transition == "discovery" else "project:project-example",
+                        initial_view="tasks", refresh_seconds=999)
         async with app.run_test(size=(40, 24)) as pilot:
             try:
+                if transition == "discovery":
+                    for _ in range(80):
+                        if started.is_set(): break
+                        await pilot.pause(.02)
+                    assert started.is_set()
+                    app.query_one("#views", TabbedContent).active = "storage"
+                    await pilot.pause(.03)
+                    release.set()
+                    await settled(app, pilot)
+                    assert not app.paused and app.task_projects is None and "tasks" not in app.results
+                    await command(app, pilot, "My managed tasks")
+                    assert app.task_projects is not None and app.tasks_workspace_key is None
+                    assert app.query_one("#tasks-project", Select).is_blank()
+                    return
                 await settled(app, pilot)
-                await click(app, pilot, "#task-detail")
+                assert app.task_projects is None and app.query_one("#tasks-project", Select).is_blank()
+                assert "Project key supplied: project:project-example" in str(app.query_one("#context", Static).render())
+                app.query_one("#tasks-table", DataTable).focus()
+                await pilot.press("enter")
+                await settled(app, pilot)
                 await pilot.click("#task-stdout")
                 for _ in range(80):
                     if started.is_set(): break
                     await pilot.pause(.02)
                 assert started.is_set()
                 if transition == "workspace":
-                    app.query_one("#tasks-workspace", Input).value = "project:changed"
+                    app._read_projects()
                     for _ in range(80):
                         if app.tasks_workspace_key is None: break
                         await pilot.pause(.02)
@@ -268,5 +297,5 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             if transition == "workspace":
                 assert "tasks" not in app.results and app.tasks_workspace_key is None
     with http_endpoint(reply) as (origin, calls):
-        asyncio.run(scenario(client_for(origin)))
-    assert sum("/logs" in call["path"] for call in calls) == (2 if transition == "mode" else 1)
+        asyncio.run(asyncio.wait_for(scenario(client_for(origin)), 25))
+    assert sum("/logs" in call["path"] for call in calls) == (0 if transition == "discovery" else 2 if transition == "mode" else 1)

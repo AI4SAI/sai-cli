@@ -1,0 +1,14 @@
+{
+  "schema_version": "compute.workspaces/v1",
+  "site_id": "site-a",
+  "queried_at": "2030-01-01T00:06:00Z",
+  "items": [
+    {
+      "workspace_key": "project:project-example",
+      "label": "材料模拟 / Materials",
+      "organization_label": "研究团队 / Research group"
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}

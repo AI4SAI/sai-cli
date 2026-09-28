@@ -14,7 +14,7 @@ from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .job_web_context import JobWebContext
 from .managed_runs import (
-    ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
+    ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, ManagedRunWorkspaces,
     clean_run_ref, clean_tasks_workspace,
 )
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -386,6 +386,19 @@ class PortalClient:
             self.token_provider.invalidate(lease)
             lease = self.token_provider.get(force_exchange=True)
             return self._get_with_lease(path, query=query, lease=lease)
+
+    def list_run_workspaces(self, *, site_id: str, limit: int = 50,
+                            cursor: str | None = None) -> ManagedRunWorkspaces:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("project page limit must be between 1 and 100")
+        if cursor is not None:
+            clean_tasks_workspace(cursor)
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", site) is None or site.casefold() in {"default", "global"}:
+            raise ConfigError("site must identify a configured site")
+        response = self._central_get("/v1/compute/cli/workspaces", query={"site_id": site, "limit": limit, "cursor": cursor})
+        return ManagedRunWorkspaces.from_payload(response.payload, site_id=site, limit=limit,
+                                                cursor=cursor, request_id=response.request_id)
 
     def _managed_read(self, *, workspace_key: str, site_id: str, run_ref: str | None = None,
                       suffix: str = "", **parameters: str | int | None) -> JsonResponse:

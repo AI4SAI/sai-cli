@@ -114,6 +114,11 @@ are candidate designs, not completed implementation milestones.
   bounded stdout/stderr and output-file pages (local validation; no runtime start)
 - [x] Exact managed-run Web navigation to the independently authorized console
   task page, without requiring an active scheduler account or starting Pilot
+- [x] Bounded discovery of readable task projects with safe display names,
+  explicit selection and the same current project/site read authority
+- [x] Bilingual task workflow, contextual actions and narrow-screen evidence
+  layout, checked with local HTTP and rendered views
+- [ ] SSH terminal diversity and long-session experience acceptance
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error

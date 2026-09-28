@@ -105,6 +105,15 @@ or ambiguous ownership; it never triggers a default-workspace fallback.
 
 ## Managed runs and declared outputs
 
+`GET /v1/compute/cli/workspaces` discovers currently readable task projects at
+the explicit `site_id`, requiring the same Identity compute-read and CLI
+admission as Run reads. `compute.workspaces/v1` returns safe display labels,
+exact workspace keys and bounded keyset pages. See the paired schema and sample
+in `contracts/managed-workspaces/v1`. This list does not grant submission,
+file, storage or billing access; later requests authorize again. A continuation
+whose anchor is no longer readable fails instead of silently changing scope.
+Paired project-discovery producer: `adac8bf51990b15b6aef3dfa14d055fcb0e6b408`.
+
 Identity-only central routes consume `sai.compute.read` and current CLI access:
 
 ```text

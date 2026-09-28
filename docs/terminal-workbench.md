@@ -8,6 +8,7 @@ Install the optional extra and use the existing connection configuration:
 ```bash
 python3 -m pip install '.[tui]'
 sai tui
+sai tui --language en-US
 sai tui --site site-a --scope project-account --account project-example
 ```
 
@@ -98,9 +99,18 @@ settled billing or hardware telemetry features.
 ## Managed tasks and output pages
 
 Tasks keeps an explicit project workspace independent of Jobs and Storage.
-Use Load to discover your accepted managed runs, including terminal runs no
-longer present in the live queue. Enter opens the recorded status and its source
-time. It does not query Slurm or turn an uncertain submission into success.
+Choose a readable project by its authorized name. Project choices are bounded
+pages; More projects reads the next page and selecting a project applies it.
+Moving the highlight does not change the current scope. Scripts can discover
+the same labels and exact keys with `sai runs workspaces --site site-a`.
+The explicit `--tasks-workspace-key` option remains available without creating
+a fake project choice. Every task read rechecks current access.
+
+The task list includes accepted managed runs that have left the live queue.
+Enter opens the recorded status and its source time. It does not query Slurm or
+turn an uncertain submission into success. In a narrow window the selected
+task's evidence uses the main area; Escape rereads the preceding list page and
+restores the selected row. File pages remain explicitly loaded and bounded.
 
 Stdout, Stderr and Files are explicit reads under the task's current file
 permissions. They replace a single bounded page; Next follows the returned
@@ -144,6 +154,12 @@ link action work when an SSH host has no desktop browser; copying uses the
 terminal's clipboard support and never runs automatically.
 
 ## Interaction references
+
+The [terminal design rules](../DESIGN.md) specify context, language, selection,
+information hierarchy and visual verification. The CLI defaults to Chinese;
+`--language en-US` selects English. Protocol keys and user-provided names are
+unchanged. Local visual checks do not establish real SSH or long-session
+acceptance, and the broader workbench is still being developed.
 
 Reviewed on 2026-09-23:
 

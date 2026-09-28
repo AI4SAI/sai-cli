@@ -6,6 +6,8 @@ data while keeping authorization decisions out of login-node shell wrappers.
 
 The first implementation milestone is intentionally read-only:
 
+- `sai runs workspaces` discovers currently readable task projects by name.
+  `sai tui --language zh-CN` uses Chinese navigation; `en-US` selects English.
 - `sai status --format tui` shows a compact login identity, funds and unread-message
   panel, then returns to the shell. JSON remains the default for scripts.
 - `sai jobs list` lists jobs in an authorized personal, organization, or

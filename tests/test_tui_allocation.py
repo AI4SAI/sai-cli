@@ -142,7 +142,7 @@ def test_allocation_missing_native_configuration_shows_existing_error_without_ex
             await pilot.click("#view-allocation")
             await settled(app, pilot)
             status = str(app.query_one("#status", Static).render())
-            assert "native reads require a configured site_read_base_url and capability mode" in status
+            assert "check site connection settings" in status and "configuration_invalid" in status
             assert "jobs" not in app.results and str(app.query_one("#details", Static).render()) == ""
 
     with http_endpoint(lambda *_: (200, job_payload)) as (portal, reads):

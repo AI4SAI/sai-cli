@@ -48,6 +48,11 @@ submission, payer activation and Pilot Session grants. State is a persisted
 execution receipt, not a refreshed Slurm queue observation. It includes no final
 billing projection. No scheduler-ID-to-Run relationship is guessed.
 
+Readable project discovery uses the same current membership and site authority
+with a bounded SQL page. Only safe names and exact project selectors reach the
+CLI; the full Web workspace topology, financial fields and directory paths are
+not exposed. Choosing a project does not grant any later read or execution.
+
 Managed stdout/stderr and output-file metadata require current applied file READ
 permission for the Run's frozen mount lineage. They reuse the existing dedicated
 interactive-read site adapter; this is a Portal-brokered read, not a new direct

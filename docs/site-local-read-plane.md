@@ -46,6 +46,10 @@ write-capable site-agent process, and it is not packaged in the CLI wheel.
 
 ## Capability
 
+Managed-task project discovery stays at Portal. It reuses current membership
+and site read policy, returns a bounded name/selector page and neither queries
+the native site nor issues another capability.
+
 Managed-run logs and declared output-file listings retain their existing
 ComputeRun readback path through Portal and its dedicated `interactive-read`
 site credential. The CLI holds only its Identity token and sends no file path,

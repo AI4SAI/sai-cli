@@ -140,6 +140,44 @@ class ManagedReadResult:
 
 
 @dataclass(frozen=True)
+class ManagedRunWorkspaces(ManagedReadResult):
+    @classmethod
+    def from_payload(cls, payload: object, *, site_id: str, limit: int,
+                     cursor: str | None, request_id: str) -> ManagedRunWorkspaces:
+        data = _object(payload, request_id)
+        if (data.get("schema_version") != "compute.workspaces/v1" or data.get("site_id") != site_id
+                or not isinstance(site_id, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", site_id) is None):
+            raise ContractError(request_id=request_id)
+        items = data.get("items")
+        if not isinstance(items, list) or len(items) > min(limit, 100):
+            raise ContractError(request_id=request_id)
+        rows = []
+        for raw in items:
+            item = _object(raw, request_id)
+            try:
+                workspace = clean_tasks_workspace(item.get("workspace_key"))
+            except ConfigError as exc:
+                raise ContractError(request_id=request_id) from exc
+            rows.append({"workspace_key": workspace,
+                         "label": _text(item, "label", request_id, maximum=256),
+                         "organization_label": _text(item, "organization_label", request_id, nullable=True, maximum=256)})
+        following = _text(data, "next_cursor", request_id, nullable=True)
+        if following is not None:
+            try:
+                clean_tasks_workspace(following)
+            except ConfigError as exc:
+                raise ContractError(request_id=request_id) from exc
+        more = _boolean(data, "has_more", request_id)
+        keys = [row["workspace_key"] for row in rows]
+        if (len(set(keys)) != len(keys) or cursor in keys or more != (following is not None)
+                or (more and (not keys or following != keys[-1]))):
+            raise ContractError(request_id=request_id)
+        return cls({"schema_version": "compute.workspaces/v1", "site_id": site_id,
+                    "queried_at": _time(data, "queried_at", request_id), "items": rows,
+                    "next_cursor": following, "has_more": more})
+
+
+@dataclass(frozen=True)
 class ManagedRunList(ManagedReadResult):
     @classmethod
     def from_payload(cls, payload: object, *, workspace_key: str, site_id: str, limit: int,
@@ -252,6 +290,13 @@ def _relative_filename(value: object, request_id: str) -> str:
 
 def render_managed_runs(result: ManagedReadResult) -> str:
     data = result.values
+    if isinstance(result, ManagedRunWorkspaces):
+        lines = [f"Readable projects · Site: {data['site_id']} · queried {data['queried_at']}"]
+        lines.extend(f"{row['workspace_key']}  {row['label']}" + (
+            f" · {row['organization_label']}" if row['organization_label'] is not None else ""
+        ) for row in data["items"])
+        lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
+        return "\n".join(lines) + "\n"
     lines = [f"Project: {data['workspace_key']} · Site: {data['site_id']}"]
     if isinstance(result, (ManagedRunList, ManagedRunDetail)):
         lines.append(f"Managed run records · queried {data['queried_at']} (not live queue state)")

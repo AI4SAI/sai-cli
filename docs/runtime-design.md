@@ -146,7 +146,8 @@ Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
 JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
-Tasks in `sai tui` uses its own project input or `--tasks-workspace-key`, without
+Tasks in `sai tui` uses its own authorized project-name selection or explicit
+`--tasks-workspace-key`, without
 inheriting the Jobs account, storage workspace or Overview's default identity.
 The existing worker serializes all reads. Run metadata may refresh; log and
 output pages are explicit, one-page observations. Next/Start replace the page;
