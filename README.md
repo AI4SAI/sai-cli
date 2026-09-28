@@ -15,6 +15,9 @@ The first implementation milestone is intentionally read-only:
 - `sai jobs show` returns one authorized job.
 - `sai jobs allocation JOB_ID` reads a job's current allocation snapshot from
   an explicitly configured capability-bound site gateway.
+- `sai jobs placement JOB_ID` joins that observation to operator-recorded asset
+  locations when the site enables this independent read; it does not prove the
+  current physical machine behind a scheduler name.
 - `sai jobs cost` shows Portal-authorized, non-final running cost estimates.
 - `sai runs list/show/logs/files --workspace-key project:example` reads your
   managed computations, including completed runs, bounded logs and output-file

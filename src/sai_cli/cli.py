@@ -30,6 +30,8 @@ from .render import (
     render_table,
 )
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
+from .site_placement import SiteJobPlacementResult
+from .render import render_site_placement
 from .storage_summary import clean_workspace_key
 from .transport import JsonTransport
 
@@ -92,6 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     for command, description in (
         ("show", "show one authorized job"),
         ("allocation", "show a job's allocation snapshot from the site gateway"),
+        ("placement", "show operator-recorded locations for a job's allocated nodes"),
     ):
         detail_parser = job_commands.add_parser(command, help=description)
         _add_connection_arguments(detail_parser, suppress_defaults=True)
@@ -575,6 +578,8 @@ def main(
             result = client.show_job(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "allocation":
             result = client.job_allocation(args.job_id, query)
+        elif args.command == "jobs" and args.jobs_command == "placement":
+            result = client.job_placement(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "cost":
             result = client.running_estimates(query)
         else:
@@ -584,6 +589,8 @@ def main(
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
             output.write(render_running_estimate_table(result))
+        elif isinstance(result, SiteJobPlacementResult):
+            output.write(render_site_placement(result))
         elif isinstance(result, SiteJobAllocationResult):
             output.write(render_site_allocation(result))
         elif isinstance(result, SiteJobResult):

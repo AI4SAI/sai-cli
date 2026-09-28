@@ -9,6 +9,7 @@ from .managed_runs import ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
 from .native_quota import NativeQuotaResult
 from .render import format_allocation_indices
 from .site_jobs import SiteJobAllocationResult
+from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
 from .tui_messages import MESSAGES, Messages
 
@@ -100,6 +101,25 @@ def allocation_panel(result: SiteJobAllocationResult, language: str = "en-US") -
                 resources.append(Text(f"{resource} · {t('gres_count', count=item.count)}\n"
                                       f"{t('gres_indices')}: {indices}", overflow="fold"))
     return Group(header, table, *resources, Text(t("gres_units_hint")), hint)
+
+
+def placement_panel(result: SiteJobPlacementResult, language: str = "en-US") -> Group:
+    t = Messages(language)
+    rows = [Text(f"{t('placement')} · {result.allocation.job.canonical_id}", style="bold")]
+    for node in result.nodes:
+        registration = node.registration
+        rows.append(Text(node.name, style="bold", overflow="fold"))
+        if registration is None:
+            rows.append(Text(t("placement_expired" if node.status == "expired" else "placement_unmapped")))
+            continue
+        rack = registration.rack
+        location = t("unknown") if rack is None else t("placement_rack", label=rack.label, start=rack.u_start, height=rack.u_height)
+        rows.extend((Text(registration.label, overflow="fold"), Text(location, overflow="fold"),
+                     Text(f"{t('placement_verified')}: {registration.verified_at}"),
+                     Text(f"{t('placement_until')}: {registration.valid_until}")))
+    if result.inventory is not None:
+        rows.append(Text(f"{t('placement_published')}: {result.inventory.published_at}"))
+    return Group(*rows, Text(t("placement_meaning")), allocation_panel(result.allocation, language))
 
 
 def storage_panel(result: StorageQuotaSummary | NativeQuotaResult, language: str) -> Group:

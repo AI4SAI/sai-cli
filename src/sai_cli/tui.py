@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterable
 from dataclasses import replace
+from datetime import datetime
+import time
 from webbrowser import Error as BrowserError
 
 from rich.text import Text
@@ -16,6 +18,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.events import Resize
 from textual.screen import Screen
 from textual.theme import Theme, ThemeProvider
+from textual.timer import Timer
 from textual.widgets import Button, DataTable, Footer, Input, Select, Static, TabbedContent, TabPane
 
 from .catalog import ResourceCatalog
@@ -31,10 +34,11 @@ from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
 from .overview_view import overview_panel
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
+from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
 from .tui_messages import Messages
 from .tui_views import (
-    allocation_panel, display, modified_time_text, task_detail_panel, task_file_panel, storage_panel, state_text, task_state,
+    allocation_panel, placement_panel, display, modified_time_text, task_detail_panel, task_file_panel, storage_panel, state_text, task_state,
 )
 
 
@@ -56,6 +60,7 @@ class Workbench(App):
     DataTable { height: 1fr; min-height: 3; }
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
+    #view-placement { height: 1; border: none; padding: 0 1; width: auto; }
     #web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
     #storage-scroll { height: 1fr; }
     #storage-summary { height: auto; }
@@ -75,6 +80,10 @@ class Workbench(App):
     .task-inspection #status { height: 1; }
     .task-inspection .controls { height: 1; }
     .task-inspection .controls Button { height: 1; border: none; padding: 0; }
+    .placement-inspection TabbedContent { height: auto; min-height: 0; }
+    .placement-inspection #jobs { height: auto; }
+    .placement-inspection #jobs-table { height: 3; min-height: 3; }
+    .placement-inspection #details-scroll { height: 1fr; }
     DataTable > .datatable--cursor { background: $primary-background; color: $text; }
     Button { background: $surface; }
     """
@@ -111,6 +120,8 @@ class Workbench(App):
         self.paused = False
         self.selected_job: str | None = None
         self.job_mode = "detail"
+        self.placement_result: SiteJobPlacementResult | None = None
+        self._placement_timer: Timer | None = None
         self.selected_estimate: int | None = None
         self.compared: list[str] = []
         self.catalog: ResourceCatalog | None = None
@@ -217,6 +228,9 @@ class Workbench(App):
             with web_row:
                 yield Static("", id="web-link", markup=False)
                 yield Button(t("copy_link"), id="copy-web-link", disabled=True)
+            placement_button = Button(t("placement"), id="view-placement", tooltip=t("placement_help"))
+            placement_button.display = False
+            yield placement_button
             yield Static("", id="details", markup=False)
         yield Footer()
 
@@ -293,11 +307,12 @@ class Workbench(App):
         self.request_read()
 
     def _tick(self) -> None:
+        self._expire_placement()
         if (not self.paused and not self._reading and self.view not in self._failed_views
                 and not (self.view == "usage" and self.selected_estimate is not None)
                 and not (self.view == "tasks" and self.task_mode in {"projects", "stdout", "stderr", "files"})
                 and not (self.view == "tasks" and self.tasks_workspace_key is None)
-                and not (self.view == "jobs" and self.job_mode == "allocation" and self.selected_job is not None)):
+                and not (self.view == "jobs" and self.job_mode in {"allocation", "placement"} and self.selected_job is not None)):
             self.request_read()
 
     def request_read(self) -> None:
@@ -362,6 +377,11 @@ class Workbench(App):
                             self.task_projects = result
                         elif view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts)):
                             self.task_file_page = result
+                        elif isinstance(result, SiteJobPlacementResult):
+                            self._clear_placement()
+                            self.placement_result = result
+                            self.results[view] = result.allocation
+                            self._arm_placement_expiry()
                         else:
                             self.results[view] = result
                         self._present(view, result)
@@ -382,6 +402,9 @@ class Workbench(App):
         )
         button.display = self.view == "jobs" and valid and self._job_detail_revision == self._revision
         button.disabled = self._reading or self._pending or self._web_request is not None
+        placement_button = self.query_one("#view-placement", Button)
+        placement_button.display = self.view == "jobs" and isinstance(result, SiteJobAllocationResult)
+        placement_button.disabled = self._reading or self._pending
         hint = self.t("jobs_actions") if self._can_inspect_job() else self.t("jobs_hint", limit=self.job_query.limit)
         if button.display and not button.disabled:
             hint += self.t("jobs_web_hint")
@@ -409,6 +432,46 @@ class Workbench(App):
     def action_view_allocation(self) -> None:
         if self._can_inspect_job():
             self._inspect_job("allocation")
+
+    def action_view_placement(self) -> None:
+        if self.view == "jobs" and isinstance(self.results.get("jobs"), SiteJobAllocationResult):
+            self._inspect_job("placement")
+
+    def _expire_placement(self) -> bool:
+        result = self.placement_result
+        if result is None or result.inventory is None:
+            return False
+        expiries = [result.inventory.expires_at]
+        expiries.extend(node.registration.valid_until for node in result.nodes if node.registration is not None)
+        if min(datetime.fromisoformat(value[:-1] + "+00:00").timestamp() for value in expiries) > time.time():
+            return False
+        self._clear_placement()
+        if self.view == "jobs":
+            self._present("jobs", result.allocation)
+            self.query_one("#status", Static).update(self.t("placement_expired"))
+        return True
+
+    def _clear_placement(self) -> None:
+        if self._placement_timer is not None:
+            self._placement_timer.stop()
+            self._placement_timer = None
+        self.placement_result = None
+
+    def _arm_placement_expiry(self) -> None:
+        result, revision = self.placement_result, self._revision
+        if result is None or result.inventory is None:
+            return
+        expiries = [result.inventory.expires_at]
+        expiries.extend(node.registration.valid_until for node in result.nodes if node.registration is not None)
+        deadline = min(datetime.fromisoformat(value[:-1] + "+00:00").timestamp() for value in expiries)
+
+        def expire() -> None:
+            if self.placement_result is result and self._revision == revision:
+                self._placement_timer = None
+                if not self._expire_placement():
+                    self._arm_placement_expiry()
+
+        self._placement_timer = self.set_timer(max(0.001, deadline - time.time()), expire)
 
     def action_open_web(self) -> None:
         if self.view != "tasks":
@@ -444,6 +507,8 @@ class Workbench(App):
                 yield SystemCommand(self.t("command_" + mode), self.t("command_task_help"), lambda mode=mode: self._inspect_task(mode))
         if self._can_inspect_job():
             yield SystemCommand(self.t("command_allocation"), self.t("command_allocation_help"), self.action_view_allocation)
+        if self.view == "jobs" and isinstance(self.results.get("jobs"), SiteJobAllocationResult):
+            yield SystemCommand(self.t("placement"), self.t("placement_help"), self.action_view_placement)
         button = self.query_one("#open-job-web", Button)
         if button.display and not button.disabled:
             yield SystemCommand(self.t("command_web"), self.t("command_web_help"), self.action_open_web)
@@ -675,6 +740,8 @@ class Workbench(App):
         if view == "usage":
             return self.client.running_estimates(query)
         if selected:
+            if job_mode == "placement":
+                return self.client.job_placement(selected, replace(query, partition=None))
             if job_mode == "allocation":
                 return self.client.job_allocation(selected, replace(query, partition=None))
             return self.client.show_job(selected, replace(query, partition=None))
@@ -690,6 +757,9 @@ class Workbench(App):
             self._clear_task_files()
             self.query_one("#task-heading", Static).update("")
         if view == "jobs":
+            self._clear_placement()
+            self.screen.remove_class("placement-inspection")
+            self.query_one("#view-placement", Button).display = False
             self._job_detail_revision = None
             self.query_one("#open-job-web", Button).display = False
             self._clear_web_link()
@@ -711,6 +781,13 @@ class Workbench(App):
 
     def _read_error(self, view: str, error: SaiCliError) -> None:
         self._failed_views.add(view)
+        if view == "jobs" and self.job_mode == "placement" and not isinstance(error, (AuthenticationError, ForbiddenError)):
+            self._clear_placement()
+            result = self.results.get("jobs")
+            if isinstance(result, SiteJobAllocationResult):
+                self._present("jobs", result)
+            self.query_one("#status", Static).update(f"{self.t('read_failed')} · {error.code}")
+            return
         was_projects = view == "tasks" and self.task_mode == "projects"
         if view == "tasks" and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
             self._clear_task_files()
@@ -764,6 +841,7 @@ class Workbench(App):
             table.move_cursor(row=table.get_row_index(previous))
 
     def _present(self, view: str, result: object) -> None:
+        self.screen.set_class(self.view == "jobs" and self.placement_result is not None, "placement-inspection")
         status = ""
         if view == "tasks" and isinstance(result, ManagedRunWorkspaces):
             labels = self._project_labels()
@@ -824,6 +902,12 @@ class Workbench(App):
             self.compared = [name for name in self.compared if any(r["name"] == name for r in data["compute"])]
             self._comparison()
             status = self.t("resource_status" if rows else "resource_empty")
+        elif isinstance(result, SiteJobPlacementResult):
+            self._present(view, result.allocation)
+            if self._expire_placement():
+                return
+            self.query_one("#details", Static).update(placement_panel(result, self.language))
+            status = f"{self.t('placement')} · {result.allocation.freshness.observed_at} · {self.t('auto_paused')}"
         elif isinstance(result, SiteJobAllocationResult):
             job, freshness = result.job, result.freshness
             self._rows("jobs", [("0", (job.canonical_id, *(job.values[k] for k in
@@ -985,6 +1069,8 @@ class Workbench(App):
             self._inspect_task(event.button.id.removeprefix("task-"))
         elif event.button.id in {"task-start", "task-next"}:
             self._task_page(start=event.button.id == "task-start")
+        elif event.button.id == "view-placement":
+            self.action_view_placement()
         elif event.button.id in {"view-job", "view-allocation"}:
             if event.button.id == "view-allocation":
                 self.action_view_allocation()
@@ -1023,6 +1109,7 @@ class Workbench(App):
                 self._present("usage", result)
 
     def _discard_allocation(self) -> None:
+        self._clear_placement()
         if isinstance(self.results.get("jobs"), SiteJobAllocationResult):
             self._clear("jobs")
 
@@ -1040,10 +1127,16 @@ class Workbench(App):
         if selected is None:
             self.query_one("#status", Static).update(self.t("select_job"))
             return
-        self._discard_allocation()
+        if mode != "placement":
+            self._discard_allocation()
+        else:
+            self._clear_placement()
         self.selected_job, self.job_mode = selected, mode
         self._revision += 1
-        self.query_one("#details", Static).update("")
+        if mode == "placement" and isinstance(result, SiteJobAllocationResult):
+            self._present("jobs", result)
+        else:
+            self.query_one("#details", Static).update("")
         self.request_read()
 
     def on_select_changed(self, event: Select.Changed) -> None:
@@ -1081,6 +1174,11 @@ class Workbench(App):
             self._clear_task_files()
         if self.view == "jobs":
             self._revision += 1
+            if self.job_mode == "placement":
+                self._clear_placement()
+                result = self.results.get("jobs")
+                if isinstance(result, SiteJobAllocationResult):
+                    self._present("jobs", result)
             if self.job_mode == "allocation":
                 self._discard_allocation()
                 self.query_one("#details", Static).update("")

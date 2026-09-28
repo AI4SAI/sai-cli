@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
+from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
 from .native_quota import NativeQuotaResult
 
@@ -314,6 +315,23 @@ def format_allocation_indices(indices: tuple[int, ...]) -> str:
         start = end = index
     ranges.append(str(start) if start == end else f"{start}-{end}")
     return ", ".join(ranges)
+
+
+def render_site_placement(result: SiteJobPlacementResult) -> str:
+    lines = [render_site_allocation(result.allocation).rstrip(), "Recorded locations (operator records)"]
+    if result.inventory is not None:
+        lines.append(f"Published: {result.inventory.published_at}  Valid until: {result.inventory.expires_at}")
+    for node in result.nodes:
+        registration = node.registration
+        if registration is None:
+            lines.append(f"{node.name}: {'Record expired' if node.status == 'expired' else 'Not registered'}")
+            continue
+        rack = registration.rack
+        location = "Location unknown" if rack is None else f"{rack.label}, U{rack.u_start}, height {rack.u_height}U"
+        lines.extend((f"{node.name}: {registration.label} · {location}",
+                      f"  Verified: {registration.verified_at}  Valid until: {registration.valid_until}"))
+    lines.append("These are operator records for allocated nodes; they do not attest the current machine instance.")
+    return "\n".join(lines) + "\n"
 
 
 def render_running_estimate_table(result: RunningEstimateResult) -> str:

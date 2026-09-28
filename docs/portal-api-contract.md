@@ -533,6 +533,32 @@ producer's facts. Unknown fields are discarded at every level. JSON remains the
 default; `--format table` identifies allocated resources and observation freshness,
 with `-` for unavailable numeric values.
 
+## Registered job placement
+
+`sai jobs placement JOB_ID` uses the same exact-job selector and explicitly
+configured site origin as allocation. Its Portal `/v1/authz/site-read` request
+requires the independent `jobs.placement` operation and existing compute-read
+scope. Portal additionally requires `site_read_placement_enabled=true` for that
+site. An allocation capability cannot read placement; read access does not add
+administrator, submission, filesystem or billing authority.
+
+The capability-only `GET /v1/site-read/jobs/{job_id}/placement` carries no
+caller-selected nodes or racks. The [shared contract](../contracts/job-placement/v1/README.md)
+embeds one complete `jobs.allocation/v2` and inventory provenance. Placement
+rows match its allocated node names/order exactly. Each is recorded, unmapped
+or expired; only recorded rows carry safe asset/incarnation references, optional
+rack/U position, verification time and validity deadline. Nonallocated or
+unavailable allocation needs no inventory and returns empty placement rows.
+Unknown fields are removed recursively and invalid bindings/times fail closed.
+
+WebUI uses Portal's `/v1/slurm/jobs/{job_id}/placement` relay with its current
+entrypoint policy. Pilot obtains a fresh Session-bound read capability through
+`/v1/internal/pilot/read/job-placement-capability`. All three surfaces share
+the DTO, while preserving their entrypoint authorization. This is operator
+registration, not proof of current physical incarnation, utilization, full
+rack occupancy or a stable execution identity. Local fixtures are not site
+asset verification or deployment acceptance.
+
 ## Storage quota summary
 
 `GET /v1/account/cli/storage/quota-summary` uses only `workspace_key` and

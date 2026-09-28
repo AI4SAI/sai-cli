@@ -44,6 +44,18 @@ sampling is added only for a named feature with a bounded retention policy.
 The gateway is a separate low-privilege runtime role. It is not the existing
 write-capable site-agent process, and it is not packaged in the CLI wheel.
 
+The independent `jobs.placement` operation reuses one native allocation read,
+then joins only its nodes to a protected, signed operator inventory. Portal's
+site opt-in is false by default and preserves the existing job-reader policy.
+The publication head pins an exact bundle digest/generation; the gateway checks
+signature, current publication, site/cluster and expiry before returning.
+It does not collect room topology, poll hardware, publish inventory or expose
+unrelated nodes. Withdrawal or source failure never reuses a previous mapping.
+The result labels location as operator-recorded, with verification and expiry
+times. This implements the first asset association, not physical-incarnation
+proof, utilization or deployment. Consumers share
+[`jobs.placement/v1`](../contracts/job-placement/v1/README.md).
+
 ## Capability
 
 Managed-task project discovery stays at Portal. It reuses current membership

@@ -17,6 +17,7 @@ sai jobs show 12345 --site site-a
 sai jobs show 12345 --site site-a --scope project-account \
   --account project-example
 sai jobs allocation 12345_0 --site site-a --cluster cluster-a
+sai jobs placement 12345_0 --site site-a --cluster cluster-a
 sai jobs cost --site site-a
 sai jobs cost --site site-a --scope project-account \
   --account project-example --states R,PD --partition gpu-standard
@@ -32,7 +33,14 @@ The first release does not implement:
 - normal-user all-site or all-account queries;
 - raw scheduler user filters;
 - automatic fallback from live state to broad accounting queries;
-- node topology, physical assets, utilization or storage management commands.
+- full-site asset exports, node topology, utilization or storage management.
+
+`jobs placement` requires the explicit site gateway and an independent
+`jobs.placement` capability. It returns the same response's allocation and
+operator-recorded registration for only those nodes. Site opt-in is required;
+there is no inventory fallback. TUI registration inspection pauses polling and
+clears expired metadata independently of its refresh interval, without sending
+another request. Ordinary allocation inspection remains available separately.
 
 `storage quota-summary --workspace-key personal:example` reads Portal's stored
 quota observation under the independent `sai.storage.read` Identity scope.

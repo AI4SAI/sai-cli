@@ -15,8 +15,9 @@ separately authorized view of hardware, networks and failures.
 ## Product Purpose
 
 The implemented product is a read-only compute CLI with an optional terminal
-workbench for resource comparison, job allocation, managed task history,
-logs, output listings, storage quota and running estimates. Authorized job
+workbench for resource comparison, job allocation and operator-recorded
+locations, managed task history, logs, output listings, storage quota and
+running estimates. Authorized job
 context can continue into the console and its existing Pilot flow.
 The terminal design rules live in [DESIGN.md](DESIGN.md); language, context
 selection and evidence layout are part of the task workflow, not a separate
@@ -25,6 +26,13 @@ It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
 workbench design, including hardware telemetry and result navigation, is described in
 [the unified workbench design](docs/unified-workbench.md); the design is not an
 implementation or deployment claim.
+
+Bilingual navigation, readable-project discovery and narrow task inspection
+are implemented. The current theme and locally reviewed screens provide a
+foundation, not a complete SAI terminal visual standard or acceptance of long
+sessions over real SSH. Interaction references inform selection, keyboard and
+action discovery; they do not imply reuse of another product's application or
+Agent source. This slice keeps the task journey ahead of a broad redesign.
 
 ## Brand Personality
 
@@ -46,6 +54,8 @@ visual system; do not define a competing WebUI theme in this repository.
 - Reuse authoritative services; render the same facts appropriately per client.
 - Let Agents read typed data directly with the caller's actual permissions.
 - Keep allocation, measured utilization, predictions and final charges distinct.
+- Keep operator registrations distinct from proof of the current machine;
+  disclose only authorized job-node locations, never infer empty cabinet space.
 - Preserve full Agent capability inside the authorized execution boundary.
 
 ## Accessibility & Inclusion

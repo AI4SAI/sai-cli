@@ -20,6 +20,14 @@ The architecture separates three responsibilities:
 
 ## Current and target paths
 
+Registered job location is an independent `jobs.placement` read, disabled until
+the site explicitly approves its disclosure. The site joins one native
+allocation to a signed, operator-published inventory and returns only that job's
+nodes. CLI/TUI, WebUI and Pilot consume `jobs.placement/v1`; no client queries
+inventory files or infers current hardware identity from a node name. Static
+registration, live allocation, measured utilization and final cost remain
+separate facts. See [the contract](../contracts/job-placement/v1/README.md).
+
 The current code release uses control-plane job visibility and
 running-estimate read APIs, plus the published site resource catalog.
 The catalog shares Portal's WebUI presenter and appears under

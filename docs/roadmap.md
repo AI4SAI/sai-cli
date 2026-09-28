@@ -55,6 +55,9 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] `sai jobs allocation JOB_ID` against the explicit site gateway snapshot
   (local/fake HTTP; physical assets, utilization and attempt identity remain separate)
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
+- [x] Independent `jobs placement` and TUI registration view, sharing the
+  operator-recorded `jobs.placement/v1` projection with WebUI and Pilot;
+  site opt-in, asset review/publication and live acceptance remain separate
 - [x] `sai resources catalog` against the shared published site catalog DTO
 - [x] `sai storage quota-summary` and independent TUI Storage view over Portal
   observations; new storage scope registration is a separate deployment gate
@@ -129,7 +132,9 @@ The first [terminal workbench](terminal-workbench.md) supports two-partition
 comparison, filtered job list/detail, allocation inspection, and independent
 non-final estimates. Allocation shows the response's nodes, CPU/memory, freshness
 and restart count with explicit allocated/not-allocated/unavailable states.
-It does not provide measured utilization, GPU placement or physical location.
+It does not provide measured utilization or physical GPU placement. The separate
+registration action joins operator-recorded rack/U locations to the same
+response's allocation; a scheduler name does not prove current physical identity.
 Web navigation rechecks the exact job and workspace and carries the prior
 observation as comparison evidence; it does not launch or renew a Pilot task.
 Scope changes discard stale requests; network cancellation remains bounded by

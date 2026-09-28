@@ -18,6 +18,7 @@ from .managed_runs import (
     clean_run_ref, clean_tasks_workspace,
 )
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
+from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
 from .native_quota import NativeQuotaResult
 from .transport import JsonResponse, JsonTransport
@@ -141,9 +142,9 @@ class JobQuery:
     ) -> dict[str, object]:
         """Build the exact JSON body consumed by Portal's capability issuer."""
 
-        detail = operation in {"jobs.detail", "jobs.allocation"}
+        detail = operation in {"jobs.detail", "jobs.allocation", "jobs.placement"}
         query = self.validated(detail=detail)
-        if operation not in {"jobs.list", "jobs.detail", "jobs.allocation", "billing.running-estimate"}:
+        if operation not in {"jobs.list", "jobs.detail", "jobs.allocation", "jobs.placement", "billing.running-estimate"}:
             raise ConfigError("operation is unsupported")
         if query.cluster_id is None:
             raise ConfigError(
@@ -260,6 +261,22 @@ class PortalClient:
             site_id=request.site_id, cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope], request_id=response.request_id,
             job_id=identifier, states=request.states, account_name=request.account_name,
+        )
+        return result
+
+    def job_placement(self, job_id: str, query: JobQuery) -> SiteJobPlacementResult:
+        identifier = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
+        if not re.fullmatch(r"[0-9]+(?:_[0-9]+)?", identifier):
+            raise ConfigError("placement requires a numeric job ID or numeric job_task ID")
+        request = query.validated(detail=True)
+        response = self._site_get(
+            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/placement",
+            body=request.capability_request(operation="jobs.placement", job_id=identifier),
+        )
+        result = SiteJobPlacementResult.from_payload(response.payload, request_id=response.request_id)
+        result.require_request_binding(
+            site_id=request.site_id, cluster_id=request.cluster_id, scope=_SCOPES[request.scope],
+            request_id=response.request_id, job_id=identifier, states=request.states, account_name=request.account_name,
         )
         return result
 

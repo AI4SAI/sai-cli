@@ -29,6 +29,7 @@ _OPERATIONS = frozenset(
         "jobs.list",
         "jobs.detail",
         "jobs.allocation",
+        "jobs.placement",
         "billing.running-estimate",
     }
 )
@@ -173,7 +174,7 @@ class CapabilityProvider:
             raise ContractError("the site-read capability request is invalid")
         if operation == "jobs.list" and (body.get("job_id") is not None or limit is None):
             raise ContractError("the site-read capability request is invalid")
-        if operation in {"jobs.detail", "jobs.allocation"} and (
+        if operation in {"jobs.detail", "jobs.allocation", "jobs.placement"} and (
             body.get("job_id") is None
             or body.get("partition") is not None
             or limit is not None
@@ -203,7 +204,7 @@ class CapabilityProvider:
             request_body=body,
             read_origin=(
                 self.settings.site_read_base_url
-                if operation in {"jobs.list", "jobs.detail", "jobs.allocation", STORAGE_OPERATION}
+                if operation in {"jobs.list", "jobs.detail", "jobs.allocation", "jobs.placement", STORAGE_OPERATION}
                 else None
             ),
         )

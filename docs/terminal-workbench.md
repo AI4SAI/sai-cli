@@ -51,6 +51,23 @@ allocated quantity and optional Slurm-local indices. Shared quantities retain
 their own units. Missing evidence stays unknown; these values do not establish
 physical GPU placement, MIG parent identity, measured utilization, racks or topology.
 
+After an allocation read, Recorded location explicitly requests the independent
+`jobs.placement` operation. `sai jobs placement JOB_ID` exposes the same bounded
+read outside the TUI. The site must opt in to publishing approved operator
+registrations; allocation permission alone does not grant location access.
+The response includes the complete allocation used for its node association,
+plus inventory revision, validity and each node's recorded, unmapped or expired
+registration. A successful read replaces allocation and registration together.
+Operator-supplied asset/incarnation references and rack U positions do not prove
+that the current machine still matches that registration.
+
+Location inspection does not poll. Refresh removes old registrations before
+reading again; a source failure leaves the independent allocation readable but
+does not restore old locations. Permission loss clears protected results.
+Registration validity has its own deadline cleanup, independent of the polling
+interval, and expiration sends no additional request. This is a local consumer
+implementation; it does not establish a published inventory or deployed gateway.
+
 Storage rows in Resources are published products only, not quota usage or
 file access. The separate Storage tab selects a stored quota sample or an
 on-demand native Lustre quota query after an
@@ -161,8 +178,13 @@ terminal's clipboard support and never runs automatically.
 The [terminal design rules](../DESIGN.md) specify context, language, selection,
 information hierarchy and visual verification. The CLI defaults to Chinese;
 `--language en-US` selects English. Protocol keys and user-provided names are
-unchanged. Local visual checks do not establish real SSH or long-session
-acceptance, and the broader workbench is still being developed.
+unchanged. Bilingual navigation, paginated project discovery, confirmation
+separate from highlight, narrow-window task details and return-to-list selection
+are implemented. The existing teal theme and reviewed local layouts are useful
+progress, not a complete SAI terminal visual standard. Density, hierarchy,
+focus, errors and layout across the full task journey still need consistent
+product-level review. Real SSH terminals, fonts, color modes, latency, reconnects
+and long sessions have not received comprehensive acceptance.
 
 Reviewed on 2026-09-23:
 
@@ -173,10 +195,15 @@ Reviewed on 2026-09-23:
   documentation evidence, not a claim to have inspected its implementation.
 - [OpenCode keybindings](https://opencode.ai/docs/keybinds/) document command
   discovery and explicit key combinations that avoid editing conflicts.
+- [Textual selection source](https://github.com/Textualize/textual/blob/v8.2.8/src/textual/widgets/_option_list.py)
+  distinguishes highlighted options from explicit selection; its native
+  controls and command palette are the implementation building blocks here.
 
-SAI reuses these interaction principles through existing Textual controls and
-actions. It does not introduce another Agent loop, permission system or command
-framework. Wider task/result navigation and hardware correlation remain separate.
+These references inform specific interactions: contextual footer hints,
+editing-safe keys, discoverable actions and explicit object selection. They do
+not establish reuse of Codex, Claude Code or OpenCode application source or their
+Agent systems. SAI implements the interactions with Textual and its existing
+read client. This registration slice does not promise a full terminal redesign.
 
 ## Validation and remaining work
 
@@ -190,6 +217,13 @@ Nullable/duplicate estimate identities use snapshot-local
 UI rows, not invented business identifiers. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.
+
+Registered-location checks cover scope binding, exact node correspondence,
+unknown/expired records and independent failure cleanup. The Web consumer uses
+the same contract in the existing allocation dialog and may mark only disclosed
+U segments on generic node models. It does not show a whole cabinet's occupancy
+or infer that undisplayed positions are empty. Synthetic inventory and local
+HTTP/browser tests do not verify a current physical machine or location.
 
 The full [unified workbench](unified-workbench.md) still needs direct Pilot result
 navigation, richer resource eligibility and hardware telemetry. Managed task
