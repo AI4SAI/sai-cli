@@ -165,6 +165,9 @@ the original Pool/Session/mount. It returns no path, ticket or credential.
 Original-Session confirmation, any model-window renewal, native preview and
 prompt insertion remain explicit actions in the paired Web/Pilot clients.
 
+Paired result-continuation producer:
+`61dfde2fef4f75f9116a755b3ce715ada9a3f11c`.
+
 ## List jobs
 
 ```text
