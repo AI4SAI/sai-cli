@@ -56,6 +56,12 @@ Storage has an independent workspace and explicit stored/native
 source selection. Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
 
+Resources keeps an explicit candidate separate from the two-item comparison.
+Enter selects a partition; C compares it; Prepare in Pilot (W) opens the shared
+console preparation page. Users without job history can select a project and
+Session there before inserting an editable resource preference into Pilot.
+Published specifications do not imply idle capacity, admission or a job quote.
+
 Tasks uses an independently chosen project. It finds your accepted managed runs
 after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not

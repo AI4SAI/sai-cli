@@ -107,6 +107,9 @@ are candidate designs, not completed implementation milestones.
 
 - [x] Optional TUI dependency group and interactive `sai tui` entry
 - [ ] Jobs, resources, partitions, QOS, and usage navigation model
+- [x] Explicit resource candidate, independent two-item comparison and shared
+  console-to-Pilot preparation intent without requiring an existing job;
+  current eligibility and concrete proposal validation stay server-owned
 - [x] TUI running-usage estimate view; the batch `jobs cost` view already
   exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
 - [x] Separate TUI allocation inspection over one site snapshot, including exact

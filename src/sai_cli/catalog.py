@@ -6,8 +6,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 import re
 from typing import Any
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
-from .errors import ContractError
+from .errors import ConfigError, ContractError
 
 
 SCHEMA_VERSION = "site.resource-catalog/v1"
@@ -117,6 +118,15 @@ def _storage(value: object) -> dict[str, Any]:
 @dataclass(frozen=True)
 class ResourceCatalog:
     values: dict[str, Any]
+
+    def preparation_url(self, base_url: str, partition_ref: str) -> str:
+        if (not isinstance(partition_ref, str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:+-]{0,63}", partition_ref) is None
+                or sum(row["name"] == partition_ref for row in self.values["compute"]) != 1):
+            raise ConfigError("select one published compute partition with a valid reference")
+        origin = urlsplit(base_url)
+        query = urlencode({"site_id": self.values["site_id"], "partition_ref": partition_ref})
+        return urlunsplit((origin.scheme, origin.netloc, "/portal/", "", "/portal/resources/prepare?" + query))
 
     @classmethod
     def from_payload(cls, payload: object, *, site_id: str, request_id: str) -> ResourceCatalog:

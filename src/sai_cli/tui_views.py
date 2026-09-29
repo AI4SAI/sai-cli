@@ -81,6 +81,46 @@ def task_artifact_option(item: dict, language: str, *, selected: bool = False) -
     return prompt
 
 
+def resource_panel(candidate: dict | None, compared: list[dict], language: str, width: int) -> Group:
+    t = Messages(language)
+    fields = (("cpu_model", "cpu"), ("cpu_cores_per_node", "cores_node"),
+              ("gpu_model", "gpu"), ("gpu_count", "gpu_total"), ("node_count", "nodes"))
+
+    def facts(row: dict) -> list[tuple[str, str]]:
+        return [(t(label), display(row[key], language)) for key, label in fields] + [
+            ("QOS", ", ".join(row["supported_qos"]) or t("unknown")),
+            (t("price"), row["pricing"]["display"] if row["pricing"] else t("unknown")),
+        ]
+
+    content: list = []
+    if candidate is not None:
+        content.append(Text(f"{t('resource_candidate')}: {candidate['title']}", style="bold", overflow="fold"))
+        content.append(Text(candidate["name"], overflow="fold"))
+        if candidate["summary"]:
+            content.append(Text(candidate["summary"], overflow="fold"))
+        if candidate["scenarios"]:
+            content.append(Text(f"{t('resource_scenarios')}: " + " · ".join(candidate["scenarios"]), overflow="fold"))
+        content.append(Text("\n".join(f"{label}: {value}" for label, value in facts(candidate)), overflow="fold"))
+    else:
+        content.append(Text(t("resource_choose")))
+    if compared:
+        content.append(Text("\n" + t("resource_comparison"), style="bold"))
+        if width >= 80 and len(compared) == 2:
+            table = Table(box=None, expand=True, padding=(0, 1))
+            table.add_column(t("specification"), ratio=1)
+            for row in compared:
+                table.add_column(Text(row["title"]), ratio=2)
+            for index, (label, _) in enumerate(facts(compared[0])):
+                table.add_row(Text(label), *(Text(facts(row)[index][1], overflow="fold") for row in compared))
+            content.append(table)
+        else:
+            for row in compared:
+                content.append(Text(row["title"], style="bold", overflow="fold"))
+                content.append(Text("\n".join(f"{label}: {value}" for label, value in facts(row)), overflow="fold"))
+    content.append(Text("\n" + t("resource_meaning"), overflow="fold"))
+    return Group(*content)
+
+
 def allocation_panel(result: SiteJobAllocationResult, language: str = "en-US") -> Group:
     t, job, freshness = Messages(language), result.job.values, result.freshness
     status = "allocation_unavailable" if result.allocation_status == "unavailable" else result.allocation_status

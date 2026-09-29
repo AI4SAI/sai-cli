@@ -23,20 +23,31 @@ The workbench starts with Overview: identity, authorized funds and unread
 messages. On managed nodes it retains the applied login Account; Jobs and
 Storage keep their independent, explicitly selected scopes.
 
-1. Open Resources and press Enter on one or two partitions. Compare CPU/GPU
-   model, per-node CPU cores, total GPUs, nodes, QOS and published prices in
-   the detail panel. Unknown facts remain unknown; no availability or price
-   calculation is inferred.
-2. Use View jobs to apply the most recently selected partition to the Jobs
+1. Resources is the site's published catalog. It has no account, job state or
+   partition filters. Press Enter to select a compute candidate and read its
+   title, summary, use cases, hardware, QOS and published price. Press C or
+   Compare to add or remove that candidate from a comparison of at most two
+   resources. Candidate selection and comparison remain separate. Narrow
+   terminals show compared resources in sequence; wide terminals use columns.
+   Unknown facts remain unknown. Published capacity is not idle capacity, and
+   neither admission nor a concrete job quote is established here.
+2. Prepare in Pilot (W) opens the same-origin console resource preparation page
+   with only the site and selected partition reference. The browser chooses the
+   project and checks authority and a concrete plan. This works before a user
+   has any job history and makes no extra CLI API request. Storage offerings
+   cannot be selected as compute partitions. Refresh, errors and tab changes
+   clear the candidate and Web link; inspecting a candidate pauses catalog
+   polling. Copy link remains explicit for terminals without a local browser.
+3. Use View jobs to apply the explicitly selected candidate partition to the Jobs
    view. Change scope, account name/ID, partition or states and select Apply.
    The applied context remains visible; draft controls do not change authority.
-3. Press Enter on a job or choose Details for its separately authorized
+4. Press Enter on a job or choose Details for its separately authorized
    detail. Allocation instead requests one allocation snapshot from the
    explicitly configured site gateway. Escape returns to the list. Ordinary
    detail uses native site-read mode when configured and the existing Portal
    transport otherwise. Allocation requires native configuration and capability
    mode; missing configuration displays an error. Neither path falls back.
-4. Open Running estimates to request the independent billing DTO. Enter shows
+5. Open Running estimates to request the independent billing DTO. Enter shows
    one item's amounts, price revision, source time and uncertainty. This is
    never a final charge. No match to a job is guessed from its numeric ID.
 

@@ -103,6 +103,24 @@ revoking an independently valid self observation. Source/identity denials retain
 their existing clearing behavior. `503/job_navigation_unavailable` means missing
 or ambiguous ownership; it never triggers a default-workspace fallback.
 
+## Resource preparation navigation
+
+The published catalog contract is unchanged. TUI `Prepare in Pilot` sends no
+additional request; it opens the fixed console resource-preparation route with
+only a canonical site and an exact selected partition. The console reads current
+catalog data, then asks the user to choose a currently eligible project through
+the existing workspace topology. It does not use task READ discovery as submit
+authority, select a project implicitly or derive an account from the partition.
+
+`pilot.resource-selection/v1` carries the preference through the existing Pilot
+project/Session/directory chooser. `pilot.resource-draft/v1` then binds it to the
+validated native Session in the current tab. Portal's trusted browser action
+`resource.inspect` returns one `pilot.resource-inspection/v1` catalog observation
+before display/insertion. It does not start/renew a runtime or grant submission.
+Deleted/ambiguous resources and changed scopes stop continuation. Concrete
+scripts, quantities and prices still require the existing `job_validate`,
+`job_render` and proposal confirmation chain.
+
 ## Managed runs and declared outputs
 
 `GET /v1/compute/cli/workspaces` discovers currently readable task projects at

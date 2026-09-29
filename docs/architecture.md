@@ -49,6 +49,14 @@ user -> sai-cli -> SAI Identity device authorization and refresh
 Published resource-catalog reads end at Portal's stored product projection;
 they do not invoke the site reader.
 
+Resources therefore has only a site context; job account/state filters do not
+apply to this catalog. An explicitly selected compute partition can continue to
+the console through a fixed site/partition link. The console re-reads that
+catalog entry and uses the existing compute-project, directory and Pilot Session
+admission flow. The terminal neither infers a submission project nor creates a
+JobCandidate. Native input receives a reference only; existing script validation,
+server pricing, immutable proposal and user confirmation remain authoritative.
+
 Managed-run reads reuse Portal's existing ComputeRun records and readback
 services. The CLI supplies an explicit project/site and reads only its own runs;
 current project membership/site and CLI read admission are independent of

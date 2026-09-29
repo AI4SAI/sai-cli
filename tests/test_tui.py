@@ -64,13 +64,13 @@ def test_workbench_resource_comparison_to_job_and_estimate_over_http(tmp_path, j
             await settled(app, pilot)
             table = app.query_one("#resources-table", DataTable)
             table.focus()
-            await pilot.press("enter", "down", "enter")
+            await pilot.press("enter", "c", "down", "enter", "c")
             assert len(app.compared) == 2
             rendered = StringIO()
             Console(file=rendered, width=120).print(app.query_one("#details", Static).content)
             assert "[red]Literal GPU[/red]" in rendered.getvalue()
-            # Use the first partition after toggling the second comparison off.
-            await pilot.press("enter")
+            # Pick the first candidate without changing the two comparisons.
+            await pilot.press("up", "enter")
             await pilot.click("#use-partition")
             await settled(app, pilot)
             assert app.view == "jobs" and app.job_query.partition == "gpu-standard"

@@ -39,7 +39,7 @@ from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
 from .tui_messages import Messages
 from .tui_views import (
-    allocation_panel, placement_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
+    allocation_panel, placement_panel, resource_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
 )
 
 
@@ -91,6 +91,10 @@ class Workbench(App):
     .placement-inspection #jobs { height: auto; }
     .placement-inspection #jobs-table { height: 3; min-height: 3; }
     .placement-inspection #details-scroll { height: 1fr; }
+    .resource-inspection TabbedContent { height: auto; min-height: 0; }
+    .resource-inspection #resources { height: auto; }
+    .resource-inspection #resources-table { height: 4; min-height: 3; }
+    .resource-inspection #details-scroll { height: 1fr; }
     DataTable > .datatable--cursor { background: $primary-background; color: $text; }
     Button { background: $surface; }
     """
@@ -117,6 +121,7 @@ class Workbench(App):
                     Binding("ctrl+c", "help_quit", show=False, system=True)]
         for key, action, label in (("f5", "refresh", "refresh"), ("f6", "pause", "pause"),
                                    ("escape", "back", "back"), ("a", "view_allocation", "allocation"),
+                                   ("c", "compare_resource", "add_compare"),
                                    ("w", "open_web", "open_web"), ("ctrl+q", "quit", "quit")):
             bindings.append(Binding(key, action, self.t(label), show=key not in {"f6", "ctrl+q"}, priority=key == "ctrl+q"))
         self._bindings = BindingsMap(bindings)
@@ -131,6 +136,8 @@ class Workbench(App):
         self._placement_timer: Timer | None = None
         self.selected_estimate: int | None = None
         self.compared: list[str] = []
+        self.selected_resource: str | None = None
+        self._selected_resource_row: str | None = None
         self.catalog: ResourceCatalog | None = None
         self.storage_workspace_key = (storage_workspace_key or "").strip() or None
         self.tasks_workspace_key = clean_tasks_workspace(tasks_workspace_key) if tasks_workspace_key else None
@@ -182,8 +189,11 @@ class Workbench(App):
                 yield Static(t("resources_hint"), classes="hint", markup=False)
                 yield DataTable(id="resources-table", cursor_type="row")
                 with Horizontal(classes="controls"):
-                    yield Button(t("view_jobs"), id="use-partition")
-                    yield Button(t("clear_compare"), id="clear-comparison")
+                    yield Button(t("add_compare"), id="compare-resource", disabled=True)
+                    yield Button(t("view_jobs"), id="use-partition", disabled=True)
+                    yield Button(t("clear_compare"), id="clear-comparison", tooltip=t("resource_comparison"))
+                with Horizontal(classes="controls"):
+                    yield Button(t("prepare_resource"), id="prepare-resource", disabled=True, tooltip=t("prepare_resource_help"))
             with TabPane(t("jobs"), id="jobs"):
                 yield Static(t("jobs_hint", limit=self.job_query.limit), id="jobs-hint", classes="hint", markup=False)
                 yield DataTable(id="jobs-table", cursor_type="row")
@@ -250,7 +260,7 @@ class Workbench(App):
 
     def on_mount(self) -> None:
         for name, columns in {
-            "resources": ("resource_column", "kind", "cpu_node", "gpu_total", "price"),
+            "resources": ("resource_column", "kind"),
             "jobs": ("job", "name", "state", "partition", "nodes_reason"),
             "tasks": ("title", "state", "last_observed_at", "run"),
             "usage": ("job", "state", "estimate", "gross", "before_credit"),
@@ -258,7 +268,7 @@ class Workbench(App):
             self.query_one(f"#{name}-table", DataTable).add_columns(*(self.t(column) for column in columns))
         self._workbench_ready = True
         for name in ("job-scope-controls", "job-filter-controls"):
-            self.query_one(f"#{name}").display = self.view not in {"storage", "overview", "tasks"}
+            self.query_one(f"#{name}").display = self.view in {"jobs", "usage"}
         self.query_one("#details-scroll").display = self.view not in {"storage", "overview"}
         self._update_scope_display()
         self._task_layout()
@@ -269,11 +279,14 @@ class Workbench(App):
         self.screen.set_class(event.size.height < 28 or event.size.width < 80, "compact")
         if self._workbench_ready:
             self.call_after_refresh(self._task_layout)
+            if self.view == "resources":
+                self.call_after_refresh(self._comparison)
 
     def _task_layout(self) -> None:
         inspection = self.view == "tasks" and self.selected_run is not None
         wide = self.size.width >= 100 and self.size.height >= 28
         self.screen.set_class(inspection, "task-inspection")
+        self.screen.set_class(self.view == "resources" and self._selected_resource_row is not None, "resource-inspection")
         for name in ("task-project-picker", "task-project-pages", "tasks-hint"):
             self.query_one(f"#{name}").display = not inspection
         self.query_one("#tasks-table").display = (not inspection or wide) and self.task_mode != "projects"
@@ -295,6 +308,7 @@ class Workbench(App):
         if view == self.view:
             return
         previous_view = self.view
+        self.selected_resource = self._selected_resource_row = None
         self._discard_allocation()
         self._clear_task_files()
         self.view = view
@@ -303,7 +317,7 @@ class Workbench(App):
         self.selected_estimate = None
         self._revision += 1
         for name in ("job-scope-controls", "job-filter-controls"):
-            self.query_one(f"#{name}").display = view not in {"storage", "overview", "tasks"}
+            self.query_one(f"#{name}").display = view in {"jobs", "usage"}
         self.query_one("#details-scroll").display = view not in {"storage", "overview"}
         if view == "storage":
             self.query_one("#storage-workspace", Input).focus()
@@ -323,6 +337,7 @@ class Workbench(App):
     def _tick(self) -> None:
         self._expire_placement()
         if (not self.paused and not self._reading and self.view not in self._failed_views
+                and not (self.view == "resources" and self._selected_resource_row is not None)
                 and not (self.view == "usage" and self.selected_estimate is not None)
                 and not (self.view == "tasks" and self.task_mode in {"projects", "stdout", "stderr", "files"})
                 and not (self.view == "tasks" and self.tasks_workspace_key is None)
@@ -330,6 +345,9 @@ class Workbench(App):
             self.request_read()
 
     def request_read(self) -> None:
+        if self.view == "resources":
+            self.selected_resource = self._selected_resource_row = None
+            self._comparison()
         self._clear_web_link()
         self._update_web_button()
         if self.view == "storage" and self.storage_workspace_key is None:
@@ -374,6 +392,8 @@ class Workbench(App):
                     context = self.tasks_workspace_label or task_request[0] or self.t("project")
                 elif view == "storage":
                     context = workspace
+                elif view == "resources":
+                    context = query.site_id
                 else:
                     context = f"{self.t(query.scope)} · {query.account_name or query.account_id or self.t('self')}"
                 self.query_one("#status", Static).update(self.t("refreshing", view=self.t(view), context=context))
@@ -406,6 +426,7 @@ class Workbench(App):
             if self.is_running:
                 self._update_web_button()
                 self._update_task_actions()
+                self._update_resource_actions()
 
     def _update_web_button(self) -> None:
         button = self.query_one("#open-job-web", Button)
@@ -434,11 +455,15 @@ class Workbench(App):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "back":
             return bool(self.selected_job or self.selected_run or self.selected_estimate is not None)
-        if action in {"view_allocation", "open_web"}:
+        if action in {"view_allocation", "open_web", "compare_resource"}:
             if self.focused and any(isinstance(widget, (Input, Select)) for widget in self.focused.ancestors_with_self):
                 return False
             if action == "view_allocation":
                 return self._can_inspect_job()
+            if action == "compare_resource":
+                return self._resource_candidate() is not None
+            if self.view == "resources":
+                return self._resource_preparation_url() is not None
             button = self.query_one("#open-task-web" if self.view == "tasks" else "#open-job-web", Button)
             return button.display and not button.disabled
         return super().check_action(action, parameters)
@@ -488,6 +513,11 @@ class Workbench(App):
         self._placement_timer = self.set_timer(max(0.001, deadline - time.time()), expire)
 
     def action_open_web(self) -> None:
+        if self.view == "resources":
+            url = self._resource_preparation_url()
+            if url is not None:
+                self._show_web_link(url, self.t("prepare_resource"))
+            return
         if self.view != "tasks":
             self._open_job_in_web()
             return
@@ -505,7 +535,7 @@ class Workbench(App):
             self._show_web_link(result.web_url(self.client.transport.base_url), self.t("web_task"))
 
     def action_copy_web_link(self) -> None:
-        if self.view in {"jobs", "tasks"} and self._web_url is not None:
+        if self.view in {"jobs", "tasks", "resources"} and self._web_url is not None:
             self.copy_to_clipboard(self._web_url)
             self.query_one("#status", Static).update(self.t("copy_ready"))
 
@@ -536,7 +566,11 @@ class Workbench(App):
             yield SystemCommand(self.t("command_web"), self.t("command_web_help"), self.action_open_web)
         elif self._can_open_task_web():
             yield SystemCommand(self.t("command_web"), self.t("command_web_help"), self.action_open_web)
-        if self.view in {"jobs", "tasks"} and self._web_url is not None:
+        if self.view == "resources" and self._resource_preparation_url() is not None:
+            yield SystemCommand(self.t("prepare_resource"), self.t("prepare_resource_help"), self.action_open_web)
+        if self.view == "resources" and self._resource_candidate() is not None:
+            yield SystemCommand(self.t("add_compare"), self.t("resource_comparison"), self.action_compare_resource)
+        if self.view in {"jobs", "tasks", "resources"} and self._web_url is not None:
             yield SystemCommand(self.t("command_copy"), self.t("command_copy_help"), self.action_copy_web_link)
 
     def action_command_palette(self) -> None:
@@ -836,6 +870,9 @@ class Workbench(App):
         if view == "resources":
             self.catalog = None
             self.compared.clear()
+            self.selected_resource = self._selected_resource_row = None
+            self._clear_web_link()
+            self._update_resource_actions()
         if view == "usage":
             self.usage_page = 0
             self.selected_estimate = None
@@ -973,13 +1010,13 @@ class Workbench(App):
         elif view == "resources" and isinstance(result, ResourceCatalog):
             self.catalog = result
             data = result.as_dict()
-            rows = [(f"compute:{i}", (r["name"], r["resource_kind"], r["cpu_cores_per_node"], r["gpu_count"],
-                    r["pricing"]["display"] if r["pricing"] else None)) for i, r in enumerate(data["compute"])]
-            rows += [(f"storage:{i}", (r["name"], r["filesystem_type"], "—", "—", r["package_pricing"]["display"]))
+            rows = [(f"compute:{i}", (r["title"], r["resource_kind"])) for i, r in enumerate(data["compute"])]
+            rows += [(f"storage:{i}", (r["name"], r["filesystem_type"]))
                      for i, r in enumerate(data["storage"])]
             self._rows(view, rows)
             self.compared = [name for name in self.compared if any(r["name"] == name for r in data["compute"])]
             self._comparison()
+            self._update_scope_display()
             status = self.t("resource_status" if rows else "resource_empty")
         elif isinstance(result, SiteJobPlacementResult):
             self._present(view, result.allocation)
@@ -1032,40 +1069,79 @@ class Workbench(App):
     def _comparison(self) -> None:
         if self.catalog is None:
             return
-        rows = [r for name in self.compared for r in self.catalog.values["compute"] if r["name"] == name]
-        if not rows:
-            self.query_one("#details", Static).update(self.t("resource_choose"))
+        if self._selected_resource_row is not None and self._selected_resource_row.startswith("storage:"):
+            row = self.catalog.values["storage"][int(self._selected_resource_row.split(":")[1])]
+            self.query_one("#details", Static).update(
+                f"{row['name']} · {row['scope_label']}\n{row['description']}\n"
+                + "\n".join(f"{r['label']}: {r['value']}" for r in row["hardware"])
+                + f"\n{self.t('package')}: {row['package_pricing']['display']}\n{self.t('usage_price')}: {row['usage_pricing']['display']}"
+                + f"\n{self.t('metering')}: {self.t('yes' if row['metered_settlement_enabled'] else 'no')}"
+            )
+            self._update_resource_actions()
             return
-        table = Table(box=None, expand=True, padding=(0, 1))
-        table.add_column(self.t("specification"))
-        for row in rows:
-            table.add_column(Text(row["title"]))
-        for key, label in (("cpu_model", "cpu"), ("cpu_cores_per_node", "cores_node"),
-                           ("gpu_model", "gpu"), ("gpu_count", "gpu_total"), ("node_count", "nodes")):
-            table.add_row(Text(self.t(label)), *(Text(display(row[key], self.language)) for row in rows))
-        table.add_row(Text("QOS"), *(Text(", ".join(row["supported_qos"]) or self.t("unknown")) for row in rows))
-        table.add_row(Text(self.t("price")), *(Text(row["pricing"]["display"] if row["pricing"] else self.t("unknown")) for row in rows))
-        self.query_one("#details", Static).update(table)
+        rows = [r for name in self.compared for r in self.catalog.values["compute"] if r["name"] == name]
+        candidates = [row for row in self.catalog.values["compute"] if row["name"] == self.selected_resource]
+        self.query_one("#details", Static).update(resource_panel(candidates[0] if len(candidates) == 1 else None,
+                                                                 rows, self.language, self.size.width))
+        self._update_resource_actions()
+
+    def _resource_candidate(self) -> dict | None:
+        if (self.view != "resources" or self._reading or self._pending or self.catalog is None
+                or self.results.get("resources") is not self.catalog
+                or self.catalog.values["site_id"] != self.job_query.site_id):
+            return None
+        rows = [row for row in self.catalog.values["compute"] if row["name"] == self.selected_resource]
+        return rows[0] if len(rows) == 1 else None
+
+    def _resource_preparation_url(self) -> str | None:
+        row = self._resource_candidate()
+        if row is None:
+            return None
+        try:
+            return self.catalog.preparation_url(self.client.transport.base_url, row["name"])
+        except ConfigError:
+            return None
+
+    def _update_resource_actions(self) -> None:
+        candidate = self._resource_candidate()
+        self.query_one("#compare-resource", Button).disabled = candidate is None
+        self.query_one("#compare-resource", Button).label = self.t("remove_compare" if self.selected_resource in self.compared else "add_compare")
+        self.query_one("#prepare-resource", Button).disabled = self._resource_preparation_url() is None
+        self.query_one("#use-partition", Button).disabled = self._resource_preparation_url() is None
+        self.query_one("#clear-comparison", Button).disabled = not self.compared
+        self._task_layout()
+
+    def action_compare_resource(self) -> None:
+        candidate = self._resource_candidate()
+        if candidate is None:
+            return
+        name = candidate["name"]
+        if name in self.compared:
+            self.compared.remove(name)
+        elif len(self.compared) < 2:
+            self.compared.append(name)
+        else:
+            self.query_one("#status", Static).update(self.t("compare_full"))
+            return
+        self._comparison()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         key = str(event.row_key.value)
-        if event.data_table.id == "resources-table" and self.catalog:
+        if (event.data_table.id == "resources-table" and self.view == "resources"
+                and self.catalog and not self._reading and not self._pending):
             kind, index = key.split(":")
             row = self.catalog.values[kind][int(index)]
+            self._clear_web_link()
+            self._selected_resource_row = key
             if kind == "compute":
-                name = row["name"]
-                if name in self.compared:
-                    self.compared.remove(name)
-                else:
-                    self.compared = [*self.compared[-1:], name]
+                self.selected_resource = row["name"]
                 self._comparison()
+                if self._resource_preparation_url() is None:
+                    self.query_one("#status", Static).update(self.t("resource_reference_invalid"))
             else:
-                self.query_one("#details", Static).update(
-                    f"{row['name']} · {row['scope_label']}\n{row['description']}\n"
-                    + "\n".join(f"{r['label']}: {r['value']}" for r in row["hardware"])
-                    + f"\n{self.t('package')}: {row['package_pricing']['display']}\n{self.t('usage_price')}: {row['usage_pricing']['display']}"
-                    + f"\n{self.t('metering')}: {self.t('yes' if row['metered_settlement_enabled'] else 'no')}"
-                )
+                self.selected_resource = None
+                self._comparison()
+            self.call_after_refresh(self.query_one("#details-scroll", VerticalScroll).scroll_home, animate=False)
         elif event.data_table.id == "jobs-table":
             self._inspect_job("detail", row_key=key)
         elif event.data_table.id == "tasks-table":
@@ -1106,7 +1182,7 @@ class Workbench(App):
         self.job_mode = "detail"
         self.selected_estimate = None
         self._revision += 1
-        for view in ("resources", "jobs", "usage"):
+        for view in ("jobs", "usage"):
             self._clear(view)
         self.query_one("#partition", Input).value = query.partition or ""
         self._update_scope_display()
@@ -1115,6 +1191,10 @@ class Workbench(App):
         return True
 
     def _update_scope_display(self) -> None:
+        if self.view == "resources":
+            site = self.catalog.values["site_label"] if self.catalog is not None else self.job_query.site_id
+            self.query_one("#context", Static).update(f"SAI · {site}\n{self.t('catalog_context')}")
+            return
         if self.view == "tasks":
             project = self.tasks_workspace_label or (self.t("project_by_key", key=self.tasks_workspace_key)
                         if self.tasks_workspace_key else self.t("choose_project"))
@@ -1173,11 +1253,19 @@ class Workbench(App):
             self._apply()
         elif event.button.id == "refresh":
             self.action_refresh()
+        elif event.button.id == "prepare-resource":
+            self.action_open_web()
+        elif event.button.id == "compare-resource":
+            self.action_compare_resource()
         elif event.button.id == "clear-comparison":
             self.compared.clear()
             self._comparison()
-        elif event.button.id == "use-partition" and self.compared:
-            if self._apply(partition=self.compared[-1], refresh=False):
+        elif event.button.id == "use-partition":
+            candidate = self._resource_candidate()
+            if candidate is not None and self._resource_preparation_url() is not None:
+                self.job_query = replace(self.job_query, partition=candidate["name"]).validated()
+                self.query_one("#partition", Input).value = self.job_query.partition
+                self._clear("jobs")
                 self.query_one("#views", TabbedContent).active = "jobs"
                 self.query_one("#jobs-table", DataTable).focus()
         elif event.button.id in {"previous", "next"}:

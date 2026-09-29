@@ -116,6 +116,15 @@ The origin is HTTPS (unmanaged loopback HTTP for local tests); no argv or
 environment override is accepted. Managed installations use the existing
 protected configuration, not a new per-command mount or file hierarchy.
 
+Resource preparation has no new CLI request or write command. The current
+validated catalog supplies exactly one candidate, and `preparation_url` creates
+`/portal/#/portal/resources/prepare?site_id=...&partition_ref=...` at the protected
+Portal origin. It carries neither account guesses, resource quantities, prices,
+paths nor prompts. Resources hides Jobs filters, uses Enter for candidate
+selection and C for a separate bounded comparison. Refresh, errors and tab
+changes clear candidate/link; inspecting a resource pauses polling. View jobs
+uses the explicit candidate, independent of comparison order.
+
 The gateway receives only a short-lived `X-SAI-Capability`; the Identity Bearer
 stays at Portal. Results use the explicit `jobs/v1` envelope, including subject,
 observation time, freshness, ETag and `has_more`, without a fabricated visibility
