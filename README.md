@@ -61,6 +61,10 @@ after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not
 start Pilot, renew its model window, submit work or grant file access.
 
+In Files, Enter confirms a file and W opens the same output page in the console.
+The console can explicitly continue into the original Pilot Session for native
+preview or an editable analysis request, with fresh permissions at each step.
+
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
 through a protected `site_read_base_url` profile setting; deployment is separate.

@@ -140,12 +140,51 @@ not hide still-authorized task metadata. Output filenames describe current files
 under the declared roots, not a sealed result version. Pilot's native document
 preview remains the file viewer; this terminal slice does not create one.
 
+Files uses a keyboard-selectable list. Full relative paths wrap without
+shortening; byte size and modification time remain separate. Arrow keys browse,
+and Enter confirms the highlighted file with a visible Selected file marker.
+Ctrl+Up/Down scrolls within long entries without changing the selected file.
+Selection makes no request. Moving to another file clears the confirmation;
+changing the project, run, page or evidence mode clears selection and any link.
+
 After loading a task's details, Open Web (W or the command palette) opens that
-exact managed run in the console's read-only task page. The link contains only
-the applied project, site and run reference; it uses the configured Portal
-origin. The browser authenticates and authorizes the read again, including
+exact managed run in the console's read-only task page. With a confirmed file,
+it additionally selects Files and carries that file's existing `artifact_ref`
+and the current page's request cursor. The initial cursor is omitted when the
+request omitted it; `next_cursor` is never used for the current selection.
+Paths, sizes, contents and credentials never enter the URL. Without a confirmed
+file, the existing run-only link remains available. Links use the configured
+Portal origin. The browser authenticates and authorizes the read again, including
 separate file permission checks. It can open a historical run without reading
 the first list page, an active scheduler account or a Pilot runtime.
+The browser reads the referenced page and finds the file by reference. If the
+page changed and the file is absent, it asks for a refresh instead of selecting
+another file. The terminal does not read file contents, create a Pilot session
+or send an Agent message.
+
+## Continue a recorded result in Pilot
+
+Files can also be carried into the existing SAI Pilot flow. The console link
+keeps only the exact run reference, selected artifact reference and the request
+cursor for the bounded page. The console rechecks the run, current file READ
+permission and the selected page before showing the original Session. It never
+places a path or file content in the URL. The user confirms the original
+Session, and only then resumes it or explicitly renews its existing window.
+
+Pilot receives a same-tab reference containing the run and optional
+artifact. It rechecks the selected native Session and current file before
+opening the native file viewer or inserting an editable evidence prompt. It
+does not submit a message automatically. A missing file, changed page, lost
+permission, mismatched Session or stale response leaves the task reference
+visible and gives the user a refresh or return action.
+
+This continuation reuses the existing Portal Run readback and Pilot native file
+viewer. It does not create a result archive, new task engine, second file
+browser, implicit runtime start or hidden renewal. Agent `run.get`, `run.logs`
+and `artifact.list` use the same current project READ owner as the console;
+submission, cancellation and confirmation retain their separate execution
+authority.
+
 The shared visible link and Copy link action also work over SSH without a local
 desktop browser. Refreshing, changing project or losing task access clears the
 link; typing in a text input never triggers W. Neither navigation nor copying
@@ -225,10 +264,11 @@ U segments on generic node models. It does not show a whole cabinet's occupancy
 or infer that undisplayed positions are empty. Synthetic inventory and local
 HTTP/browser tests do not verify a current physical machine or location.
 
-The full [unified workbench](unified-workbench.md) still needs direct Pilot result
-navigation, richer resource eligibility and hardware telemetry. Managed task
-history, logs and output listings now reuse the existing Run/readback contracts;
-job context can continue into the console's existing Pilot handoff.
+The full [unified workbench](unified-workbench.md) still needs richer resource
+eligibility, final-cost association and hardware telemetry. Managed task history,
+logs and output listings reuse the existing Run/readback contracts; selected
+outputs can continue through the console into their original Pilot Session.
+Local continuation checks do not establish deployed or real-site acceptance.
 Native storage quota is implemented locally;
 site installation, service-UID permissions and real Lustre behavior still require
 acceptance. The privileged storage write adapter is not used by this UI or

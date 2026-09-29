@@ -156,6 +156,15 @@ site and owner-only Run visibility, with file READ checked separately.
 The task deep link is a fixed same-origin workspace `runs?run_ref=...` route.
 It is an object selector, not a credential, Pilot admission or file-content grant.
 
+An explicitly selected file adds `view=files`, `artifact_ref` and the current
+page's request cursor as `artifact_cursor` (omitted for an implicit first page).
+The console re-reads only that bounded page and never substitutes another file.
+Run/artifact references do not identify sealed content versions. The console's
+`GET /v1/account/compute/runs/{run_ref}/pilot-context` rechecks current reads and
+the original Pool/Session/mount. It returns no path, ticket or credential.
+Original-Session confirmation, any model-window renewal, native preview and
+prompt insertion remain explicit actions in the paired Web/Pilot clients.
+
 ## List jobs
 
 ```text

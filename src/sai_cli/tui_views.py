@@ -70,6 +70,17 @@ def task_file_panel(result: ManagedRunLogs | ManagedRunArtifacts, language: str 
     return Group(*rows, Text(page))
 
 
+def task_artifact_option(item: dict, language: str, *, selected: bool = False) -> Text:
+    t = Messages(language)
+    prompt = Text(overflow="fold", no_wrap=False)
+    if selected:
+        prompt.append(t("file_selected") + "\n", style="bold")
+    prompt.append(terminal_log(item["relative_path"]), style="bold")
+    prompt.append("\n" + t("bytes", count=item["size_bytes"]))
+    prompt.append("\n" + modified_time_text(item["modified_at_ns"], language))
+    return prompt
+
+
 def allocation_panel(result: SiteJobAllocationResult, language: str = "en-US") -> Group:
     t, job, freshness = Messages(language), result.job.values, result.freshness
     status = "allocation_unavailable" if result.allocation_status == "unavailable" else result.allocation_status

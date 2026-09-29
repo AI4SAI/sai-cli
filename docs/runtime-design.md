@@ -35,6 +35,15 @@ The first release does not implement:
 - automatic fallback from live state to broad accounting queries;
 - full-site asset exports, node topology, utilization or storage management.
 
+Managed-run result reads are shared with Pilot through the independent
+`pilot-read-call/v1` operations `run.get`, `run.logs` and `artifact.list`.
+They use current project READ and the run's frozen output mount, rather than
+the submit/cancel execution grant. A console or TUI file continuation carries
+only an opaque run/artifact reference and a bounded page cursor. Pilot requires
+an explicit original-Session confirmation before opening the native file view
+or inserting an editable prompt. Runtime renewal and model submission remain
+separate user actions.
+
 `jobs placement` requires the explicit site gateway and an independent
 `jobs.placement` capability. It returns the same response's allocation and
 operator-recorded registration for only those nodes. Site opt-in is required;

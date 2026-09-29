@@ -36,6 +36,39 @@ def test_run_web_link_preserves_exact_reference_and_only_the_portal_origin():
     assert parse_qs(query) == {"run_ref": ["run:example+1"]}
 
 
+@pytest.mark.parametrize("cursor", [None, "0", "7"])
+def test_run_file_web_link_uses_selected_current_page_reference_and_request_cursor(cursor):
+    detail = parse("detail")
+    data = sample("artifacts")
+    data.update(cursor=cursor or "0", next_cursor=str(int(cursor or "0") + 1), complete=False)
+    data["items"][0].update(relative_path="outputs/训练 #1?%.txt", display_name="long Unicode result")
+    page = parse("artifacts", data, cursor=cursor)
+    reference = data["items"][0]["artifact_ref"]
+    url = urlsplit(detail.web_url("https://console.example.test/prefix?ignored=1#old", artifact_page=page, artifact_ref=reference))
+    assert (url.scheme, url.netloc, url.path, url.query) == ("https", "console.example.test", "/portal/", "")
+    expected = {"run_ref": ["run-example-1"], "view": ["files"], "artifact_ref": [reference]}
+    if cursor is not None: expected["artifact_cursor"] = [cursor]
+    assert parse_qs(url.fragment.split("?", 1)[1]) == expected
+    assert "next_cursor" not in url.fragment and "outputs" not in url.fragment and "size" not in url.fragment
+    assert page.as_dict() == data and "request_cursor" not in page.as_dict()
+
+
+def test_run_file_web_link_rejects_unbound_or_unlisted_artifact():
+    detail, page = parse("detail"), parse("artifacts")
+    ref = page.values["items"][0]["artifact_ref"]
+    for arguments in ({"artifact_ref": ref}, {"artifact_page": page},
+                      {"artifact_ref": ref, "artifact_page": page.as_dict()},
+                      {"artifact_ref": "artifact-missing", "artifact_page": page},
+                      {"artifact_ref": "outputs/result.txt", "artifact_page": page}):
+        with pytest.raises(ConfigError): detail.web_url("https://console.example", **arguments)
+    for field, wrong in (("run_ref", "run-other"), ("site_id", "site-other"),
+                         ("workspace_key", "project:other"), ("cursor", "1")):
+        changed = parse("artifacts")
+        changed.values[field] = wrong
+        with pytest.raises(ConfigError):
+            detail.web_url("https://console.example", artifact_page=changed, artifact_ref=ref)
+
+
 @pytest.mark.parametrize("kind", KINDS)
 def test_shared_managed_run_vectors_are_required_allowlists_bound_to_request(kind):
     expected = sample(kind)

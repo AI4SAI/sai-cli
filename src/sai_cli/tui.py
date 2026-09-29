@@ -19,7 +19,8 @@ from textual.events import Resize
 from textual.screen import Screen
 from textual.theme import Theme, ThemeProvider
 from textual.timer import Timer
-from textual.widgets import Button, DataTable, Footer, Input, Select, Static, TabbedContent, TabPane
+from textual.widgets import Button, DataTable, Footer, Input, OptionList, Select, Static, TabbedContent, TabPane
+from textual.widgets.option_list import Option
 
 from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
@@ -38,9 +39,13 @@ from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
 from .tui_messages import Messages
 from .tui_views import (
-    allocation_panel, placement_panel, display, modified_time_text, task_detail_panel, task_file_panel, storage_panel, state_text, task_state,
+    allocation_panel, placement_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
 )
 
+
+
+class TaskArtifactList(OptionList):
+    BINDINGS = [Binding("ctrl+up", "scroll_up", show=False), Binding("ctrl+down", "scroll_down", show=False)]
 
 
 class Workbench(App):
@@ -60,6 +65,8 @@ class Workbench(App):
     DataTable { height: 1fr; min-height: 3; }
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
+    #task-artifact-hint { height: auto; padding: 0 1; }
+    #task-artifacts { height: 1fr; min-height: 3; border: none; padding: 0 1; }
     #view-placement { height: 1; border: none; padding: 0 1; width: auto; }
     #web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
     #storage-scroll { height: 1fr; }
@@ -131,6 +138,7 @@ class Workbench(App):
         self.task_mode = "list"
         self.task_cursor: str | None = None
         self.task_file_page: ManagedRunLogs | ManagedRunArtifacts | None = None
+        self.selected_artifact: tuple[ManagedRunArtifacts, str] | None = None
         self.task_projects: ManagedRunWorkspaces | None = None
         self.project_cursor: str | None = None
         self.tasks_workspace_label: str | None = None
@@ -232,6 +240,12 @@ class Workbench(App):
             placement_button.display = False
             yield placement_button
             yield Static("", id="details", markup=False)
+            artifact_hint = Static("", id="task-artifact-hint", markup=False)
+            artifact_hint.display = False
+            yield artifact_hint
+            artifacts = TaskArtifactList(id="task-artifacts")
+            artifacts.display = False
+            yield artifacts
         yield Footer()
 
     def on_mount(self) -> None:
@@ -480,7 +494,15 @@ class Workbench(App):
         if not self._can_open_task_web():
             return
         result = self.results["tasks"]
-        self._show_web_link(result.web_url(self.client.transport.base_url), self.t("web_task"))
+        if self.selected_artifact is not None:
+            page, artifact_ref = self.selected_artifact
+            if self.task_mode != "files" or page is not self.task_file_page:
+                self._clear_artifact_selection()
+                return
+            url = result.web_url(self.client.transport.base_url, artifact_page=page, artifact_ref=artifact_ref)
+            self._show_web_link(url, self.t("web_file"))
+        else:
+            self._show_web_link(result.web_url(self.client.transport.base_url), self.t("web_task"))
 
     def action_copy_web_link(self) -> None:
         if self.view in {"jobs", "tasks"} and self._web_url is not None:
@@ -628,10 +650,50 @@ class Workbench(App):
         self.query_one("#tasks-table", DataTable).focus()
 
     def _clear_task_files(self) -> None:
+        self._clear_artifact_selection()
         self.task_file_page = None
+        self.query_one("#task-artifacts", OptionList).clear_options()
+        self.query_one("#task-artifacts").display = False
+        self.query_one("#task-artifact-hint").display = False
         if self.view == "tasks":
             result = self.results.get("tasks")
             self.query_one("#details", Static).update(task_detail_panel(result, self.language) if isinstance(result, ManagedRunDetail) else "")
+        self._update_task_actions()
+
+    def _clear_artifact_selection(self) -> None:
+        previous = self.selected_artifact
+        self.selected_artifact = None
+        self._clear_web_link()
+        if previous is not None:
+            page, artifact_ref = previous
+            options = self.query_one("#task-artifacts", OptionList)
+            if page is self.task_file_page and any(option.id == artifact_ref for option in options.options):
+                item = next(item for item in page.values["items"] if item["artifact_ref"] == artifact_ref)
+                options.replace_option_prompt(artifact_ref, task_artifact_option(item, self.language))
+        self.query_one("#task-artifact-hint", Static).update(self.t("files_choose"))
+        self.query_one("#open-task-web", Button).tooltip = self.t("web_task") + " (W)"
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        if (event.option_list.id == "task-artifacts" and self.selected_artifact is not None
+                and any(option is event.option for option in event.option_list.options)):
+            if event.option.id != self.selected_artifact[1]:
+                self._clear_artifact_selection()
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if (event.option_list.id != "task-artifacts" or self.view != "tasks" or self.task_mode != "files"
+                or not self._can_open_task_web() or not isinstance(self.task_file_page, ManagedRunArtifacts)
+                or not any(option is event.option for option in event.option_list.options)):
+            return
+        page, reference = self.task_file_page, event.option.id
+        if reference is None:
+            return
+        detail = self.results["tasks"]
+        page.require_selection(detail, reference)
+        self._clear_artifact_selection()
+        self.selected_artifact = (page, reference)
+        item = next(item for item in page.values["items"] if item["artifact_ref"] == reference)
+        event.option_list.replace_option_prompt(reference, task_artifact_option(item, self.language, selected=True))
+        self.query_one("#task-artifact-hint", Static).update(self.t("file_continue"))
         self._update_task_actions()
 
     def _project_labels(self) -> dict[str, str]:
@@ -657,6 +719,7 @@ class Workbench(App):
         self.query_one("#task-next", Button).disabled = busy or not more or page.values.get("next_cursor") is None
         self.query_one("#task-start", Button).disabled = busy or not self.tasks_workspace_key or self.task_mode == "detail"
         self.query_one("#open-task-web", Button).disabled = not self._can_open_task_web()
+        self.query_one("#open-task-web", Button).tooltip = self.t("web_file" if self.selected_artifact else "web_task") + " (W)"
         self.query_one("#projects-next", Button).disabled = busy or self.task_projects is None or not self.task_projects.values["has_more"]
         self.query_one("#projects-first", Button).disabled = busy or self.project_cursor is None
         self.query_one("#load-projects", Button).disabled = busy
@@ -876,6 +939,22 @@ class Workbench(App):
                     heading.append(" · ").append_text(task_state(run["status"], self.t))
                     self.query_one("#task-heading", Static).update(heading)
                 status = self.t("task_records", time=data["queried_at"])
+            elif isinstance(result, ManagedRunArtifacts):
+                self._clear_artifact_selection()
+                options = self.query_one("#task-artifacts", OptionList)
+                options.clear_options().add_options([
+                    Option(task_artifact_option(item, self.language), id=item["artifact_ref"])
+                    for item in data["items"]
+                ])
+                options.display = bool(data["items"])
+                self.query_one("#task-artifact-hint").display = bool(data["items"])
+                self.query_one("#details", Static).update(
+                    self.t("last_page" if data["complete"] else "more_pages") if data["items"]
+                    else self.t("files_empty")
+                )
+                if data["items"]:
+                    options.focus()
+                status = self.t("file_status", mode=self.t(self.task_mode), time=data["observed_at"])
             else:
                 self.query_one("#details", Static).update(task_file_panel(result, self.language))
                 status = self.t("file_status", mode=self.t(self.task_mode), time=data["observed_at"])

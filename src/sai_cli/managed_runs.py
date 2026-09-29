@@ -198,11 +198,20 @@ class ManagedRunList(ManagedReadResult):
 
 @dataclass(frozen=True)
 class ManagedRunDetail(ManagedReadResult):
-    def web_url(self, base_url: str) -> str:
+    def web_url(self, base_url: str, *, artifact_page: ManagedRunArtifacts | None = None,
+                artifact_ref: str | None = None) -> str:
         origin = urlsplit(base_url)
         route = (f"/portal/workspaces/{quote(self.values['workspace_key'], safe='')}/"
                  f"{quote(self.values['site_id'], safe='')}/runs")
-        fragment = route + "?" + urlencode({"run_ref": self.values["run"]["run_ref"]})
+        query = {"run_ref": self.values["run"]["run_ref"]}
+        if artifact_page is not None or artifact_ref is not None:
+            if not isinstance(artifact_page, ManagedRunArtifacts) or not isinstance(artifact_ref, str):
+                raise ConfigError("file continuation requires a current file page and reference")
+            artifact_page.require_selection(self, artifact_ref)
+            query.update(view="files", artifact_ref=artifact_ref)
+            if artifact_page.request_cursor is not None:
+                query["artifact_cursor"] = artifact_page.request_cursor
+        fragment = route + "?" + urlencode(query)
         return urlunsplit((origin.scheme, origin.netloc, "/portal/", "", fragment))
 
     @classmethod
@@ -245,6 +254,18 @@ class ManagedRunLogs(ManagedReadResult):
 
 @dataclass(frozen=True)
 class ManagedRunArtifacts(ManagedReadResult):
+    request_cursor: str | None = None
+
+    def require_selection(self, detail: ManagedRunDetail, artifact_ref: str) -> None:
+        if (not isinstance(detail, ManagedRunDetail) or not isinstance(artifact_ref, str)
+                or _REF.fullmatch(artifact_ref) is None
+                or self.values["run_ref"] != detail.values["run"]["run_ref"]
+                or any(self.values[key] != detail.values[key] for key in ("workspace_key", "site_id"))
+                or self.values["cursor"] != (self.request_cursor or "0")
+                or (self.request_cursor is not None and (not isinstance(self.request_cursor, str)
+                    or re.fullmatch(r"0|[1-9][0-9]{0,8}", self.request_cursor) is None))
+                or not any(item["artifact_ref"] == artifact_ref for item in self.values["items"])):
+            raise ConfigError("file continuation must select an item in the current task file page")
     @classmethod
     def from_payload(cls, payload: object, *, workspace_key: str, site_id: str, run_ref: str,
                      cursor: str | None, limit: int, request_id: str) -> ManagedRunArtifacts:
@@ -271,7 +292,7 @@ class ManagedRunArtifacts(ManagedReadResult):
         if (len({row["artifact_ref"] for row in rows}) != len(rows) or len({row["relative_path"] for row in rows}) != len(rows)
                 or (not complete and (not rows or int(following) != int(current) + len(rows)))):
             raise ContractError(request_id=request_id)
-        return cls({**result, "cursor": current, "next_cursor": following, "complete": complete, "items": rows})
+        return cls({**result, "cursor": current, "next_cursor": following, "complete": complete, "items": rows}, cursor)
 
 
 def terminal_log(content: str) -> str:

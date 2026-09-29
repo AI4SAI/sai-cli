@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("textual")
 from rich.console import Console
-from textual.widgets import Button, DataTable, Input, Select, Static, TabbedContent
+from textual.widgets import Button, DataTable, Input, OptionList, Select, Static, TabbedContent
 
 from sai_cli.auth import TokenLease
 from sai_cli.client import JobQuery, PortalClient
@@ -42,6 +42,10 @@ def test_output_panel_preserves_full_paths_and_formats_mtime_without_losing_json
 def details(app):
     output = StringIO()
     Console(file=output, width=100, color_system=None).print(app.query_one("#details", Static).content)
+    options = app.query_one("#task-artifacts", OptionList)
+    if options.display:
+        for option in options.options:
+            Console(file=output, width=100, color_system=None).print(option.prompt)
     return output.getvalue()
 
 
