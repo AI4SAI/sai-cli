@@ -121,6 +121,9 @@ Deleted/ambiguous resources and changed scopes stop continuation. Concrete
 scripts, quantities and prices still require the existing `job_validate`,
 `job_render` and proposal confirmation chain.
 
+Paired resource-preparation producer:
+`ba29be229d6d9bf970d6dbfcaba035e8dae7c209`.
+
 ## Managed runs and declared outputs
 
 `GET /v1/compute/cli/workspaces` discovers currently readable task projects at
