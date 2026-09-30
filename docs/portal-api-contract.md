@@ -146,7 +146,8 @@ Optional `workspace_key` is an exact narrowing filter, mutually exclusive with
 `cursor`. Success contains only that choice and no continuation; an inaccessible
 key is denied. This resolves explicit terminal preselection without draining
 the directory. The response schema is unchanged.
-Paired project-discovery producer: `adac8bf51990b15b6aef3dfa14d055fcb0e6b408`.
+Paired project-discovery and exact-selection producer:
+`d0986539e43b795cb4f84ea4efde457c4fe1c400`.
 
 Identity-only central routes consume `sai.compute.read` and current CLI access:
 
@@ -621,6 +622,8 @@ empty successful resolution. Revoked pagination anchors fail explicitly.
 Names and opaque keys are the only per-item facts. No quota reader, full Web
 topology, capability issuer or native probe is invoked. Every later quota read
 authorizes independently and retains its source-specific behavior.
+
+Paired storage-directory producer: `d0986539e43b795cb4f84ea4efde457c4fe1c400`.
 
 `GET /v1/account/cli/storage/quota-summary` uses only `workspace_key` and
 `site_id`. Keys are explicit `personal:<id>`, `org:<id>` or `project:<id>`;

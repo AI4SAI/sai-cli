@@ -348,3 +348,20 @@ Native storage quota is implemented locally;
 site installation, service-UID permissions and real Lustre behavior still require
 acceptance. The privileged storage write adapter is not used by this UI or
 packaged with the read gateway. Keep 3D after truthful data.
+
+## Named-scope acceptance
+
+Recorded 2026-10-01 for consumer `9114179a9d149bf08c77ac72acd80e7379a1f5bd`.
+The full local CLI suite passed 891 tests. Named storage selection, exact task
+preselection, duplicate labels, current scope, delayed reads and permission
+clearing were exercised over actual local HTTP. Chinese and English renders
+were reviewed at 40×18, 60×24 and 100×32; effective, used and remaining values
+are visible in the short viewport. Native zero limits display Unlimited while
+zero usage remains zero; JSON retains the original exact counters.
+
+The installed wheel also completed directory pages, exact lookups, a quota
+summary and task-list reads against an actual local Portal TCP server with
+signed Identity credentials, HTTP JWKS and SQLite. Revoking membership then
+refused both exact lookups. Read windows caused no database writes. This does
+not establish production deployment, MariaDB, native Lustre access or broader
+SSH coverage; the earlier bounded SSH record identifies its own tested runtime.
