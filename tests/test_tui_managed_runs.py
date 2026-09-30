@@ -19,7 +19,7 @@ from sai_cli.transport import JsonTransport
 from test_managed_runs_contract import sample
 from test_managed_workspaces import sample as workspace_sample
 from test_site_transport import http_endpoint
-from test_tui import settled
+from test_tui import settled, storage_workspaces_sample
 
 
 def test_output_panel_preserves_full_paths_and_formats_mtime_without_losing_json_precision():
@@ -228,6 +228,8 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
     started, release = threading.Event(), threading.Event()
     def reply(call, _):
         path = urlsplit(call["path"]).path
+        if path.endswith("/storage/workspaces"):
+            return 200, storage_workspaces_sample()
         if path.endswith("/workspaces") and transition == "discovery" and not release.is_set():
             started.set(); assert release.wait(5)
             return 401, {"detail": "old discovery expired"}
@@ -239,7 +241,11 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             result = sample("log")
             result.update(stream="stderr", cursor="log-stderr-0", next_cursor="log-stderr-40")
             return 200, result
-        if path.endswith("/workspaces"): return 200, workspace_sample()
+        if path.endswith("/workspaces"):
+            value = workspace_sample()
+            if "workspace_key" not in parse_qs(urlsplit(call["path"]).query):
+                value["items"][0]["label"] = "Current authorized project"
+            return 200, value
         if path.endswith("/runs"): return 200, sample("list")
         return 200, sample("detail")
     async def scenario(client):
@@ -263,8 +269,12 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
                     assert app.query_one("#tasks-project", Select).is_blank()
                     return
                 await settled(app, pilot)
-                assert app.task_projects is None and app.query_one("#tasks-project", Select).is_blank()
-                assert "Project key supplied: project:project-example" in str(app.query_one("#context", Static).render())
+                assert app.task_projects is not None and app.query_one("#tasks-project", Select).value == "project:project-example"
+                assert [item["workspace_key"] for item in app.task_projects.values["items"]] == ["project:project-example"]
+                assert app.task_projects.values["next_cursor"] is None and app.task_projects.values["has_more"] is False
+                assert [urlsplit(call["path"]).path for call in calls] == ["/v1/compute/cli/workspaces", "/v1/compute/cli/runs"]
+                assert all(parse_qs(urlsplit(call["path"]).query)["workspace_key"] == ["project:project-example"] for call in calls)
+                assert "Materials" in str(app.query_one("#context", Static).render())
                 app.query_one("#tasks-table", DataTable).focus()
                 await pilot.press("enter")
                 await settled(app, pilot)
@@ -300,6 +310,10 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
                 assert app.task_file_page is None
             if transition == "workspace":
                 assert "tasks" not in app.results and app.tasks_workspace_key is None
+                picker = app.query_one("#tasks-project", Select)
+                picker.focus(); await pilot.press("enter", "end", "enter"); await settled(app, pilot)
+                assert app.tasks_workspace_label.startswith("Current authorized project")
+                assert app.task_file_page is None
     with http_endpoint(reply) as (origin, calls):
         asyncio.run(asyncio.wait_for(scenario(client_for(origin)), 25))
     assert sum("/logs" in call["path"] for call in calls) == (0 if transition == "discovery" else 2 if transition == "mode" else 1)

@@ -19,7 +19,7 @@ from sai_cli.auth import TokenLease
 from sai_cli.catalog import ResourceCatalog
 from sai_cli.client import JobQuery, PortalClient
 from sai_cli.errors import ForbiddenError
-from sai_cli.storage_summary import StorageQuotaSummary
+from sai_cli.storage_summary import StorageQuotaSummary, StorageWorkspaces
 from sai_cli.tui import Workbench
 from sai_cli.transport import JsonTransport
 from test_site_transport import http_endpoint
@@ -214,6 +214,12 @@ def storage_sample(workspace):
     }
 
 
+def storage_workspaces_sample(workspace="project:storage-example"):
+    return {"schema_version": "storage.workspaces/v1", "site_id": "site-a", "queried_at": "2030-01-01T00:00:00Z",
+            "items": [{"workspace_key": workspace, "label": "材料空间 / Materials", "organization_label": None}],
+            "next_cursor": None, "has_more": False}
+
+
 def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_payload, monkeypatch):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
@@ -221,6 +227,8 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
 
     def reply(call, count):
         parsed = urlsplit(call["path"])
+        if parsed.path.endswith("/storage/workspaces"):
+            return 200, storage_workspaces_sample("personal:storage-user")
         if parsed.path.endswith("resource-catalog"):
             return 200, catalog()
         if parsed.path.endswith("quota-summary"):
@@ -243,8 +251,7 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
             assert not any("quota-summary" in call["path"] for call in calls)
             assert not app.query_one("#job-scope-controls").display
             assert "Not selected" in str(app.query_one("#context", Static).render())
-            app.query_one("#storage-workspace", Input).value = "personal:storage-user"
-            await pilot.click("#load-storage")
+            app.query_one("#storage-workspace", Select).value = "personal:storage-user"
             await settled(app, pilot)
             data = app.results["storage"].as_dict()
             assert data == storage_sample("personal:storage-user")
@@ -252,7 +259,7 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
             Console(file=output, color_system=None).print(app.query_one("#storage-summary", Static).content)
             content = output.getvalue()
             assert "-0.50000000" in content and "Needs review" in content
-            assert "portal_quota_observation" in content and "2026-09-23T00:00:00Z" in content
+            assert "Stored quota observation" in content and "2026-09-23T00:00:00Z" in content
             nonlocal denied
             denied = True
             await pilot.press("f5")
@@ -269,13 +276,18 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
         asyncio.run(scenario(client, calls))
 
 
-def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account():
+def test_storage_workspace_selection_discards_old_read_and_does_not_infer_job_account():
     started, release = threading.Event(), threading.Event()
     calls = []
 
     class Client:
         def resource_catalog(self, site):
             return ResourceCatalog.from_payload(catalog(), site_id=site, request_id="catalog")
+
+        def list_storage_workspaces(self, *, site_id, limit=50, cursor=None, workspace_key=None):
+            value = storage_workspaces_sample("personal:storage-user")
+            value["items"].append({**value["items"][0], "workspace_key": "project:storage-project", "label": "Storage project"})
+            return StorageWorkspaces.from_payload(value, site_id=site_id, limit=limit, cursor=cursor, request_id="scopes")
 
         def storage_quota_summary(self, *, workspace_key, site_id):
             calls.append((workspace_key, site_id))
@@ -287,34 +299,34 @@ def test_storage_workspace_edit_discards_old_read_and_does_not_infer_job_account
             )
 
     async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a", scope="org-account", account_name="org-compute"),
-                        storage_workspace_key="personal:storage-user", refresh_seconds=999)
+        app = Workbench(Client(), JobQuery(site_id="site-a", scope="org-account", account_name="org-compute"), refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             try:
                 await settled(app, pilot)
                 assert calls == []
                 app.query_one("#views", TabbedContent).active = "storage"
+                await settled(app, pilot)
+                app.query_one("#storage-workspace", Select).value = "personal:storage-user"
                 for _ in range(80):
                     if started.is_set():
                         break
                     await pilot.pause(.02)
                 assert started.is_set()
-                app.query_one("#storage-workspace", Input).value = "project:storage-project"
+                app.query_one("#storage-workspace", Select).value = "project:storage-project"
                 for _ in range(80):
-                    if app.storage_workspace_key is None:
+                    if app.storage_workspace_key == "project:storage-project":
                         break
                     await pilot.pause(.02)
-                assert app.storage_workspace_key is None and "storage" not in app.results
+                assert app.storage_workspace_key == "project:storage-project" and "storage" not in app.results
                 assert str(app.query_one("#storage-summary", Static).render()) == ""
                 app._tick()
-                await pilot.click("#load-storage")
                 release.set()
                 await settled(app, pilot)
                 assert calls == [("personal:storage-user", "site-a"), ("project:storage-project", "site-a")]
                 assert app.results["storage"].values["workspace_key"] == "project:storage-project"
                 assert "personal:storage-user" not in str(app.query_one("#storage-summary", Static).render())
                 assert app.job_query.scope == "org-account" and app.job_query.account_name == "org-compute"
-                app.query_one("#storage-workspace", Input).value = ""
+                app.query_one("#storage-workspace", Select).value = Select.NULL
                 for _ in range(80):
                     if app.storage_workspace_key is None:
                         break
@@ -339,6 +351,10 @@ def test_storage_source_switch_discards_late_stored_sample():
     class Client:
         def resource_catalog(self, site):
             return ResourceCatalog.from_payload(catalog(), site_id=site, request_id="catalog")
+
+        def list_storage_workspaces(self, *, site_id, limit=50, cursor=None, workspace_key=None):
+            return StorageWorkspaces.from_payload(storage_workspaces_sample(workspace_key), site_id=site_id,
+                limit=limit, cursor=cursor, workspace_key=workspace_key, request_id="scopes")
 
         def storage_quota_summary(self, *, workspace_key, site_id):
             calls.append("stored")
@@ -373,8 +389,8 @@ def test_storage_source_switch_discards_late_stored_sample():
                 output = StringIO()
                 Console(file=output, color_system=None).print(app.query_one("#storage-summary", Static).content)
                 content = output.getvalue()
-                assert "quota-example" in content and "Kind: project" in content
-                assert "lustre_quota" in content and "portal_quota_observation" not in content
+                assert "quota-example" in content and "Kind: Project directory" in content
+                assert "Native Lustre quota" in content and "portal_quota_observation" not in content
                 assert "Native quota" in str(app.query_one("#status", Static).render())
             finally:
                 release.set()

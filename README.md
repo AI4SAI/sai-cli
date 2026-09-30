@@ -7,6 +7,8 @@ data while keeping authorization decisions out of login-node shell wrappers.
 The first implementation milestone is intentionally read-only:
 
 - `sai runs workspaces` discovers currently readable task projects by name.
+  `sai storage workspaces` discovers readable storage scopes at the selected site.
+  Both accept `--workspace-key` for an exact authorized name lookup.
   `sai tui --language zh-CN` uses Chinese navigation; `en-US` selects English.
 - `sai status --format tui` shows a compact login identity, funds and unread-message
   panel, then returns to the shell. JSON remains the default for scripts.
@@ -64,8 +66,9 @@ command palette expose the same allocation and Web actions without taking text
 from filter inputs.
 The browser checks access again and reads a current snapshot. A changed known
 submission time or restart count requires a TUI refresh before navigation.
-Storage has an independent workspace and explicit stored/native
-source selection. Install with `pip install '.[tui]'` and run `sai tui` from
+Storage has an independent scope selected by its authorized name and explicit
+stored/native source selection. Names do not imply a native source is available.
+Install with `pip install '.[tui]'` and run `sai tui` from
 an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
 
 Resources keeps an explicit candidate separate from the two-item comparison.

@@ -24,6 +24,13 @@ failure each have their own explanation and next action. A revoked project
 must not redirect to another project. Discovery is not a grant; every task and
 file read still authorizes independently.
 
+Storage follows the same explicit name-selection interaction with its own
+authorized directory. Its source selection stays separate; changing stored or
+native source clears the observation while retaining the chosen scope. An
+explicit task or storage key resolves its exact authorized name before a data
+read. Never walk every page, invent a selectable label from a key, or borrow a
+task project's authority to populate the storage selector.
+
 ## Information hierarchy
 
 The six views share three presentation phases. Browse gives the main area to

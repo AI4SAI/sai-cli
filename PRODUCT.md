@@ -27,7 +27,7 @@ workbench design, including hardware telemetry and result navigation, is describ
 [the unified workbench design](docs/unified-workbench.md); the design is not an
 implementation or deployment claim.
 
-Bilingual navigation, readable-project discovery and narrow task inspection
+Bilingual navigation, readable project/storage discovery and narrow task inspection
 are implemented. The six views share browse, inspect and summary layouts,
 contextual actions and the terminal visual rules in DESIGN.md.
 [Bounded SSH acceptance](docs/ssh-terminal-acceptance.md) covers a 14-minute

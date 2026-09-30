@@ -3,7 +3,7 @@ import asyncio
 from copy import deepcopy
 from io import StringIO
 import xml.etree.ElementTree as ET
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -18,7 +18,7 @@ from test_managed_runs_contract import sample
 from test_managed_workspaces import sample as workspace_sample
 from test_overview import sample as overview_sample
 from test_site_transport import http_endpoint
-from test_tui import catalog, settled, storage_sample
+from test_tui import catalog, settled, storage_sample, storage_workspaces_sample
 from test_tui_managed_runs import click, client_for
 
 
@@ -38,6 +38,8 @@ def workbench_http(job_payload, running_estimate_payload, monkeypatch, request):
 
     def reply(call, _):
         path = urlsplit(call["path"]).path
+        if path.endswith("/storage/workspaces"):
+            return 200, storage_workspaces_sample()
         if path.endswith("resource-catalog"):
             data = catalog()
             data["compute"][0].update(title="Evidence GPU", summary="Catalog evidence", scenarios=["Research"])
@@ -464,6 +466,9 @@ def test_long_task_title_wraps_in_full_detail_on_a_short_screen(workbench_http):
             detail.scroll_end(animate=False)
             await pilot.pause(.05)
             assert result.values["run"]["last_observed_at"] in "".join(visible_text(app).split())
-            assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
+            assert len(calls) == 3 and all(call["method"] == "GET" for call in calls)
+            assert [urlsplit(call["path"]).path for call in calls] == [
+                "/v1/compute/cli/workspaces", "/v1/compute/cli/runs", "/v1/compute/cli/runs/run-example-1"]
+            assert all(parse_qs(urlsplit(call["path"]).query)["workspace_key"] == ["project:project-example"] for call in calls)
 
     asyncio.run(scenario())

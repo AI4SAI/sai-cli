@@ -142,6 +142,10 @@ exact workspace keys and bounded keyset pages. See the paired schema and sample
 in `contracts/managed-workspaces/v1`. This list does not grant submission,
 file, storage or billing access; later requests authorize again. A continuation
 whose anchor is no longer readable fails instead of silently changing scope.
+Optional `workspace_key` is an exact narrowing filter, mutually exclusive with
+`cursor`. Success contains only that choice and no continuation; an inaccessible
+key is denied. This resolves explicit terminal preselection without draining
+the directory. The response schema is unchanged.
 Paired project-discovery producer: `adac8bf51990b15b6aef3dfa14d055fcb0e6b408`.
 
 Identity-only central routes consume `sai.compute.read` and current CLI access:
@@ -605,6 +609,18 @@ Paired Portal producer: `ecb4f96e56820ac86b6f19e0a8128f289727810c`.
 The placement schema/sample are byte-identical across Portal, CLI and Pilot.
 
 ## Storage quota summary
+
+`GET /v1/account/cli/storage/workspaces` returns the independent
+[`storage.workspaces/v1` directory](../contracts/storage-workspaces/v1/README.md).
+It requires Identity `sai.storage.read` and enabled-shell CLI admission, reuses
+the storage quota reader's current membership predicates, and lists only scopes
+with active access at the explicit site. It takes `site_id`, `limit` (1–100),
+and optional `cursor` or exact `workspace_key`; the last two are mutually
+exclusive. Exact success contains one matching choice, never an unrelated or
+empty successful resolution. Revoked pagination anchors fail explicitly.
+Names and opaque keys are the only per-item facts. No quota reader, full Web
+topology, capability issuer or native probe is invoked. Every later quota read
+authorizes independently and retains its source-specific behavior.
 
 `GET /v1/account/cli/storage/quota-summary` uses only `workspace_key` and
 `site_id`. Keys are explicit `personal:<id>`, `org:<id>` or `project:<id>`;

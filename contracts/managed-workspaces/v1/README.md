@@ -4,6 +4,12 @@
 for managed computations at an explicit site. The producer is the Identity-only
 `GET /v1/compute/cli/workspaces`, requiring `sai.compute.read` and CLI admission.
 `limit` is 1–100 (default 50); `cursor` is the last returned workspace key.
+Optional `workspace_key` narrows discovery to one exact readable project and
+is mutually exclusive with `cursor`. Success contains exactly that key as the
+sole item, with `has_more=false` and `next_cursor=null`; consumers reject a
+different key or an empty resolution. An inaccessible key is denied without
+revealing its name. This resolves an explicit terminal preselection without
+walking all pages or inventing a catalog entry.
 
 The existing project read guard owns active membership and organization-manager
 eligibility. Current account, assurance, personal site and project site checks

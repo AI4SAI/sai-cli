@@ -32,7 +32,7 @@ from .render import (
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .render import render_site_placement
-from .storage_summary import clean_workspace_key
+from .storage_summary import clean_workspace_key, render_storage_workspaces
 from .transport import JsonTransport
 
 
@@ -71,8 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         run_parser = run_commands.add_parser(command, help=description)
         _add_connection_arguments(run_parser, suppress_defaults=True)
-        if command != "workspaces":
-            run_parser.add_argument("--workspace-key", required=True, help="authorized project:<id> workspace")
+        run_parser.add_argument("--workspace-key", required=command != "workspaces", help="authorized project:<id> workspace")
         if command not in {"list", "workspaces"}:
             run_parser.add_argument("run_ref", help="managed run reference returned by runs list")
         if command in {"workspaces", "list", "files"}:
@@ -120,12 +119,16 @@ def build_parser() -> argparse.ArgumentParser:
     storage = commands.add_parser("storage", help="read authorized storage observations")
     storage_commands = storage.add_subparsers(dest="storage_command", required=True)
     for command, help_text in (
+        ("workspaces", "list workspaces where you may read storage observations"),
         ("quota-summary", "show sampled storage quota and usage"),
         ("native-quota", "read authorized Lustre quota subjects on demand"),
     ):
         quota_parser = storage_commands.add_parser(command, help=help_text)
         _add_connection_arguments(quota_parser, suppress_defaults=True)
-        quota_parser.add_argument("--workspace-key", required=True, help="workspace key, such as personal:<id>")
+        quota_parser.add_argument("--workspace-key", required=command != "workspaces", help="workspace key, such as personal:<id>")
+        if command == "workspaces":
+            quota_parser.add_argument("--limit", type=int, default=50, help="maximum rows in one page (1-100)")
+            quota_parser.add_argument("--cursor", help="next cursor returned by the previous page")
         _add_format_argument(quota_parser)
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
@@ -529,7 +532,11 @@ def main(
         if args.command == "storage":
             if args.cluster is not None:
                 raise ConfigError("storage reads are site-scoped and do not accept --cluster")
-            if args.storage_command == "native-quota":
+            if args.storage_command == "workspaces":
+                result = client.list_storage_workspaces(site_id=settings.site_id, limit=args.limit,
+                                                       cursor=args.cursor, workspace_key=args.workspace_key)
+                rendered = render_storage_workspaces
+            elif args.storage_command == "native-quota":
                 result = client.storage_native_quota(workspace_key=args.workspace_key, site_id=settings.site_id)
                 rendered = render_native_quota
             else:
@@ -543,7 +550,8 @@ def main(
                 raise ConfigError("managed runs are site-scoped and do not accept --cluster")
             scope = {"workspace_key": getattr(args, "workspace_key", None), "site_id": settings.site_id}
             if args.runs_command == "workspaces":
-                result = client.list_run_workspaces(site_id=settings.site_id, limit=args.limit, cursor=args.cursor)
+                result = client.list_run_workspaces(site_id=settings.site_id, limit=args.limit,
+                                                   cursor=args.cursor, workspace_key=args.workspace_key)
             elif args.runs_command == "list":
                 result = client.list_managed_runs(**scope, limit=args.limit, cursor=args.cursor)
             elif args.runs_command == "show":

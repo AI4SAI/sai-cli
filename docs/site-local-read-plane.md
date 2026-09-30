@@ -58,9 +58,11 @@ proof, utilization or deployment. Consumers share
 
 ## Capability
 
-Managed-task project discovery stays at Portal. It reuses current membership
-and site read policy, returns a bounded name/selector page and neither queries
-the native site nor issues another capability.
+Managed-task project and storage-scope discovery stay at Portal. Each reuses
+its own current membership and site read policy, returns a bounded name/selector
+page and neither queries the native site nor issues another capability. Exact
+selection narrows that same directory to one readable key. Storage discovery
+does not depend on task admission or promise native quota availability.
 
 Run-bound node registration reuses this gateway and its normal allocation and
 signed inventory readers. A strict `interactive-run-read-grant.v1` narrows

@@ -22,7 +22,8 @@ from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
-from .storage_summary import StorageQuotaSummary, clean_workspace_key
+from .storage_summary import StorageQuotaSummary, StorageWorkspaces, clean_workspace_key
+from .workspace_page import workspace_page_query
 from .native_quota import NativeQuotaResult
 from .transport import JsonResponse, JsonTransport
 
@@ -409,17 +410,22 @@ class PortalClient:
             return self._get_with_lease(path, query=query, lease=lease)
 
     def list_run_workspaces(self, *, site_id: str, limit: int = 50,
-                            cursor: str | None = None) -> ManagedRunWorkspaces:
-        if type(limit) is not int or not 1 <= limit <= 100:
-            raise ConfigError("project page limit must be between 1 and 100")
-        if cursor is not None:
-            clean_tasks_workspace(cursor)
+                            cursor: str | None = None, workspace_key: str | None = None) -> ManagedRunWorkspaces:
         site = clean_token(site_id, field="site", required=True, maximum=64)
-        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", site) is None or site.casefold() in {"default", "global"}:
-            raise ConfigError("site must identify a configured site")
-        response = self._central_get("/v1/compute/cli/workspaces", query={"site_id": site, "limit": limit, "cursor": cursor})
+        query = workspace_page_query(site_id=site, limit=limit, cursor=cursor,
+                                      workspace_key=workspace_key, clean_workspace=clean_tasks_workspace)
+        response = self._central_get("/v1/compute/cli/workspaces", query=query)
         return ManagedRunWorkspaces.from_payload(response.payload, site_id=site, limit=limit,
-                                                cursor=cursor, request_id=response.request_id)
+            cursor=cursor, workspace_key=workspace_key, request_id=response.request_id)
+
+    def list_storage_workspaces(self, *, site_id: str, limit: int = 50,
+                               cursor: str | None = None, workspace_key: str | None = None) -> StorageWorkspaces:
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        query = workspace_page_query(site_id=site, limit=limit, cursor=cursor,
+                                      workspace_key=workspace_key, clean_workspace=clean_workspace_key)
+        response = self._central_get("/v1/account/cli/storage/workspaces", query=query)
+        return StorageWorkspaces.from_payload(response.payload, site_id=site, limit=limit,
+            cursor=cursor, workspace_key=workspace_key, request_id=response.request_id)
 
     def _managed_read(self, *, workspace_key: str, site_id: str, run_ref: str | None = None,
                       suffix: str = "", **parameters: str | int | None) -> JsonResponse:

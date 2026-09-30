@@ -51,6 +51,13 @@ there is no inventory fallback. TUI registration inspection pauses polling and
 clears expired metadata independently of its refresh interval, without sending
 another request. Ordinary allocation inspection remains available separately.
 
+`storage workspaces` discovers authorized personal, organization and project
+storage scopes by name at the selected site. It uses independent storage READ,
+bounded central metadata and explicit pagination. `--workspace-key` narrows it
+to one exact choice and cannot be combined with a cursor. The TUI uses this
+directory in place of a raw-key input; an explicit CLI preselection first
+resolves that key's name without selecting a different scope.
+
 `storage quota-summary --workspace-key personal:example` reads Portal's stored
 quota observation under the independent `sai.storage.read` Identity scope.
 Workspace and site are explicit; this is not an on-demand native storage read.
@@ -203,7 +210,9 @@ JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
 Tasks in `sai tui` uses its own authorized project-name selection or explicit
-`--tasks-workspace-key`, without
+`--tasks-workspace-key`. Explicit preselection resolves its name through an exact
+`runs workspaces --workspace-key` read, without scanning the directory or
+inventing a choice. Tasks operates without
 inheriting the Jobs account, storage workspace or Overview's default identity.
 The existing worker serializes all reads. Run metadata may refresh; log and
 output pages are explicit, one-page observations. Next/Start replace the page;

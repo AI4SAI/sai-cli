@@ -80,11 +80,14 @@ interval, and expiration sends no additional request. This is a local consumer
 implementation; it does not establish a published inventory or deployed gateway.
 
 Storage rows in Resources are published products only, not quota usage or
-file access. The separate Storage tab selects a stored quota sample or an
-on-demand native Lustre quota query after an
-explicit workspace key and Load; job account/scope never select that workspace.
-`sai tui --storage-workspace-key org:example` preselects it. Editing the workspace
-clears previous data immediately; Load and every refresh reauthorize the read.
+file access. The separate Storage tab chooses an authorized scope by name from
+a bounded directory, then reads the explicitly selected stored or native source.
+Highlighting an option does not apply it; Enter confirms the choice. Directory
+pages do not automatically select their first item. Jobs and Tasks never select
+that storage scope. `sai storage workspaces` exposes the same names and keys for
+scripts. `sai tui --storage-workspace-key org:example` first resolves that exact
+authorized name, without scanning the directory or inventing an option.
+Changing scope clears old data immediately; every quota read reauthorizes.
 `sai.storage.read` is required. State, effective versus target quotas, nullable
 usage and observation time remain distinct; a negative remaining value means
 the observed usage exceeds the effective quota. Native mode instead shows exact
@@ -162,8 +165,9 @@ Choose a readable project by its authorized name. Project choices are bounded
 pages; More projects reads the next page and selecting a project applies it.
 Moving the highlight does not change the current scope. Scripts can discover
 the same labels and exact keys with `sai runs workspaces --site site-a`.
-The explicit `--tasks-workspace-key` option remains available without creating
-a fake project choice. Every task read rechecks current access.
+The explicit `--tasks-workspace-key` option first resolves the exact authorized
+name through the same directory, without scanning pages or creating a fake
+project choice. Every task read rechecks current access.
 
 The task list includes accepted managed runs that have left the live queue.
 Enter opens the recorded status and its source time. It does not query Slurm or

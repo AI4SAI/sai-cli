@@ -1,0 +1,24 @@
+{
+  "schema_version": "storage.workspaces/v1",
+  "site_id": "site-a",
+  "queried_at": "2030-01-01T00:06:00Z",
+  "items": [
+    {
+      "workspace_key": "org:org-example",
+      "label": "Research group",
+      "organization_label": null
+    },
+    {
+      "workspace_key": "personal:user-example",
+      "label": "Researcher",
+      "organization_label": null
+    },
+    {
+      "workspace_key": "project:project-example",
+      "label": "材料模拟 / Materials",
+      "organization_label": "Research group"
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}

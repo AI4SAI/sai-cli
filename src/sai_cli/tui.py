@@ -26,7 +26,7 @@ from textual.widgets.option_list import Option
 from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobResult, RunningEstimateResult
-from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, SaiCliError
+from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, NotFoundError, SaiCliError
 from .job_web_context import JobWebContext
 from .managed_runs import (
     ManagedReadResult, ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
@@ -40,7 +40,7 @@ from .overview import AccountOverview
 from .overview_view import overview_panel
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
-from .storage_summary import StorageQuotaSummary
+from .storage_summary import StorageQuotaSummary, StorageWorkspaces
 from .tui_messages import Messages
 from .tui_views import (
     allocation_panel, placement_panel, resource_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
@@ -163,6 +163,9 @@ class Workbench(App, inherit_bindings=False):
         self._selected_resource_row: str | None = None
         self.catalog: ResourceCatalog | None = None
         self.storage_workspace_key = (storage_workspace_key or "").strip() or None
+        self.storage_workspace_label: str | None = None
+        self.storage_workspaces: StorageWorkspaces | None = None
+        self.storage_cursor: str | None = None
         self.tasks_workspace_key = clean_tasks_workspace(tasks_workspace_key) if tasks_workspace_key else None
         self.selected_run: str | None = None
         self.task_mode = "list"
@@ -280,12 +283,14 @@ class Workbench(App, inherit_bindings=False):
                     yield Select([(t("storage_stored"), "summary"), (t("storage_native"), "native")],
                                  value="summary", allow_blank=False, id="storage-source")
                 with Horizontal(classes="controls"):
-                    yield Input(self.storage_workspace_key or "", placeholder=t("workspace_input"), id="storage-workspace")
-                    yield Button(t("load"), id="load-storage", variant="primary")
-                yield Static(t("storage_hint"),
-                             classes="hint", markup=False)
+                    yield Select([], prompt=t("storage_choose_scope"), id="storage-workspace")
+                with Horizontal(classes="controls"):
+                    yield Button(t("refresh"), id="load-storage", tooltip=t("storage_refresh_scopes"))
+                    yield Button(t("first"), id="storage-first", disabled=True)
+                    yield Button(t("next"), id="storage-next", disabled=True)
+                yield Static("", id="storage-hint", classes="hint", markup=False)
                 with VerticalScroll(id="storage-scroll"):
-                    yield Static(t("storage_choose"), id="storage-summary", markup=False)
+                    yield Static("", id="storage-summary", markup=False)
         heading = Static("", id="object-heading", markup=False)
         heading.display = False
         yield heading
@@ -466,7 +471,7 @@ class Workbench(App, inherit_bindings=False):
         self.selected_estimate = None
         self._revision += 1
         if view == "storage":
-            self.query_one("#storage-workspace", Input).focus()
+            self.query_one("#storage-workspace", Select).focus()
         elif view == "tasks":
             self.task_mode = "detail" if self.selected_run else "list"
             self.task_cursor = None if self.selected_run else self._task_list_cursor
@@ -491,9 +496,6 @@ class Workbench(App, inherit_bindings=False):
             self._comparison()
         self._clear_web_link()
         self._update_web_button()
-        if self.view == "storage" and self.storage_workspace_key is None:
-            self.query_one("#status", Static).update(self.t("storage_choose"))
-            return
         if self.view == "tasks" and self.tasks_workspace_key is None:
             self.task_mode = "projects"
         self._failed_views.pop(self.view, None)
@@ -507,6 +509,7 @@ class Workbench(App, inherit_bindings=False):
             self.run_worker(self._read_loop())
         self._update_web_button()
         self._update_task_actions()
+        self._update_storage_actions()
 
     async def _read_loop(self) -> None:
         try:
@@ -521,35 +524,46 @@ class Workbench(App, inherit_bindings=False):
                 revision, view, query, selected = self._revision, self.view, self.job_query, self.selected_job
                 workspace = self.storage_workspace_key
                 storage_source = self.storage_source
+                storage_cursor = self.storage_cursor
                 job_mode = self.job_mode
                 task_request = (self.tasks_workspace_key, self.task_mode, self.selected_run, self.task_cursor)
                 if view == "tasks" and self.task_mode == "projects":
                     task_request = (None, "projects", None, self.project_cursor)
-                if view == "storage" and workspace is None:
-                    continue
+                resolve_scope = ((view == "tasks" and task_request[0] is not None and self.tasks_workspace_label is None)
+                    or (view == "storage" and workspace is not None and self.storage_workspace_label is None))
+                scope_lookup = resolve_scope or (view == "storage" and workspace is None) or (view == "tasks" and task_request[1] == "projects")
                 if view == "tasks" and task_request[0] is None and task_request[1] != "projects":
                     continue
                 if view == "tasks":
-                    context = self.tasks_workspace_label or task_request[0] or self.t("project")
+                    context = self.tasks_workspace_label or self.t("scope_resolving" if task_request[0] else "project")
                 elif view == "storage":
-                    context = workspace
+                    context = self.storage_workspace_label or self.t("scope_resolving" if workspace else "storage_choose_scope")
                 elif view == "resources":
                     context = query.site_id
                 else:
                     context = f"{self.t(query.scope)} · {query.account_name or query.account_id or self.t('self')}"
                 self.query_one("#status", Static).update(self.t("refreshing", view=self.t(view), context=context))
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source, job_mode, task_request)
+                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source,
+                                                   job_mode, task_request, resolve_scope, storage_cursor)
                 except SaiCliError as error:
                     if revision == self._revision:
-                        self._read_error(view, error)
+                        self._read_error(view, error, scope_lookup=scope_lookup)
                 except Exception:
                     if revision == self._revision:
-                        self._read_error(view, ContractError("The view could not be loaded."))
+                        self._read_error(view, ContractError("The view could not be loaded."), scope_lookup=scope_lookup)
                 else:
                     if revision == self._revision:
                         if view == "tasks" and isinstance(result, ManagedRunWorkspaces):
                             self.task_projects = result
+                            if resolve_scope:
+                                self.tasks_workspace_label = self._project_labels()[task_request[0]]
+                                self._pending = True
+                        elif view == "storage" and isinstance(result, StorageWorkspaces):
+                            self.storage_workspaces = result
+                            if resolve_scope:
+                                self.storage_workspace_label = self._workspace_labels(result)[workspace]
+                                self._pending = True
                         elif view == "tasks" and isinstance(result, ManagedRunPlacement):
                             self.task_placement = result
                             self._arm_placement_expiry()
@@ -574,6 +588,7 @@ class Workbench(App, inherit_bindings=False):
             if self.is_running:
                 self._update_web_button()
                 self._update_task_actions()
+                self._update_storage_actions()
                 self._update_resource_actions()
 
     def _update_web_button(self) -> None:
@@ -732,6 +747,12 @@ class Workbench(App, inherit_bindings=False):
                                     lambda: self._read_projects(self.task_projects.values["next_cursor"]))
             if not self.query_one("#task-next", Button).disabled:
                 yield SystemCommand(self.t("next"), self.t("more_pages"), lambda: self._task_page(start=False))
+        if self.view == "storage":
+            if not self.query_one("#load-storage", Button).disabled:
+                yield SystemCommand(self.t("storage_refresh_scopes"), self.t("storage_choose"), self._read_storage_workspaces)
+            if not self.query_one("#storage-next", Button).disabled:
+                yield SystemCommand(self.t("storage_more_scopes"), self.t("storage_choose"),
+                                    lambda: self._read_storage_workspaces(self.storage_workspaces.values["next_cursor"]))
         for mode in ("detail", "stdout", "stderr", "files", "cost", "stats", "placement"):
             if "task_" + mode in state.actions:
                 yield SystemCommand(self.t("command_" + mode), self.t("command_task_help"), lambda mode=mode: self._inspect_task(mode))
@@ -854,6 +875,43 @@ class Workbench(App, inherit_bindings=False):
         if self.view == "tasks" and self.task_mode == "placement":
             self.query_one("#details", Static).update("")
 
+    def _clear_storage_selection(self) -> None:
+        self.storage_workspace_key = self.storage_workspace_label = None
+        self.storage_workspaces = None
+        self.storage_cursor = None
+        with self.prevent(Select.Changed):
+            self.query_one("#storage-workspace", Select).set_options([])
+        self.query_one("#storage-hint", Static).update("")
+
+    def _read_storage_workspaces(self, cursor: str | None = None) -> None:
+        if self.view != "storage":
+            return
+        self._revision += 1
+        self._clear("storage")
+        self._clear_storage_selection()
+        self.storage_cursor = cursor
+        self._update_scope_display()
+        self.request_read()
+
+    def _apply_storage_workspace(self, key: str) -> None:
+        labels = self._workspace_labels(self.storage_workspaces)
+        if key not in labels:
+            return
+        self._revision += 1
+        self._clear("storage")
+        self.storage_workspace_key, self.storage_workspace_label = key, labels[key]
+        self._update_scope_display()
+        self.request_read()
+
+    def _update_storage_actions(self) -> None:
+        busy = self._reading or self._pending
+        page = self.storage_workspaces
+        self.query_one("#storage-workspace", Select).disabled = page is None or not page.values["items"]
+        self.query_one("#load-storage", Button).disabled = busy
+        self.query_one("#load-storage", Button).label = self.t("storage_change_scope" if self.storage_workspace_key else "refresh")
+        self.query_one("#storage-first", Button).disabled = busy or self.storage_cursor is None
+        self.query_one("#storage-next", Button).disabled = busy or page is None or not page.values["has_more"]
+
     def _clear_task_stats(self) -> None:
         self.task_stats = None
         if self.view == "tasks" and self.task_mode == "stats":
@@ -913,9 +971,13 @@ class Workbench(App, inherit_bindings=False):
         self._update_task_actions()
 
     def _project_labels(self) -> dict[str, str]:
-        if self.task_projects is None:
+        return self._workspace_labels(self.task_projects)
+
+    @staticmethod
+    def _workspace_labels(page: ManagedRunWorkspaces | StorageWorkspaces | None) -> dict[str, str]:
+        if page is None:
             return {}
-        items = self.task_projects.values["items"]
+        items = page.values["items"]
         labels = [item["label"] + (f" · {item['organization_label']}" if item["organization_label"] else "") for item in items]
         return {item["workspace_key"]: label + (f" · {item['workspace_key']}" if labels.count(label) > 1 else "")
                 for item, label in zip(items, labels)}
@@ -1004,9 +1066,12 @@ class Workbench(App, inherit_bindings=False):
         self.request_read()
 
     def _fetch(self, view: str, query: JobQuery, selected: str | None, workspace: str | None,
-               storage_source: str = "summary", job_mode: str = "detail", task_request: tuple = ()):
+               storage_source: str = "summary", job_mode: str = "detail", task_request: tuple = (),
+               resolve_scope: bool = False, storage_cursor: str | None = None):
         if view == "tasks":
             task_workspace, mode, run, cursor = task_request
+            if resolve_scope:
+                return self.client.list_run_workspaces(site_id=query.site_id, workspace_key=task_workspace)
             if mode == "projects":
                 return self.client.list_run_workspaces(site_id=query.site_id, limit=50, cursor=cursor)
             scope = {"workspace_key": task_workspace, "site_id": query.site_id}
@@ -1028,6 +1093,9 @@ class Workbench(App, inherit_bindings=False):
         if view == "resources":
             return self.client.resource_catalog(query.site_id)
         if view == "storage":
+            if workspace is None or resolve_scope:
+                return self.client.list_storage_workspaces(site_id=query.site_id, limit=50,
+                    cursor=storage_cursor if workspace is None else None, workspace_key=workspace)
             if storage_source == "native":
                 return self.client.storage_native_quota(workspace_key=workspace, site_id=query.site_id)
             return self.client.storage_quota_summary(workspace_key=workspace, site_id=query.site_id)
@@ -1077,7 +1145,7 @@ class Workbench(App, inherit_bindings=False):
         if view == self.view:
             self.query_one("#details", Static).update("")
 
-    def _read_error(self, view: str, error: SaiCliError) -> None:
+    def _read_error(self, view: str, error: SaiCliError, *, scope_lookup: bool = False) -> None:
         self._failed_views[view] = self.t("read_failed")
         if view == "jobs" and self.job_mode == "placement" and not isinstance(error, (AuthenticationError, ForbiddenError)):
             self._clear_placement()
@@ -1087,7 +1155,7 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#status", Static).update(f"{self.t('read_failed')} · {error.code}")
             self._sync_presentation()
             return
-        if view == "tasks" and self.task_mode == "cost" and not isinstance(error, AuthenticationError):
+        if view == "tasks" and not scope_lookup and self.task_mode == "cost" and not isinstance(error, AuthenticationError):
             if not isinstance(error, ForbiddenError) or error.code in {"run_cost_read_denied", "identity_scope_denied"}:
                 self._clear_task_cost()
                 self._clear_task_stats()
@@ -1096,14 +1164,14 @@ class Workbench(App, inherit_bindings=False):
                 self.query_one("#status", Static).update(self._failed_views[view])
                 self._sync_presentation()
                 return
-        if view == "tasks" and self.task_mode == "stats" and not isinstance(error, (AuthenticationError, ForbiddenError)):
+        if view == "tasks" and not scope_lookup and self.task_mode == "stats" and not isinstance(error, (AuthenticationError, ForbiddenError)):
             self._clear_task_stats()
             self._clear_task_placement()
             self._failed_views[view] = self.t("stats_failed")
             self.query_one("#status", Static).update(self._failed_views[view])
             self._sync_presentation()
             return
-        if view == "tasks" and self.task_mode == "placement" and not isinstance(error, AuthenticationError):
+        if view == "tasks" and not scope_lookup and self.task_mode == "placement" and not isinstance(error, AuthenticationError):
             if not isinstance(error, ForbiddenError) or error.code == "run_placement_not_enabled":
                 self._clear_task_placement()
                 self._failed_views[view] = self.t("run_placement_disabled" if isinstance(error, ForbiddenError) else "run_placement_failed")
@@ -1111,7 +1179,7 @@ class Workbench(App, inherit_bindings=False):
                 self._sync_presentation()
                 return
         was_projects = view == "tasks" and self.task_mode == "projects"
-        if view == "tasks" and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
+        if view == "tasks" and not scope_lookup and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
             self._failed_views[view] = self.t("file_denied")
             self._clear_task_files()
             self.query_one("#status", Static).update(f"{self.t('file_denied')} · {error.code}")
@@ -1119,12 +1187,13 @@ class Workbench(App, inherit_bindings=False):
         if view == "tasks":
             self.task_projects = None
             self.tasks_workspace_label = None
-            if isinstance(error, (ForbiddenError, AuthenticationError)):
+            if isinstance(error, (ForbiddenError, AuthenticationError)) or (scope_lookup and isinstance(error, NotFoundError)):
                 self.tasks_workspace_key = None
                 self._task_list_cursor = self._task_list_row = None
             with self.prevent(Select.Changed):
                 self.query_one("#tasks-project", Select).set_options([])
         if isinstance(error, AuthenticationError):
+            self._clear_storage_selection()
             for name in ("resources", "jobs", "usage", "storage", "overview", "tasks"):
                 self._clear(name)
             self.selected_job = None
@@ -1140,6 +1209,8 @@ class Workbench(App, inherit_bindings=False):
                 self.query_one("#tasks-project", Select).set_options([])
         else:
             self._clear(view)
+            if view == "storage" and (isinstance(error, ForbiddenError) or (scope_lookup and isinstance(error, NotFoundError))):
+                self._clear_storage_selection()
         if was_projects:
             self.task_mode = "projects"
             self.query_one("#tasks-hint", Static).update(self.t(
@@ -1147,6 +1218,7 @@ class Workbench(App, inherit_bindings=False):
                 else "projects_failed"))
         self._update_scope_display()
         self._update_task_actions()
+        self._update_storage_actions()
         message = ("session_expired" if isinstance(error, AuthenticationError) else
                    "access_denied" if isinstance(error, ForbiddenError) else
                    "configuration_needed" if isinstance(error, ConfigError) else "read_failed")
@@ -1190,11 +1262,26 @@ class Workbench(App, inherit_bindings=False):
             if self.tasks_workspace_key in labels:
                 self.tasks_workspace_label = labels[self.tasks_workspace_key]
             with self.prevent(Select.Changed):
-                self.query_one("#tasks-project", Select).set_options(choices)
+                picker = self.query_one("#tasks-project", Select)
+                picker.set_options(choices)
+                if self.tasks_workspace_key in labels:
+                    picker.value = self.tasks_workspace_key
             self.query_one("#tasks-hint", Static).update(self.t("projects_choose" if choices else "projects_empty"))
             status = self.t("project_page", count=len(choices), more=self.t("more_suffix") if result.values["has_more"] else "")
             self._update_scope_display()
             self._update_task_actions()
+        elif view == "storage" and isinstance(result, StorageWorkspaces):
+            labels = self._workspace_labels(result)
+            with self.prevent(Select.Changed):
+                picker = self.query_one("#storage-workspace", Select)
+                picker.set_options([(Text(label), key) for key, label in labels.items()])
+                if self.storage_workspace_key in labels:
+                    picker.value = self.storage_workspace_key
+            self.query_one("#storage-hint", Static).update("")
+            self.query_one("#storage-summary", Static).update("" if labels else self.t("storage_scopes_empty"))
+            status = self.t("storage_scope_page", count=len(labels), more=self.t("more_suffix") if result.values["has_more"] else "")
+            self._update_scope_display()
+            self._update_storage_actions()
         elif view == "tasks" and isinstance(result, ManagedReadResult):
             data = result.values
             if isinstance(result, (ManagedRunList, ManagedRunDetail)):
@@ -1239,11 +1326,11 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#overview-messages", Button).disabled = False
             status = self.t("overview_status")
         elif view == "storage" and isinstance(result, StorageQuotaSummary):
-            self.query_one("#storage-summary", Static).update(storage_panel(result, self.language))
+            self.query_one("#storage-summary", Static).update(storage_panel(result, self.language, workspace_label=self.storage_workspace_label))
             values = result.values
             status = self.t("storage_sample", state=state_text(values['state'], self.t), time=display(values['observed_at'], self.language))
         elif view == "storage" and isinstance(result, NativeQuotaResult):
-            self.query_one("#storage-summary", Static).update(storage_panel(result, self.language))
+            self.query_one("#storage-summary", Static).update(storage_panel(result, self.language, workspace_label=self.storage_workspace_label))
             status = self.t("storage_native_status", time=result.values['as_of'])
         elif view == "resources" and isinstance(result, ResourceCatalog):
             self.catalog = result
@@ -1436,7 +1523,7 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#context", Static).update(f"SAI · {site}\n{self.t('catalog_context')}")
             return
         if self.view == "tasks":
-            project = self.tasks_workspace_label or (self.t("project_by_key", key=self.tasks_workspace_key)
+            project = self.tasks_workspace_label or (self.t("scope_name_failed" if self.view in self._failed_views else "scope_resolving")
                         if self.tasks_workspace_key else self.t("choose_project"))
             self.query_one("#context", Static).update(
                 f"SAI · {self.job_query.site_id}\n{project}")
@@ -1445,8 +1532,10 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#context", Static).update(f"SAI · {self.job_query.site_id}\n{self.t('overview_context')}")
             return
         if self.view == "storage":
+            workspace = self.storage_workspace_label or (self.t("scope_name_failed" if self.view in self._failed_views else "scope_resolving")
+                if self.storage_workspace_key else self.t("choose"))
             self.query_one("#context", Static).update(
-                f"SAI · {self.job_query.site_id}\n{self.t('storage_context', workspace=self.storage_workspace_key or self.t('choose'))}"
+                f"SAI · {self.job_query.site_id}\n{self.t('storage_context', workspace=workspace)}"
             )
             return
         self.query_one("#context", Static).update(
@@ -1483,12 +1572,10 @@ class Workbench(App, inherit_bindings=False):
             result = self.results.get("overview")
             if isinstance(result, AccountOverview):
                 self.open_url(result.messages_url(self.client.transport.base_url))
-        elif event.button.id == "load-storage":
-            self.storage_workspace_key = self.query_one("#storage-workspace", Input).value.strip() or None
-            self._revision += 1
-            self._clear("storage")
-            self._update_scope_display()
-            self.request_read()
+        elif event.button.id in {"load-storage", "storage-first"}:
+            self._read_storage_workspaces()
+        elif event.button.id == "storage-next" and self.storage_workspaces is not None:
+            self._read_storage_workspaces(self.storage_workspaces.values["next_cursor"])
         elif event.button.id == "apply":
             self._apply()
         elif event.button.id == "refresh":
@@ -1550,6 +1637,28 @@ class Workbench(App, inherit_bindings=False):
         if event.select.id == "tasks-project" and self._workbench_ready:
             if isinstance(event.value, str) and event.value != self.tasks_workspace_key:
                 self._apply_task_project(event.value)
+            elif not isinstance(event.value, str) and self.tasks_workspace_key is not None:
+                self._revision += 1
+                self._pending = False
+                self._clear("tasks")
+                self.tasks_workspace_key = self.tasks_workspace_label = None
+                self.task_mode = "projects"
+                self._failed_views.pop("tasks", None)
+                self._update_scope_display()
+                self._update_task_actions()
+            return
+        if event.select.id == "storage-workspace" and self._workbench_ready:
+            if isinstance(event.value, str) and event.value != self.storage_workspace_key:
+                self._apply_storage_workspace(event.value)
+            elif not isinstance(event.value, str) and self.storage_workspace_key is not None:
+                self._revision += 1
+                self._pending = False
+                self._clear("storage")
+                self.storage_workspace_key = self.storage_workspace_label = None
+                self._failed_views.pop("storage", None)
+                self._update_scope_display()
+                self._update_storage_actions()
+                self._sync_presentation()
             return
         if event.select.id != "storage-source" or not self._workbench_ready:
             return
@@ -1560,19 +1669,6 @@ class Workbench(App, inherit_bindings=False):
         self._clear("storage")
         if self.view == "storage":
             self.request_read()
-
-    def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id != "storage-workspace" or not self._workbench_ready:
-            return
-        if event.value.strip() == (self.storage_workspace_key or ""):
-            return
-        self.storage_workspace_key = None
-        self._clear("storage")
-        if self.view == "storage":
-            self._revision += 1
-            self._pending = False
-            self._update_scope_display()
-            self.query_one("#status", Static).update(self.t("storage_changed"))
 
     def action_refresh(self) -> None:
         self.selected_estimate = None

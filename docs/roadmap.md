@@ -122,6 +122,8 @@ are candidate designs, not completed implementation milestones.
   task page, without requiring an active scheduler account or starting Pilot
 - [x] Bounded discovery of readable task projects with safe display names,
   explicit selection and the same current project/site read authority
+- [x] Independent storage-name discovery and exact authorized name resolution
+  for explicit task/storage selections, without raw-key editing or native probes
 - [x] Bilingual task workflow, contextual actions and narrow-screen evidence
   layout, checked with local HTTP and rendered views
 - [x] Shared browse/inspection/summary layout across the six views, current-view

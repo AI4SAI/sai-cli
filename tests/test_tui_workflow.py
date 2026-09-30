@@ -206,10 +206,12 @@ def test_discovery_failure_keeps_cursor_until_explicit_first_and_revokes_only_ta
 
 @pytest.mark.parametrize("language", ["zh-CN", "en-US"])
 def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, language, job_payload, running_estimate_payload):
-    from test_tui import catalog, storage_sample
+    from test_tui import catalog, storage_sample, storage_workspaces_sample
     monkeypatch.delenv("NO_COLOR", raising=False)
     def reply(call, _):
         path = urlsplit(call["path"]).path
+        if path.endswith("/storage/workspaces"):
+            return 200, storage_workspaces_sample()
         if path.endswith("resource-catalog"):
             return 200, catalog()
         if path.endswith("running-estimates"):
@@ -245,7 +247,7 @@ def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, l
                 if view == "overview":
                     assert "¥1,280.50" in output.getvalue() and "20,000" in output.getvalue()
                 if view == "storage":
-                    assert "-0.50000000" in output.getvalue() and "portal_quota_observation" in output.getvalue()
+                    assert "-0.50000000" in output.getvalue() and app.t("portal_quota_observation") in output.getvalue()
                 for width, height in ((100, 32), (60, 24), (40, 24)):
                     await pilot.resize_terminal(width, height)
                     await pilot.pause(.05)

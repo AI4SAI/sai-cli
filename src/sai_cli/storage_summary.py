@@ -1,12 +1,14 @@
 """Allowlisted central quota observations, distinct from live filesystem reads."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 import re
 from typing import Any
 
 from .contracts import _nullable_nonempty_text, _required_text, _timestamp_text
 from .errors import ConfigError, ContractError
+from .workspace_page import parse_workspace_page
 
 
 SCHEMA_VERSION = "storage.quota-summary/v1"
@@ -26,6 +28,31 @@ def clean_workspace_key(value: object) -> str:
     if not isinstance(value, str) or len(value) > 128 or _WORKSPACE.fullmatch(value) is None:
         raise ConfigError("workspace must be personal:<id>, org:<id>, or project:<id>")
     return value
+
+
+@dataclass(frozen=True)
+class StorageWorkspaces:
+    values: dict[str, Any]
+
+    @classmethod
+    def from_payload(cls, payload: object, *, site_id: str, limit: int, cursor: str | None,
+                     request_id: str, workspace_key: str | None = None) -> StorageWorkspaces:
+        return cls(parse_workspace_page(payload, schema="storage.workspaces/v1", site_id=site_id,
+            limit=limit, cursor=cursor, workspace_key=workspace_key,
+            clean_workspace=clean_workspace_key, request_id=request_id))
+
+    def as_dict(self) -> dict[str, Any]:
+        return deepcopy(self.values)
+
+
+def render_storage_workspaces(result: StorageWorkspaces) -> str:
+    data = result.values
+    lines = [f"Readable storage workspaces · Site: {data['site_id']} · queried {data['queried_at']}"]
+    lines.extend(f"{row['workspace_key']}  {row['label']}" + (
+        f" · {row['organization_label']}" if row['organization_label'] is not None else ""
+    ) for row in data["items"])
+    lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
+    return "\n".join(lines) + "\n"
 
 
 @dataclass(frozen=True)

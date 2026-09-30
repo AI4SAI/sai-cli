@@ -82,10 +82,13 @@ after the observation. A Run wrapper contains the unchanged placement DTO;
 ordinary job reads keep their original contract. No consumer may downgrade a
 failed Run binding to a plain numeric-job lookup.
 
-Readable project discovery uses the same current membership and site authority
-with a bounded SQL page. Only safe names and exact project selectors reach the
-CLI; the full Web workspace topology, financial fields and directory paths are
-not exposed. Choosing a project does not grant any later read or execution.
+Readable project and storage discovery use their respective current membership
+and site authority with bounded SQL pages. Storage shares the quota reader's
+membership predicates; it does not inherit compute admission. Only safe names
+and exact selectors reach the CLI; the full Web workspace topology, financial
+fields and directory paths are not exposed. Exact name resolution narrows the
+same directory to one key, without draining pages. Choosing a scope does not
+grant any later read or execution, or promise a native quota source is available.
 
 Managed stdout/stderr and output-file metadata require current applied file READ
 permission for the Run's frozen mount lineage. They reuse the existing dedicated

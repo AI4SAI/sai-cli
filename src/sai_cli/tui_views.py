@@ -173,27 +173,29 @@ def placement_panel(result: SiteJobPlacementResult, language: str = "en-US") -> 
     return Group(*rows, Text(t("placement_meaning")), allocation_panel(result.allocation, language))
 
 
-def storage_panel(result: StorageQuotaSummary | NativeQuotaResult, language: str) -> Group:
+def storage_panel(result: StorageQuotaSummary | NativeQuotaResult, language: str, *, workspace_label: str | None = None) -> Group:
     t, data = Messages(language), result.values
+    workspace = workspace_label or data["workspace_key"]
     if isinstance(result, StorageQuotaSummary):
         fields = (("state", "state", ""), ("effective_total_tib", "effective", " TiB"),
-                  ("target_total_tib", "target", " TiB"), ("used_tib", "used", " TiB"),
-                  ("remaining_tib", "remaining", " TiB"), ("used_inodes", "inodes", ""),
+                  ("used_tib", "used", " TiB"), ("remaining_tib", "remaining", " TiB"),
+                  ("target_total_tib", "target", " TiB"), ("used_inodes", "inodes", ""),
                   ("observed_soft_limit_tib", "soft_limit", " TiB"), ("observed_hard_limit_tib", "hard_limit", " TiB"),
                   ("inode_soft_limit", "soft_limit", " / " + t("inodes")), ("inode_hard_limit", "hard_limit", " / " + t("inodes")),
                   ("observed_at", "last_observed_at", ""), ("quota_updated_at", "quota_updated", ""))
-        lines = [t('storage_context', workspace=data['workspace_key']), f"{t('source')}: {data['source']}"]
+        lines = ([] if workspace_label else [t('storage_context', workspace=workspace)]) + [f"{t('source')}: {t(data['source'])}"]
         for key, label, unit in fields:
             value = state_text(data[key], t) if key == "state" else display(data[key], language)
             lines.append(f"{t(label)}{unit}: {value}")
         return Group(Text("\n".join(lines)))
-    rows = [Text(t("storage_context", workspace=data["workspace_key"])), Text(f"{t('source')}: {data['source']}"), Text(t("native_zero"))]
+    rows = ([] if workspace_label else [Text(t("storage_context", workspace=workspace))]) + [Text(f"{t('source')}: {t(data['source'])}")]
     for item in data["items"]:
         rows.append(Text(item["label"], style="bold"))
-        rows.append(Text(f"{t('quota_ref')}: {item['quota_ref']} · {t('kind')}: {item['kind']}"))
+        rows.append(Text(f"{t('quota_ref')}: {item['quota_ref']} · {t('kind')}: {t('quota_kind_' + item['kind'])}"))
         rows.append(Text(t("observed", time=item["observed_at"])))
         for field, label in (("used_bytes", "used"), ("block_soft_bytes", "soft_limit"), ("block_hard_bytes", "hard_limit"),
                              ("used_inodes", "inodes"), ("inode_soft", "soft_limit"), ("inode_hard", "hard_limit")):
-            unit = t("bytes", count=item[field]) if field.endswith("bytes") else item[field]
+            unit = (t("unlimited") if field not in {"used_bytes", "used_inodes"} and item[field] == "0"
+                    else t("bytes", count=item[field]) if field.endswith("bytes") else item[field])
             rows.append(Text(f"{t(label)}: {unit}"))
-    return Group(*rows)
+    return Group(*rows, Text(t("native_zero")))
