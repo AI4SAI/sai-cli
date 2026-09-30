@@ -106,6 +106,11 @@ entry/exit and terminal-mode restoration against a local HTTP fixture. They
 complement headless layout checks; they do not establish remote SSH behavior,
 terminal-emulator/font coverage or production latency.
 
+The separate [bounded SSH record](docs/ssh-terminal-acceptance.md) establishes
+cross-host terminal behaviour for the tested runtime and synthetic workflows.
+Keep normal exit, disconnect cleanup, actual backend access, physical terminal
+rendering and long-duration resource behaviour as distinct evidence boundaries.
+
 ## Reference boundaries
 
 Reviewed 2026-09-24; these are specific interaction references, not a claim of

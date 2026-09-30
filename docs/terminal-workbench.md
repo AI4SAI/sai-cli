@@ -260,9 +260,10 @@ unchanged. Bilingual navigation, paginated project discovery, confirmation
 separate from highlight, narrow-window task details and return-to-list selection
 are implemented. The shared layout applies the existing teal theme, evidence
 hierarchy and contextual actions across all six views. Local rendered review
-covers both languages and narrow/short windows. Real SSH terminals, fonts,
-color modes, latency, reconnects and long sessions have not received
-comprehensive acceptance.
+covers both languages and narrow/short windows. A bounded real SSH run now
+covers task evidence, resizing, colour/monochrome modes and disconnect cleanup.
+Physical terminal fonts, clipboard behaviour, network diversity and longer
+production sessions still require comprehensive acceptance.
 
 Reviewed on 2026-09-23:
 
@@ -316,6 +317,14 @@ A local Linux PTY check uses real terminal input and window-size signals at
 local HTTP read; Ctrl+Q restores terminal modes and exits the alternate screen.
 This does not verify a remote SSH connection, emulator/font diversity,
 reconnection or a long-running production session.
+
+The later [SSH acceptance](ssh-terminal-acceptance.md) used a formal runtime on
+one login host with synthetic HTTP facts. A 14-minute Chinese run and separate
+English checks passed real VT interaction, three sizes, expiry/denial recovery,
+in-flight resize, normal terminal restoration and disconnect cleanup. It did
+not switch the shared entrypoint or validate production authentication. RSS
+growth and the remaining terminal/font/long-duration boundaries are recorded
+there rather than hidden behind an overall product-readiness claim.
 
 Registered-location checks cover scope binding, exact node correspondence,
 unknown/expired records and independent failure cleanup. The Web consumer uses

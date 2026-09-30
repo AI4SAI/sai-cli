@@ -127,6 +127,8 @@ are candidate designs, not completed implementation milestones.
 - [x] Shared browse/inspection/summary layout across the six views, current-view
   Back and polling-aware actions; local rendered and HTTP checks
 - [ ] SSH terminal diversity and long-session experience acceptance
+- [x] Bounded real SSH/PTY task evidence checks: 14-minute Chinese run, English
+  monochrome, three sizes, delayed-read resize, revocation recovery and cleanup
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Explicit per-Run final cost with shared Portal graph validation, independent
   billing permission, role-filtered funding components and console continuation

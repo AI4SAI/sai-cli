@@ -229,15 +229,33 @@ reuse/coalescing is a future measured optimization, not a new required service.
 The ETag describes only authorized normalized output and truncation; unrelated
 job changes cannot alter it.
 
-Before production, the gateway must append bounded audit records and flush
-asynchronously. This remains a rollout gate, not proof supplied by the direct
-transport tests. Records
-contain reference IDs, actor, site, scope, filters, operation, count, freshness,
-and request ID, never capability text, tokens, secrets, scripts, or environment.
-Unknown key/epoch, expired/revoked capability, or an over-limit audit backlog
-fails closed.
+The gateway emits structured read-use events through its existing systemd
+journal stream. A single bounded queue reserves start and finish slots after
+capability/filter validation and before native/cache reads. Each request gets
+an independent read reference even when client request IDs repeat. A Run's
+before/after observations share that reference. Queue saturation or a known
+writer failure rejects reads; shutdown waits at most two seconds on the writer.
+Records include actor, site, scope, normalized filters, operation, JTI digest,
+count, source freshness, outcome and optional request ID. Tokens, native errors,
+paths, scripts, environment and response bodies are excluded.
+
+The queue is in memory and writes asynchronously. Stream write/flush is not
+confirmation of journal persistence or remote delivery; a crash may leave a
+start without a finish. Such a record means outcome unknown. The central
+capability-issuance audit remains the durable authorization record. Journal
+retention and collection stay with the existing site logging owner, with no
+new spool, exporter or read-replay service. Production acceptance must verify
+the actual service UID, journal collection and failure behavior, separately
+from local HTTP tests.
 
 ## Network and rollout boundary
+
+Pricing is optional for a jobs-only gateway. The bootstrap renderer emits an
+empty pricing path by default; an explicitly configured path must still exist
+and verify. With pricing unconfigured, unrelated job reads remain available and
+no amount is invented: the existing estimate contract reports `pricing_unavailable`
+and null money. Authorization keys, epoch and revocations remain required
+startup inputs. Inventory and native storage mappings keep their own opt-in.
 
 Managed Run step statistics use the existing owner-UID site-run path described
 in [the digital twin design](digital-twin-design.md), independently of this
