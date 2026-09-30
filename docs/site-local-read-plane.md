@@ -280,3 +280,22 @@ The delivery order is: shared vectors and verifier; independent gateway role
 and systemd unit; signed pricing/observation contracts; CLI/Pilot compatibility;
 development-stack smoke; then an approved GET-only live canary. Local tests and
 package builds do not prove a live site or production service.
+
+## Isolated native HTTP acceptance
+
+On 2026-10-01, candidate gateway source
+`9401a32bc8887d82062797f5e0aa583592044c23` ran over loopback HTTP under the
+existing low-privilege service identity against real Slurm 26.05.1. A bounded
+self list and before/after allocation of one existing running job succeeded;
+its two-node allocation and execution observations remained unchanged. The list
+first item was a different job, so this is not a list-to-selection journey claim.
+Three rejected requests and three authorized reads produced exactly three audit
+pairs. The temporary worker, descendants and listener ended before cleanup.
+
+This used temporary signing inputs and isolated dependencies, without modifying
+the installed service, its environment or any workload. Audit output went to a
+private file, not the production journal pipeline. The formal gateway remained
+inactive; its environment, independent Python runtime and verification inputs
+were not configured. This establishes native candidate HTTP behavior, separately
+from Portal/Identity authorization, production activation, signed asset
+publication, physical GPU identity, utilization and native Lustre acceptance.
