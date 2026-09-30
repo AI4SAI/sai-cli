@@ -4,6 +4,35 @@ This roadmap replaces the CLI implementation portion of the former Portal
 design taskboard. Portal-specific authorization service work remains in the
 Portal repository.
 
+Checkmarks cover the implementation or evidence stated on that line. They do
+not imply production activation or completion of a paired rollout.
+
+## Next release gate: basic job reads
+
+The next formal release covers `jobs.list`, `jobs.detail` and `jobs.allocation`.
+The source, role packages and a bounded native candidate probe are available;
+the [candidate record](site-local-read-plane.md#isolated-native-http-acceptance)
+uses temporary signing inputs and is separate from this release gate.
+
+- [ ] Publish the versioned read-gateway runtime with its required dependencies,
+  managed environment, verifier keys, policy epoch and revocation inputs; bind
+  the existing HTTPS read origin and verify the intended service UID
+- [ ] Exercise the actual Identity client and Portal resource-token verifier
+  with an ordinary authorized user, then obtain capabilities from the actual
+  Portal issuer under current CLI/shell and workspace policy
+- [ ] Verify list, detail and allocation through the selected CLI/Portal
+  consuming paths, including self and an authorized account scope, bounded
+  failures and the exact shared client/runtime manifests
+- [ ] Read back correlated issuance and gateway read-use audit records through
+  the configured production journal/collection path, including failure handling
+- [ ] Retain and exercise rollback for runtime selection, environment/key
+  references and HTTPS routing, then repeat the user read and cleanup checks
+
+Use the existing [shared release model](login-node-deployment.md) and the
+separately owned gateway role. Asset publication, registered placement, native
+storage, Run statistics, GPU telemetry and 3D are independent slices, not
+prerequisites for basic job reads. Pricing is optional for a jobs-only gateway.
+
 ## Site Artifact: controller submission policy
 
 - [x] Minimal `job_submit.lua` submission and modification policy
@@ -53,7 +82,8 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] Existing Bearer token and unmanaged compatibility HMAC bootstrap
 - [x] `sai jobs list` and `sai jobs show`
 - [x] `sai jobs allocation JOB_ID` against the explicit site gateway snapshot
-  (local/fake HTTP; physical assets, utilization and attempt identity remain separate)
+  (paired contract/local HTTP checks and a separate bounded native candidate
+  probe; physical assets, utilization and attempt identity remain separate)
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
 - [x] Independent `jobs placement` and TUI registration view, sharing the
   operator-recorded `jobs.placement/v1` projection with WebUI and Pilot;
@@ -68,33 +98,32 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] Bounded error mapping and response redaction
 - [x] Unit, CLI contract, fake HTTP integration, package, and disclosure tests
 
-Acceptance boundary: local tests and fake HTTP only. This milestone does not
-prove a development stack, live scheduler, remote site, package deployment, or
-production wrapper.
+Acceptance boundary: local contract/HTTP checks, plus the separately recorded
+native candidate check for list/allocation. That temporary worker does not
+prove the formal service, real issuer/user chain or production wrapper.
 
 ## Milestone 0.2: control-plane compatibility
 
 - [x] Server-bound `/v1/slurm/cli/*` and `/v1/billing/cli/*` routes with an
   exact `sai-authz` capability and `entrypoint=cli` shell-access check
-- [ ] Shared cross-repository request/response fixture (the two repositories'
-  focused vectors are aligned, but no single shared artifact is published yet)
-- [x] Versioned published site catalog schema and sample shared with Portal
-  WebUI and Pilot; job and running-estimate shared artifacts remain separate work
-- [ ] Production issuer key/epoch deployment and authenticated devstack smoke
-- [ ] SAI Identity OIDC provider/device grant, registered `sai-cli` client, and
-  Portal resource-token verifier (owned by the Identity/Portal repositories;
-  the current repositories are still pre-migration)
+- [x] Paired schemas and samples in `contracts/` for allocation, registration,
+  managed Runs/cost/statistics, workspace discovery, quota and published catalog;
+  each contract records its source and validation boundary
+- [x] Portal issuer/verifier and CLI consumer compatibility vectors for exact
+  job and independent running-estimate grants
+- [x] Browser/device login, rotating protected refresh credentials and bounded
+  refresh/revocation in the CLI, with local protocol/HTTP tests
+- [ ] Deployed Identity device-client registration, Portal resource-token
+  verification and production capability key/epoch acceptance for the CLI user
 - [ ] Development-stack read-only smoke for self and one account scope
-- [ ] Independent Portal settled-billing read contract (`billing.settled.read`)
-  and a separately reviewed CLI command
-- [ ] Browser/device login via the SAI Identity OIDC Device Authorization Grant
-  (the client-side protocol candidate is local; Identity provider/client
-  registration, Portal resource-token consumption, and live authentication
-  remain gates)
-- [ ] Shell completion and package metadata
+- [ ] General settled-billing read command beyond the implemented per-Run
+  final-cost contract; read authority remains independent of job visibility
+- [x] Python package metadata and installation entrypoint
+- [ ] Shell completion
 
-Acceptance boundary: development control plane. It does not prove live site
-facts or production deployment.
+Acceptance boundary: source compatibility and local integration. Shared files
+and implemented authentication clients do not establish production registration,
+deployed keys or a successful real-user read.
 
 ## Milestone 0.3: optional TUI
 
@@ -106,7 +135,8 @@ behind validation of asset, allocation, and telemetry facts. Both documents
 are candidate designs, not completed implementation milestones.
 
 - [x] Optional TUI dependency group and interactive `sai tui` entry
-- [ ] Jobs, resources, partitions, QOS, and usage navigation model
+- [x] Six-view navigation and published partition/QOS metadata; resource
+  eligibility and admission remain separate from catalog presentation
 - [x] Explicit resource candidate, independent two-item comparison and shared
   console-to-Pilot preparation intent without requiring an existing job;
   current eligibility and concrete proposal validation stay server-owned
@@ -141,8 +171,7 @@ are candidate designs, not completed implementation milestones.
   reusing the existing signed gateway and registration/scene components
 - [ ] Paired Run-placement gateway deployment and real-asset acceptance
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
-- [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
-  states
+- [x] Bounded empty/error states, paged managed tasks and scope directories
 - [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
 
 The first [terminal workbench](terminal-workbench.md) supports two-partition
@@ -159,55 +188,70 @@ the HTTP timeout. Only estimates have local snapshot pages, not job-history
 pagination. Managed Tasks have server keyset pages and an exact Web detail link.
 Selected output continuation through the console to the original Pilot Session
 is implemented locally, using fresh reads and native preview/input actions.
-Explicit final-cost association is implemented. Estimate-to-final replacement,
-live usage statistics and full resource views remain unfinished. Native task
-statistics have passed a bounded owner-identity preflight; the proposed managed
-Run read/helper path is documented and is not yet an implemented endpoint.
-Native storage shows authorized quota subjects,
-not an organization pool aggregate; this is not the full workbench.
+Explicit final-cost association and the
+[`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)
+are implemented in paired source. The statistics path uses bounded owner-UID
+native reads; it does not provide GPU or whole-node utilization. Its matched
+package installation and real-site application-chain acceptance remain open.
+Estimate-to-final replacement and full resource eligibility views remain
+unfinished. Native storage shows authorized quota subjects, not an organization
+pool aggregate. The TUI discards late results and bounds HTTP calls; this is not
+a claim of interruptible network requests or stale-while-revalidate behavior.
 
-Acceptance boundary: TUI contract against fake or development endpoints. It
-does not prove real placement, topology, rate data, or production latency.
+Acceptance boundary: local HTTP/rendered checks and the separately recorded
+[bounded SSH/PTY runs](ssh-terminal-acceptance.md) with synthetic facts. These
+do not prove production authentication, physical placement, telemetry, terminal
+font diversity or unbounded long-session stability.
 
 ## Milestone 0.4: site-local capability transport
 
-- [ ] Versioned capability/query/response schemas
-- [ ] Control-plane issuer compatibility vectors
-- [ ] Site-local billing-visibility capability; the Portal running-estimate
-  HTTP contract is implemented, but job visibility alone must not grant it
-- [ ] Shared scheduler collector snapshot for jobs and usage estimates, with
-  2-15 second TTL, request coalescing, ETag, and freshness
-- [ ] Cross-repository site-runtime gateway fixture for verifier, filter
-  narrowing, cache isolation, and audit reference; the gateway server is not a
-  CLI-wheel module
-- [ ] Client capability cache and renewal single-flight
+- [x] Versioned capability/query/response contracts and strict validators for
+  exact job operations, allocation and independent billing/storage reads
+- [x] Control-plane issuer compatibility vectors and capability/filter negative
+  checks against the separately packaged site gateway
+- [x] Independent `billing.running-estimate` grant and gateway read contract;
+  job visibility grants no billing permission, and missing pricing returns
+  explicit unavailable/null amounts
+- [x] Native on-demand job reads, request-bound filtering, ETag and freshness;
+  no dependency on the billing collector's cluster-wide snapshot
+- [x] Shared allocation schema/sample and real local HTTP/native-substitute
+  gateway fixtures; the gateway server is not a CLI-wheel module
+- [x] Protected client capability cache and bounded renewal retry
 - [x] Explicit direct gateway transport for `jobs list/show`, capability-only
   credentials and versioned `jobs/v1`; cost/catalog/auth remain central
 - [x] Independent typed storage grant and `storage.native-quota/v1`; strict
   filesystem/subject binding and no fallback to stored observations
 - [ ] Development-stack protocol smoke
-- [ ] Contract fixture usable by CLI/TUI, Portal relay, and a separately owned
-  site-local read-only Web client
-- [ ] Separate site-telemetry batch fixture proving interactive reads cause no
-  exposure writes and persistence does not follow the 2-15 second UI cadence
+- [x] CLI/TUI and Portal/Web allocation consumers reuse the shared contract and
+  existing gateway, without a second site-local Web application
+- [x] Bounded gateway read-use audit queue and stream writer, with local
+  saturation/failure checks; actual journal persistence/collection is a release gate
 
-Acceptance boundary: protocol implementation. It does not prove a live remote
-site or production package.
+Acceptance boundary: implemented protocols, local fixtures and the separately
+recorded temporary native candidate probe. Formal activation remains open.
 
-The direct-job slice uses on-demand filtered native reads, not the existing
-billing collector's cluster-wide/terminal-state cache. Local HTTP and fixture
-subprocess tests are distinct from live Slurm, deployed gateway and fleet gates.
+The job path stays on-demand. Cache reuse or coalescing should be considered
+only when measured load or latency justifies it; a shared collector is not a
+required launch dependency. The TUI serializes and coalesces its own reads, but
+that does not establish general client/process-wide renewal single-flight.
+Interactive reads remain separate from billing exposure/settlement writers;
+they do not require a new telemetry batch service.
 
 ## Milestone 0.5: packaging and canary
 
 - [x] Shared client package and optional TUI extra
-- [ ] Package-managed legacy wrapper templates
-- [ ] Install manifest, forbidden-content guard, and rollback artifact
-- [ ] Read-only live scheduler comparison with an authorized sample scope
-- [ ] Canary latency, freshness, audit-backlog, and rollback evidence
+- [x] Package-managed compatibility entrypoint template over one shared runtime
+- [x] Full-SHA source/wheel/runtime/node-package manifests, content guards,
+  deterministic artifacts and documented rollback procedure
+- [x] Bounded native candidate list/allocation reads under the intended service
+  UID, using temporary signing inputs and a private audit stream
+- [ ] Formal runtime/environment/HTTPS activation and an actual issuer/user
+  read, following the basic-job gate above
+- [ ] Production canary latency, freshness, journal delivery, failure and
+  rollback readback
 
-Production rollout and fleet-wide replacement require a separate operations
-plan and approval.
+Production activation and any fleet replacement remain separately recorded
+operator steps. The temporary candidate check does not replace them.
 
 The shared archive, optional TUI dependency bundle, small login integration
 Debian package, full-SHA manifest and canary run card are implemented.
