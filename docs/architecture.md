@@ -207,6 +207,11 @@ standard-library HTTP, JSON, TOML, and filesystem primitives. The Textual
 workbench ships as an optional `tui` extra with a lazy command import; its
 dependencies do not enter control-plane or site-gateway service runtimes.
 
+Workbench layout and contextual actions are derived from the selected view and
+object. The presentation has no independent task state, authorization or cache;
+the same serialized reader and validated DTOs remain authoritative. Textual's
+public binding and command-palette interfaces own keyboard dispatch.
+
 The implementation is organized around explicit boundaries:
 
 ```text

@@ -83,10 +83,10 @@ def test_resource_candidate_comparison_and_prepare_are_separate_without_job_hist
             assert app.query_one("#prepare-resource", Button).disabled
             table = app.query_one("#resources-table", DataTable)
             table.focus()
-            await pilot.press("enter", "c", "down", "enter", "c")
+            await pilot.press("enter", "c", "escape", "down", "enter", "c")
             await pilot.pause(.05)
             assert app.selected_resource == "cpu-standard" and app.compared == ["gpu-standard", "cpu-standard"]
-            await pilot.press("up", "enter")
+            await pilot.press("escape", "up", "enter")
             await pilot.pause(.05)
             assert app.selected_resource == "gpu-standard" and app.compared[-1] == "cpu-standard"
             for identifier in ("compare-resource", "clear-comparison", "use-partition", "prepare-resource"):
@@ -106,13 +106,13 @@ def test_resource_candidate_comparison_and_prepare_are_separate_without_job_hist
             assert parse_qs(url.fragment.split("?",1)[1]) == {"site_id":["site-a"],"partition_ref":["gpu-standard"]}
             assert "irrelevant" not in opened[-1] and "workspace" not in opened[-1]
             app.action_copy_web_link();assert app.clipboard==opened[-1]
-            table.focus();await pilot.press("down","down","enter");await pilot.pause(.05)
+            await pilot.press("escape", "down", "down", "enter");await pilot.pause(.05)
             assert app.selected_resource is None and app._web_url is None
             assert app.query_one("#prepare-resource",Button).disabled and app.query_one("#compare-resource",Button).disabled
             assert "Project storage" in detail(app)
             await pilot.resize_terminal(width,24);assert "Project storage" in detail(app)
             assert app.compared == ["gpu-standard","cpu-standard"]
-            table.focus();await pilot.press("home","enter");await pilot.pause(.05)
+            await pilot.press("escape", "home", "enter");await pilot.pause(.05)
             app.save_screenshot(str(tmp_path/f"resources-{width}-{language}.svg"))
     with http_endpoint(reply) as (origin,calls):
         client=PortalClient(transport=JsonTransport(base_url=origin,timeout_seconds=3),
@@ -181,7 +181,7 @@ def test_candidate_is_not_replaced_when_two_comparison_slots_are_full():
         app=Workbench(Client(),JobQuery(site_id="site-a"),refresh_seconds=999)
         async with app.run_test(size=(60,24)) as pilot:
             await settled(app,pilot);app.query_one("#resources-table",DataTable).focus()
-            await pilot.press("enter","c","down","enter","c","down","enter","c")
+            await pilot.press("enter","c","escape","down","enter","c","escape","down","enter","c")
             assert app.selected_resource == "third-partition"
             assert app.compared == ["gpu-standard","cpu-standard"]
             assert "remove one first" in str(app.query_one("#status",Static).render())

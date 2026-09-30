@@ -81,6 +81,14 @@ Its dependencies are an optional
 extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
 
+The terminal derives browse, inspect and summary presentation from its existing
+view and selection. This does not add a request, data cache or permission model.
+All object inspections share one responsive evidence area and a current-object
+heading. Back acts only on the current view. Polling eligibility is independent
+of layout: ordinary job/task details can refresh automatically, while allocation,
+location, resource, estimate and task-file/log snapshots require explicit reads.
+Only eligible views enable F6 and expose Pause/Resume in the command palette.
+
 Open in Web appears after successful job detail or allocation inspection. Its
 one-time action uses the same serialized reader to call Identity-only
 `GET /v1/slurm/cli/jobs/{job_id}/web-context`; it sends no site capability.

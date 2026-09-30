@@ -20,7 +20,7 @@ from test_tui_managed_runs import client_for, click
 from test_managed_workspaces import sample as workspace_sample
 
 
-LONG_PATH = "outputs/" + "长路径含Unicode-无空格" * 24 + "_[red]#1?%.txt\x85"
+LONG_PATH = "outputs/" + "长路径含Unicode-无空格" * 40 + "_[red]#1?%.txt\x85"
 FIRST_REF = "artifact-first"
 SECOND_REF = "artifact-second"
 LATER_REF = "artifact-later"
@@ -102,6 +102,7 @@ def test_files_keyboard_selection_and_web_continuation_use_exact_page_without_ht
             await pilot.pause(.05)
             assert app.selected_artifact == (app.task_file_page, FIRST_REF)
             assert app.t("file_selected") in options.options[0].prompt.plain
+            assert options.max_scroll_y > 0
             old_scroll = options.scroll_y
             await pilot.press("ctrl+down", "ctrl+down", "ctrl+down")
             await pilot.pause(.2)

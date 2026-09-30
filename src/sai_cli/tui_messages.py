@@ -5,6 +5,10 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "empty_estimates": ("当前范围没有运行预估", "No running estimates in this scope"),
+    "retry_hint": ("F5 重新读取；也可切换范围或视图", "F5 retries; you can also change scope or view"),
+    "prepare_short": ("准备", "Prepare"), "file_web_short": ("查看文件", "View file"),
+    "pause_refresh": ("暂停刷新", "Pause refresh"), "resume_refresh": ("恢复刷新", "Resume refresh"),
     "app": ("SAI 工作台", "SAI workbench"),
     "overview": ("概览", "Overview"), "resources": ("资源", "Resources"),
     "jobs": ("实时作业", "Live jobs"), "tasks": ("我的任务", "My tasks"),
@@ -54,7 +58,7 @@ MESSAGES = {
     "log_pending": ("日志暂不可读，可刷新重试", "Log is not available yet. Refresh to retry"),
     "log_empty": ("本页日志为空", "This log page is empty"),
     "files_empty": ("本页没有输出文件", "No output files in this page"),
-    "files_choose": ("↑↓ 浏览 · Enter 选定 · W 控制台\nCtrl+↑↓ 滚动长路径", "↑↓ Browse · Enter selects · W opens Web\nCtrl+↑↓ scrolls long paths"),
+    "files_choose": ("↑↓ 浏览 · Enter 选定 · Ctrl+↑↓ 滚动", "↑↓ Browse · Enter selects · Ctrl+↑↓ scrolls"),
     "file_selected": ("✓ 已选文件", "✓ Selected file"),
     "file_continue": ("已选文件 · W 在控制台继续", "File selected · W continues in Web"),
     "web_file": ("在控制台查看所选文件", "Open selected file in browser"),

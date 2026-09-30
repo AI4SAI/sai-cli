@@ -80,8 +80,9 @@
   ordinary filter input keeps its typing behavior.
   A known submission/restart change requires refreshing the TUI before navigation;
   links and pending navigation clear on context changes or authorization failure.
-  Live resource capacity, task-result/Pilot handoff, measured utilization and
-  physical/GPU placement remain roadmap items.
+  Managed results and resource preferences can continue through the console
+  into an explicitly selected Pilot Session. Live resource capacity, measured
+  utilization and verified physical/GPU placement remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local

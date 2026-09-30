@@ -124,6 +124,8 @@ are candidate designs, not completed implementation milestones.
   explicit selection and the same current project/site read authority
 - [x] Bilingual task workflow, contextual actions and narrow-screen evidence
   layout, checked with local HTTP and rendered views
+- [x] Shared browse/inspection/summary layout across the six views, current-view
+  Back and polling-aware actions; local rendered and HTTP checks
 - [ ] SSH terminal diversity and long-session experience acceptance
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh

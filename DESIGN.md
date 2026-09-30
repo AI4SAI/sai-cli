@@ -26,6 +26,19 @@ file read still authorizes independently.
 
 ## Information hierarchy
 
+The six views share three presentation phases. Browse gives the main area to
+the list or project discovery. Inspect gives it to the selected object and its
+evidence. Summary gives the whole area to Overview or Storage. These phases are
+derived from existing view state; they do not own data, permissions or requests.
+
+Use one inspection layout for resources, jobs, allocation, registered location,
+managed-task evidence and estimates. Narrow or short terminals hide the list
+and its filters during inspection; wider windows may keep a compact list.
+The selected object remains visible above the scrollable evidence. Back acts
+only on the current view, restores its list and never changes another view's
+retained selection. Keep titles readable without letting long names consume
+the entire short viewport; full evidence remains reachable by scrolling.
+
 Task lists emphasize title, state and the last recorded observation. IDs,
 complete timestamps and scheduler references belong in details. Native jobs
 and managed computations keep distinct labels and source descriptions.
@@ -57,6 +70,19 @@ Text inputs and selectors own their editing keys. The native command palette
 provides the complete current action list without creating another command
 framework. Visible controls and palette entries invoke the same actions.
 
+Polling is a separate property of that current phase. Frozen allocation,
+registration, output/log, resource and estimate inspection stays manual. Do not
+offer Pause/Resume there or imply that an immediate refresh enabled polling.
+Live job detail and managed task detail retain their existing read behavior.
+Footer labels, palette entries and buttons share the same contextual availability;
+keyboard editing remains owned by the focused input/selector.
+
+Keep source/freshness distinct from operational feedback. A failed read must
+have a visible bounded explanation and a usable refresh/return action instead
+of an empty primary area. Empty results must not ask the user to select a row
+that does not exist. Unknown values stay unknown, including zero-looking money
+or resource counts.
+
 Use one interface language at a time, `zh-CN` or `en-US`. Translate fixed
 labels, navigation, states and bounded diagnostics; do not translate user
 filenames or provider data. Keep JSON names and machine errors stable. A
@@ -74,6 +100,11 @@ Verify the primary evidence is visible, not just that controls stay within
 their bounds. Check selection and typing with the keyboard, and inspect actual
 rendered screenshots. Local fixtures establish UI and contract behavior;
 SSH terminals, long sessions and production latency require separate evidence.
+
+Local PTY checks exercise real terminal input, resize signals, alternate-screen
+entry/exit and terminal-mode restoration against a local HTTP fixture. They
+complement headless layout checks; they do not establish remote SSH behavior,
+terminal-emulator/font coverage or production latency.
 
 ## Reference boundaries
 

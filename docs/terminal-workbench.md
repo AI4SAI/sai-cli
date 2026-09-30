@@ -99,7 +99,8 @@ settled billing or hardware telemetry features.
 
 ## Interaction and data behavior
 
-- F5 or Refresh requests an update. F6 pauses/resumes automatic refresh;
+- F5 or Refresh requests an update. F6 pauses/resumes automatic refresh only
+  where automatic reads are supported;
   Ctrl+Q exits. Tab and arrow keys use standard Textual focus/navigation.
 - The active view refreshes every ten seconds; inactive views do not poll.
   Inspecting an estimate pauses that view's automatic refresh to preserve its
@@ -126,6 +127,24 @@ settled billing or hardware telemetry features.
 - Narrow/short windows use compact controls; details scroll vertically and
   tables can scroll horizontally. Comparison remains a table of the same
   validated facts, not a new product or pricing model.
+
+All six views share three layouts: browse for lists and project discovery,
+inspect for a selected object, and summary for Overview and Storage. Inspection
+keeps the current object above the evidence. At 40 or 60 columns, or below 28
+rows, the list and filters give way to the evidence; at 100 columns with enough
+height, a compact list stays available. Escape affects only the current view.
+For Resources it returns to the catalog without another read and preserves the
+separate comparison choices.
+
+Layout does not decide freshness. Ordinary job and managed-task details retain
+automatic reads. Resource inspection, selected estimates, allocation/location
+snapshots, project discovery and task logs/files remain manual. Those modes
+offer Refresh without Pause/Resume; F6 cannot discard a selected output or imply
+that polling has resumed. Footer, visible controls and command palette use the
+same contextual actions, with short footer labels and searchable command titles,
+through Textual's public interfaces.
+Empty estimates explain that no estimate is available. Failed reads keep a
+bounded explanation and retry action visible after protected data is cleared.
 
 ## Managed tasks and output pages
 
@@ -230,11 +249,11 @@ information hierarchy and visual verification. The CLI defaults to Chinese;
 `--language en-US` selects English. Protocol keys and user-provided names are
 unchanged. Bilingual navigation, paginated project discovery, confirmation
 separate from highlight, narrow-window task details and return-to-list selection
-are implemented. The existing teal theme and reviewed local layouts are useful
-progress, not a complete SAI terminal visual standard. Density, hierarchy,
-focus, errors and layout across the full task journey still need consistent
-product-level review. Real SSH terminals, fonts, color modes, latency, reconnects
-and long sessions have not received comprehensive acceptance.
+are implemented. The shared layout applies the existing teal theme, evidence
+hierarchy and contextual actions across all six views. Local rendered review
+covers both languages and narrow/short windows. Real SSH terminals, fonts,
+color modes, latency, reconnects and long sessions have not received
+comprehensive acceptance.
 
 Reviewed on 2026-09-23:
 
@@ -253,7 +272,7 @@ These references inform specific interactions: contextual footer hints,
 editing-safe keys, discoverable actions and explicit object selection. They do
 not establish reuse of Codex, Claude Code or OpenCode application source or their
 Agent systems. SAI implements the interactions with Textual and its existing
-read client. This registration slice does not promise a full terminal redesign.
+read client. These references do not establish complete product acceptance.
 
 ## Validation and remaining work
 
@@ -267,6 +286,12 @@ Nullable/duplicate estimate identities use snapshot-local
 UI rows, not invented business identifiers. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.
+
+A local Linux PTY check uses real terminal input and window-size signals at
+100×32, 60×18 and 40×24. Resizing remains responsive during a deliberately delayed
+local HTTP read; Ctrl+Q restores terminal modes and exits the alternate screen.
+This does not verify a remote SSH connection, emulator/font diversity,
+reconnection or a long-running production session.
 
 Registered-location checks cover scope binding, exact node correspondence,
 unknown/expired records and independent failure cleanup. The Web consumer uses

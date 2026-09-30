@@ -225,6 +225,7 @@ def test_late_allocation_never_overwrites_new_object_mode_or_scope(job_payload, 
                 elif transition == "detail":
                     await pilot.click("#view-job")
                 elif transition == "scope":
+                    await pilot.press("escape")
                     app.query_one("#scope", Select).value = "org-account"
                     app.query_one("#account", Input).value = "org-example"
                     await pilot.click("#apply")

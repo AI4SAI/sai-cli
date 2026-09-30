@@ -174,6 +174,8 @@ def test_headless_browser_failure_keeps_a_clickable_copyable_link_until_scope_ch
             assert app.clipboard == url
             assert app.results["jobs"] is snapshot and link.region.width <= app.size.width
             app.save_screenshot(str(tmp_path / "web-link.svg"))
+            await pilot.press("escape")
+            await settled(app, pilot)
             app.query_one("#scope", Select).value = "org-account"
             app.query_one("#account", Input).value = "org-example"
             await pilot.click("#apply")
@@ -240,6 +242,7 @@ def test_navigation_is_one_serialized_action_and_late_responses_cannot_open_a_br
                 if transition == "mode":
                     await pilot.click("#view-allocation")
                 elif transition == "scope":
+                    await pilot.press("escape")
                     app.query_one("#scope", Select).value = "org-account"
                     app.query_one("#account", Input).value = "org-example"
                     await pilot.click("#apply")
