@@ -28,11 +28,14 @@ workbench design, including hardware telemetry and result navigation, is describ
 implementation or deployment claim.
 
 Bilingual navigation, readable-project discovery and narrow task inspection
-are implemented. The current theme and locally reviewed screens provide a
-foundation, not a complete SAI terminal visual standard or acceptance of long
-sessions over real SSH. Interaction references inform selection, keyboard and
+are implemented. The six views share browse, inspect and summary layouts,
+contextual actions and the terminal visual rules in DESIGN.md.
+[Bounded SSH acceptance](docs/ssh-terminal-acceptance.md) covers a 14-minute
+synthetic workflow on one login host, resize and disconnect cleanup. Broader
+terminal/font coverage, longer resource profiling and production backend
+acceptance remain open. Interaction references inform selection, keyboard and
 action discovery; they do not imply reuse of another product's application or
-Agent source. This slice keeps the task journey ahead of a broad redesign.
+Agent source. Keep the task journey ahead of a broad redesign.
 
 ## Brand Personality
 
