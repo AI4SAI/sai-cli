@@ -19,6 +19,7 @@ from .managed_runs import (
 )
 from .run_cost import ManagedRunCost
 from .run_stats import ManagedRunStats
+from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
@@ -280,6 +281,7 @@ class PortalClient:
             site_id=request.site_id, cluster_id=request.cluster_id, scope=_SCOPES[request.scope],
             request_id=response.request_id, job_id=identifier, states=request.states, account_name=request.account_name,
         )
+        result.require_current(request_id=response.request_id)
         return result
 
     def _authorized_get(
@@ -442,6 +444,13 @@ class PortalClient:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref)
         return ManagedRunDetail.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
                                             run_ref=run_ref, request_id=response.request_id)
+
+    def managed_run_placement(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunPlacement:
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/placement")
+        result = ManagedRunPlacement.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                                 run_ref=run_ref, request_id=response.request_id)
+        result.placement.require_current(request_id=response.request_id)
+        return result
 
     def managed_run_stats(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunStats:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/stats")

@@ -65,6 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("show", "show the recorded state of one managed computation"),
         ("cost", "read the independently authorized final cost of one managed computation"),
         ("stats", "read one bounded native step observation of a managed computation"),
+        ("placement", "read registered node locations bound to one current managed computation"),
         ("logs", "read a bounded page of a managed run's stdout or stderr"),
         ("files", "list current files in a managed run's declared outputs"),
     ):
@@ -550,6 +551,9 @@ def main(
             elif args.runs_command == "cost":
                 from .run_cost import render_run_cost
                 result = client.managed_run_cost(args.run_ref, **scope)
+            elif args.runs_command == "placement":
+                from .run_placement import render_run_placement
+                result = client.managed_run_placement(args.run_ref, **scope)
             elif args.runs_command == "stats":
                 from .run_stats import render_run_stats
                 result = client.managed_run_stats(args.run_ref, **scope)
@@ -559,7 +563,8 @@ def main(
             else:
                 result = client.managed_run_artifacts(args.run_ref, **scope, cursor=args.cursor, limit=args.limit)
             render = (render_run_cost if args.runs_command == "cost" else
-                      render_run_stats if args.runs_command == "stats" else render_managed_runs)
+                      render_run_stats if args.runs_command == "stats" else
+                      render_run_placement if args.runs_command == "placement" else render_managed_runs)
             output.write(render_json(result.as_dict()) if output_format == "json" else render(result))
             return 0
         query = _job_query(args, settings=settings)

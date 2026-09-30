@@ -285,6 +285,14 @@ read client. These references do not establish complete product acceptance.
 
 ## Validation and remaining work
 
+Tasks can explicitly read node registrations through Location. The action uses
+the existing allocation/placement evidence panel and shared expiry timer; the
+six task-mode controls stay compact. Full paths and source evidence remain
+scrollable at 40 columns. Registration expiry discards locations and keeps only
+that response's allocation; it cannot restore old statistics or a different Run.
+The Web continuation remains on the Run page, with a current server binding on
+every location read. Ordinary job navigation retains its separate purpose.
+
 Statistics is an explicit task mode, alongside history, logs, files and cost.
 It uses the same scoped reader and a separate manual observation. The six mode
 buttons stay visible as a 3×2 grid below 60 columns and one row otherwise. Step

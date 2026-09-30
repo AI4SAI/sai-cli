@@ -30,6 +30,10 @@ The first implementation milestone is intentionally read-only:
   native step observation: average cumulative CPU seconds and step task RSS.
   It uses compute READ, independently of file and billing access. Unknown
   values remain null; these are not GPU or whole-node utilization metrics.
+- `sai runs placement RUN_REF --workspace-key project:example` reads current
+  node registrations with the native allocation bound to that exact Run.
+  The server derives and verifies execution evidence; a reused job number
+  cannot silently redirect the read to a different computation.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.
 - `sai storage quota-summary --workspace-key org:example` reads authorized
@@ -88,6 +92,12 @@ Tasks also has a manual Statistics mode. F5 replaces its observation and W opens
 the same Run's Statistics tab in the console. Each step retains its node coverage,
 query window and execution evidence. The native sample time is unknown. The six
 task-mode buttons use two rows in narrow windows.
+
+The task's Location action reuses the existing allocation/registration view.
+It is a manual observation with F5 and a `view=placement` Web continuation.
+Expired registrations are removed while the same allocation snapshot stays
+visible. Site-disabled location reads preserve task metadata. These records
+remain operator registrations, not verified physical GPU identity or telemetry.
 
 The six views share browse, inspection and summary layouts. Selected evidence
 gets the main area in narrow or short terminals, with the current object above

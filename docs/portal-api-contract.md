@@ -639,6 +639,23 @@ when adding the scope to managed configuration. Updating the CLI package does
 not overwrite managed configuration or grant a new scope to cached sessions.
 The registered scope remains subject to Portal authorization on every read.
 
+## Managed Run node registration
+
+`GET /v1/compute/cli/runs/{run_ref}/placement` accepts `workspace_key`/`site_id`
+with compute scope and current actor-owned project/Run READ. Browser and Pilot
+use the same service through their existing authenticated entrypoints. The
+server derives native selectors and the correlation marker, and relays only a
+narrow signed capability to the configured site-read gateway. It never returns
+that capability or a site-agent credential to this command.
+
+The [shared Run placement contract](../contracts/managed-run-placement/v1/README.md)
+uses a strict `interactive-run-read-grant.v1` inside the existing signed envelope;
+ordinary job grants remain separate. Old gateway code rejects it, and an ordinary
+placement response cannot satisfy the Run wrapper. No fallback removes the
+binding. Gateway-before-center paired rollout is required; source tests are not
+deployment proof. No scheduler reference is 409, uncertain submission/source is
+503, and site opt-out is 403 `run_placement_not_enabled`, independent of Run READ.
+
 ## Native managed Run statistics
 
 `GET /v1/compute/cli/runs/{run_ref}/stats` accepts only `workspace_key` and

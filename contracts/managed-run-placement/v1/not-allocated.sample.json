@@ -1,0 +1,61 @@
+{
+  "schema_version": "compute.run-placement/v1",
+  "run_ref": "run-example-1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "queried_at": "2030-01-01T00:00:02Z",
+  "execution": null,
+  "placement": {
+    "schema_version": "jobs.placement/v1",
+    "allocation": {
+      "allocation": {
+        "status": "not_allocated",
+        "nodes": []
+      },
+      "cluster_id": "cluster-a",
+      "etag": "aa092e17981194ba93cd718e864f85b20e6628aa9e0ccf74ef051014afea81ad",
+      "freshness": {
+        "age_seconds": 1,
+        "observed_at": "2030-01-01T00:00:01Z",
+        "source": "scontrol",
+        "stale": false,
+        "ttl_seconds": 5
+      },
+      "job": {
+        "array_task_id": null,
+        "elapsed_seconds": null,
+        "gpus_per_node": null,
+        "job_id": "12345",
+        "mem_per_unit": null,
+        "name": "research-run",
+        "nodes": 0,
+        "partition": "cpu-standard",
+        "priority": 100,
+        "qos": "normal",
+        "reason_or_nodelist": "Priority",
+        "run_wait_seconds": null,
+        "slots": 8,
+        "slurm_account": "project-example",
+        "slurm_user": "alice",
+        "start_time": null,
+        "state": "PD",
+        "state_label": "等待中",
+        "submit_time": "2029-12-31T23:30:00Z"
+      },
+      "restart_count": 0,
+      "scheduler_states": [
+        "PENDING"
+      ],
+      "schema_version": "jobs.allocation/v2",
+      "scope_type": "project_account",
+      "site_id": "site-a",
+      "subject": {
+        "slurm_account": "project-example",
+        "slurm_user": "alice"
+      }
+    },
+    "inventory": null,
+    "coverage": "allocated_nodes_only",
+    "nodes": []
+  }
+}

@@ -62,6 +62,17 @@ Managed-task project discovery stays at Portal. It reuses current membership
 and site read policy, returns a bounded name/selector page and neither queries
 the native site nor issues another capability.
 
+Run-bound node registration reuses this gateway and its normal allocation and
+signed inventory readers. A strict `interactive-run-read-grant.v1` narrows
+`jobs.placement` to a server-derived actor-owned Run, username/account
+intersection and submission correlation. Ordinary `interactive-read-grant.v1`
+is unchanged. Native fixed-version identity is checked before projection, then
+execution/allocation are read again before inventory confirmation and final
+capability verification. Response `compute.run-placement/v1` contains the Run
+and execution evidence plus the unchanged placement DTO. Old or unbound readers
+fail rather than downgrade. No helper, secret, scheduler-state store or node
+RPC is added; physical GPU binding remains a separate evidence requirement.
+
 Managed-run logs and declared output-file listings retain their existing
 ComputeRun readback path through Portal and its dedicated `interactive-read`
 site credential. The CLI holds only its Identity token and sends no file path,

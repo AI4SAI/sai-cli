@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from typing import Any
 
@@ -163,6 +163,15 @@ class SiteJobPlacementResult:
 
     def require_request_binding(self, **context: Any) -> None:
         self.allocation.require_request_binding(**context)
+
+    def require_current(self, *, request_id: str) -> None:
+        if self.inventory is None:
+            return
+        now = datetime.now(timezone.utc)
+        expiries = [self.inventory.expires_at]
+        expiries.extend(node.registration.valid_until for node in self.nodes if node.registration is not None)
+        if any(now >= _date(value) for value in expiries):
+            raise ContractError("registered locations expired before receipt; read again", request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
         return {"schema_version": "jobs.placement/v1", "allocation": self.allocation.as_dict(),

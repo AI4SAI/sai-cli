@@ -133,6 +133,9 @@ are candidate designs, not completed implementation milestones.
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
 - [ ] Paired installation and real-site acceptance of native Run statistics
+- [x] Current Run-bound allocation and node registration across TUI/Web/Pilot,
+  reusing the existing signed gateway and registration/scene components
+- [ ] Paired Run-placement gateway deployment and real-asset acceptance
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
   states

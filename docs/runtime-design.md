@@ -169,6 +169,14 @@ establish that authorization boundary.
 
 ### Managed tasks
 
+`runs placement RUN_REF` and the task Location action use the same current
+project/site READ selectors. `compute.run-placement/v1` wraps one verified
+native execution and the existing `jobs.placement/v1` result. The terminal
+reuses its placement parser, display and expiry timer. Expiry removes location
+records, retaining only the allocation from that same response. F5 is explicit;
+W opens the exact Run with `view=placement`, without carrying metrics or native
+identifiers. Site opt-out affects this view; revoked task READ clears Tasks.
+
 `runs stats RUN_REF` uses compute READ and the same project/site selectors.
 The serialized TUI reader keeps a separate manual statistics snapshot: F5 replaces
 it, and scope/Run/mode changes discard late responses. W adds `view=stats` to the

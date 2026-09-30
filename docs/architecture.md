@@ -74,6 +74,14 @@ TUI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
 existing owner-UID execution path, not a privilege fallback for the read gateway.
 No client executes Slurm or reconstructs whole-job utilization from step metrics.
 
+Run placement follows the existing capability gateway, without a new native
+helper. Portal derives exact Run/user/account/job/correlation constraints after
+current READ; a separate strict grant schema binds the existing allocation and
+inventory read. The gateway checks runtime execution and allocation before and
+after the observation. A Run wrapper contains the unchanged placement DTO;
+ordinary job reads keep their original contract. No consumer may downgrade a
+failed Run binding to a plain numeric-job lookup.
+
 Readable project discovery uses the same current membership and site authority
 with a bounded SQL page. Only safe names and exact project selectors reach the
 CLI; the full Web workspace topology, financial fields and directory paths are

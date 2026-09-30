@@ -1,6 +1,8 @@
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
+import time
 
 import pytest
 
@@ -12,6 +14,19 @@ from test_site_transport import http_endpoint, issuer, profile, invoke
 
 def sample():
     return json.loads((Path(__file__).resolve().parents[1] / "contracts/job-placement/v1/sample.json").read_text())
+
+
+def current_placement(value=None):
+    result = sample() if value is None else deepcopy(value)
+    now = datetime.now(timezone.utc)
+    utc = lambda delta: (now + timedelta(seconds=delta)).isoformat().replace("+00:00", "Z")
+    result["allocation"]["freshness"]["observed_at"] = utc(0)
+    if result["inventory"] is not None:
+        result["inventory"].update(published_at=utc(-10), expires_at=utc(300))
+        for node in result["nodes"]:
+            if node["registration"] is not None:
+                node["registration"].update(verified_at=utc(-20), valid_until=utc(200))
+    return result
 
 
 def parse(value):
@@ -115,7 +130,7 @@ def test_registration_references_rack_labels_and_returned_u_ranges_are_consisten
 def test_placement_exact_operation_and_two_origins(tmp_path, monkeypatch):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
-    value = sample()
+    value = current_placement()
     with http_endpoint(issuer) as (portal, issued), http_endpoint(lambda *_: (200, value)) as (gateway, reads):
         config = profile(tmp_path, portal, gateway)
         for command in (["--site", "site-a", "jobs", "placement", "12345_0"],
@@ -129,6 +144,45 @@ def test_placement_exact_operation_and_two_origins(tmp_path, monkeypatch):
     assert len(issued) == 1 and issued[0]["body"]["operation"] == "jobs.placement"
     assert issued[0]["body"]["job_id"] == "12345_0" and issued[0]["body"]["limit"] is None
     assert all(call["path"] == "/v1/site-read/jobs/12345_0/placement" and call["bearer"] is None for call in reads)
+
+
+@pytest.mark.parametrize("command", ["jobs", "runs"])
+@pytest.mark.parametrize("output_format", ["json", "table"])
+@pytest.mark.parametrize("expiry", ["inventory", "registration", "in-transit"])
+def test_placement_expired_at_receipt_has_no_output_or_weaker_retry(tmp_path, monkeypatch, command, output_format, expiry):
+    from test_run_placement import current_sample
+
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+
+    def response(*_):
+        payload = current_sample() if command == "runs" else current_placement()
+        value = payload["placement"] if command == "runs" else payload
+        now = datetime.now(timezone.utc)
+        utc = lambda delta: (now + timedelta(seconds=delta)).isoformat().replace("+00:00", "Z")
+        value["allocation"]["freshness"]["observed_at"] = utc(-2)
+        value["nodes"][0]["registration"]["valid_until"] = utc(.08 if expiry == "in-transit" else -1)
+        if expiry == "inventory":
+            value["inventory"]["expires_at"] = utc(-1)
+        parse(value)  # The response is internally valid for its original observation.
+        if expiry == "in-transit":
+            time.sleep(.15)
+        return 200, payload
+
+    def portal_response(call, count):
+        return issuer(call, count) if call["method"] == "POST" else response()
+
+    with http_endpoint(portal_response) as (portal, issued), http_endpoint(response) as (gateway, reads):
+        config = profile(tmp_path, portal, gateway)
+        selectors = (["12345_0", "--scope", "project-account", "--account", "project-example"]
+                     if command == "jobs" else ["run-example-1", "--workspace-key", "project:project-example"])
+        result, output, error = invoke(config, tmp_path, [command, "placement", *selectors, "--format", output_format])
+    assert result == 7 and output == ""
+    if output_format == "json":
+        assert json.loads(error)["error"]["code"] == "contract_invalid"
+    else:
+        assert error.startswith("ERROR [contract_invalid]:")
+    assert len(issued) == 1 and len(reads) == (1 if command == "jobs" else 0)
 
 
 @pytest.mark.parametrize("failure", ["wrong-operation", "source", "denied", "redirect"])

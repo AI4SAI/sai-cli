@@ -5,6 +5,10 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "task_placement": ("位置", "Location"), "command_placement": ("查看任务登记位置", "Read task registered location"),
+    "run_placement_disabled": ("本站未开放登记位置读取，任务仍可查看", "Registered location is disabled here; task records remain readable"),
+    "run_placement_failed": ("无法确认当前任务位置，F5 重试", "Current Run location could not be confirmed; F5 retries"),
+
     "stats": ("观测", "Stats"), "runtime_stats": ("运行观测", "Runtime stats"),
     "command_stats": ("读取任务运行观测", "Read task runtime stats"),
     "stats_available": ("已读取", "Read"), "stats_not_running": ("当前无适用的运行步骤", "No current running-step read"),
