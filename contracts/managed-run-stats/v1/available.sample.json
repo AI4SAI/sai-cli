@@ -1,0 +1,41 @@
+{
+  "schema_version": "compute.run-stats/v1",
+  "run_ref": "run-example-1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "source": "slurm_sstat",
+  "queried_at": "2030-01-01T00:06:02Z",
+  "status": "available",
+  "read_started_at": "2030-01-01T00:06:00Z",
+  "read_finished_at": "2030-01-01T00:06:01Z",
+  "sampled_at": null,
+  "execution": {
+    "sluid": "s0000000000001",
+    "submit_time": "2030-01-01T00:00:00Z",
+    "start_time": "2030-01-01T00:00:05Z",
+    "restart_count": 0,
+    "resize_time": null
+  },
+  "steps": [
+    {
+      "step_ref": "12345.batch",
+      "nodes": [
+        "compute-a"
+      ],
+      "task_count": 1,
+      "average_cpu_seconds": 240,
+      "average_rss_bytes": "1073741824",
+      "maximum_task_rss_bytes": "2147483648"
+    },
+    {
+      "step_ref": "12345.extern",
+      "nodes": [
+        "compute-a"
+      ],
+      "task_count": 1,
+      "average_cpu_seconds": null,
+      "average_rss_bytes": null,
+      "maximum_task_rss_bytes": null
+    }
+  ]
+}

@@ -67,6 +67,13 @@ scope and the same project financial visibility as the console. Portal validates
 the final graph and exact accounting incarnation; no client prices work or
 guesses a scheduler-ID-to-Run relationship.
 
+An explicit per-Run statistics read uses the same current actor/project/site
+READ owner. Portal derives native identity and correlation; the existing site-run
+helper permanently drops to the site's NSS user before fixed Slurm commands.
+TUI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
+existing owner-UID execution path, not a privilege fallback for the read gateway.
+No client executes Slurm or reconstructs whole-job utilization from step metrics.
+
 Readable project discovery uses the same current membership and site authority
 with a bounded SQL page. Only safe names and exact project selectors reach the
 CLI; the full Web workspace topology, financial fields and directory paths are

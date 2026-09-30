@@ -14,7 +14,7 @@ from rich.table import Table
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import ActiveBinding, Binding
 from textual.command import CommandPalette
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Grid, Horizontal, VerticalScroll
 from textual.events import Resize
 from textual.screen import Screen
 from textual.theme import Theme, ThemeProvider
@@ -32,6 +32,7 @@ from .managed_runs import (
     clean_tasks_workspace, terminal_log, ManagedRunWorkspaces,
 )
 from .run_cost import ManagedRunCost, cost_lines
+from .run_stats import ManagedRunStats, stats_lines
 from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
 from .overview_view import overview_panel
@@ -102,7 +103,9 @@ class Workbench(App, inherit_bindings=False):
     #details-scroll { height: 1fr; min-height: 4; border-top: solid $primary; }
     #details { height: auto; padding: 0 1; }
     #inspection-notice { height: auto; padding: 0 1; }
-    #task-evidence-actions Button { min-width: 0; }
+    #task-evidence-actions { grid-size: 6 1; grid-rows: 1; height: 1; }
+    #task-evidence-actions Button { min-width: 0; width: 1fr; }
+    .narrow-evidence #task-evidence-actions { grid-size: 3 2; grid-rows: 1 1; height: 2; }
     #task-artifact-hint { height: auto; padding: 0 1; }
     #task-artifacts { height: 1fr; min-height: 3; border: none; padding: 0 1; }
     #view-placement { height: 1; border: none; padding: 0 1; width: auto; }
@@ -164,6 +167,7 @@ class Workbench(App, inherit_bindings=False):
         self.task_cursor: str | None = None
         self.task_file_page: ManagedRunLogs | ManagedRunArtifacts | None = None
         self.task_cost: ManagedRunCost | None = None
+        self.task_stats: ManagedRunStats | None = None
         self.selected_artifact: tuple[ManagedRunArtifacts, str] | None = None
         self.task_projects: ManagedRunWorkspaces | None = None
         self.project_cursor: str | None = None
@@ -243,12 +247,13 @@ class Workbench(App, inherit_bindings=False):
                     yield Button(t("next"), id="projects-next", disabled=True, tooltip=t("more_projects"))
                 yield Static(t("projects_choose"), id="tasks-hint", classes="hint", markup=False)
                 yield DataTable(id="tasks-table", cursor_type="row")
-                with Horizontal(classes="controls", id="task-evidence-actions"):
+                with Grid(classes="controls", id="task-evidence-actions"):
                     yield Button(t("details"), id="task-detail", disabled=True)
                     yield Button(t("stdout"), id="task-stdout", disabled=True)
                     yield Button(t("stderr"), id="task-stderr", disabled=True)
                     yield Button(t("files"), id="task-files", disabled=True)
                     yield Button(t("cost"), id="task-cost", disabled=True, tooltip=t("command_cost"))
+                    yield Button(t("stats"), id="task-stats", disabled=True, tooltip=t("command_stats"))
                 with Horizontal(classes="controls", id="task-page-actions"):
                     yield Button(t("back"), id="task-back")
                     yield Button(t("first"), id="task-start", disabled=True)
@@ -351,7 +356,7 @@ class Workbench(App, inherit_bindings=False):
             and not (view == "resources" and selected)
             and not (view == "usage" and selected)
             and not (view == "jobs" and selected and self.job_mode in {"allocation", "placement"})
-            and not (view == "tasks" and (not self.tasks_workspace_key or self.task_mode in {"projects", "stdout", "stderr", "files", "cost"}))
+            and not (view == "tasks" and (not self.tasks_workspace_key or self.task_mode in {"projects", "stdout", "stderr", "files", "cost", "stats"}))
             and not (view == "storage" and self.storage_workspace_key is None))
         actions = {"refresh", "quit", "command_palette", "help_quit"}
         if automatic:
@@ -372,7 +377,7 @@ class Workbench(App, inherit_bindings=False):
         if view in {"jobs", "tasks", "resources"} and self._web_url is not None:
             actions.add("copy_web_link")
         if view == "tasks" and isinstance(result, ManagedRunDetail) and result.values["run"]["run_ref"] == self.selected_run:
-            actions.update("task_" + mode for mode in ("detail", "stdout", "stderr", "files", "cost"))
+            actions.update("task_" + mode for mode in ("detail", "stdout", "stderr", "files", "cost", "stats"))
         notice = self._failed_views.get(view, "")
         if not notice and not busy:
             if view == "resources" and self.catalog and not (self.catalog.values["compute"] or self.catalog.values["storage"]):
@@ -392,6 +397,7 @@ class Workbench(App, inherit_bindings=False):
         state = self._presentation()
         inspection = state.phase == "inspect"
         self.screen.set_class(inspection, "inspection")
+        self.screen.set_class(self.size.width < 60, "narrow-evidence")
         for name in ("job-scope-controls", "job-filter-controls"):
             self.query_one(f"#{name}").display = state.view in {"jobs", "usage"} and not inspection
         heading = self.query_one("#object-heading", Static)
@@ -426,8 +432,8 @@ class Workbench(App, inherit_bindings=False):
         self.query_one("#task-page-actions").display = self.task_mode != "projects"
         self.query_one("#task-back").display = state.view == "tasks" and inspection
         self.query_one("#open-task-web").display = state.view == "tasks" and inspection
-        self.query_one("#task-start").display = self.task_mode not in {"detail", "cost"}
-        self.query_one("#task-next").display = self.task_mode not in {"detail", "cost"}
+        self.query_one("#task-start").display = self.task_mode not in {"detail", "cost", "stats"}
+        self.query_one("#task-next").display = self.task_mode not in {"detail", "cost", "stats"}
         for name in ("jobs-hint",):
             self.query_one(f"#{name}").display = not (state.view == "jobs" and inspection)
         for name, action in (("view-job", "view_job"), ("view-allocation", "view_allocation"),
@@ -445,6 +451,7 @@ class Workbench(App, inherit_bindings=False):
         self.screen.set_focus(None)
         self.view = view
         self._clear_task_cost()
+        self._clear_task_stats()
         self.selected_resource = self._selected_resource_row = None
         self._discard_allocation()
         self._clear_task_files()
@@ -537,6 +544,8 @@ class Workbench(App, inherit_bindings=False):
                     if revision == self._revision:
                         if view == "tasks" and isinstance(result, ManagedRunWorkspaces):
                             self.task_projects = result
+                        elif view == "tasks" and isinstance(result, ManagedRunStats):
+                            self.task_stats = result
                         elif view == "tasks" and isinstance(result, ManagedRunCost):
                             self.task_cost = result
                         elif view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts)):
@@ -673,7 +682,7 @@ class Workbench(App, inherit_bindings=False):
             url = result.web_url(self.client.transport.base_url, artifact_page=page, artifact_ref=artifact_ref)
             self._show_web_link(url, self.t("web_file"))
         else:
-            self._show_web_link(result.web_url(self.client.transport.base_url, cost=self.task_mode == "cost"), self.t("web_task"))
+            self._show_web_link(result.web_url(self.client.transport.base_url, cost=self.task_mode == "cost", stats=self.task_mode == "stats"), self.t("web_task"))
 
     def action_copy_web_link(self) -> None:
         if self.view in {"jobs", "tasks", "resources"} and self._web_url is not None:
@@ -705,7 +714,7 @@ class Workbench(App, inherit_bindings=False):
                                     lambda: self._read_projects(self.task_projects.values["next_cursor"]))
             if not self.query_one("#task-next", Button).disabled:
                 yield SystemCommand(self.t("next"), self.t("more_pages"), lambda: self._task_page(start=False))
-        for mode in ("detail", "stdout", "stderr", "files", "cost"):
+        for mode in ("detail", "stdout", "stderr", "files", "cost", "stats"):
             if "task_" + mode in state.actions:
                 yield SystemCommand(self.t("command_" + mode), self.t("command_task_help"), lambda mode=mode: self._inspect_task(mode))
 
@@ -819,6 +828,11 @@ class Workbench(App, inherit_bindings=False):
         self.request_read()
         self.query_one("#tasks-table", DataTable).focus()
 
+    def _clear_task_stats(self) -> None:
+        self.task_stats = None
+        if self.view == "tasks" and self.task_mode == "stats":
+            self.query_one("#details", Static).update("")
+
     def _clear_task_cost(self) -> None:
         self.task_cost = None
         if self.view == "tasks" and self.task_mode == "cost":
@@ -885,7 +899,7 @@ class Workbench(App, inherit_bindings=False):
         busy = self._reading or self._pending
         rows = isinstance(result, ManagedRunList) and bool(result.values["items"])
         detail = isinstance(result, ManagedRunDetail) and result.values["run"]["run_ref"] == self.selected_run
-        for name in ("detail", "stdout", "stderr", "files", "cost"):
+        for name in ("detail", "stdout", "stderr", "files", "cost", "stats"):
             button = self.query_one(f"#task-{name}", Button)
             button.disabled = not (detail or (name == "detail" and rows))
             button.variant = "primary" if self.selected_run and self.task_mode == name else "default"
@@ -893,7 +907,7 @@ class Workbench(App, inherit_bindings=False):
         more = page is not None and bool(page.values.get("has_more") if isinstance(page, ManagedRunList)
             else page.values["truncated"] if isinstance(page, ManagedRunLogs) else not page.values["complete"])
         self.query_one("#task-next", Button).disabled = busy or not more or page.values.get("next_cursor") is None
-        self.query_one("#task-start", Button).disabled = busy or not self.tasks_workspace_key or self.task_mode in {"detail", "cost"}
+        self.query_one("#task-start", Button).disabled = busy or not self.tasks_workspace_key or self.task_mode in {"detail", "cost", "stats"}
         self.query_one("#open-task-web", Button).disabled = not self._can_open_task_web()
         self.query_one("#open-task-web", Button).tooltip = self.t("web_file" if self.selected_artifact else "web_task") + " (W)"
         self.query_one("#projects-next", Button).disabled = busy or self.task_projects is None or not self.task_projects.values["has_more"]
@@ -928,10 +942,11 @@ class Workbench(App, inherit_bindings=False):
         else:
             return
         self._clear_task_cost()
+        self._clear_task_stats()
         self.selected_run = run_ref
         self.task_mode, self.task_cursor = mode, None
         self._revision += 1
-        if mode == "cost":
+        if mode in {"cost", "stats"}:
             self._clear_artifact_selection()
             self.query_one("#task-artifacts").display = False
             self.query_one("#task-artifact-hint").display = False
@@ -943,7 +958,7 @@ class Workbench(App, inherit_bindings=False):
         self.query_one(f"#task-{mode}", Button).focus()
 
     def _task_page(self, *, start: bool) -> None:
-        if self.view != "tasks" or self.task_mode in {"detail", "cost"} or self.tasks_workspace_key is None:
+        if self.view != "tasks" or self.task_mode in {"detail", "cost", "stats"} or self.tasks_workspace_key is None:
             return
         button = self.query_one("#task-start" if start else "#task-next", Button)
         if button.disabled:
@@ -974,6 +989,8 @@ class Workbench(App, inherit_bindings=False):
                 return self.client.managed_run(run, **scope)
             if mode == "cost":
                 return self.client.managed_run_cost(run, **scope)
+            if mode == "stats":
+                return self.client.managed_run_stats(run, **scope)
             if mode in {"stdout", "stderr"}:
                 return self.client.managed_run_logs(run, **scope, stream=mode, cursor=cursor, max_bytes=65536)
             return self.client.managed_run_artifacts(run, **scope, cursor=cursor, limit=100)
@@ -999,6 +1016,7 @@ class Workbench(App, inherit_bindings=False):
         self.results.pop(view, None)
         if view == "tasks":
             self._clear_task_cost()
+            self._clear_task_stats()
             self._clear_web_link()
             self.selected_run = None
             self.task_mode = "list"
@@ -1042,10 +1060,17 @@ class Workbench(App, inherit_bindings=False):
         if view == "tasks" and self.task_mode == "cost" and not isinstance(error, AuthenticationError):
             if not isinstance(error, ForbiddenError) or error.code in {"run_cost_read_denied", "identity_scope_denied"}:
                 self._clear_task_cost()
+                self._clear_task_stats()
                 self._failed_views[view] = self.t("cost_denied" if isinstance(error, ForbiddenError) else "cost_failed")
                 self.query_one("#status", Static).update(self._failed_views[view])
                 self._sync_presentation()
                 return
+        if view == "tasks" and self.task_mode == "stats" and not isinstance(error, (AuthenticationError, ForbiddenError)):
+            self._clear_task_stats()
+            self._failed_views[view] = self.t("stats_failed")
+            self.query_one("#status", Static).update(self._failed_views[view])
+            self._sync_presentation()
+            return
         was_projects = view == "tasks" and self.task_mode == "projects"
         if view == "tasks" and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
             self._failed_views[view] = self.t("file_denied")
@@ -1103,7 +1128,11 @@ class Workbench(App, inherit_bindings=False):
 
     def _present(self, view: str, result: object) -> None:
         status = ""
-        if view == "tasks" and isinstance(result, ManagedRunCost):
+        if view == "tasks" and isinstance(result, ManagedRunStats):
+            self.query_one("#details", Static).update(Text("\n".join(stats_lines(result, self.language))))
+            status = self.t("file_status", mode=self.t("stats"), time=result.values["queried_at"])
+            self._update_task_actions()
+        elif view == "tasks" and isinstance(result, ManagedRunCost):
             self.query_one("#details", Static).update(Text("\n".join(cost_lines(result, self.language))))
             status = self.t("file_status", mode=self.t("cost"), time=result.values["queried_at"])
             self._update_task_actions()
@@ -1387,7 +1416,7 @@ class Workbench(App, inherit_bindings=False):
             self._read_projects(self.task_projects.values["next_cursor"])
         elif event.button.id == "task-back":
             self.action_back()
-        elif event.button.id in {"task-detail", "task-stdout", "task-stderr", "task-files", "task-cost"}:
+        elif event.button.id in {"task-detail", "task-stdout", "task-stderr", "task-files", "task-cost", "task-stats"}:
             self._inspect_task(event.button.id.removeprefix("task-"))
         elif event.button.id in {"task-start", "task-next"}:
             self._task_page(start=event.button.id == "task-start")
@@ -1502,7 +1531,8 @@ class Workbench(App, inherit_bindings=False):
         if self.view == "tasks":
             self._revision += 1
             self._clear_task_cost()
-            if self.task_mode != "cost":
+            self._clear_task_stats()
+            if self.task_mode not in {"cost", "stats"}:
                 self._clear_task_files()
         if self.view == "jobs":
             self._revision += 1

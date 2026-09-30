@@ -169,6 +169,13 @@ establish that authorization boundary.
 
 ### Managed tasks
 
+`runs stats RUN_REF` uses compute READ and the same project/site selectors.
+The serialized TUI reader keeps a separate manual statistics snapshot: F5 replaces
+it, and scope/Run/mode changes discard late responses. W adds `view=stats` to the
+same Run's console URL, without metrics or file selectors. Source failure clears
+statistics; Run READ denial clears Tasks and authentication failure clears all
+protected views. See [the statistics contract](../contracts/managed-run-stats/v1/README.md).
+
 `runs cost RUN_REF` is an explicit, independently authorized final-cost read,
 requiring `sai.billing.read`. The TUI Cost mode reads one observation manually.
 Task-scope revocation clears Tasks; a cost-only refusal clears the amount view

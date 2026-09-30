@@ -639,6 +639,21 @@ when adding the scope to managed configuration. Updating the CLI package does
 not overwrite managed configuration or grant a new scope to cached sessions.
 The registered scope remains subject to Portal authorization on every read.
 
+## Native managed Run statistics
+
+`GET /v1/compute/cli/runs/{run_ref}/stats` accepts only `workspace_key` and
+`site_id`, with `sai.compute.read` and current actor-owned Run/project/site/CLI
+admission. The browser uses `/v1/account/compute/runs/{run_ref}/stats`; Pilot
+uses its existing Session read identity and internal `run.stats` operation.
+The shared [compute.run-stats/v1 contract](../contracts/managed-run-stats/v1/README.md)
+returns step-specific CPU/RSS observations, nullable native facts and query window.
+Read permission is independent of file ACL, payer eligibility and model renewal.
+CLI never receives the dedicated site-agent credential or chooses the native user,
+job, account or correlation marker. Runtime SLUID plus before/after allocation
+and step metadata protect the observation's execution binding. No history fallback,
+GPU metric or per-node utilization is synthesized. The initial native parser is
+fixed to Slurm 26.05.1 / data_parser v0.0.45; other versions are unavailable.
+
 ## Native storage quota
 
 `storage native-quota` requires a trusted `site_read_base_url`. The CLI sends

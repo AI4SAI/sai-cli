@@ -285,6 +285,13 @@ read client. These references do not establish complete product acceptance.
 
 ## Validation and remaining work
 
+Statistics is an explicit task mode, alongside history, logs, files and cost.
+It uses the same scoped reader and a separate manual observation. The six mode
+buttons stay visible as a 3×2 grid below 60 columns and one row otherwise. Step
+CPU/RSS facts precede provenance in short windows; null metrics stay unknown,
+CPU time never gets a percent sign, and the query window is not native sample
+time. This keeps the existing teal theme, bilingual labels and keyboard rules.
+
 Headless tests exercise the real HTTP client through resource comparison,
 partition selection, detail/allocation requests and independently denied estimates.
 Allocation tests use separate local Portal and gateway HTTP origins, array tasks

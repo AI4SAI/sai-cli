@@ -142,7 +142,7 @@ def test_project_keyboard_discovery_and_narrow_task_return_over_http(tmp_path, l
                 await pilot.pause(.05)
                 assert table.display == (width >= 100 and height >= 28)
                 pane = app.query_one("#details-scroll")
-                assert pane.region.height >= height // 2
+                assert pane.region.height >= max(6, height // 2 - 1)
                 descriptions = [key.description for key in app.query_one(Footer).query("FooterKey")]
                 assert descriptions == [Messages(language)(key) for key in ("refresh", "back", "open_web", "palette")]
                 for name in ("task-detail", "task-stdout", "task-stderr", "task-files", "task-back", "open-task-web"):

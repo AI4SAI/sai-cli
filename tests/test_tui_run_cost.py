@@ -74,7 +74,7 @@ def test_cost_is_explicit_manual_and_readable_at_all_terminal_sizes(tmp_path, mo
                     region = app.query_one(f"#task-{name}").region
                     assert 0 <= region.x < region.right <= width and region.bottom < height
                 pane = app.query_one("#details-scroll").region
-                assert pane.height >= height // 2
+                assert pane.height >= max(6, height // 2 - 1)
                 visible = "\n".join(strip.text for strip in app.screen._compositor.render_strips())
                 assert "10.00000000" in visible and "3.00000000" in visible
                 app.save_screenshot(str(tmp_path/f"cost-{language}-{width}x{height}.svg"))

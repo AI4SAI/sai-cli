@@ -226,6 +226,17 @@ fails closed.
 
 ## Network and rollout boundary
 
+Managed Run step statistics use the existing owner-UID site-run path described
+in [the digital twin design](digital-twin-design.md), independently of this
+capability gateway. The low-privilege gateway cannot assume `sstat` permission.
+Portal obtains current actor-owned Run READ, derives exact native selectors and
+uses the existing dedicated interactive-read credential. The fixed helper drops
+privileges before reading; it adds no gateway sudo rule, collector or cache.
+Its total native budget is 15 seconds, 4 MiB stdout/stderr and 16 commands; the
+HTTP receipt is bounded to 1 MiB. Oversize or incomplete observations fail closed.
+Client JSON and three UI views share `compute.run-stats/v1`. This implementation
+does not establish paired package installation or live application-chain proof.
+
 A relay may be used for center/satellite topology, but it only forwards the
 request and response. It does not authorize, read Slurm, calculate money, or
 hold a shared site-agent secret. Both center and satellite use the same gateway

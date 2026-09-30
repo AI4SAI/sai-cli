@@ -18,6 +18,7 @@ from .managed_runs import (
     clean_run_ref, clean_tasks_workspace,
 )
 from .run_cost import ManagedRunCost
+from .run_stats import ManagedRunStats
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, clean_workspace_key
@@ -441,6 +442,11 @@ class PortalClient:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref)
         return ManagedRunDetail.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
                                             run_ref=run_ref, request_id=response.request_id)
+
+    def managed_run_stats(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunStats:
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/stats")
+        return ManagedRunStats.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+                                           run_ref=run_ref, request_id=response.request_id)
 
     def managed_run_cost(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunCost:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref, suffix="/billing")

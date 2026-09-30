@@ -130,6 +130,9 @@ are candidate designs, not completed implementation milestones.
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Explicit per-Run final cost with shared Portal graph validation, independent
   billing permission, role-filtered funding components and console continuation
+- [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
+  owner-UID Slurm reads, execution/step coverage checks and unknown sample time
+- [ ] Paired installation and real-site acceptance of native Run statistics
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
   states

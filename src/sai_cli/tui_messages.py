@@ -5,6 +5,20 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "stats": ("观测", "Stats"), "runtime_stats": ("运行观测", "Runtime stats"),
+    "command_stats": ("读取任务运行观测", "Read task runtime stats"),
+    "stats_available": ("已读取", "Read"), "stats_not_running": ("当前无适用的运行步骤", "No current running-step read"),
+    "stats_unavailable": ("无法建立可靠观测", "Observation unavailable"),
+    "stats_meaning": ("按步骤统计，非利用率或总内存。", "Per step, not utilization/total RSS."),
+    "stats_cpu": ("平均累计 CPU 秒", "Mean cumulative CPU seconds"),
+    "stats_rss": ("平均任务 RSS 字节", "Mean task RSS bytes"),
+    "stats_max_rss": ("单任务峰值 RSS 字节", "Peak task RSS bytes"),
+    "stats_tasks": ("任务数", "Task count"), "stats_window": ("读取窗口 UTC", "Read window UTC"),
+    "stats_no_read": ("未调用原生读取", "No native read"),
+    "stats_sample_unknown": ("Slurm sstat · 原生采样时间未知", "Slurm sstat · native sampling time unknown"),
+    "stats_resize": ("资源调整时间 UTC", "Resize time UTC"),
+    "stats_failed": ("运行观测暂时无法读取，F5 重试", "Runtime stats could not be read; F5 retries"),
+
     "cost": ("费用", "Cost"), "final_cost": ("最终费用", "Final cost"),
     "cost_pending": ("待结算", "Pending settlement"), "cost_settled": ("已结算", "Settled"),
     "cost_unavailable": ("暂无法确认最终费用", "Final cost is unavailable"),

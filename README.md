@@ -26,6 +26,10 @@ The first implementation milestone is intentionally read-only:
   final cost, independently of task metadata. It requires `sai.billing.read`
   and current project access; funding details follow the same financial
   visibility as the console. Missing amounts remain unknown.
+- `sai runs stats RUN_REF --workspace-key project:example` reads an explicit
+  native step observation: average cumulative CPU seconds and step task RSS.
+  It uses compute READ, independently of file and billing access. Unknown
+  values remain null; these are not GPU or whole-node utilization metrics.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.
 - `sai storage quota-summary --workspace-key org:example` reads authorized
@@ -79,6 +83,11 @@ Tasks also has an explicit Cost mode. It shows standard usage, cash, Credit and
 coverage only when authorized, using the shared final-cost contract. F5 replaces
 the observation; W opens the same task's Cost tab in the console. A cost-only
 refusal preserves readable task metadata. Cancellation never implies zero cost.
+
+Tasks also has a manual Statistics mode. F5 replaces its observation and W opens
+the same Run's Statistics tab in the console. Each step retains its node coverage,
+query window and execution evidence. The native sample time is unknown. The six
+task-mode buttons use two rows in narrow windows.
 
 The six views share browse, inspection and summary layouts. Selected evidence
 gets the main area in narrow or short terminals, with the current object above

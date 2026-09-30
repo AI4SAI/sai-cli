@@ -199,15 +199,16 @@ class ManagedRunList(ManagedReadResult):
 @dataclass(frozen=True)
 class ManagedRunDetail(ManagedReadResult):
     def web_url(self, base_url: str, *, artifact_page: ManagedRunArtifacts | None = None,
-                artifact_ref: str | None = None, cost: bool = False) -> str:
+                artifact_ref: str | None = None, cost: bool = False, stats: bool = False) -> str:
         origin = urlsplit(base_url)
         route = (f"/portal/workspaces/{quote(self.values['workspace_key'], safe='')}/"
                  f"{quote(self.values['site_id'], safe='')}/runs")
         query = {"run_ref": self.values["run"]["run_ref"]}
-        if type(cost) is not bool or (cost and (artifact_page is not None or artifact_ref is not None)):
-            raise ConfigError("cost continuation cannot include a file selection")
-        if cost:
-            query["view"] = "cost"
+        if (type(cost) is not bool or type(stats) is not bool or (cost and stats)
+                or ((cost or stats) and (artifact_page is not None or artifact_ref is not None))):
+            raise ConfigError("run continuation must select one view without a file selection")
+        if cost or stats:
+            query["view"] = "cost" if cost else "stats"
         if artifact_page is not None or artifact_ref is not None:
             if not isinstance(artifact_page, ManagedRunArtifacts) or not isinstance(artifact_ref, str):
                 raise ConfigError("file continuation requires a current file page and reference")

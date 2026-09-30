@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One authorized managed Run native step observation",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "maxLength": 64,
+      "format": "date-time",
+      "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "bytecount": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^(?:0|[1-9][0-9]*)$",
+      "not": {
+        "pattern": "[^0-9]"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_ref",
+    "workspace_key",
+    "site_id",
+    "source",
+    "queried_at",
+    "status",
+    "read_started_at",
+    "read_finished_at",
+    "sampled_at",
+    "execution",
+    "steps"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "compute.run-stats/v1"
+    },
+    "run_ref": {
+      "$ref": "#/$defs/reference"
+    },
+    "workspace_key": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 128,
+      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "source": {
+      "const": "slurm_sstat"
+    },
+    "queried_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "not_running",
+        "unavailable"
+      ]
+    },
+    "read_started_at": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "read_finished_at": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sampled_at": {
+      "type": "null"
+    },
+    "execution": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "sluid",
+            "submit_time",
+            "start_time",
+            "restart_count",
+            "resize_time"
+          ],
+          "properties": {
+            "sluid": {
+              "type": "string",
+              "pattern": "^s[0-9A-HJKMNP-TV-Z]{13}$",
+              "minLength": 14,
+              "maxLength": 14,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              }
+            },
+            "submit_time": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "start_time": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "restart_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "resize_time": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "step_ref",
+          "nodes",
+          "task_count",
+          "average_cpu_seconds",
+          "average_rss_bytes",
+          "maximum_task_rss_bytes"
+        ],
+        "properties": {
+          "step_ref": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64,
+            "pattern": "^[1-9][0-9]{0,19}\\.(?:0|[1-9][0-9]*|batch|extern|interactive)$",
+            "not": {
+              "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+            }
+          },
+          "nodes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              }
+            }
+          },
+          "task_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "average_cpu_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "average_rss_bytes": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/bytecount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maximum_task_rss_bytes": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/bytecount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "available"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "sluid",
+              "submit_time",
+              "start_time",
+              "restart_count",
+              "resize_time"
+            ],
+            "properties": {
+              "sluid": {
+                "type": "string",
+                "pattern": "^s[0-9A-HJKMNP-TV-Z]{13}$",
+                "minLength": 14,
+                "maxLength": 14,
+                "not": {
+                  "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+                }
+              },
+              "submit_time": {
+                "$ref": "#/$defs/timestamp"
+              },
+              "start_time": {
+                "$ref": "#/$defs/timestamp"
+              },
+              "restart_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "resize_time": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/timestamp"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "read_started_at": {
+            "$ref": "#/$defs/timestamp"
+          },
+          "read_finished_at": {
+            "$ref": "#/$defs/timestamp"
+          },
+          "steps": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "execution": {
+            "type": "null"
+          },
+          "steps": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "read_started_at": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "read_finished_at": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "read_finished_at": {
+            "$ref": "#/$defs/timestamp"
+          }
+        }
+      }
+    }
+  ]
+}
