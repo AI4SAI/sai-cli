@@ -45,3 +45,9 @@ placement parser and renderer, then check wrapper scope/execution agreement.
 The source slice adds no GPU telemetry, geometry, new native helper, collector,
 state database or scheduler/asset mutation. Local proof is separate from a
 paired production installation and real asset verification.
+
+Paired source commits, independently of deployment:
+
+- Portal producer: `11ac8aa6efb412b8130632b6a4e0a42ebdb93249`.
+- CLI/TUI consumer: `fb7111c2e29014389631b06aa4240f87ab9c6e86`.
+- Pilot consumer: `f43d71e2102fb61bf67913f6a550aa44eb58f47b`.
