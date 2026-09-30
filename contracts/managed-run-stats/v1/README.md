@@ -56,3 +56,9 @@ Unsupported source versions fail closed. The samples are synthetic. Shared JSON
 fields are allowlisted before display; unknown additive fields never confer
 permission. No GPU measurements, device UUID mapping, physical placement,
 whole-site telemetry, trends or additional 3D geometry are implemented here.
+
+Paired source commits (not deployment pins):
+
+- Portal producer: `129e08a4eadc5e23462a5e670926260640bfe2bf`.
+- CLI/TUI consumer: `51875d13c60dbf22f77a3dfbe84f3d6e49aed5eb`.
+- Pilot consumer: `f8882f326f69eb0636fa0ac4a0485614329cb6af`.
