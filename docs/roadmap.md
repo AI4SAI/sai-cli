@@ -149,7 +149,10 @@ the HTTP timeout. Only estimates have local snapshot pages, not job-history
 pagination. Managed Tasks have server keyset pages and an exact Web detail link.
 Selected output continuation through the console to the original Pilot Session
 is implemented locally, using fresh reads and native preview/input actions.
-Settled billing association and live resource views remain unfinished.
+Explicit final-cost association is implemented. Estimate-to-final replacement,
+live usage statistics and full resource views remain unfinished. Native task
+statistics have passed a bounded owner-identity preflight; the proposed managed
+Run read/helper path is documented and is not yet an implemented endpoint.
 Native storage shows authorized quota subjects,
 not an organization pool aggregate; this is not the full workbench.
 

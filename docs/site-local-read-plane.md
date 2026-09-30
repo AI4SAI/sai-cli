@@ -71,6 +71,18 @@ redirects and responses above 1 MiB; the log content itself is at most 64 KiB
 and an output page at most 100 files. This does not create a file capability in
 the native jobs/quota gateway or a second filesystem reader.
 
+Native task statistics have a different Slurm identity boundary. A bounded
+26.05.1 preflight found `sstat` denied for the existing site-read service UID,
+with exit status zero despite node-level errors. Reading another running job
+as its actual owner succeeded. No gateway permission or service was changed.
+The next candidate therefore uses the existing managed-Run interactive-read
+route and permanent UID-dropping `sai-site-run` helper, with a new explicit
+read-only operation. It is not a gateway retry or privilege fallback. Scope,
+native job owner/account/correlation and before/after execution/allocation
+evidence must agree. Unknown metric values remain unknown. The client never
+executes `sstat` itself. No statistics endpoint or collector is implemented yet;
+see [the digital-twin design](digital-twin-design.md) for fixed-version semantics.
+
 The outer token is exactly the `sai-authz` v1 envelope. Product fields are the
 typed `interactive-read-grant.v1` payload:
 
