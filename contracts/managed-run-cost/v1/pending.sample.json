@@ -1,0 +1,22 @@
+{
+  "schema_version": "compute.run-cost/v1",
+  "run_ref": "run-example-1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "source": "portal_final_billing",
+  "queried_at": "2030-01-01T00:06:00Z",
+  "status": "pending",
+  "currency": "CNY",
+  "settled_at": null,
+  "cash_visible": true,
+  "amounts": {
+    "gross_amount": null,
+    "cash_amount": null,
+    "sai_credit_cny_equivalent_amount": null,
+    "sai_credit_amount": null,
+    "reservation_coverage_amount": null,
+    "price_adjustment_amount": null,
+    "quantity": null
+  },
+  "unit_name": null
+}

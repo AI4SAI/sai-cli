@@ -22,6 +22,10 @@ The first implementation milestone is intentionally read-only:
 - `sai runs list/show/logs/files --workspace-key project:example` reads your
   managed computations, including completed runs, bounded logs and output-file
   metadata. Task records and current file reads remain separate sources.
+- `sai runs cost RUN_REF --workspace-key project:example` explicitly reads
+  final cost, independently of task metadata. It requires `sai.billing.read`
+  and current project access; funding details follow the same financial
+  visibility as the console. Missing amounts remain unknown.
 - `sai resources catalog` reads the same published compute and storage catalog
   used by WebUI and the SAI Pilot resource tool.
 - `sai storage quota-summary --workspace-key org:example` reads authorized
@@ -70,6 +74,11 @@ start Pilot, renew its model window, submit work or grant file access.
 In Files, Enter confirms a file and W opens the same output page in the console.
 The console can explicitly continue into the original Pilot Session for native
 preview or an editable analysis request, with fresh permissions at each step.
+
+Tasks also has an explicit Cost mode. It shows standard usage, cash, Credit and
+coverage only when authorized, using the shared final-cost contract. F5 replaces
+the observation; W opens the same task's Cost tab in the console. A cost-only
+refusal preserves readable task metadata. Cancellation never implies zero cost.
 
 The six views share browse, inspection and summary layouts. Selected evidence
 gets the main area in narrow or short terminals, with the current object above

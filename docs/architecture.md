@@ -61,8 +61,11 @@ Managed-run reads reuse Portal's existing ComputeRun records and readback
 services. The CLI supplies an explicit project/site and reads only its own runs;
 current project membership/site and CLI read admission are independent of
 submission, payer activation and Pilot Session grants. State is a persisted
-execution receipt, not a refreshed Slurm queue observation. It includes no final
-billing projection. No scheduler-ID-to-Run relationship is guessed.
+execution receipt, not a refreshed Slurm queue observation. Metadata includes no
+final billing projection. An independent per-Run cost read requires billing
+scope and the same project financial visibility as the console. Portal validates
+the final graph and exact accounting incarnation; no client prices work or
+guesses a scheduler-ID-to-Run relationship.
 
 Readable project discovery uses the same current membership and site authority
 with a bounded SQL page. Only safe names and exact project selectors reach the

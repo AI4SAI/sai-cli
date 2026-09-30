@@ -1,0 +1,22 @@
+{
+  "schema_version": "compute.run-cost/v1",
+  "run_ref": "run-example-1",
+  "workspace_key": "project:project-example",
+  "site_id": "site-a",
+  "source": "portal_final_billing",
+  "queried_at": "2030-01-01T00:06:00Z",
+  "status": "settled",
+  "currency": "CNY",
+  "settled_at": "2030-01-01T00:05:45Z",
+  "cash_visible": true,
+  "amounts": {
+    "gross_amount": "10.00000000",
+    "cash_amount": "3.00000000",
+    "sai_credit_cny_equivalent_amount": "4.00000000",
+    "sai_credit_amount": "400.00000000",
+    "reservation_coverage_amount": "0.00000000",
+    "price_adjustment_amount": "3.00000000",
+    "quantity": "2.00000000"
+  },
+  "unit_name": "gpu_hour"
+}

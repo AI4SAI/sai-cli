@@ -169,6 +169,13 @@ establish that authorization boundary.
 
 ### Managed tasks
 
+`runs cost RUN_REF` is an explicit, independently authorized final-cost read,
+requiring `sai.billing.read`. The TUI Cost mode reads one observation manually.
+Task-scope revocation clears Tasks; a cost-only refusal clears the amount view
+while task metadata remains usable. Its Web continuation adds only `view=cost`
+to the exact Run link. File-selection parameters and cost mode are mutually
+exclusive. See [the shared cost contract](../contracts/managed-run-cost/v1/README.md).
+
 `runs list`, `runs show RUN_REF`, `runs logs RUN_REF` and `runs files RUN_REF`
 require `--workspace-key project:ID` and the configured or explicit site. The
 current producer owns project-backed ComputeRuns. These commands reject an

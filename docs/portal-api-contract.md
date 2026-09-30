@@ -30,6 +30,13 @@ resolution and operation-bound capability; a jobs-only session cannot read
 cost estimates. Scope expansion requires explicit authorization, not an
 automatic refresh that silently increases access.
 
+Managed Run final cost has its own explicit Identity-only
+`GET /v1/compute/cli/runs/{run_ref}/billing?workspace_key=...&site_id=...`.
+It requires `sai.billing.read` and current actor-owned Run/project/site/CLI
+admission. The [compute.run-cost/v1 contract](../contracts/managed-run-cost/v1/README.md)
+is shared with the console and Pilot. Metadata and file endpoints keep their
+existing scopes. Cost access does not extend a Session or enable submission.
+
 The pre-Identity compatibility bootstrap currently retained by Portal uses:
 
 ```text

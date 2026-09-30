@@ -5,6 +5,21 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "cost": ("费用", "Cost"), "final_cost": ("最终费用", "Final cost"),
+    "cost_pending": ("待结算", "Pending settlement"), "cost_settled": ("已结算", "Settled"),
+    "cost_unavailable": ("暂无法确认最终费用", "Final cost is unavailable"),
+    "cost_not_chargeable": ("不计费", "Not chargeable"),
+    "cost_gross": ("标准金额", "Standard amount"), "cost_cash": ("现金支出", "Cash charged"),
+    "credit_unit": ("点", "points"), "cost_coverage": ("预留覆盖", "Reserved coverage"),
+    "cost_adjustment": ("价格调整", "Price adjustment"), "cost_quantity": ("计费用量", "Quantity"),
+    "cost_settled_at": ("结算时间", "Settled at"),
+    "cost_funding_hidden": ("资金分项无查看权限", "Funding components are not visible"),
+    "cost_source": ("Portal 最终账务记录", "Portal final billing records"),
+    "cost_denied": ("无费用读取权限；任务和文件权限不变", "Cost read is not authorized; task and file access are separate"),
+    "cost_failed": ("费用暂时无法读取，F5 重试", "Cost could not be read; F5 retries"),
+    "command_cost": ("读取任务最终费用", "Read task final cost"),
+    "stdout_short": ("输出", "Stdout"), "stderr_short": ("错误", "Stderr"), "files_short": ("文件", "Files"),
+
     "empty_estimates": ("当前范围没有运行预估", "No running estimates in this scope"),
     "retry_hint": ("F5 重新读取；也可切换范围或视图", "F5 retries; you can also change scope or view"),
     "prepare_short": ("准备", "Prepare"), "file_web_short": ("查看文件", "View file"),

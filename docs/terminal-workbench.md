@@ -148,6 +148,15 @@ bounded explanation and retry action visible after protected data is cleared.
 
 ## Managed tasks and output pages
 
+Cost is an explicit mode of the selected task, with its own current billing
+permission. It presents one final-cost observation and does not poll. Standard
+usage, cash, Credit equivalent/points, reserved coverage and price adjustment
+come from Portal's shared validator and formatter. Hidden funding components
+are omitted; pending/unavailable/non-chargeable responses carry no invented
+amounts. A cost-only denial leaves task metadata readable, while Run-scope
+revocation and authentication failure keep the existing protected-data cleanup.
+W opens the exact Run's Cost tab without putting amounts in the URL.
+
 Tasks keeps an explicit project workspace independent of Jobs and Storage.
 Choose a readable project by its authorized name. Project choices are bounded
 pages; More projects reads the next page and selecting a project applies it.
@@ -301,7 +310,9 @@ or infer that undisplayed positions are empty. Synthetic inventory and local
 HTTP/browser tests do not verify a current physical machine or location.
 
 The full [unified workbench](unified-workbench.md) still needs richer resource
-eligibility, final-cost association and hardware telemetry. Managed task history,
+eligibility, estimate-to-final replacement and hardware telemetry. Explicit
+Run cost now uses verified final-fact association and independent financial
+visibility; this is not deployed billing acceptance. Managed task history,
 logs and output listings reuse the existing Run/readback contracts; selected
 outputs can continue through the console into their original Pilot Session.
 Local continuation checks do not establish deployed or real-site acceptance.

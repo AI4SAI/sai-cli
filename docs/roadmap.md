@@ -128,6 +128,8 @@ are candidate designs, not completed implementation milestones.
   Back and polling-aware actions; local rendered and HTTP checks
 - [ ] SSH terminal diversity and long-session experience acceptance
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
+- [x] Explicit per-Run final cost with shared Portal graph validation, independent
+  billing permission, role-filtered funding components and console continuation
 - [x] Local-state keyboard interactions and serialized asynchronous refresh
 - [ ] Stale-while-revalidate, cancellation, pagination, and bounded empty/error
   states

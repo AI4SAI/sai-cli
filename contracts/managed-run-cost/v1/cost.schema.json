@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One authorized managed Run final cost",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "maxLength": 64,
+      "format": "date-time",
+      "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "amount": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.[0-9]{8}$",
+      "maxLength": 64,
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_ref",
+    "workspace_key",
+    "site_id",
+    "source",
+    "queried_at",
+    "status",
+    "currency",
+    "settled_at",
+    "cash_visible",
+    "amounts",
+    "unit_name"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "compute.run-cost/v1"
+    },
+    "run_ref": {
+      "$ref": "#/$defs/reference"
+    },
+    "workspace_key": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 128,
+      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      }
+    },
+    "source": {
+      "const": "portal_final_billing"
+    },
+    "queried_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "settled",
+        "unavailable",
+        "not_chargeable"
+      ]
+    },
+    "currency": {
+      "const": "CNY"
+    },
+    "settled_at": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cash_visible": {
+      "type": "boolean"
+    },
+    "amounts": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "gross_amount",
+        "cash_amount",
+        "sai_credit_cny_equivalent_amount",
+        "sai_credit_amount",
+        "reservation_coverage_amount",
+        "price_adjustment_amount",
+        "quantity"
+      ],
+      "properties": {
+        "gross_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sai_credit_cny_equivalent_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sai_credit_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reservation_coverage_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "price_adjustment_amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "unit_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "settled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "amounts": {
+            "properties": {
+              "gross_amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "quantity": {
+                "$ref": "#/$defs/amount"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "settled_at": {
+            "type": "null"
+          },
+          "unit_name": {
+            "type": "null"
+          },
+          "amounts": {
+            "properties": {
+              "gross_amount": {
+                "type": "null"
+              },
+              "cash_amount": {
+                "type": "null"
+              },
+              "sai_credit_cny_equivalent_amount": {
+                "type": "null"
+              },
+              "sai_credit_amount": {
+                "type": "null"
+              },
+              "reservation_coverage_amount": {
+                "type": "null"
+              },
+              "price_adjustment_amount": {
+                "type": "null"
+              },
+              "quantity": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cash_visible": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "amounts": {
+            "properties": {
+              "cash_amount": {
+                "type": "null"
+              },
+              "sai_credit_cny_equivalent_amount": {
+                "type": "null"
+              },
+              "sai_credit_amount": {
+                "type": "null"
+              },
+              "reservation_coverage_amount": {
+                "type": "null"
+              },
+              "price_adjustment_amount": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "settled"
+          },
+          "cash_visible": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "amounts": {
+            "properties": {
+              "cash_amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "sai_credit_cny_equivalent_amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "sai_credit_amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "reservation_coverage_amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "price_adjustment_amount": {
+                "$ref": "#/$defs/amount"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
