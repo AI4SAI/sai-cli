@@ -39,7 +39,12 @@ uses temporary signing inputs and is separate from this release gate.
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
 storage, Run statistics, GPU telemetry and 3D are independent slices, not
-prerequisites for basic job reads. Pricing is optional for a jobs-only gateway.
+prerequisites for basic job reads. The unified observation candidate keeps
+pricing at Center and requires no site price bundle.
+
+- [ ] Pair and publish the [unified job-observation candidate](billing-read-plane.md):
+  same-observation optional Portal estimates and complete billing/v1 gateway reads;
+  existing CLI/TUI layouts and the basic production acceptance remain separate.
 
 The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 preserves explicit user site choice and permits independent or shared ingress.
@@ -222,9 +227,8 @@ font diversity or unbounded long-session stability.
   exact job operations, allocation and independent billing/storage reads
 - [x] Control-plane issuer compatibility vectors and capability/filter negative
   checks against the separately packaged site gateway
-- [x] Independent `billing.running-estimate` grant and gateway read contract;
-  job visibility grants no billing permission, and missing pricing returns
-  explicit unavailable/null amounts
+- [x] Independent `billing.running-estimate` grant; job visibility grants no
+  billing permission, and Center-owned missing prices remain unavailable/null
 - [x] Native on-demand job reads, request-bound filtering, ETag and freshness;
   no dependency on the billing collector's cluster-wide snapshot
 - [x] Shared allocation schema/sample and real local HTTP/native-substitute

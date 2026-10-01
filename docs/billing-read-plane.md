@@ -1,18 +1,18 @@
 # SAI Billing / Interactive Read Plane
 
-Status: semantic architecture frozen 2026-09-02; producer, gateway, and
-deployment gates remain explicit.
+Status: unified native observation and Portal presentation implementation
+candidate; paired production release pending.
 
 This is the cross-product boundary for `sai-cli`, `sai-pilot`, Portal, and site
-runtime. The phase-one production path is the Portal server-bound CLI surface;
-the site-local gateway is the next transport using the same capability and DTO
-contracts. Network routing may differ between a center and a satellite site,
-but product semantics do not.
+runtime. Native job facts come from the capability gateway; Portal remains the
+only price owner. Network routing may differ by site, but product semantics do
+not. Existing production evidence is recorded in the
+[basic connection](site-local-read-plane.md#basic-production-connection).
 
 ```text
 client (CLI/Pilot)
   -> Portal: user session, capability issuance, pricing authority, settled facts
-  -> site-read gateway: capability-bound live facts and gross running estimate
+  -> site-read gateway: capability-bound native observations
   -> native Slurm readers
 site observations -> Portal operation worker -> exposure/settlement
 ```
@@ -22,22 +22,20 @@ site observations -> Portal operation worker -> exposure/settlement
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | `sai-authz` | Ed25519 capability envelope issue/verify | users, policy, key distribution, billing decisions |
-| Portal | identity, membership, site/account policy, issuer, pricing authority, settled facts, audit persistence, and the phase-one server-bound read surface | site-local cache ownership and native reads in the target gateway path |
+| Portal | actor binding, membership, site/account policy, issuer, pricing, settled facts and issuance audit | Identity credentials and native scheduler access |
 | Site-read gateway | envelope verification, claim narrowing, native read adapter, short cache, bounded audit buffer | membership/RBAC decisions, wallet/ledger writes, provisioning or scheduler writes |
-| Billing contract/kernel | versioned DTOs and deterministic gross arithmetic | ORM, HTTP, wallet ownership, final settlement |
+| Billing contract/kernel | versioned DTOs and deterministic arithmetic used by Portal | independent price policy or final settlement |
 | `sai-cli` / `sai-pilot` | explicit intent, bootstrap/renewal, transport, allowlist validation, presentation | Slurm access, price calculation, wallet/ledger access, authorization policy |
 
-In the target low-latency path, running facts and estimates come from the
-site-read gateway. In phase one, the server-bound Portal surface reuses the
-same authorized adapter and returns the same semantics. An estimate is always
-`final=false` and is never a charge. Cash, Credit, allowance coverage, and
-final settlement remain Portal-owned. The `billing.running-estimate/v1` DTO may
-include a bounded before-credit estimate, but never a charge, balance, or
-settlement fact.
+The gateway and clients do not calculate prices. Portal applies its existing
+start-time pricing and payer visibility rules to the returned observation.
+An estimate is always `final=false`; gross and before-credit prices are two
+views of the same usage, not amounts to add together or to a settled charge.
+Cash, Credit, allowance coverage, exposure and settlement remain Portal-owned.
 
 Interactive reads never create exposure, allowance, wallet, ledger, or payment
-rows. A separate site collector sends idempotent observation batches at
-transition/checkpoint cadence; that worker owns persistence.
+rows. Existing billing workers retain observation, exposure and settlement
+writes; this candidate adds no collector or business database.
 
 ## Capability binding
 
@@ -47,35 +45,52 @@ bindings are:
 
 | Audience | Surface | Exact operations |
 | --- | --- | --- |
-| `sai-site-read` | `site-read` | `jobs.list`, `jobs.detail`, `billing.running-estimate` |
+| `sai-site-read` | `site-read` | `jobs.list`, `jobs.detail`, `jobs.allocation`, `jobs.placement`, `billing.running-estimate` |
 
-Portal derives the grant through the existing scope resolver with
-`entrypoint=cli` and active shell access. The grant binds actor, site, cluster,
+Managed CLI issuance uses the existing scope resolver with `entrypoint=cli`
+and active shell access; Web/Pilot retain their own entrypoint policy.
+The grant binds actor, site, cluster,
 compound user/account subject, operation, narrowing partition/state/job filters,
 limit maximum, policy epoch, and expiry. A request must be a subset of every
 bound filter. The gateway verifies issuer, audience, surface, site, operation,
 key/epoch, time window, JTI revocation, and filter narrowing. It does not make
 a second membership decision.
 
-`jobs.list`, `jobs.detail`, and `billing.running-estimate` are separate
-operations. Job visibility never implies billing visibility. Settled billing is
-a Portal Bearer read with its own future `sai-billing-read`/`billing-read`
-contract; it does not use a site-read capability or the Pilot execution token.
+The grant shape is unchanged. `billing.running-estimate` retains null `job_id`
+and `limit` for the complete authorized queue. Managed costs still require
+`sai.billing.read`; job visibility grants no cash-price, wallet or ledger
+authority. Portal retains the existing gross/cash distinction: restricted cash
+prices stay null with `cash_price_restricted`, without hiding valid job facts.
+Managed Run final cost uses its separate
+[central contract](portal-api-contract.md#authentication).
 
 The CLI never receives a signing key, shared site-agent secret, or capability
 override. It may cache only an opaque capability in a protected user cache.
 
 ## Read and billing contracts
 
-`jobs/v1` is an allowlisted normalized job DTO with UTC source time, freshness,
-ETag, and no paths, scripts, environments, raw scheduler fields, or billing
-data. The phase-one Portal route and CLI consume
-`billing.running-estimate/v1`, a non-final DTO with generation-safe job
-identity, resource evidence, gross/before-credit decision fields, price
-revision, uncertainty, site timezone, freshness, and ETag. The unactivated
-gateway candidate remains on its earlier v2 wire shape until its own migration
-slice lands. A missing or expired matching price snapshot yields an explicit
-unavailable row; no component guesses from the latest price.
+Gateway job rows add strict `slurm.job-usage/v1` native facts from the same
+observation, with no amount, payer or price revision. Existing CLI job
+allowlists ignore that additive field. Portal list/detail/allocation can request
+`include_estimate=true`: Center prices each row's observation and attaches its
+authorized `running_estimate`, without another native read or a raw Job ID join.
+Default job responses keep their existing fields. Missing facts or pricing yield
+unavailable amounts and bounded reasons, never zero or a changed job state.
+
+The existing billing APIs and `sai jobs cost` keep `billing.running-estimate/v1`.
+Their Center reader consumes `billing.job-observations/v1` from
+`GET /v1/site-read/billing/observations` and uses the same estimate owner.
+The complete read is bounded by 200,000 rows and 16 MiB, whichever comes first;
+truncation or excess size fails closed. A job page is not an account total.
+The candidate removes the unused gateway gross-only v2 pricing path, signed
+price-bundle configuration and interactive estimate site-agent fallback.
+
+The full queue reader preserves bounded `SETTLING`/`TERMINAL_GAP` retention of
+previously observed generations. These are observation gaps, not scheduler
+terminal states or settled charges. A disappeared job cannot release exposure
+or erase debt. Ordinary Jobs and Managed Runs remain distinct until an
+authoritative binding proves their relationship. See the
+[native usage contract](portal-api-contract.md#native-usage-and-optional-estimates).
 
 The site runtime reuses its canonical Slurm queue/detail adapter. This client
 repository owns no native reader and no gateway server. The independent gateway
@@ -96,7 +111,7 @@ The gateway appends a bounded audit record and flushes asynchronously. Records
 contain capability/reference IDs, actor, site, scope, filters, operation, count,
 freshness, and request ID, never tokens, secrets, scripts, or environments. If
 the policy epoch/key is stale or the audit backlog exceeds policy, the gateway
-fails closed. A relay, if topology requires one, only forwards transport and
+fails closed. An ingress proxy, if topology requires one, only forwards transport and
 does not authorize, read Slurm, calculate money, or hold a broad secret.
 
 ## Delivery gates
@@ -106,12 +121,14 @@ does not authorize, read Slurm, calculate money, or hold a broad secret.
    arithmetic instead of cloning them.
 2. Deliver the Portal issuer, independent gateway verifier/filter/cache, and
    CLI transport as a compatible slice.
-3. Add signed pricing snapshot and observation-ingest contracts, then settle
-   the Portal-only billing read projection.
+3. Pair native-usage observations and Center pricing while preserving billing/v1
+   and independent cost permissions.
 4. Build clean full-SHA role packages and a tested atomic rollback path.
-5. Run a single GET-only login-node canary for `ordinary-user`; compare queue and
+5. Run a bounded read-only login-node canary for an authorized user; compare queue and
    history before/after and do not submit a job to manufacture a sample.
 
-Local tests and package builds are `local-unit`/`local-static` evidence only.
-They do not prove a live gateway, Slurm, Portal deployment, or production
-canary.
+The Portal candidate presents job state and optional price together; its ledger
+view keeps settled entries and the server-owned exposure summary. This slice
+does not change CLI/TUI layouts or Pilot tools. Existing real-user empty-list,
+issuance/journal and lease-expiry acceptance does not prove this candidate's
+paired deployment, positive detail/allocation, revocation or complete task journey.

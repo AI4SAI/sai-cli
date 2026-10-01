@@ -1,6 +1,7 @@
 # Portal Read API Contract
 
-Status: consumed by the phase-one client
+Status: current client contracts, with the unified job-observation candidate
+explicitly marked below; its paired production release remains pending.
 
 This document records the control-plane contract that `sai-cli` currently
 consumes. The control plane remains the source of truth for authorization and
@@ -20,8 +21,9 @@ Authorization: Bearer <short-lived-token>
 The CLI obtains that token with the standard OAuth 2.0 Device Authorization
 Grant discovered from the Identity issuer. Identity owns the rotating refresh
 token and user session; Portal does not issue a second CLI login credential.
-The Identity provider/device endpoint is a separate cross-repository release
-gate and is not yet a production fact in this repository.
+The bounded production device/user-list acceptance is recorded in the
+[basic connection](site-local-read-plane.md#basic-production-connection).
+It does not establish every operation or subsequent paired release.
 
 The registered CLI read workflow requests `sai.compute.read` for jobs and
 `sai.billing.read` for cost estimates, alongside `openid offline_access`.
@@ -87,6 +89,11 @@ Operations are exact: `jobs.list`, `jobs.detail`, `jobs.allocation`, and
 wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and
 are not a production CLI fallback.
+
+The unified observation candidate also routes these central CLI job and cost
+reads through the same capability gateway. Center forwards the already verified
+capability with explicit narrowing filters, keeps the existing client JSON and
+current policy checks, and never falls back to a site-agent reader.
 
 ## Job workspace navigation
 
@@ -222,6 +229,7 @@ Supported query parameters:
 | `states` | no | Comma-separated narrowing filter |
 | `limit` | no | Integer from 1 through 500, default 100 |
 | `source_preference` | no | Currently fixed to `live` |
+| `include_estimate` | no | Candidate Portal opt-in: literal `true` or `false`, default false |
 
 The client does not send raw `user`, arbitrary query parameters, or a
 non-live source preference.
@@ -289,13 +297,46 @@ Every item must contain exactly the documented semantic field set after client
 normalization. Values may be null where the scheduler has no fact. Unknown
 server fields are not forwarded by the CLI.
 
-The response must not expose:
+The default job response must not expose:
 
 - work directories, stdout/stderr paths, submit scripts, commands, or
   environment variables;
 - raw scheduler or site-agent payloads;
 - wallet, balance, pricing, ledger, payment, or refund fields;
 - credentials, internal secrets, or raw provider errors.
+
+### Native usage and optional estimates
+
+Implementation candidate, not yet paired into production: gateway `jobs/v1`
+items and `jobs.allocation/v2.job` add `native_usage` from the same native row:
+
+```json
+{
+  "schema_version": "slurm.job-usage/v1",
+  "database_index": "12345",
+  "alloc_tres": {"cpu": 8, "gpu": 1, "nodes": 1, "mem_mb": "16384"},
+  "unavailable_reason": null
+}
+```
+
+`database_index` is a positive decimal string or null. Allocation is the strict
+typed object above or null; its absence or invalid input carries
+`missing_allocation`, `invalid_allocation` or `invalid_job_identity` as applicable.
+This is native metering evidence, not a price or a financial permission.
+Existing CLI job allowlists ignore this additive field.
+
+Portal `/v1/slurm/jobs`, detail and allocation accept explicit
+`include_estimate=true`. Center applies its existing pricing and payer-visibility
+policy to that row's observation and adds `running_estimate` using the item
+contract below. It strips native usage from its ordinary job response; false or
+absent opt-in preserves the old fields. Placement does not accept the option.
+The CLI does not gain a new flag or change its job/TUI output in this slice.
+
+Each attached estimate binds the full array-task ID, user/account and exact UTC
+submission/start times of its parent row. No browser-side job-ID join is allowed.
+Missing native usage yields unavailable amounts and `native_usage_unavailable`;
+cash restrictions retain the existing partial/gross semantics. Price errors do
+not alter scheduler state. A page estimate never claims a complete account total.
 
 ## Running job cost estimates
 
@@ -305,14 +346,23 @@ GET /v1/billing/running-estimates
 
 This independent billing-visibility endpoint accepts the same scope and
 narrowing filters as the job list endpoint, except that it has no `limit`
-parameter: it prices the complete authorized live snapshot. It is not a
-pricing option on `/v1/slurm/jobs`. `source_preference` remains fixed to
-`live`.
+parameter: it prices the complete authorized live snapshot. The candidate's
+optional per-job attachment above does not replace this complete-scope contract.
+`source_preference` remains fixed to `live`.
+
+The candidate Center reader uses gateway
+`GET /v1/site-read/billing/observations` with the existing independent billing
+capability and unchanged null job/limit grant. `billing.job-observations/v1`
+contains site/cluster/scope/subject, site timezone, freshness, ETag,
+`has_more=false` and job rows with native usage. The complete response must fit
+both 200,000 rows and 16 MiB; truncation fails closed. Center alone calculates
+prices, and the external billing/v1 API and CLI `sai.billing.read` checks remain.
+This replaces the interactive estimate site-agent reader without a fallback.
 
 The response contract is `billing.running-estimate/v1`. Top-level fields are
 `operation`, `version`, `schema_version`, `site_id`, `site_timezone`,
-`cluster_id`, `scope`, `visibility_role`, `slurm_user`, `slurm_account`,
-`as_of`, `freshness`, `etag`, `items`, `count`, and `final`. `operation` is `billing.running-estimate`,
+`cluster_id`, `scope`, `visibility_role`, `activity_visibility`, `slurm_user`, `slurm_account`,
+`as_of`, `freshness`, `etag`, `items`, `summary`, `count`, and `final`. `operation` is `billing.running-estimate`,
 `version` is `v1`, `schema_version` is `billing.running-estimate/v1`, and `final` is always
 `false`.
 
@@ -525,8 +575,9 @@ streaming memory ceiling. Production load and concurrency require separate
 validation. Explicit test/integration cache injection is not the default path.
 
 Without this setting, existing Portal job JSON is unchanged. Cost, catalog and
-authentication always retain their documented central routes; the gateway's
-older billing v2 candidate is not enabled. Consumers must opt into jobs/v1 and
+authentication always retain their documented central routes. The observation
+candidate removes the unused gateway billing v2 price response; no direct-site
+cost transport is added to the client. Consumers must opt into jobs/v1 and
 deploy the matching gateway producer first. Local subprocess and HTTP tests do
 not prove a live scheduler, installed gateway or production wrapper rollout.
 

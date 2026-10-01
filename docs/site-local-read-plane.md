@@ -6,6 +6,10 @@ production issuance/read-use audit pairs passed; positive detail/allocation and
 the complete task journey remain open. Native Lustre quota has local transport/gateway code
 but is not enabled by this release. Billing and resources retain their own gates.
 
+The unified job-observation candidate below changes the estimate reader and
+Portal presentation; it has not been paired into production. It adds no CLI/TUI
+layout change or new Pilot operation.
+
 ## Purpose and ownership
 
 Frequent queue/detail refreshes should not perform central policy resolution on
@@ -150,10 +154,9 @@ read falls back to another source.
 ## Request and response
 
 The gateway request is a `GET` with no authorization query parameters; the
-capability carries the authority. The phase-one Portal CLI route uses the
-`billing.running-estimate/v1` DTO. The gateway's disabled billing transport
-still emits its earlier `billing.running-estimate/v2` shape and must be migrated
-to the frozen v1 contract before that transport is enabled. Direct jobs use the
+capability carries the authority. Portal and CLI retain
+`billing.running-estimate/v1`; the candidate replaces unused gateway pricing
+with native observations for Center to price. Direct jobs use the
 explicit gateway `jobs/v1` envelope documented in
 [portal-api-contract.md](portal-api-contract.md#direct-site-job-reads), while the
 default Portal job envelope remains unchanged. Direct jobs include site/cluster,
@@ -202,21 +205,32 @@ Commands have a deadline and a captured-output limit; the runner still has no
 streaming memory ceiling. Protected binding configuration and service-UID access
 must be verified on the real site before enabling this optional operation.
 
-## Running gross estimate
+## Native observations and running estimates
 
-`billing.running-estimate` is a separate operation. The gateway may reuse the
-same scheduler observation and a signed, immutable Portal pricing snapshot, but
-it never reads a wallet, allowance table, contract database, or final ledger.
-Every result is `final=false`. `estimated` rows contain generation-safe identity,
-resource evidence, gross CNY, and a pricing decision revision; `not_started`
-and `unavailable` rows carry explicit nulls and bounded uncertainty. A missing
-or expired matching snapshot never becomes a guessed amount.
+The candidate adds `native_usage` to each gateway job row, using
+`slurm.job-usage/v1`: typed native allocation and database identity from that
+same observation, with no amount, payer or price revision. Portal can attach
+an independently authorized estimate to the same row; clients do not join
+two lists by Job ID. Existing CLI job allowlists ignore the additive field.
+The [API contract](portal-api-contract.md#native-usage-and-optional-estimates)
+defines the exact fields and optional Portal request.
+
+The separate `billing.running-estimate` operation keeps its existing grant
+shape. `GET /v1/site-read/billing/observations` returns the complete authorized
+`billing.job-observations/v1` snapshot to Center, bounded by 200,000 rows and
+16 MiB. Exceeding either bound or an incomplete source causes failure, not a partial total.
+Its existing queue reader retains `SETTLING`/`TERMINAL_GAP` observation gaps;
+these are not native completion or billing settlement facts. Ordinary job pages
+remain on demand and do not acquire a full queue merely to display an estimate.
+
+Portal remains the only price owner and returns `billing.running-estimate/v1`
+to existing cost consumers. Missing price or native facts produce null amounts
+and uncertainty. Amount availability never redefines scheduler state. The unused
+site gross-only v2 and signed price-bundle path are removed by this candidate.
 
 Interactive reads do not create exposure, allowance, wallet, ledger, or payment
-rows. A separate transition/checkpoint collector sends idempotent observations
-to Portal's operation worker, which independently validates identity and price
-revision before persistence and settlement. UI refresh cadence must not drive
-that write path.
+rows. Existing billing workers independently validate observation identity,
+coverage and final accounting facts. UI refresh cadence does not drive that path.
 
 ## Cache and audit
 
@@ -332,12 +346,11 @@ production topology change and does not delay the existing basic-read gate.
 
 ## Network and rollout boundary
 
-Pricing is optional for a jobs-only gateway. The bootstrap renderer emits an
-empty pricing path by default; an explicitly configured path must still exist
-and verify. With pricing unconfigured, unrelated job reads remain available and
-no amount is invented: the existing estimate contract reports `pricing_unavailable`
-and null money. Authorization keys, epoch and revocations remain required
-startup inputs. Inventory and native storage mappings keep their own opt-in.
+The unified observation candidate requires no site price configuration.
+Authorization keys, epoch and revocations remain required startup inputs;
+inventory and native storage mappings retain their own opt-in. Its native
+billing route, matching Center reader and role packages require a paired release;
+the already deployed basic jobs routes do not prove that release complete.
 
 Managed Run step statistics use the existing owner-UID site-run path described
 in [the digital twin design](digital-twin-design.md), independently of this
@@ -350,14 +363,14 @@ HTTP receipt is bounded to 1 MiB. Oversize or incomplete observations fail close
 Client JSON and three UI views share `compute.run-stats/v1`. This implementation
 does not establish paired package installation or live application-chain proof.
 
-A relay may be used for center/satellite topology, but it only forwards the
-request and response. It does not authorize, read Slurm, calculate money, or
+A transport proxy may be used for center/satellite topology; it only forwards
+the request and response. It does not authorize, read Slurm, calculate money, or
 hold a shared site-agent secret. Both center and satellite use the same gateway
 package and contracts; only protected deployment configuration selects the
 origin.
 
 The delivery order is: shared vectors and verifier; independent gateway role
-and systemd unit; signed pricing/observation contracts; CLI/Pilot compatibility;
+and systemd unit; native observation/Center pricing contracts; CLI/Pilot compatibility;
 development-stack smoke; then an approved GET-only live canary. Local tests and
 package builds do not prove a live site or production service.
 
