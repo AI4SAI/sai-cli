@@ -14,9 +14,10 @@ The source, role packages and a bounded native candidate probe are available;
 the [candidate record](site-local-read-plane.md#isolated-native-http-acceptance)
 uses temporary signing inputs and is separate from this release gate.
 
-- [ ] Publish the versioned read-gateway runtime with its required dependencies,
+- [x] Publish the versioned read-gateway runtime with its required dependencies,
   managed environment, verifier keys, policy epoch and revocation inputs; bind
   the existing HTTPS read origin and verify the intended service UID
+  (2026-10-01 basic deployment; positive real-user reads remain pending)
 - [ ] Exercise the actual Identity client and Portal resource-token verifier
   with an ordinary authorized user, then obtain capabilities from the actual
   Portal issuer under current CLI/shell and workspace policy
@@ -25,8 +26,10 @@ uses temporary signing inputs and is separate from this release gate.
   failures and the exact shared client/runtime manifests
 - [ ] Read back correlated issuance and gateway read-use audit records through
   the configured production journal/collection path, including failure handling
-- [ ] Retain and exercise rollback for runtime selection, environment/key
-  references and HTTPS routing, then repeat the user read and cleanup checks
+- [x] Retain gateway package/runtime and configuration rollback materials;
+  exercise HTTPS routing and shared-CLI rollback/restoration without static changes
+- [ ] Exercise full gateway package/runtime recovery and repeat authorized user
+  reads, then close the remaining positive audit and lease/revocation checks
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
@@ -227,8 +230,9 @@ font diversity or unbounded long-session stability.
 - [x] Bounded gateway read-use audit queue and stream writer, with local
   saturation/failure checks; actual journal persistence/collection is a release gate
 
-Acceptance boundary: implemented protocols, local fixtures and the separately
-recorded temporary native candidate probe. Formal activation remains open.
+Acceptance boundary: implemented protocols, local fixtures, the separately
+recorded native candidate probe, and the basic production runtime/three GET
+routes. Positive real-user reads and production read-use audit acceptance remain open.
 
 The job path stays on-demand. Cache reuse or coalescing should be considered
 only when measured load or latency justifies it; a shared collector is not a
@@ -245,13 +249,14 @@ they do not require a new telemetry batch service.
   deterministic artifacts and documented rollback procedure
 - [x] Bounded native candidate list/allocation reads under the intended service
   UID, using temporary signing inputs and a private audit stream
-- [ ] Formal runtime/environment/HTTPS activation and an actual issuer/user
-  read, following the basic-job gate above
+- [x] Formal basic-job runtime/environment/HTTPS activation
+- [ ] Actual issuer/user read, following the basic-job gate above
 - [ ] Production canary latency, freshness, journal delivery, failure and
   rollback readback
 
-Production activation and any fleet replacement remain separately recorded
-operator steps. The temporary candidate check does not replace them.
+Basic activation is recorded in the [production connection](site-local-read-plane.md#basic-production-connection).
+Further operation enablement and any fleet replacement retain their own gates.
+The temporary candidate check does not replace production acceptance.
 
 The shared archive, optional TUI dependency bundle, small login integration
 Debian package, full-SHA manifest and canary run card are implemented.

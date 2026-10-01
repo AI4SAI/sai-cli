@@ -1,8 +1,9 @@
 # Site-Local Interactive Read Plane
 
-Status: job list/detail and native Lustre quota transport/gateway code are
-implemented locally; production installation and readback remain separate
-gates. Billing and future resource operations retain their own gates.
+Status: the basic job list/detail/allocation runtime and HTTPS routes were
+deployed on 2026-10-01; positive real-user authorization and read-use audit
+acceptance remain open. Native Lustre quota has local transport/gateway code
+but is not enabled by this release. Billing and resources retain their own gates.
 
 ## Purpose and ownership
 
@@ -149,7 +150,7 @@ read falls back to another source.
 
 The gateway request is a `GET` with no authorization query parameters; the
 capability carries the authority. The phase-one Portal CLI route uses the
-`billing.running-estimate/v1` DTO. The existing unactivated gateway candidate
+`billing.running-estimate/v1` DTO. The gateway's disabled billing transport
 still emits its earlier `billing.running-estimate/v2` shape and must be migrated
 to the frozen v1 contract before that transport is enabled. Direct jobs use the
 explicit gateway `jobs/v1` envelope documented in
@@ -299,3 +300,22 @@ inactive; its environment, independent Python runtime and verification inputs
 were not configured. This establishes native candidate HTTP behavior, separately
 from Portal/Identity authorization, production activation, signed asset
 publication, physical GPU identity, utilization and native Lustre acceptance.
+
+## Basic production connection
+
+The 2026-10-01 basic release installed the independent runtime and read-role
+`36adeec1d19b79404a9d53385183adb68b7b57b0`, activated its TLS listener with a
+separate site certificate configured for automatic renewal, and connected the
+existing public HTTPS origin through three explicit GET routes. Center kept its existing
+code and signer; only its gateway URL/timeout projection changed. Shared CLI
+`cca92ae4b3f308ead4d6514cf645757482acfc34` is published once on NFS with the
+protected read origin. No per-compute-node install or new proxy service was added.
+
+The public job-list probe returned 401 without a capability and 405 for HEAD/POST;
+placement and native-quota probes returned 404. Detail/allocation request checks
+remain local fixtures, with no positive production user read yet. Routing and
+shared-CLI rollback and restoration were exercised; other processes and static releases
+remained unchanged. The normal user device authorization expired without approval.
+Positive user-scoped reads, actual issuance/read-use audit correlation, lease
+revocation and the complete task journey are still pending. Journal startup and
+401 entries are not proof of authorized native reads through the production chain.
