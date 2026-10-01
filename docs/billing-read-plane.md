@@ -1,7 +1,7 @@
 # SAI Billing / Interactive Read Plane
 
-Status: unified native observation and Portal presentation implementation
-candidate; paired production release pending.
+Status: unified native observations and Portal presentation deployed; bounded
+ordinary-user list/estimate reads passed. Complete task acceptance remains open.
 
 This is the cross-product boundary for `sai-cli`, `sai-pilot`, Portal, and site
 runtime. Native job facts come from the capability gateway; Portal remains the
@@ -35,7 +35,7 @@ Cash, Credit, allowance coverage, exposure and settlement remain Portal-owned.
 
 Interactive reads never create exposure, allowance, wallet, ledger, or payment
 rows. Existing billing workers retain observation, exposure and settlement
-writes; this candidate adds no collector or business database.
+writes; this implementation adds no collector or business database.
 
 ## Capability binding
 
@@ -82,7 +82,7 @@ Their Center reader consumes `billing.job-observations/v1` from
 `GET /v1/site-read/billing/observations` and uses the same estimate owner.
 The complete read is bounded by 200,000 rows and 16 MiB, whichever comes first;
 truncation or excess size fails closed. A job page is not an account total.
-The candidate removes the unused gateway gross-only v2 pricing path, signed
+The implementation removes the unused gateway gross-only v2 pricing path, signed
 price-bundle configuration and interactive estimate site-agent fallback.
 
 The full queue reader preserves bounded `SETTLING`/`TERMINAL_GAP` retention of
@@ -127,8 +127,8 @@ does not authorize, read Slurm, calculate money, or hold a broad secret.
 5. Run a bounded read-only login-node canary for an authorized user; compare queue and
    history before/after and do not submit a job to manufacture a sample.
 
-The Portal candidate presents job state and optional price together; its ledger
+Portal presents job state and optional price together; its ledger
 view keeps settled entries and the server-owned exposure summary. This slice
 does not change CLI/TUI layouts or Pilot tools. Existing real-user empty-list,
-issuance/journal and lease-expiry acceptance does not prove this candidate's
-paired deployment, positive detail/allocation, revocation or complete task journey.
+issuance/journal and lease-expiry acceptance does not prove positive
+detail/allocation, explicit revocation or the complete task journey.

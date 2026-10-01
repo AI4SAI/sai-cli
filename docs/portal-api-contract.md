@@ -1,7 +1,7 @@
 # Portal Read API Contract
 
-Status: current client contracts, with the unified job-observation candidate
-explicitly marked below; its paired production release remains pending.
+Status: current client contracts, including the deployed unified native-job
+observation and central estimate reader.
 
 This document records the control-plane contract that `sai-cli` currently
 consumes. The control plane remains the source of truth for authorization and
@@ -90,7 +90,7 @@ wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and
 are not a production CLI fallback.
 
-The unified observation candidate also routes these central CLI job and cost
+The unified observation implementation also routes these central CLI job and cost
 reads through the same capability gateway. Center forwards the already verified
 capability with explicit narrowing filters, keeps the existing client JSON and
 current policy checks, and never falls back to a site-agent reader.
@@ -307,7 +307,7 @@ The default job response must not expose:
 
 ### Native usage and optional estimates
 
-Implementation candidate, not yet paired into production: gateway `jobs/v1`
+Deployed paired implementation: gateway `jobs/v1`
 items and `jobs.allocation/v2.job` add `native_usage` from the same native row:
 
 ```json
@@ -346,11 +346,11 @@ GET /v1/billing/running-estimates
 
 This independent billing-visibility endpoint accepts the same scope and
 narrowing filters as the job list endpoint, except that it has no `limit`
-parameter: it prices the complete authorized live snapshot. The candidate's
+parameter: it prices the complete authorized live snapshot. The implementation's
 optional per-job attachment above does not replace this complete-scope contract.
 `source_preference` remains fixed to `live`.
 
-The candidate Center reader uses gateway
+The Center reader uses gateway
 `GET /v1/site-read/billing/observations` with the existing independent billing
 capability and unchanged null job/limit grant. `billing.job-observations/v1`
 contains site/cluster/scope/subject, site timezone, freshness, ETag,
@@ -576,7 +576,7 @@ validation. Explicit test/integration cache injection is not the default path.
 
 Without this setting, existing Portal job JSON is unchanged. Cost, catalog and
 authentication always retain their documented central routes. The observation
-candidate removes the unused gateway billing v2 price response; no direct-site
+implementation removes the unused gateway billing v2 price response; no direct-site
 cost transport is added to the client. Consumers must opt into jobs/v1 and
 deploy the matching gateway producer first. Local subprocess and HTTP tests do
 not prove a live scheduler, installed gateway or production wrapper rollout.

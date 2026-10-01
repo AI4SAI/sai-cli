@@ -6,8 +6,8 @@ production issuance/read-use audit pairs passed; positive detail/allocation and
 the complete task journey remain open. Native Lustre quota has local transport/gateway code
 but is not enabled by this release. Billing and resources retain their own gates.
 
-The unified job-observation candidate below changes the estimate reader and
-Portal presentation; it has not been paired into production. It adds no CLI/TUI
+The deployed unified job-observation implementation below changes the estimate reader and
+Portal presentation and has been paired into production. It adds no CLI/TUI
 layout change or new Pilot operation.
 
 ## Purpose and ownership
@@ -155,7 +155,7 @@ read falls back to another source.
 
 The gateway request is a `GET` with no authorization query parameters; the
 capability carries the authority. Portal and CLI retain
-`billing.running-estimate/v1`; the candidate replaces unused gateway pricing
+`billing.running-estimate/v1`; the implementation replaces unused gateway pricing
 with native observations for Center to price. Direct jobs use the
 explicit gateway `jobs/v1` envelope documented in
 [portal-api-contract.md](portal-api-contract.md#direct-site-job-reads), while the
@@ -207,7 +207,7 @@ must be verified on the real site before enabling this optional operation.
 
 ## Native observations and running estimates
 
-The candidate adds `native_usage` to each gateway job row, using
+The implementation adds `native_usage` to each gateway job row, using
 `slurm.job-usage/v1`: typed native allocation and database identity from that
 same observation, with no amount, payer or price revision. Portal can attach
 an independently authorized estimate to the same row; clients do not join
@@ -226,7 +226,7 @@ remain on demand and do not acquire a full queue merely to display an estimate.
 Portal remains the only price owner and returns `billing.running-estimate/v1`
 to existing cost consumers. Missing price or native facts produce null amounts
 and uncertainty. Amount availability never redefines scheduler state. The unused
-site gross-only v2 and signed price-bundle path are removed by this candidate.
+site gross-only v2 and signed price-bundle path are removed by this implementation.
 
 Interactive reads do not create exposure, allowance, wallet, ledger, or payment
 rows. Existing billing workers independently validate observation identity,
@@ -346,7 +346,7 @@ production topology change and does not delay the existing basic-read gate.
 
 ## Network and rollout boundary
 
-The unified observation candidate requires no site price configuration.
+The unified observation implementation requires no site price configuration.
 Authorization keys, epoch and revocations remain required startup inputs;
 inventory and native storage mappings retain their own opt-in. Its native
 billing route, matching Center reader and role packages require a paired release;
@@ -431,3 +431,18 @@ correlation. Empty lists do not prove job detail, allocation or a task journey.
 Explicit revocation, journal collection/failure handling and full gateway
 package/runtime recovery remain separate acceptance work. No workload, account
 binding, service configuration or authorization state was changed by this probe.
+
+## Unified observation release
+
+The unified job/estimate release is deployed. Portal's job page uses one native
+observation and central optional pricing; the ledger no longer has a second
+running-job list. The financial snapshot collects only its authorized native
+user/account scope, with bounded scope-isolated retention. The old site price
+engine and interactive site-agent query path are removed.
+
+Production self/account lists and non-final estimates succeeded through the
+normal user credential cache, with matching gateway journal pairs. Those scopes
+were empty, so they do not prove positive detail/allocation or the full task
+journey. Source truncation, pricing unknowns and financial permission retain
+separate states. The public static artifact matched the deployed package; no
+Identity, Pilot runtime, business schema or settings were changed by this slice.

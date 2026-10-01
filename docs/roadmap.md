@@ -39,10 +39,10 @@ uses temporary signing inputs and is separate from this release gate.
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
 storage, Run statistics, GPU telemetry and 3D are independent slices, not
-prerequisites for basic job reads. The unified observation candidate keeps
+prerequisites for basic job reads. The unified observation implementation keeps
 pricing at Center and requires no site price bundle.
 
-- [ ] Pair and publish the [unified job-observation candidate](billing-read-plane.md):
+- [x] Pair and publish the [unified job-observation implementation](billing-read-plane.md):
   same-observation optional Portal estimates and complete billing/v1 gateway reads;
   existing CLI/TUI layouts and the basic production acceptance remain separate.
 
