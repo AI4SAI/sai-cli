@@ -384,5 +384,12 @@ file. Installed-wheel HTTP checks passed 30 tests. Chinese/English interaction
 and 40/60/100-column geometry passed. English SVG renders were reviewed; Rich's
 SVG exporter compresses CJK text using character length instead of cell width,
 so those exported images do not establish native Chinese font acceptance.
-This is local validation, not the paired Center/shared-client installation or
-a nonempty production-job check.
+These are local checks. The subsequent paired installation completed on
+2026-10-02: Center release `792950722ff4`, shared client `f08834e7bd91`.
+An ordinary user's existing completed Run passed detail, stdout, output-file
+and final-cost reads. A headless Textual driver on the login host used the
+installed client and real production APIs to select that Run, read its cost,
+logs and files, confirm an output and construct the same-output Web link.
+Selection survived a narrow resize. It submitted no job and opened no browser.
+Current live jobs were empty, so positive running-cost/detail acceptance and
+actual browser/Pilot continuation remain separate.

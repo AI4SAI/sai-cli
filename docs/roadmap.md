@@ -44,7 +44,8 @@ pricing at Center and requires no site price bundle.
 
 - [x] Pair and publish the [unified job-observation implementation](billing-read-plane.md):
   same-observation optional Portal estimates and complete billing/v1 gateway reads;
-  later TUI selected-job Cost integration and its paired installation remain separate.
+  later TUI selected-job Cost integration was paired into production on 2026-10-02,
+  with positive current-job cost acceptance still separate.
 
 The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 preserves explicit user site choice and permits independent or shared ingress.
@@ -159,8 +160,8 @@ are candidate designs, not completed implementation milestones.
   console-to-Pilot preparation intent without requiring an existing job;
   current eligibility and concrete proposal validation stay server-owned
 - [x] TUI selected-job Cost mode over one central native observation and price,
-  with independent billing scope; duplicate estimate list removed, paired
-  installation pending. Batch `jobs cost` keeps the complete-scope contract
+  with independent billing scope; duplicate estimate list removed and paired
+  installation completed. Batch `jobs cost` keeps the complete-scope contract
 - [x] Separate TUI allocation inspection over one site snapshot, including exact
   array-task identity, paused refresh and complete F5 replacement (local HTTP only)
 - [x] Open in Web for an inspected job using Portal-owned workspace mapping,
@@ -183,6 +184,9 @@ are candidate designs, not completed implementation milestones.
 - [ ] Estimate-to-final replacement without duplicate display or aggregation
 - [x] Explicit per-Run final cost with shared Portal graph validation, independent
   billing permission, role-filtered funding components and console continuation
+- [x] Bounded production-user historical Run detail, stdout, output and final-cost
+  reads, plus headless TUI same-output Web reference and narrow selection retention;
+  actual browser/Pilot continuation and complete new computation remain open
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
 - [ ] Paired installation and real-site acceptance of native Run statistics

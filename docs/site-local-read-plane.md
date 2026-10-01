@@ -9,8 +9,9 @@ but is not enabled by this release. Billing and resources retain their own gates
 The deployed unified job-observation implementation below changes the estimate reader and
 Portal presentation and has been paired into production. The later TUI
 selected-job Cost action reuses central same-observation detail pricing;
-its paired CLI route and consumer require separate installation. It adds no
-gateway operation, native reader or Pilot operation.
+its paired CLI route and consumer were installed on 2026-10-02. It adds no
+gateway operation, native reader or Pilot operation. The live historical-task
+check and still-empty current-job scope have separate acceptance boundaries.
 
 ## Purpose and ownership
 
@@ -427,6 +428,17 @@ expiry: its native read first returned 200, the same expired capability was
 rejected with 401, and normal acquisition then restored 200. It used the
 installed client libraries without automatic renewal for the expiry request.
 No token was printed, exported or used to modify the server's revocation state.
+
+The 2026-10-02 TUI follow-up installed Center `792950722ff4` and shared CLI
+`f08834e7bd91`. Only the Center CLI route and package manifest changed; existing
+configuration, gateway `311d5c73ceaf` and Portal static content were preserved.
+The client was published once on the existing NFS path. Real-user historical
+Run details, logs, three output records and settled cost passed, followed by
+a headless workbench journey using those same production reads. Its Web link
+preserved the selected output; browser/Pilot opening was not exercised.
+The live queue was empty, so this does not close positive current-job costs.
+All operator sessions and staging were closed; previous packages, selected
+releases and rollback evidence remain outside this repository.
 
 This proves normal authorization, native list reads and local journal/issuance
 correlation. Empty lists do not prove job detail, allocation or a task journey.

@@ -343,8 +343,10 @@ list's state/partition filters, and validates the attached item against its
 parent job. Job state changes therefore remain visible. The whole observation
 is replaced on manual refresh; neither another list nor a local price join is
 used. Unsupported producers fail explicitly, with no fallback to a broad read.
-The new consumer requires the paired producer; production installation is
-separate from local compatibility evidence.
+The paired Center and shared-client installation completed on 2026-10-02.
+Ordinary-user historical task reads passed through the installed client;
+positive current-job cost acceptance remains separate because the live scope
+was empty. Local compatibility checks do not replace that positive read.
 
 Paired CLI detail-cost producer: `905f6601026eccea8051e7db0b29e407c2386852`.
 

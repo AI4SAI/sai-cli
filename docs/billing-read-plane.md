@@ -132,7 +132,8 @@ view keeps settled entries and the server-owned exposure summary. The paired
 TUI consumer now offers an explicit selected-job Cost mode over central detail
 with `include_estimate=true`, requiring both compute and billing scopes. It
 removes the duplicate estimate tab; the batch full-scope contract and Pilot
-tools are unchanged. This later consumer's local checks do not establish its
-production installation. Existing real-user empty-list,
+tools are unchanged. The paired Center and shared client were installed on
+2026-10-02. Real-user historical Run costs and output reads passed; current-job
+costs still require a nonempty live scope. Existing real-user empty-list,
 issuance/journal and lease-expiry acceptance does not prove positive
 detail/allocation, explicit revocation or the complete task journey.
