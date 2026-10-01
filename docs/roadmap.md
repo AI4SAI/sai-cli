@@ -17,19 +17,24 @@ uses temporary signing inputs and is separate from this release gate.
 - [x] Publish the versioned read-gateway runtime with its required dependencies,
   managed environment, verifier keys, policy epoch and revocation inputs; bind
   the existing HTTPS read origin and verify the intended service UID
-  (2026-10-01 basic deployment; positive real-user reads remain pending)
-- [ ] Exercise the actual Identity client and Portal resource-token verifier
+  (2026-10-01 basic deployment and bounded real-user list acceptance)
+- [x] Exercise the actual Identity client and Portal resource-token verifier
   with an ordinary authorized user, then obtain capabilities from the actual
   Portal issuer under current CLI/shell and workspace policy
-- [ ] Verify list, detail and allocation through the selected CLI/Portal
-  consuming paths, including self and an authorized account scope, bounded
-  failures and the exact shared client/runtime manifests
-- [ ] Read back correlated issuance and gateway read-use audit records through
-  the configured production journal/collection path, including failure handling
+- [x] Verify real-user self and authorized account lists through the shared CLI
+  and native gateway; empty results matched independent native reads, and an
+  unauthorized account was denied
+- [ ] Verify positive detail/allocation on naturally available authorized jobs
+  and the remaining Portal consuming paths; the accepted list scopes were empty
+- [x] Correlate actual Center issuance with production journal start/finish pairs
+  by capability ID digest, subject, operation and limit
+- [ ] Verify audit collection beyond the local journal and production failure handling
+- [x] Hold one real capability until expiry: the direct read was rejected,
+  then normal issuance restored the read without changing server policy
 - [x] Retain gateway package/runtime and configuration rollback materials;
   exercise HTTPS routing and shared-CLI rollback/restoration without static changes
-- [ ] Exercise full gateway package/runtime recovery and repeat authorized user
-  reads, then close the remaining positive audit and lease/revocation checks
+- [ ] Exercise full gateway package/runtime recovery and repeat authorized reads;
+  explicit revocation retains its own acceptance
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
@@ -121,7 +126,7 @@ prove the formal service, real issuer/user chain or production wrapper.
   job and independent running-estimate grants
 - [x] Browser/device login, rotating protected refresh credentials and bounded
   refresh/revocation in the CLI, with local protocol/HTTP tests
-- [ ] Deployed Identity device-client registration, Portal resource-token
+- [x] Deployed Identity device-client registration, Portal resource-token
   verification and production capability key/epoch acceptance for the CLI user
 - [ ] Development-stack read-only smoke for self and one account scope
 - [ ] General settled-billing read command beyond the implemented per-Run
@@ -129,9 +134,9 @@ prove the formal service, real issuer/user chain or production wrapper.
 - [x] Python package metadata and installation entrypoint
 - [ ] Shell completion
 
-Acceptance boundary: source compatibility and local integration. Shared files
-and implemented authentication clients do not establish production registration,
-deployed keys or a successful real-user read.
+Acceptance boundary: source compatibility, local integration and the bounded
+production user-list/lease checks above. Shared files alone do not establish
+production registration, deployed keys or a successful real-user read.
 
 ## Milestone 0.3: optional TUI
 
@@ -237,7 +242,9 @@ font diversity or unbounded long-session stability.
 
 Acceptance boundary: implemented protocols, local fixtures, the separately
 recorded native candidate probe, and the basic production runtime/three GET
-routes. Positive real-user reads and production read-use audit acceptance remain open.
+routes, plus real-user lists, expiry/renewal and matched issuance/journal pairs.
+Positive detail/allocation, explicit revocation and audit delivery/failure
+acceptance remain open.
 
 The job path stays on-demand. Cache reuse or coalescing should be considered
 only when measured load or latency justifies it; a shared collector is not a
@@ -255,7 +262,7 @@ they do not require a new telemetry batch service.
 - [x] Bounded native candidate list/allocation reads under the intended service
   UID, using temporary signing inputs and a private audit stream
 - [x] Formal basic-job runtime/environment/HTTPS activation
-- [ ] Actual issuer/user read, following the basic-job gate above
+- [x] Actual issuer/user list read, following the basic-job gate above
 - [ ] Production canary latency, freshness, journal delivery, failure and
   rollback readback
 

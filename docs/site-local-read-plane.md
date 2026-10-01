@@ -1,8 +1,9 @@
 # Site-Local Interactive Read Plane
 
 Status: the basic job list/detail/allocation runtime and HTTPS routes were
-deployed on 2026-10-01; positive real-user authorization and read-use audit
-acceptance remain open. Native Lustre quota has local transport/gateway code
+deployed on 2026-10-01. Normal user authorization, self/account lists and matched
+production issuance/read-use audit pairs passed; positive detail/allocation and
+the complete task journey remain open. Native Lustre quota has local transport/gateway code
 but is not enabled by this release. Billing and resources retain their own gates.
 
 ## Purpose and ownership
@@ -390,10 +391,30 @@ code and signer; only its gateway URL/timeout projection changed. Shared CLI
 protected read origin. No per-compute-node install or new proxy service was added.
 
 The public job-list probe returned 401 without a capability and 405 for HEAD/POST;
-placement and native-quota probes returned 404. Detail/allocation request checks
-remain local fixtures, with no positive production user read yet. Routing and
+placement and native-quota probes returned 404. Positive detail/allocation checks
+remain candidate evidence, without a real-user production example. Routing and
 shared-CLI rollback and restoration were exercised; other processes and static releases
-remained unchanged. The normal user device authorization expired without approval.
-Positive user-scoped reads, actual issuance/read-use audit correlation, lease
-revocation and the complete task journey are still pending. Journal startup and
-401 entries are not proof of authorized native reads through the production chain.
+remained unchanged. The first device authorization expired; a later ordinary
+user-approved device flow succeeded. Subsequent acceptance reused that user's
+protected cache after the paired Identity/Center release, without a new login,
+borrowed credential or administrator-issued user token.
+
+Self and one authorized organization list returned 200 with native `squeue`
+freshness; both were empty and matched separately bounded native reads. An
+unauthorized account request was rejected. Current production journal contains
+start/finish pairs for both successful reads. A bounded, read-only Center audit
+query matched their capability ID hashes, actor, scope, subject, operation and
+limit. Signing and reading use different HTTP requests; matching request IDs
+is not required, and the ingress generates its own read request ID.
+
+A separate bounded probe held one normally issued capability through natural
+expiry: its native read first returned 200, the same expired capability was
+rejected with 401, and normal acquisition then restored 200. It used the
+installed client libraries without automatic renewal for the expiry request.
+No token was printed, exported or used to modify the server's revocation state.
+
+This proves normal authorization, native list reads and local journal/issuance
+correlation. Empty lists do not prove job detail, allocation or a task journey.
+Explicit revocation, journal collection/failure handling and full gateway
+package/runtime recovery remain separate acceptance work. No workload, account
+binding, service configuration or authorization state was changed by this probe.

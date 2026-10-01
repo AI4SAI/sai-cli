@@ -26,7 +26,7 @@ facts, without being a required transit point for every site's native reads.
 Sites may have separate HTTPS ingress or share one ingress with fixed hostname
 routing. The [site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 records the target and current implementation gaps; it does not change the
-basic release's pending real-user acceptance.
+basic release's remaining real-user acceptance.
 
 Registered job location is an independent `jobs.placement` read, disabled until
 the site explicitly approves its disclosure. The site joins one native
