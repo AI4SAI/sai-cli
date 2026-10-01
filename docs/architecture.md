@@ -210,6 +210,11 @@ ledger is not a substitute for the live queue, and a running-cost estimate is
 not a final charge. The CLI receives the estimate from Portal and never reads
 pricing data or computes a price locally.
 
+The TUI presents a selected job's running estimate within Jobs. It requests one
+central detail observation with optional pricing and independent billing
+authority, rather than joining an estimate list to native jobs. Ordinary site
+job reads and the batch complete-scope `jobs cost` contract remain unchanged.
+
 ## Security invariants
 
 - Bearer tokens and compatibility HMAC secrets never appear in command-line

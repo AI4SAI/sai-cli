@@ -8,6 +8,7 @@ from typing import Any
 
 from .contracts import (
     JobItem,
+    short_job_state,
     _nullable_int,
     _nullable_nonempty_text,
     _nullable_sha256_text,
@@ -22,15 +23,6 @@ from .errors import ContractError
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}")
 _SCOPES = {"self", "personal_account", "org_account", "project_account"}
-_STATE_SHORT = {
-    "RUNNING": "R",
-    "PENDING": "PD",
-    "COMPLETING": "CG",
-    "SUSPENDED": "S",
-    "COMPLETED": "CD",
-    "FAILED": "F",
-    "CANCELLED": "CA",
-}
 _JOB_TEXT_LIMITS = {
     "name": 4096,
     "reason_or_nodelist": 4096,
@@ -182,7 +174,7 @@ class SiteJobResult(_SiteJobContext):
         if ((limit is not None and len(self.items) > limit)
                 or (job_id is not None and (len(self.items) != 1 or self.has_more))):
             raise ContractError(request_id=request_id)
-        allowed_states = {_STATE_SHORT.get(state, state) for state in states}
+        allowed_states = {short_job_state(state) for state in states}
         for item in self.items:
             values = item.values
             if ((partition is not None and values["partition"] != partition)
@@ -289,7 +281,7 @@ class SiteJobAllocationResult(_SiteJobContext):
                        for state in states)
                 or not isinstance(allocation, dict)):
             raise ContractError(request_id=request_id)
-        if _STATE_SHORT.get(states[0], states[0]) != job.values["state"]:
+        if short_job_state(states[0]) != job.values["state"]:
             raise ContractError(request_id=request_id)
         status = _required_text(allocation, "status", request_id=request_id)
         if "nodes" not in allocation:
@@ -325,7 +317,7 @@ class SiteJobAllocationResult(_SiteJobContext):
     ) -> None:
         super().require_request_binding(expected_source="scontrol", **context)
         values = self.job.values
-        allowed_states = {_STATE_SHORT.get(state, state) for state in states}
+        allowed_states = {short_job_state(state) for state in states}
         if self.job.canonical_id != job_id or (allowed_states and values["state"] not in allowed_states):
             raise ContractError(request_id=context["request_id"])
 

@@ -33,7 +33,7 @@ task project's authority to populate the storage selector.
 
 ## Information hierarchy
 
-The six views share three presentation phases. Browse gives the main area to
+The five views share three presentation phases. Browse gives the main area to
 the list or project discovery. Inspect gives it to the selected object and its
 evidence. Summary gives the whole area to Overview or Storage. These phases are
 derived from existing view state; they do not own data, permissions or requests.

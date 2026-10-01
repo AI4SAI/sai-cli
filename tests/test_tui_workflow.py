@@ -205,7 +205,7 @@ def test_discovery_failure_keeps_cursor_until_explicit_first_and_revokes_only_ta
 
 
 @pytest.mark.parametrize("language", ["zh-CN", "en-US"])
-def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, language, job_payload, running_estimate_payload):
+def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, language, job_payload):
     from test_tui import catalog, storage_sample, storage_workspaces_sample
     monkeypatch.delenv("NO_COLOR", raising=False)
     def reply(call, _):
@@ -214,8 +214,6 @@ def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, l
             return 200, storage_workspaces_sample()
         if path.endswith("resource-catalog"):
             return 200, catalog()
-        if path.endswith("running-estimates"):
-            return 200, running_estimate_payload
         if path.endswith("quota-summary"):
             return 200, storage_sample("project:storage-example")
         if path.endswith("/overview"):
@@ -225,7 +223,7 @@ def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, l
         app = Workbench(client, JobQuery(site_id="site-a"), initial_view="overview", language=language,
                         storage_workspace_key="project:storage-example", refresh_seconds=999)
         async with app.run_test(size=(100, 32)) as pilot:
-            for view in ("overview", "resources", "jobs", "usage", "storage"):
+            for view in ("overview", "resources", "jobs", "storage"):
                 app.query_one("#views", TabbedContent).active = view
                 await settled(app, pilot)
                 assert view in app.results
@@ -235,8 +233,6 @@ def test_other_views_keep_one_language_and_source_facts(tmp_path, monkeypatch, l
                     target, expected = "storage-summary", "effective"
                 elif view == "resources":
                     target, expected = "details", "resource_choose"
-                elif view == "usage":
-                    target, expected = "details", "usage_choose"
                 else:
                     app.query_one("#jobs-table", DataTable).focus()
                     await pilot.press("enter"); await settled(app, pilot)

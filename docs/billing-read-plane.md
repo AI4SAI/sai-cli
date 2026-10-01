@@ -128,7 +128,11 @@ does not authorize, read Slurm, calculate money, or hold a broad secret.
    history before/after and do not submit a job to manufacture a sample.
 
 Portal presents job state and optional price together; its ledger
-view keeps settled entries and the server-owned exposure summary. This slice
-does not change CLI/TUI layouts or Pilot tools. Existing real-user empty-list,
+view keeps settled entries and the server-owned exposure summary. The paired
+TUI consumer now offers an explicit selected-job Cost mode over central detail
+with `include_estimate=true`, requiring both compute and billing scopes. It
+removes the duplicate estimate tab; the batch full-scope contract and Pilot
+tools are unchanged. This later consumer's local checks do not establish its
+production installation. Existing real-user empty-list,
 issuance/journal and lease-expiry acceptance does not prove positive
 detail/allocation, explicit revocation or the complete task journey.

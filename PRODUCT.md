@@ -28,7 +28,7 @@ workbench design, including hardware telemetry and result navigation, is describ
 implementation or deployment claim.
 
 Bilingual navigation, readable project/storage discovery and narrow task inspection
-are implemented. The six views share browse, inspect and summary layouts,
+are implemented. The five views share browse, inspect and summary layouts,
 contextual actions and the terminal visual rules in DESIGN.md.
 [Bounded SSH acceptance](docs/ssh-terminal-acceptance.md) covers a 14-minute
 synthetic workflow on one login host, resize and disconnect cleanup. Broader

@@ -7,8 +7,10 @@ the complete task journey remain open. Native Lustre quota has local transport/g
 but is not enabled by this release. Billing and resources retain their own gates.
 
 The deployed unified job-observation implementation below changes the estimate reader and
-Portal presentation and has been paired into production. It adds no CLI/TUI
-layout change or new Pilot operation.
+Portal presentation and has been paired into production. The later TUI
+selected-job Cost action reuses central same-observation detail pricing;
+its paired CLI route and consumer require separate installation. It adds no
+gateway operation, native reader or Pilot operation.
 
 ## Purpose and ownership
 

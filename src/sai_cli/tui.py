@@ -25,7 +25,7 @@ from textual.widgets.option_list import Option
 
 from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient, clean_states
-from .contracts import JobResult, RunningEstimateResult
+from .contracts import JobCostResult, JobResult
 from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, NotFoundError, SaiCliError
 from .job_web_context import JobWebContext
 from .managed_runs import (
@@ -43,7 +43,7 @@ from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, StorageWorkspaces
 from .tui_messages import Messages
 from .tui_views import (
-    allocation_panel, placement_panel, resource_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
+    allocation_panel, job_cost_panel, placement_panel, resource_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
 )
 
 
@@ -84,7 +84,7 @@ class Workbench(App, inherit_bindings=False):
         Binding("ctrl+c", "help_quit", show=False, system=True),
         Binding("f5", "refresh", "Refresh"), Binding("f6", "pause", show=False),
         Binding("escape", "back", "Back"), Binding("a", "view_allocation", "Allocation"),
-        Binding("c", "compare_resource", "Compare"), Binding("w", "open_web", "Open Web"),
+        Binding("c", "compare_resource", "Compare"), Binding("e", "view_cost", "Cost"), Binding("w", "open_web", "Open Web"),
         Binding("ctrl+q", "quit", show=False, priority=True),
     ]
     CSS = """
@@ -157,7 +157,7 @@ class Workbench(App, inherit_bindings=False):
         self.job_mode = "detail"
         self.placement_result: SiteJobPlacementResult | None = None
         self._placement_timer: Timer | None = None
-        self.selected_estimate: int | None = None
+        self.job_cost: JobCostResult | None = None
         self.compared: list[str] = []
         self.selected_resource: str | None = None
         self._selected_resource_row: str | None = None
@@ -185,7 +185,6 @@ class Workbench(App, inherit_bindings=False):
         self.storage_source = "summary"
         self.results: dict[str, object] = {}
         self._failed_views: dict[str, str] = {}
-        self.usage_page = 0
         self._revision = 0
         self._pending = False
         self._reading = False
@@ -238,6 +237,7 @@ class Workbench(App, inherit_bindings=False):
                 with Horizontal(classes="controls"):
                     yield Button(t("details"), id="view-job")
                     yield Button(t("allocation"), id="view-allocation", tooltip=t("command_allocation") + " (A)")
+                    yield Button(t("cost"), id="view-cost", tooltip=t("command_job_cost") + " (E)")
                     web_button = Button(t("open_web"), id="open-job-web", disabled=True, tooltip=t("web_job") + " (W)")
                     web_button.display = False
                     yield web_button
@@ -266,15 +266,6 @@ class Workbench(App, inherit_bindings=False):
                     yield Button(t("first"), id="task-start", disabled=True)
                     yield Button(t("next"), id="task-next", disabled=True)
                     yield Button(t("open_web"), id="open-task-web", disabled=True, tooltip=t("web_task") + " (W)")
-            with TabPane(t("usage"), id="usage"):
-                notice = Static("", id="usage-notice", classes="view-notice", markup=False)
-                notice.display = False
-                yield notice
-                yield Static(t("usage_hint"), classes="hint", markup=False)
-                yield DataTable(id="usage-table", cursor_type="row")
-                with Horizontal(classes="controls"):
-                    yield Button(t("previous"), id="previous")
-                    yield Button(t("next"), id="next")
             with TabPane(t("storage"), id="storage"):
                 notice = Static("", id="storage-notice", classes="view-notice", markup=False)
                 notice.display = False
@@ -320,7 +311,6 @@ class Workbench(App, inherit_bindings=False):
             "resources": ("resource_column", "kind"),
             "jobs": ("job", "name", "state", "partition", "nodes_reason"),
             "tasks": ("title", "state", "last_observed_at", "run"),
-            "usage": ("job", "state", "estimate", "gross", "before_credit"),
         }.items():
             self.query_one(f"#{name}-table", DataTable).add_columns(*(self.t(column) for column in columns))
         self._workbench_ready = True
@@ -344,8 +334,7 @@ class Workbench(App, inherit_bindings=False):
         busy = self._reading or self._pending
         selected = {"resources": self._selected_resource_row is not None,
                     "jobs": self.selected_job is not None,
-                    "tasks": self.selected_run is not None,
-                    "usage": self.selected_estimate is not None}.get(view, False)
+                    "tasks": self.selected_run is not None}.get(view, False)
         phase = "summary" if view in {"overview", "storage"} else "inspect" if selected else "browse"
         heading = ""
         if phase == "inspect":
@@ -358,13 +347,9 @@ class Workbench(App, inherit_bindings=False):
                 heading = (terminal_log(run["title"]) if run["title"] is not None else self.t("untitled")) + " · " + state_text(run["status"], self.t)
             elif view == "jobs":
                 heading = self.t("job") + " " + str(self.selected_job) + " · " + self.t(self.job_mode if self.job_mode != "detail" else "details")
-            elif view == "usage" and isinstance(result, RunningEstimateResult):
-                row = result.items[self.selected_estimate].values
-                heading = self.t("job") + " " + display(row["job_id_raw"], self.language) + " · " + self.t("usage")
         automatic = (view not in self._failed_views
             and not (view == "resources" and selected)
-            and not (view == "usage" and selected)
-            and not (view == "jobs" and selected and self.job_mode in {"allocation", "placement"})
+            and not (view == "jobs" and selected and self.job_mode in {"allocation", "placement", "cost"})
             and not (view == "tasks" and (not self.tasks_workspace_key or self.task_mode in {"projects", "stdout", "stderr", "files", "cost", "stats", "placement"}))
             and not (view == "storage" and self.storage_workspace_key is None))
         actions = {"refresh", "quit", "command_palette", "help_quit"}
@@ -373,7 +358,7 @@ class Workbench(App, inherit_bindings=False):
         if phase == "inspect":
             actions.add("back")
         if self._can_inspect_job():
-            actions.update(("view_job", "view_allocation"))
+            actions.update(("view_job", "view_allocation", "view_cost"))
         if view == "jobs" and isinstance(result, SiteJobAllocationResult) and not busy:
             actions.add("view_placement")
         job_matches = ((isinstance(result, SiteJobAllocationResult) and result.job.canonical_id == self.selected_job)
@@ -393,8 +378,6 @@ class Workbench(App, inherit_bindings=False):
                 notice = self.t("resource_empty")
             elif view == "jobs" and isinstance(result, (JobResult, SiteJobResult)) and not result.items:
                 notice = self.t("empty_jobs")
-            elif view == "usage" and isinstance(result, RunningEstimateResult) and not result.items:
-                notice = self.t("empty_estimates")
         if notice:
             notice += "\n" + self.t("retry_hint")
         return WorkbenchPresentation(view, phase, heading, self.size.width >= 100 and self.size.height >= 28,
@@ -408,7 +391,7 @@ class Workbench(App, inherit_bindings=False):
         self.screen.set_class(inspection, "inspection")
         self.screen.set_class(self.size.width < 60, "narrow-evidence")
         for name in ("job-scope-controls", "job-filter-controls"):
-            self.query_one(f"#{name}").display = state.view in {"jobs", "usage"} and not inspection
+            self.query_one(f"#{name}").display = state.view == "jobs" and not inspection
         heading = self.query_one("#object-heading", Static)
         heading.display = inspection
         heading.update(Text(" ".join(state.heading.split()), overflow="ellipsis", no_wrap=True))
@@ -418,7 +401,7 @@ class Workbench(App, inherit_bindings=False):
         notice.update(state.notice)
         self.query_one("#overview-summary").parent.display = not (state.view == "overview" and state.notice)
         self.query_one("#storage-scroll").display = not (state.view == "storage" and state.notice)
-        for view in ("resources", "jobs", "usage", "tasks"):
+        for view in ("resources", "jobs", "tasks"):
             table = self.query_one(f"#{view}-table")
             show = view != state.view or ((not inspection or state.wide) and not state.notice)
             if view == "tasks":
@@ -426,7 +409,7 @@ class Workbench(App, inherit_bindings=False):
             if table.has_focus and not show:
                 self.screen.set_focus(self.query_one("#details-scroll"))
             table.display = show
-        for view in ("overview", "resources", "jobs", "tasks", "usage", "storage"):
+        for view in ("overview", "resources", "jobs", "tasks", "storage"):
             notice = self.query_one(f"#{view}-notice", Static)
             notice.display = view == state.view and bool(state.notice) and not inspection
             if view == state.view:
@@ -446,7 +429,7 @@ class Workbench(App, inherit_bindings=False):
         self.query_one("#task-next").display = self.task_mode not in {"detail", "cost", "stats", "placement"}
         for name in ("jobs-hint",):
             self.query_one(f"#{name}").display = not (state.view == "jobs" and inspection)
-        for name, action in (("view-job", "view_job"), ("view-allocation", "view_allocation"),
+        for name, action in (("view-job", "view_job"), ("view-allocation", "view_allocation"), ("view-cost", "view_cost"),
                              ("view-placement", "view_placement"), ("open-job-web", "open_web")):
             self.query_one(f"#{name}", Button).disabled = action not in state.actions
         self.refresh_bindings()
@@ -468,7 +451,7 @@ class Workbench(App, inherit_bindings=False):
         self._clear_task_files()
         self.selected_job = None
         self.job_mode = "detail"
-        self.selected_estimate = None
+        self._clear_job_cost()
         self._revision += 1
         if view == "storage":
             self.query_one("#storage-workspace", Select).focus()
@@ -573,6 +556,9 @@ class Workbench(App, inherit_bindings=False):
                             self.task_cost = result
                         elif view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts)):
                             self.task_file_page = result
+                        elif view == "jobs" and isinstance(result, JobCostResult):
+                            self.job_cost = result
+                            self.results[view] = result.observation
                         elif isinstance(result, SiteJobPlacementResult):
                             self._clear_placement()
                             self.placement_result = result
@@ -618,6 +604,7 @@ class Workbench(App, inherit_bindings=False):
     def _action_label(self, action: str) -> tuple[str, str]:
         labels = {"refresh": ("refresh", "refresh_help"), "back": ("back", "back_help"),
                   "view_allocation": ("allocation", "command_allocation_help"),
+                  "view_cost": ("cost", "command_job_cost"),
                   "view_placement": ("placement", "placement_help"),
                   "quit": ("quit", "exit_help"), "command_palette": ("palette", "command_search"),
                   "help_quit": ("quit", "exit_help")}
@@ -635,16 +622,20 @@ class Workbench(App, inherit_bindings=False):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if not getattr(self, "_workbench_ready", False):
             return action in {"command_palette", "quit", "help_quit"}
-        if action in {"back", "view_allocation", "open_web", "compare_resource"}:
+        if action in {"back", "view_allocation", "view_cost", "open_web", "compare_resource"}:
             if self.focused and any(isinstance(widget, (Input, Select)) for widget in self.focused.ancestors_with_self):
                 return False
-        if action in {"refresh", "pause", "back", "view_allocation", "open_web", "compare_resource", "copy_web_link"}:
+        if action in {"refresh", "pause", "back", "view_allocation", "view_cost", "open_web", "compare_resource", "copy_web_link"}:
             return action in self._presentation().actions
         return super().check_action(action, parameters)
 
     def action_view_allocation(self) -> None:
         if self._can_inspect_job():
             self._inspect_job("allocation")
+
+    def action_view_cost(self) -> None:
+        if self._can_inspect_job():
+            self._inspect_job("cost")
 
     def action_view_placement(self) -> None:
         if "view_placement" in self._presentation().actions:
@@ -725,7 +716,7 @@ class Workbench(App, inherit_bindings=False):
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         state = self._presentation()
         yield SystemCommand(self.t("theme"), self.t("theme_help"), self.action_change_theme)
-        for action in ("quit", "refresh", "pause", "back", "view_allocation", "view_placement", "open_web", "compare_resource", "copy_web_link"):
+        for action in ("quit", "refresh", "pause", "back", "view_allocation", "view_cost", "view_placement", "open_web", "compare_resource", "copy_web_link"):
             if action in state.actions:
                 if action == "copy_web_link":
                     label, help_text = self.t("command_copy"), self.t("command_copy_help")
@@ -1099,9 +1090,9 @@ class Workbench(App, inherit_bindings=False):
             if storage_source == "native":
                 return self.client.storage_native_quota(workspace_key=workspace, site_id=query.site_id)
             return self.client.storage_quota_summary(workspace_key=workspace, site_id=query.site_id)
-        if view == "usage":
-            return self.client.running_estimates(query)
         if selected:
+            if job_mode == "cost":
+                return self.client.job_cost(selected, replace(query, partition=None, states=()))
             if job_mode == "placement":
                 return self.client.job_placement(selected, replace(query, partition=None))
             if job_mode == "allocation":
@@ -1121,6 +1112,7 @@ class Workbench(App, inherit_bindings=False):
             self.task_cursor = None
             self._clear_task_files()
         if view == "jobs":
+            self._clear_job_cost()
             self._clear_placement()
             self.query_one("#view-placement", Button).display = False
             self._job_detail_revision = None
@@ -1139,14 +1131,20 @@ class Workbench(App, inherit_bindings=False):
             self.selected_resource = self._selected_resource_row = None
             self._clear_web_link()
             self._update_resource_actions()
-        if view == "usage":
-            self.usage_page = 0
-            self.selected_estimate = None
         if view == self.view:
             self.query_one("#details", Static).update("")
 
     def _read_error(self, view: str, error: SaiCliError, *, scope_lookup: bool = False) -> None:
         self._failed_views[view] = self.t("read_failed")
+        if view == "jobs" and self.job_mode == "cost" and not isinstance(error, AuthenticationError):
+            if not isinstance(error, ForbiddenError) or error.code == "job_cost_read_denied":
+                self._clear_job_cost()
+                self._job_detail_revision = None
+                self._clear_web_link()
+                self._failed_views[view] = self.t("job_cost_denied" if isinstance(error, ForbiddenError) else "cost_failed")
+                self.query_one("#status", Static).update(self._failed_views[view])
+                self._sync_presentation()
+                return
         if view == "jobs" and self.job_mode == "placement" and not isinstance(error, (AuthenticationError, ForbiddenError)):
             self._clear_placement()
             result = self.results.get("jobs")
@@ -1194,7 +1192,7 @@ class Workbench(App, inherit_bindings=False):
                 self.query_one("#tasks-project", Select).set_options([])
         if isinstance(error, AuthenticationError):
             self._clear_storage_selection()
-            for name in ("resources", "jobs", "usage", "storage", "overview", "tasks"):
+            for name in ("resources", "jobs", "storage", "overview", "tasks"):
                 self._clear(name)
             self.selected_job = None
             self.job_mode = "detail"
@@ -1343,6 +1341,10 @@ class Workbench(App, inherit_bindings=False):
             self._comparison()
             self._update_scope_display()
             status = self.t("resource_status" if rows else "resource_empty")
+        elif isinstance(result, JobCostResult):
+            self._present(view, result.observation)
+            self.query_one("#details", Static).update(job_cost_panel(result, self.language))
+            status = self.t("file_status", mode=self.t("cost"), time=result.freshness.observed_at)
         elif isinstance(result, SiteJobPlacementResult):
             self._present(view, result.allocation)
             if self._expire_placement():
@@ -1377,18 +1379,6 @@ class Workbench(App, inherit_bindings=False):
                 status = f"{freshness.source} · {freshness.queried_at} · " + self.t("jobs_hint", limit=self.job_query.limit)
             if not result.items:
                 status += " · " + self.t("empty_jobs")
-        elif isinstance(result, RunningEstimateResult):
-            self.usage_page = min(self.usage_page, max(0, (len(result.items) - 1) // 100))
-            start = self.usage_page * 100
-            visible = result.items[start:start + 100]
-            self._rows(view, [(str(start + i), (r.values["job_id_raw"], r.values["state"],
-                state_text(r.values["estimate_status"], self.t), r.values["gross_cny"], r.values["cash_before_credit_cny"]))
-                for i, r in enumerate(visible)])
-            status = (self.t("usage_status", time=result.as_of, page=self.usage_page + 1)
-                      + " · " + self.t("stale" if result.freshness.stale else "fresh"))
-            self.query_one("#previous", Button).disabled = self.usage_page == 0
-            self.query_one("#next", Button).disabled = start + 100 >= len(result.items)
-            self.query_one("#details", Static).update(self.t("usage_choose"))
         self.query_one("#status", Static).update(status + (" · " + self.t("auto_paused") if self.paused else ""))
         self._sync_presentation()
 
@@ -1472,27 +1462,6 @@ class Workbench(App, inherit_bindings=False):
             self._inspect_job("detail", row_key=key)
         elif event.data_table.id == "tasks-table":
             self._inspect_task("detail", run_ref=key)
-        elif event.data_table.id == "usage-table":
-            result = self.results.get("usage")
-            if isinstance(result, RunningEstimateResult):
-                self.selected_estimate = int(key)
-                self._revision += 1
-                self._pending = False
-                item = result.items[self.selected_estimate].values
-                lines = [f"{self.t(label)}: " + (state_text(item[name], self.t) if name == "estimate_status"
-                         else display(item[name], self.language)) for name, label in (
-                    ("job_id_raw", "job"), ("slurm_account", "account"),
-                    ("estimate_status", "estimate"), ("gross_cny", "gross"),
-                    ("cash_before_credit_cny", "before_credit"), ("submit_time", "submitted"),
-                    ("start_time", "started"), ("price_revision", "price_revision"))]
-                lines += [self.t("observed", time=result.freshness.observed_at), f"{self.t('as_of')}: {result.as_of}",
-                    f"{self.t('source')}: {result.freshness.source} · " + self.t("age", seconds=result.freshness.age_seconds)
-                    + " · " + self.t("stale" if result.freshness.stale else "fresh"),
-                    self.t("uncertainty") + ": " + (", ".join(item["uncertainty"]) or self.t("none_reported")),
-                    self.t("snapshot_paused")]
-                self.query_one("#details", Static).update("\n".join(lines))
-                self._sync_presentation()
-
     def _apply(self, *, partition: str | None = None, refresh: bool = True) -> bool:
         account = self.query_one("#account", Input).value.strip() or None
         by_id = self.query_one("#selector", Select).value == "id"
@@ -1507,10 +1476,9 @@ class Workbench(App, inherit_bindings=False):
         self.job_query = query
         self.selected_job = None
         self.job_mode = "detail"
-        self.selected_estimate = None
+        self._clear_job_cost()
         self._revision += 1
-        for view in ("jobs", "usage"):
-            self._clear(view)
+        self._clear("jobs")
         self.query_one("#partition", Input).value = query.partition or ""
         self._update_scope_display()
         if refresh:
@@ -1559,8 +1527,10 @@ class Workbench(App, inherit_bindings=False):
             self._task_page(start=event.button.id == "task-start")
         elif event.button.id == "view-placement":
             self.action_view_placement()
-        elif event.button.id in {"view-job", "view-allocation"}:
-            if event.button.id == "view-allocation":
+        elif event.button.id in {"view-job", "view-allocation", "view-cost"}:
+            if event.button.id == "view-cost":
+                self.action_view_cost()
+            elif event.button.id == "view-allocation":
                 self.action_view_allocation()
             else:
                 self._inspect_job("detail")
@@ -1595,12 +1565,11 @@ class Workbench(App, inherit_bindings=False):
                 self._clear("jobs")
                 self.query_one("#views", TabbedContent).active = "jobs"
                 self.query_one("#jobs-table", DataTable).focus()
-        elif event.button.id in {"previous", "next"}:
-            result = self.results.get("usage")
-            if isinstance(result, RunningEstimateResult):
-                self.selected_estimate = None
-                self.usage_page = max(0, self.usage_page + (1 if event.button.id == "next" else -1))
-                self._present("usage", result)
+
+    def _clear_job_cost(self) -> None:
+        self.job_cost = None
+        if self.view == "jobs" and self.job_mode == "cost":
+            self.query_one("#details", Static).update("")
 
     def _discard_allocation(self) -> None:
         self._clear_placement()
@@ -1621,7 +1590,8 @@ class Workbench(App, inherit_bindings=False):
         if selected is None:
             self.query_one("#status", Static).update(self.t("select_job"))
             return
-        if mode != "placement":
+        self._clear_job_cost()
+        if mode not in {"placement", "cost"}:
             self._discard_allocation()
         else:
             self._clear_placement()
@@ -1671,7 +1641,7 @@ class Workbench(App, inherit_bindings=False):
             self.request_read()
 
     def action_refresh(self) -> None:
-        self.selected_estimate = None
+        self._clear_job_cost()
         if self.view == "tasks":
             self._revision += 1
             self._clear_task_cost()
@@ -1681,6 +1651,7 @@ class Workbench(App, inherit_bindings=False):
                 self._clear_task_files()
         if self.view == "jobs":
             self._revision += 1
+            self._job_detail_revision = None
             if self.job_mode == "placement":
                 self._clear_placement()
                 result = self.results.get("jobs")
@@ -1716,11 +1687,8 @@ class Workbench(App, inherit_bindings=False):
             self.request_read()
             self.query_one("#tasks-table", DataTable).focus()
             return
-        if self.view == "usage" and self.selected_estimate is not None:
-            self.selected_estimate = None
-            self.query_one("#details", Static).update("")
-            self.request_read()
         if self.view == "jobs" and self.selected_job:
+            self._clear_job_cost()
             self._discard_allocation()
             self.selected_job = None
             self.job_mode = "detail"

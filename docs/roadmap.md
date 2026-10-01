@@ -44,7 +44,7 @@ pricing at Center and requires no site price bundle.
 
 - [x] Pair and publish the [unified job-observation implementation](billing-read-plane.md):
   same-observation optional Portal estimates and complete billing/v1 gateway reads;
-  existing CLI/TUI layouts and the basic production acceptance remain separate.
+  later TUI selected-job Cost integration and its paired installation remain separate.
 
 The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 preserves explicit user site choice and permits independent or shared ingress.
@@ -153,13 +153,14 @@ behind validation of asset, allocation, and telemetry facts. Both documents
 are candidate designs, not completed implementation milestones.
 
 - [x] Optional TUI dependency group and interactive `sai tui` entry
-- [x] Six-view navigation and published partition/QOS metadata; resource
+- [x] Five-view navigation and published partition/QOS metadata; resource
   eligibility and admission remain separate from catalog presentation
 - [x] Explicit resource candidate, independent two-item comparison and shared
   console-to-Pilot preparation intent without requiring an existing job;
   current eligibility and concrete proposal validation stay server-owned
-- [x] TUI running-usage estimate view; the batch `jobs cost` view already
-  exposes `final=false`, `as_of`, freshness, price revision, and uncertainty
+- [x] TUI selected-job Cost mode over one central native observation and price,
+  with independent billing scope; duplicate estimate list removed, paired
+  installation pending. Batch `jobs cost` keeps the complete-scope contract
 - [x] Separate TUI allocation inspection over one site snapshot, including exact
   array-task identity, paused refresh and complete F5 replacement (local HTTP only)
 - [x] Open in Web for an inspected job using Portal-owned workspace mapping,
@@ -174,7 +175,7 @@ are candidate designs, not completed implementation milestones.
   for explicit task/storage selections, without raw-key editing or native probes
 - [x] Bilingual task workflow, contextual actions and narrow-screen evidence
   layout, checked with local HTTP and rendered views
-- [x] Shared browse/inspection/summary layout across the six views, current-view
+- [x] Shared browse/inspection/summary layout across the five views, current-view
   Back and polling-aware actions; local rendered and HTTP checks
 - [ ] SSH terminal diversity and long-session experience acceptance
 - [x] Bounded real SSH/PTY task evidence checks: 14-minute Chinese run, English
@@ -193,8 +194,8 @@ are candidate designs, not completed implementation milestones.
 - [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
 
 The first [terminal workbench](terminal-workbench.md) supports two-partition
-comparison, filtered job list/detail, allocation inspection, and independent
-non-final estimates. Allocation shows the response's nodes, CPU/memory, freshness
+comparison, filtered job list/detail, allocation inspection, and independently
+authorized non-final costs within the selected job. Allocation shows the response's nodes, CPU/memory, freshness
 and restart count with explicit allocated/not-allocated/unavailable states.
 It does not provide measured utilization or physical GPU placement. The separate
 registration action joins operator-recorded rack/U locations to the same
@@ -202,8 +203,8 @@ response's allocation; a scheduler name does not prove current physical identity
 Web navigation rechecks the exact job and workspace and carries the prior
 observation as comparison evidence; it does not launch or renew a Pilot task.
 Scope changes discard stale requests; network cancellation remains bounded by
-the HTTP timeout. Only estimates have local snapshot pages, not job-history
-pagination. Managed Tasks have server keyset pages and an exact Web detail link.
+the HTTP timeout. Cost inspection has one job observation, not a second paged
+list. Managed Tasks have server keyset pages and an exact Web detail link.
 Selected output continuation through the console to the original Pilot Session
 is implemented locally, using fresh reads and native preview/input actions.
 Explicit final-cost association and the

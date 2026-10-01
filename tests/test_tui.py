@@ -40,7 +40,7 @@ def catalog():
     return payload
 
 
-def test_workbench_resource_comparison_to_job_and_estimate_over_http(tmp_path, job_payload, running_estimate_payload, monkeypatch):
+def test_workbench_resource_comparison_to_job_and_cost_over_http(tmp_path, job_payload, job_cost_payload, monkeypatch):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     denied = 0
@@ -52,8 +52,8 @@ def test_workbench_resource_comparison_to_job_and_estimate_over_http(tmp_path, j
             return 401, {"detail": "expired"}
         if parsed.path.endswith("resource-catalog"):
             return 200, catalog()
-        if parsed.path.endswith("running-estimates"):
-            return (denied, {"detail": "denied"}) if denied else (200, running_estimate_payload)
+        if parse_qs(parsed.query).get("include_estimate") == ["true"]:
+            return (denied, {"detail": {"code": "job_cost_read_denied"}}) if denied else (200, job_cost_payload)
         if parsed.path.endswith("12345"):
             assert "partition" not in parse_qs(parsed.query)
         return 200, job_payload
@@ -79,29 +79,23 @@ def test_workbench_resource_comparison_to_job_and_estimate_over_http(tmp_path, j
             await settled(app, pilot)
             assert app.selected_job == "12345"
             assert "Reason / nodes:" in str(app.query_one("#details", Static).render())
-            await pilot.press("escape")
+            await pilot.click("#view-cost")
             await settled(app, pilot)
-            assert app.selected_job is None
-            app.query_one("#views", TabbedContent).active = "usage"
-            await settled(app, pilot)
-            assert "jobs" in app.results and "usage" in app.results
-            app.query_one("#usage-table", DataTable).focus()
-            await pilot.press("down", "enter")
-            assert app.selected_estimate == 1
+            assert app.view == "jobs" and app.selected_job == "12345"
+            assert app.job_cost is not None
             detail = str(app.query_one("#details", Static).render())
-            assert "Not started" in detail and "Unknown" in detail
             app._tick()
             await pilot.pause(.05)
             assert str(app.query_one("#details", Static).render()) == detail
             nonlocal denied
+            observation = app.results["jobs"]
             denied = 403
             await pilot.press("f5")
             await settled(app, pilot)
-            assert "usage" not in app.results and "jobs" in app.results
-            assert app.query_one("#usage-table", DataTable).row_count == 0
+            assert app.job_cost is None and app.results["jobs"] is observation
             assert str(app.query_one("#details", Static).render()) == ""
             denied = 401
-            app.query_one("#views", TabbedContent).active = "jobs"
+            await pilot.press("f5")
             await settled(app, pilot)
             assert not app.results and app.catalog is None and app.paused
             await pilot.resize_terminal(60, 24)
@@ -169,35 +163,6 @@ def test_scope_switch_discards_delayed_old_response_and_coalesces_refresh(job_pa
                 assert len(calls) == 2
             finally:
                 release.set()
-    asyncio.run(scenario())
-
-
-def test_estimate_pages_use_snapshot_rows_with_nullable_or_duplicate_keys(running_estimate_payload):
-    from sai_cli.contracts import RunningEstimateResult
-    payload = deepcopy(running_estimate_payload)
-    row = payload["items"][1]
-    row["job_key"] = None
-    payload["items"] = [deepcopy(row) for _ in range(105)]
-    payload["count"] = 105
-    result = RunningEstimateResult.from_payload(payload, request_id="usage")
-    class Client:
-        def resource_catalog(self, site):
-            return ResourceCatalog.from_payload(catalog(), site_id=site, request_id="catalog")
-        def running_estimates(self, query): return result
-    async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a"), refresh_seconds=999)
-        async with app.run_test(size=(80, 24)) as pilot:
-            await settled(app, pilot)
-            app.query_one("#views", TabbedContent).active = "usage"
-            await settled(app, pilot)
-            table = app.query_one("#usage-table", DataTable)
-            assert table.row_count == 100
-            await pilot.click("#next")
-            assert table.row_count == 5
-            table.focus()
-            await pilot.press("enter")
-            assert app.selected_estimate == 100
-            assert "Not started" in str(app.query_one("#details", Static).render())
     asyncio.run(scenario())
 
 

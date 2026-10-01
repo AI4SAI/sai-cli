@@ -47,9 +47,13 @@ Storage keep their independent, explicitly selected scopes.
    detail uses native site-read mode when configured and the existing Portal
    transport otherwise. Allocation requires native configuration and capability
    mode; missing configuration displays an error. Neither path falls back.
-5. Open Running estimates to request the independent billing DTO. Enter shows
-   one item's amounts, price revision, source time and uncertainty. This is
-   never a final charge. No match to a job is guessed from its numeric ID.
+5. Choose Cost for the selected job to read its current state and running
+   estimate together. Portal checks billing access separately and prices this
+   exact native observation. F5 replaces the snapshot; Escape returns to Jobs.
+   The list's state and partition filters do not hide a selected job that has
+   changed state. Amounts remain non-final, with source time and uncertainty.
+   The separate estimate tab is removed; batch `sai jobs cost` retains its
+   complete authorized financial snapshot for scripts.
 
 Allocation inspection takes job identity, scheduler states, restart count,
 observation time/freshness and node CPU/memory rows from one response. It never
@@ -106,8 +110,8 @@ settled billing or hardware telemetry features.
   where automatic reads are supported;
   Ctrl+Q exits. Tab and arrow keys use standard Textual focus/navigation.
 - The active view refreshes every ten seconds; inactive views do not poll.
-  Inspecting an estimate pauses that view's automatic refresh to preserve its
-  exact snapshot. Escape or a manual refresh leaves that inspection.
+  Job Cost inspection stays manual to preserve its exact observation. F5
+  replaces the whole job and estimate; it does not resume polling.
 - Inspecting an allocation also pauses automatic refresh. F5 or Refresh clears
   the old allocation immediately and requests a complete replacement snapshot;
   inspection remains paused. Changing job, detail/allocation mode, applied scope
@@ -122,16 +126,15 @@ settled billing or hardware telemetry features.
   Failed views wait for manual refresh or re-entry rather than polling the
   same error indefinitely.
 - Jobs retain the requested server limit and show truncation where the DTO
-  supplies it. Estimates are a complete authorized server snapshot displayed
-  in local pages of 100 rows. These pages do not claim server pagination or
-  live atomicity across multiple requests.
+  supplies it. A selected job's estimate is not an account total. The batch
+  `jobs cost` command retains the independent complete-scope billing contract.
 - Backend text is rendered literally; Rich markup or terminal controls cannot
   become instructions to the display. Ordinary catalog prose may wrap.
 - Narrow/short windows use compact controls; details scroll vertically and
   tables can scroll horizontally. Comparison remains a table of the same
   validated facts, not a new product or pricing model.
 
-All six views share three layouts: browse for lists and project discovery,
+All five views share three layouts: browse for lists and project discovery,
 inspect for a selected object, and summary for Overview and Storage. Inspection
 keeps the current object above the evidence. At 40 or 60 columns, or below 28
 rows, the list and filters give way to the evidence; at 100 columns with enough
@@ -146,7 +149,7 @@ offer Refresh without Pause/Resume; F6 cannot discard a selected output or imply
 that polling has resumed. Footer, visible controls and command palette use the
 same contextual actions, with short footer labels and searchable command titles,
 through Textual's public interfaces.
-Empty estimates explain that no estimate is available. Failed reads keep a
+Unavailable estimates explain that no amount is available. Failed reads keep a
 bounded explanation and retry action visible after protected data is cleared.
 
 ## Managed tasks and output pages
@@ -263,7 +266,7 @@ information hierarchy and visual verification. The CLI defaults to Chinese;
 unchanged. Bilingual navigation, paginated project discovery, confirmation
 separate from highlight, narrow-window task details and return-to-list selection
 are implemented. The shared layout applies the existing teal theme, evidence
-hierarchy and contextual actions across all six views. Local rendered review
+hierarchy and contextual actions across all five views. Local rendered review
 covers both languages and narrow/short windows. A bounded real SSH run now
 covers task evidence, resizing, colour/monochrome modes and disconnect cleanup.
 Physical terminal fonts, clipboard behaviour, network diversity and longer
@@ -311,8 +314,8 @@ Allocation tests use separate local Portal and gateway HTTP origins, array tasks
 including zero, snapshot replacement, denied reads and missing configuration.
 Delayed-result tests exercise scope replacement, old permission failures and
 request coalescing, including job/mode/tab changes during allocation reads.
-Nullable/duplicate estimate identities use snapshot-local
-UI rows, not invented business identifiers. Small-window checks cover the
+Cost checks bind the attached full array identity, subject and exact submission/
+start times to its parent row. Small-window checks cover the
 layout and accessible control positions; local synthetic screenshots are not
 real infrastructure acceptance.
 
@@ -365,3 +368,21 @@ signed Identity credentials, HTTP JWKS and SQLite. Revoking membership then
 refused both exact lookups. Read windows caused no database writes. This does
 not establish production deployment, MariaDB, native Lustre access or broader
 SSH coverage; the earlier bounded SSH record identifies its own tested runtime.
+
+## Selected-job cost acceptance
+
+The paired central detail producer is pinned in the API contract. Local checks
+cover direct native Jobs followed by central Cost for the same array task,
+running-to-suspended observations, restricted cash, unavailable prices, tiny
+positive amounts, manual refresh and Web continuation. Late reads after a
+mode/scope/tab change cannot restore old costs; fee-only denial preserves job
+access, while ordinary revocation clears protected observations.
+
+The CLI suite passed 908 tests; three packaging checks initially skipped for a
+missing local build backend subsequently passed within the eight-test packaging
+file. Installed-wheel HTTP checks passed 30 tests. Chinese/English interaction
+and 40/60/100-column geometry passed. English SVG renders were reviewed; Rich's
+SVG exporter compresses CJK text using character length instead of cell width,
+so those exported images do not establish native Chinese font acceptance.
+This is local validation, not the paired Center/shared-client installation or
+a nonempty production-job check.

@@ -229,7 +229,7 @@ Supported query parameters:
 | `states` | no | Comma-separated narrowing filter |
 | `limit` | no | Integer from 1 through 500, default 100 |
 | `source_preference` | no | Currently fixed to `live` |
-| `include_estimate` | no | Candidate Portal opt-in: literal `true` or `false`, default false |
+| `include_estimate` | no | Portal opt-in: literal `true` or `false`, default false |
 
 The client does not send raw `user`, arbitrary query parameters, or a
 non-live source preference.
@@ -330,7 +330,23 @@ Portal `/v1/slurm/jobs`, detail and allocation accept explicit
 policy to that row's observation and adds `running_estimate` using the item
 contract below. It strips native usage from its ordinary job response; false or
 absent opt-in preserves the old fields. Placement does not accept the option.
-The CLI does not gain a new flag or change its job/TUI output in this slice.
+The paired CLI detail route `/v1/slurm/cli/jobs/{job_id}` also accepts this
+option. It retains `sai.compute.read`, current CLI policy and the exact
+`jobs.detail` capability, then independently requires `sai.billing.read` when
+the option is true. Missing billing scope returns `job_cost_read_denied` without
+a native read; ordinary job reads remain available. This does not add an option
+to the CLI list route, change a grant, or put prices in the site gateway.
+
+TUI Cost uses this central detail request even when ordinary jobs use a direct
+site origin. It reads the selected job with an exact new grant, without the
+list's state/partition filters, and validates the attached item against its
+parent job. Job state changes therefore remain visible. The whole observation
+is replaced on manual refresh; neither another list nor a local price join is
+used. Unsupported producers fail explicitly, with no fallback to a broad read.
+The new consumer requires the paired producer; production installation is
+separate from local compatibility evidence.
+
+Paired CLI detail-cost producer: `905f6601026eccea8051e7db0b29e407c2386852`.
 
 Each attached estimate binds the full array-task ID, user/account and exact UTC
 submission/start times of its parent row. No browser-side job-ID join is allowed.

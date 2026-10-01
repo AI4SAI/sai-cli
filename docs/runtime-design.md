@@ -158,6 +158,14 @@ list command's scope and narrowing options, validates the independent
 `billing.running-estimate/v1` DTO, and renders it without local caching,
 scheduler access, or price calculation.
 
+TUI Jobs instead has a Cost mode for its selected job. The existing serialized
+reader calls the central detail route with `include_estimate=true`; the response
+contains one native observation and its Portal-authorized estimate. The exact
+job capability still needs compute authority, with an additional billing scope
+check at Center. A cost-only refusal preserves independently readable job facts.
+Normal job reads retain their configured direct-site transport. Cost reads are
+manual, replace the whole observation and never fall back to the full queue.
+
 The controller-side `site/slurm/job_submit.lua` artifact does not change this
 client boundary. It validates jobs submitted through native Slurm commands but
 does not expose a `sai jobs submit` command.

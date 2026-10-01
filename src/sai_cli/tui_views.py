@@ -1,10 +1,12 @@
 """Localized terminal layouts over validated read DTOs, with no new facts."""
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from rich.console import Group
 from rich.table import Table
 from rich.text import Text
 
+from .contracts import JobCostResult, short_job_state
 from .managed_runs import ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, terminal_log
 from .native_quota import NativeQuotaResult
 from .render import format_allocation_indices
@@ -19,7 +21,9 @@ def display(value: object, language: str = "en-US") -> str:
 
 
 def state_text(value: str, t: Messages) -> str:
-    return t(value) if value in MESSAGES else value
+    key = {"R": "running", "PD": "queued", "S": "suspended", "CG": "completing", "CD": "completed",
+           "F": "failed", "CA": "canceled"}.get(short_job_state(value), value)
+    return t(key) if key in MESSAGES else value
 
 
 def task_state(value: str, t: Messages) -> Text:
@@ -199,3 +203,39 @@ def storage_panel(result: StorageQuotaSummary | NativeQuotaResult, language: str
                     else t("bytes", count=item[field]) if field.endswith("bytes") else item[field])
             rows.append(Text(f"{t(label)}: {unit}"))
     return Group(*rows, Text(t("native_zero")))
+
+
+def _cost_number(value: str, places: int = 2) -> str:
+    amount = Decimal(value)
+    minimum = Decimal(1).scaleb(-places)
+    if 0 < amount < minimum:
+        return f"<{minimum}"
+    return f"{amount:,.{places}f}"
+
+
+def job_cost_panel(result: JobCostResult, language: str = "en-US") -> Group:
+    """Present one job observation and its non-final price without recomputing it."""
+    t = Messages(language)
+    job, estimate, freshness = result.observation.items[0], result.estimate.values, result.freshness
+    unavailable = t("not_started" if estimate["estimate_status"] == "not_started" else "unavailable")
+    gross = f"{_cost_number(estimate['gross_cny'])} CNY" if estimate["gross_cny"] is not None else unavailable
+    cash = (f"{_cost_number(estimate['cash_before_credit_cny'])} CNY" if estimate["cash_before_credit_cny"] is not None
+            else t("cash_restricted") if "cash_price_restricted" in estimate["uncertainty"] else unavailable)
+    facts = Table(box=None, show_header=False, expand=True, padding=(0, 1))
+    facts.add_column(ratio=1)
+    facts.add_column(ratio=1)
+    for label, value in (("state", state_text(job.values["state"], t)), ("estimate", state_text(estimate["estimate_status"], t)),
+                         ("gross", gross), ("before_credit", cash)):
+        facts.add_row(Text(t(label)), Text(value))
+    resources = estimate["resources"]
+    if resources["usage_quantity"] is not None:
+        quantity = _cost_number(resources["usage_quantity"], 4).rstrip("0").rstrip(".")
+        unit = t("gpu_hours" if resources["resource_type"].upper() == "GPU" else "cpu_hours")
+        facts.add_row(Text(t("cost_quantity")), Text(f"{quantity} {unit}"))
+    messages = []
+    if any(code not in {"cash_price_restricted", "job_not_started"} for code in estimate["uncertainty"]):
+        messages.append(Text(t("estimate_incomplete")))
+    return Group(Text(f"{t('job')} {job.canonical_id} · {t('non_final')}", style="bold"), facts, *messages,
+                 Text(t("observed", time=freshness.observed_at)),
+                 Text(f"{t('source')}: {freshness.source} · {t('stale' if freshness.stale else 'fresh')}"),
+                 Text(t("snapshot_paused")))

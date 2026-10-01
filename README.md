@@ -102,12 +102,18 @@ Expired registrations are removed while the same allocation snapshot stays
 visible. Site-disabled location reads preserve task metadata. These records
 remain operator registrations, not verified physical GPU identity or telemetry.
 
-The six views share browse, inspection and summary layouts. Selected evidence
+The five views share browse, inspection and summary layouts. Selected evidence
 gets the main area in narrow or short terminals, with the current object above
 it. Escape returns within the current view. F6 works only for views that can
 automatically refresh; logs, files, allocations, locations, resources and
 selected estimates remain explicit snapshots. See [the design rules](DESIGN.md)
 for the information hierarchy and local versus real-terminal acceptance.
+
+Jobs has an explicit Cost action for the selected job. It reads that job's
+current state and standard-price estimate together through Portal, retaining
+independent billing permission. F5 replaces the whole observation; this mode
+does not poll. There is no separate TUI estimate list. The batch `jobs cost`
+command keeps its complete authorized financial snapshot for scripts.
 
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway

@@ -65,6 +65,17 @@ def site_allocation_payload(job_payload) -> dict[str, Any]:
 
 
 @pytest.fixture
+def job_cost_payload(job_payload, running_estimate_payload) -> dict[str, Any]:
+    job = job_payload["items"][0]
+    estimate = running_estimate_payload["items"][0]
+    estimate.update({key: job[key] for key in ("slurm_user", "slurm_account", "submit_time", "start_time")})
+    job["running_estimate"] = estimate
+    job_payload["has_more"] = False
+    job_payload["freshness"].update(source="scontrol", ttl_seconds=1, age_seconds=0, stale=False)
+    return job_payload
+
+
+@pytest.fixture
 def running_estimate_payload() -> dict[str, Any]:
     common = {
         "slurm_job_db_index": None,

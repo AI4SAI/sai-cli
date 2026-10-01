@@ -209,7 +209,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             app.query_one("#tasks-project", Select).value = "project:project-example"
             await settled(app, pilot)
             app.query_one("#tasks-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
-            for name in ("resources", "jobs", "usage", "storage", "overview"):
+            for name in ("resources", "jobs", "storage", "overview"):
                 app.results[name] = object()
             failure = (401, "authentication_failed")
             await click(app, pilot, "#task-stdout")

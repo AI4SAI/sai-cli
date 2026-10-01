@@ -118,7 +118,7 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
             failure = None
             await pilot.press("f5")
             await settled(app, pilot)
-            for name in ("resources", "usage", "storage", "overview"):
+            for name in ("resources", "storage", "overview"):
                 app.results[name] = object()
             failure = (401, "authentication_failed")
             await open_web(app, pilot)

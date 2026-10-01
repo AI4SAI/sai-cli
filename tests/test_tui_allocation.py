@@ -263,7 +263,7 @@ def test_allocation_auth_failure_clears_all_five_views_and_keeps_overview_accoun
                         initial_view="overview", refresh_seconds=999)
         async with app.run_test(size=(80, 24)) as pilot:
             await settled(app, pilot)
-            for view in ("resources", "usage", "storage"):
+            for view in ("resources", "storage"):
                 app.results[view] = object()
             app.query_one("#views", TabbedContent).active = "jobs"
             await settled(app, pilot)

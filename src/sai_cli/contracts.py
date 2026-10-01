@@ -13,6 +13,16 @@ from .errors import ContractError
 
 ACCOUNT_VERIFICATION_PATH = "/portal/#/portal/account/identity-assurance"
 
+_STATE_SHORT = {
+    "RUNNING": "R", "PENDING": "PD", "COMPLETING": "CG", "SUSPENDED": "S",
+    "COMPLETED": "CD", "FAILED": "F", "CANCELLED": "CA",
+}
+
+
+def short_job_state(value: str | None) -> str | None:
+    return _STATE_SHORT.get(value, value)
+
+
 JOB_ITEM_FIELDS = (
     "job_id",
     "array_task_id",
@@ -720,6 +730,37 @@ class RunningEstimateFreshness:
             "age_seconds": self.age_seconds,
             "stale": self.stale,
         }
+
+
+@dataclass(frozen=True)
+class JobCostResult:
+    """One job and its independently authorized price from the same observation."""
+
+    observation: JobResult
+    estimate: RunningEstimateItem
+    freshness: RunningEstimateFreshness
+
+    @classmethod
+    def from_payload(cls, payload: object, *, request_id: str) -> "JobCostResult":
+        observation = JobResult.from_payload(payload, request_id=request_id)
+        if (len(observation.items) != 1 or payload.get("has_more") is not False
+                or observation.freshness.source != "scontrol"):
+            raise ContractError(request_id=request_id)
+        job = observation.items[0]
+        estimate = RunningEstimateItem.from_payload(
+            payload["items"][0].get("running_estimate"), request_id=request_id,
+        )
+        if (estimate.values["job_id_raw"] != job.canonical_id
+                or short_job_state(estimate.values["state"]) != short_job_state(job.values["state"])) or any(
+            estimate.values[key] != job.values[key]
+            for key in ("slurm_user", "slurm_account", "submit_time", "start_time")
+        ):
+            raise ContractError("the estimate does not belong to this job observation", request_id=request_id)
+        freshness = RunningEstimateFreshness.from_payload(
+            {**payload["freshness"], "observed_at": observation.freshness.queried_at},
+            request_id=request_id,
+        )
+        return cls(observation, estimate, freshness)
 
 
 @dataclass(frozen=True)

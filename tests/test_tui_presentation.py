@@ -31,7 +31,7 @@ def visible_text(app):
 
 
 @pytest.fixture
-def workbench_http(job_payload, running_estimate_payload, monkeypatch, request):
+def workbench_http(job_payload, job_cost_payload, monkeypatch, request):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost,::1")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost,::1")
     options = getattr(request, "param", {})
@@ -46,10 +46,8 @@ def workbench_http(job_payload, running_estimate_payload, monkeypatch, request):
             return 200, data
         if path.endswith("/workspaces"):
             return 200, workspace_sample()
-        if path.endswith("/running-estimates"):
-            if options.get("empty_usage"):
-                return 200, {**running_estimate_payload, "items": [], "count": 0}
-            return 200, running_estimate_payload
+        if parse_qs(urlsplit(call["path"]).query).get("include_estimate") == ["true"]:
+            return 200, job_cost_payload
         if path.endswith("/quota-summary"):
             return 200, storage_sample("project:storage-example")
         if path.endswith("/overview"):
@@ -78,22 +76,22 @@ def workbench_http(job_payload, running_estimate_payload, monkeypatch, request):
 
 
 @pytest.fixture
-def error_workbench_http(job_payload, running_estimate_payload, monkeypatch):
+def error_workbench_http(job_payload, job_cost_payload, monkeypatch):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost,::1")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost,::1")
     state = {"status": 200}
 
     def reply(call, _):
         path = urlsplit(call["path"]).path
-        if path.endswith("/running-estimates") and state["status"] != 200:
+        if parse_qs(urlsplit(call["path"]).query).get("include_estimate") == ["true"] and state["status"] != 200:
             return state["status"], {
                 "detail": {
-                    "code": "private-source-error",
+                    "code": "job_cost_read_denied" if state["status"] == 403 else "private-source-error",
                     "message": "private provider detail",
                 }
             }
-        if path.endswith("/running-estimates"):
-            return 200, running_estimate_payload
+        if parse_qs(urlsplit(call["path"]).query).get("include_estimate") == ["true"]:
+            return 200, job_cost_payload
         if path.endswith("resource-catalog"):
             return 200, catalog()
         return 200, job_payload
@@ -126,7 +124,7 @@ def test_retained_task_selection_does_not_advertise_back_in_another_view(workben
         async with app.run_test(size=(40, 24)) as pilot:
             await enter_detail(app, pilot, "tasks")
             assert app.selected_run == "run-example-1"
-            for view in ("overview", "resources", "jobs", "usage"):
+            for view in ("overview", "resources", "jobs"):
                 app.query_one("#views", TabbedContent).active = view
                 await settled(app, pilot)
                 app.query_one("#views").focus()
@@ -140,7 +138,7 @@ def test_retained_task_selection_does_not_advertise_back_in_another_view(workben
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("phase", ["files", "allocation", "estimate", "resource"])
+@pytest.mark.parametrize("phase", ["files", "allocation", "cost", "resource"])
 def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbench_http, site_allocation_payload, phase):
     client, calls = workbench_http
     if phase == "allocation":
@@ -151,7 +149,7 @@ def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbenc
         initial = {
             "files": "tasks",
             "allocation": "jobs",
-            "estimate": "usage",
+            "cost": "jobs",
             "resource": "resources",
         }[phase]
         app = Workbench(
@@ -171,12 +169,15 @@ def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbenc
             elif phase == "allocation":
                 app.action_view_allocation()
                 await settled(app, pilot)
+            elif phase == "cost":
+                app.action_view_cost()
+                await settled(app, pilot)
             elif phase == "resource":
                 await pilot.press("w")
             await pilot.pause(.05)
             before = (
                 len(calls), app.selected_job, app.selected_run,
-                app.selected_resource, app.selected_estimate,
+                app.selected_resource, app.job_cost,
                 app.task_file_page, app.selected_artifact, app._web_url,
             )
             assert app.check_action("pause", ()) is False
@@ -186,7 +187,7 @@ def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbenc
             await settled(app, pilot)
             after = (
                 len(calls), app.selected_job, app.selected_run,
-                app.selected_resource, app.selected_estimate,
+                app.selected_resource, app.job_cost,
                 app.task_file_page, app.selected_artifact, app._web_url,
             )
             assert after == before
@@ -208,10 +209,10 @@ def test_each_view_gives_primary_evidence_a_readable_viewport(workbench_http, tm
             refresh_seconds=999,
         )
         async with app.run_test(size=(width, height)) as pilot:
-            for view in ("overview", "resources", "jobs", "usage", "storage", "tasks"):
+            for view in ("overview", "resources", "jobs", "storage", "tasks"):
                 app.query_one("#views", TabbedContent).active = view
                 await settled(app, pilot)
-                if view in {"resources", "jobs", "usage", "tasks"}:
+                if view in {"resources", "jobs", "tasks"}:
                     app.query_one(f"#{view}-table", DataTable).focus()
                     await pilot.press("enter")
                     await settled(app, pilot)
@@ -230,7 +231,6 @@ def test_each_view_gives_primary_evidence_a_readable_viewport(workbench_http, tm
                     marker = {
                         "resources": "Catalog evidence",
                         "jobs": "12345",
-                        "usage": "12345",
                     }[view]
                 await pilot.pause(.05)
                 region = region_widget.region
@@ -345,6 +345,8 @@ def test_empty_jobs_buttons_keys_and_palette_agree(job_payload, monkeypatch):
         async with app.run_test(size=(40, 24)) as pilot:
             await settled(app, pilot)
             assert app.query_one("#view-job", Button).disabled
+            assert app.query_one("#view-cost", Button).disabled
+            assert "e" not in app.screen.active_bindings
             assert app.query_one("#view-allocation", Button).disabled
             assert "a" not in app.screen.active_bindings
             assert not any(
@@ -361,7 +363,7 @@ def test_empty_jobs_buttons_keys_and_palette_agree(job_payload, monkeypatch):
 
 
 @pytest.mark.parametrize("status", [403, 503])
-def test_usage_error_is_visible_and_f5_recovers_from_real_http(
+def test_job_cost_error_is_visible_and_f5_recovers_from_real_http(
     error_workbench_http,
     status,
 ):
@@ -376,19 +378,20 @@ def test_usage_error_is_visible_and_f5_recovers_from_real_http(
         )
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
+            app.action_view_cost()
+            await settled(app, pilot)
             jobs = app.results["jobs"]
-            await enter_detail(app, pilot, "usage")
-            assert app.selected_estimate is not None
+            assert app.job_cost is not None
             state["status"] = status
             await pilot.press("f5")
             await settled(app, pilot)
-            assert "usage" not in app.results
+            assert app.job_cost is None
             assert app.results["jobs"] is jobs
-            assert app.selected_estimate is None
+            assert app.selected_job == "12345"
             assert str(app.query_one("#details", Static).render()) == ""
-            assert app.query_one("#usage-notice", Static).display
+            assert app.query_one("#inspection-notice", Static).display
             notice = "".join(visible_text(app).split())
-            message = app.t("access_denied" if status == 403 else "read_failed")
+            message = app.t("job_cost_denied" if status == 403 else "cost_failed")
             assert "".join(message.split()) in notice and "F5" in notice
             assert "privateproviderdetail" not in notice
             failed_calls = len(calls)
@@ -399,38 +402,12 @@ def test_usage_error_is_visible_and_f5_recovers_from_real_http(
             state["status"] = 200
             await pilot.press("f5")
             await settled(app, pilot)
-            assert "usage" in app.results
-            assert app.query_one("#usage-notice", Static).display is False
-            assert app.results["jobs"] is jobs
-            assert app.query_one("#usage-table", DataTable).row_count > 0
+            assert app.job_cost is not None
+            assert app.query_one("#inspection-notice", Static).display is False
+            assert app.results["jobs"] is app.job_cost.observation
+            assert app.query_one("#jobs-table", DataTable).row_count == 1
             assert message not in str(app.query_one("#status", Static).render())
             assert len(calls) == failed_calls + 1
-
-    asyncio.run(scenario())
-
-
-@pytest.mark.parametrize("workbench_http", [{"empty_usage": True}], indirect=True)
-def test_empty_usage_has_bounded_notice_and_no_selection_prompt(workbench_http):
-    client, calls = workbench_http
-
-    async def scenario():
-        app = Workbench(
-            client,
-            JobQuery(site_id="site-a"),
-            initial_view="usage",
-            refresh_seconds=999,
-        )
-        async with app.run_test(size=(60, 24)) as pilot:
-            await settled(app, pilot)
-            assert app.query_one("#usage-table", DataTable).row_count == 0
-            assert app.query_one("#usage-notice", Static).display
-            visible = "".join(visible_text(app).split())
-            assert "".join(app.t("empty_estimates").split()) in visible
-            assert "".join(app.t("usage_choose").split()) not in visible
-            assert "escape" not in app.screen.active_bindings
-            assert len(calls) == 1
-            assert calls[0]["method"] == "GET"
-            assert urlsplit(calls[0]["path"]).path.endswith("/running-estimates")
 
     asyncio.run(scenario())
 

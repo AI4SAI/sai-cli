@@ -9,7 +9,7 @@ from urllib.parse import quote, urljoin
 from .auth import TokenLease, TokenProvider
 from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
-from .contracts import AccountStatus, JobResult, RunningEstimateResult
+from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateResult, short_job_state
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .job_web_context import JobWebContext
@@ -586,6 +586,31 @@ class PortalClient:
                 "the job detail response must contain the requested job",
                 request_id=response.request_id,
             )
+        return result
+
+    def job_cost(self, job_id: str, query: JobQuery) -> JobCostResult:
+        clean_job_id = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
+        request = query.validated(detail=True)
+        prefix = "/v1/slurm/cli/jobs" if self._cli_surface_enabled else "/v1/slurm/jobs"
+        response = self._authorized_get(
+            f"{prefix}/{quote(clean_job_id, safe='')}",
+            query={**request.parameters(detail=True), "include_estimate": "true"},
+            operation="jobs.detail",
+            capability_request=(request.capability_request(operation="jobs.detail", job_id=clean_job_id)
+                                if self._cli_surface_enabled else None),
+            job_id=clean_job_id,
+        )
+        result = JobCostResult.from_payload(response.payload, request_id=response.request_id)
+        result.observation.require_request_binding(
+            site_id=request.site_id, cluster_id=request.cluster_id,
+            scope=_SCOPES[request.scope], request_id=response.request_id,
+        )
+        job = result.observation.items[0]
+        if (job.canonical_id != clean_job_id
+                or (request.account_name is not None and job.values["slurm_account"] != request.account_name)
+                or (request.states and short_job_state(job.values["state"]) not in
+                    {short_job_state(state) for state in request.states})):
+            raise ContractError("the cost response must contain the requested job", request_id=response.request_id)
         return result
 
     def running_estimates(self, query: JobQuery) -> RunningEstimateResult:
