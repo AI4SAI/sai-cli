@@ -4,7 +4,7 @@ Status: implementation baseline
 
 ## Purpose
 
-`sai-cli` is a thin client for SAI control-plane APIs and, in a later phase,
+`sai-cli` is a thin client for SAI control-plane APIs and explicitly configured
 site-local read gateways. Its job is to translate explicit user intent into a
 bounded request, validate the response contract, and render JSON or a human
 table. It is not an authorization engine and it is not a second scheduler.
@@ -19,6 +19,14 @@ The architecture separates three responsibilities:
 | `sai-cli` | Parse commands, complete a browser-approved device login when needed, renew short-lived credentials, call an authorized endpoint, validate DTOs, and render output | Raw scheduler access, broad fallback reads, or privilege expansion |
 
 ## Current and target paths
+
+Users choose the compute site; connectivity configuration selects a route to
+that same site. The center owns identity, authorization and final business
+facts, without being a required transit point for every site's native reads.
+Sites may have separate HTTPS ingress or share one ingress with fixed hostname
+routing. The [site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
+records the target and current implementation gaps; it does not change the
+basic release's pending real-user acceptance.
 
 Registered job location is an independent `jobs.placement` read, disabled until
 the site explicitly approves its disclosure. The site joins one native

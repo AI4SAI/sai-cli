@@ -251,6 +251,84 @@ new spool, exporter or read-replay service. Production acceptance must verify
 the actual service UID, journal collection and failure behavior, separately
 from local HTTP tests.
 
+## Explicit site selection and ingress topology
+
+Decision (2026-10-01): users explicitly choose the site. A saved selection may
+be reused and remains visible; latency, capacity or failure must not silently
+move a request or task to another site. Address routing serves the selected
+site, not a new scheduling decision. This is the target deployment model;
+the multi-site and direct-browser paths below are not yet delivered.
+
+Each site has a stable logical HTTPS origin, independent of its public IP:
+
+| Selected site | Logical origin | Deployment |
+| --- | --- | --- |
+| Site A | `https://site-a.api.example.org` | Its own ingress |
+| Site B | `https://site-b.api.example.org` | Shared ingress with C |
+| Site C | `https://site-c.api.example.org` | Shared ingress with B |
+
+Independent ingress is the one-site case of shared ingress. Hostnames B and C
+may resolve to the same IP; fixed virtual-host mappings forward each to its
+own gateway. Unknown hosts fail closed. Gateway authorization still verifies
+the signed site/cluster/operation/subject; DNS and Host are not permission.
+An ingress can run beside the gateway and need not imply another machine.
+Outbound NAT alone is not HTTPS ingress: a private site can use an existing
+private network/VPN to a shared ingress that accepts inbound HTTPS.
+
+Reuse two mappings in existing protected configuration: site ID to client read
+origin, and ingress hostname to gateway upstream. No new discovery service is
+required. A future authorized site directory may publish the first mapping,
+but accepting it requires a coordinated client contract; arbitrary user URLs
+and response redirects cannot choose credential destinations.
+
+Site-local TUI/Agent reads should use the local route. Prefer site-local DNS
+for the same stable hostname where available; otherwise select a protected
+site-local origin explicitly. Preserve certificate name/CA validation on every
+path, including ingress-to-gateway TLS. A browser-facing origin needs a
+certificate its clients trust. Do not discover routes by probing, downgrade
+TLS, or fail over to a different site. Any later alternate ingress must serve
+the same site under a separately reviewed failover policy.
+
+Identity login, Portal capability issuance/renewal, membership, task records
+and final billing remain central. Authorized native reads use the selected
+site path during the capability's remaining lifetime. Center loss prevents
+renewal; expiry fails closed. The current issuer's default 120-second lease
+is not an unlimited offline grant or an immediate revocation guarantee.
+Routing changes do not grant file, Pilot execution or administrative access.
+
+WebUI and Agent should share these site semantics and DTOs, not necessarily
+one network origin. Direct cross-origin browser reads require an explicit
+console-origin allowlist, bounded OPTIONS/preflight support for the capability
+header, and no browser credential mode, Identity Bearer or login cookies at
+the site gateway. Shared proxies must not cache private responses or log
+capabilities. Web job/allocation reads currently use Portal's authorized relay;
+retain it until the direct-browser replacement is reviewed. Pilot's existing
+Session-bound capability issuance is a separate consumer path, not evidence
+that every Pilot read uses the Web relay or that multi-site routing is complete.
+
+Current code has one protected CLI read origin per profile, a server-side
+gateway URL per Portal site, and a single-upstream basic ingress renderer.
+Unmanaged `--site` changes only the site selector, not the profile/read origin;
+managed wrappers fix the operator-selected default profile and reject site,
+cluster and profile overrides. Explicit managed multi-site selection therefore
+needs a reviewed site-to-origin binding, not simply removal of wrapper checks.
+Capability caches already bind site/cluster/request and read origin; Identity
+credentials remain bound to their central issuer/resource, not each site.
+There is no client endpoint discovery, multi-site ingress rendering or
+direct-browser CORS contract; current ingress rejects OPTIONS. The deployed
+center ingress is the first site's connection, not a required global hub.
+CDN, automatic region selection, service mesh and a replicated facts database
+are not prerequisites.
+
+Delivery order stays basic reads, real-user authorization/audit acceptance,
+then the complete task journey. Before adding another site, validate its
+explicit site/origin binding, local and public paths, wrong-site rejection,
+single-site failure isolation and lease expiry during center loss. Measure
+actual routes/latency and native command load; local collection alone does not
+prove that client traffic avoids the center. DNS or ingress migration must
+preserve site identity and have its own rollback. This decision starts no
+production topology change and does not delay the existing basic-read gate.
+
 ## Network and rollout boundary
 
 Pricing is optional for a jobs-only gateway. The bootstrap renderer emits an

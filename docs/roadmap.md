@@ -36,6 +36,11 @@ separately owned gateway role. Asset publication, registered placement, native
 storage, Run statistics, GPU telemetry and 3D are independent slices, not
 prerequisites for basic job reads. Pricing is optional for a jobs-only gateway.
 
+The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
+preserves explicit user site choice and permits independent or shared ingress.
+Record it now; implement and validate additional site routing after this gate,
+without treating the first center ingress as a mandatory global transit point.
+
 ## Site Artifact: controller submission policy
 
 - [x] Minimal `job_submit.lua` submission and modification policy
