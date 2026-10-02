@@ -188,7 +188,11 @@ are candidate designs, not completed implementation milestones.
   billing permission, role-filtered funding components and console continuation
 - [x] Bounded production-user historical Run detail, stdout, output and final-cost
   reads, plus headless TUI same-output Web reference and narrow selection retention;
-  actual browser/Pilot continuation and complete new computation remain open
+  these reads do not establish a complete new computation
+- [x] Paired console/Pilot reference handoff deployed; user confirmed the original
+  conversation and file reference are visible
+- [ ] Result workflow: directly inspect or obtain an authorized output, then
+  optionally bring an explicit question to Pilot; visibility alone is insufficient
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
 - [x] Paired site statistics role installation and ordinary-user CLI/API/native
@@ -214,7 +218,10 @@ Scope changes discard stale requests; network cancellation remains bounded by
 the HTTP timeout. Cost inspection has one job observation, not a second paged
 list. Managed Tasks have server keyset pages and an exact Web detail link.
 Selected output continuation through the console to the original Pilot Session
-is implemented locally, using fresh reads and native preview/input actions.
+is deployed; user confirmation covers conversation and file-reference visibility.
+Preview/input actions have separate local evidence. Direct result inspection and
+retrieval, useful follow-up analysis and the complete computation remain open;
+the handoff is an auxiliary action, not the result page's primary outcome.
 Explicit final-cost association and the
 [`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)
 are implemented in paired source. The statistics path uses bounded owner-UID

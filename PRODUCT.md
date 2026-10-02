@@ -22,6 +22,10 @@ context can continue into the console and its existing Pilot flow.
 The terminal design rules live in [DESIGN.md](DESIGN.md); language, context
 selection and evidence layout are part of the task workflow, not a separate
 decorative layer.
+Result inspection and retrieval are core workbench outcomes. Returning to a
+Pilot conversation with a file reference is an optional aid to further work;
+it does not establish that the user can inspect, obtain or interpret the result.
+The current output listing and handoff leave that product acceptance open.
 It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
 workbench design, including hardware telemetry and result navigation, is described in
 [the unified workbench design](docs/unified-workbench.md); the design is not an
