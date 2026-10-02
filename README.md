@@ -6,6 +6,11 @@ data while keeping authorization decisions out of login-node shell wrappers.
 
 The first implementation milestone is intentionally read-only:
 
+- `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
+  reads one bounded UTF-8 output section. TUI Enter opens the selected file in
+  the task; Escape returns to its file page. Current file permission is checked
+  independently; no Pilot session or model window is needed. Paired deployment
+  remains separate from this source implementation.
 - `sai runs workspaces` discovers currently readable task projects by name.
   `sai storage workspaces` discovers readable storage scopes at the selected site.
   Both accept `--workspace-key` for an exact authorized name lookup.

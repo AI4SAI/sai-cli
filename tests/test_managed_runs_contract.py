@@ -168,3 +168,17 @@ def test_artifact_paths_remain_filenames_and_file_pages_are_bounded():
     for change in ({"cursor": "1"}, {"complete": False}, {"next_cursor": "1"}, {"items": data["items"] * 101}):
         with pytest.raises(ContractError): parse("artifacts", {**data, **change})
     with pytest.raises(ContractError): parse("artifacts", data, cursor="1")
+
+
+@pytest.mark.parametrize("mutation", [
+    {"artifact_ref": "artifact-" + "f" * 40}, {"workspace_key": "project:other"},
+    {"next_offset": 1}, {"complete": False}, {"status": "missing"},
+    {"status": "available", "content": "\ud800"}, {"size_bytes": True},
+])
+def test_artifact_content_rejects_mismatched_or_inconsistent_file_pages(mutation):
+    from sai_cli.artifact_content import ManagedRunArtifactContent
+    value = json.loads((Path(__file__).resolve().parents[1] / "contracts/managed-run-content/v1/available.sample.json").read_text())
+    args = dict(workspace_key=value["workspace_key"], site_id=value["site_id"], run_ref=value["run_ref"],
+                artifact_ref=value["artifact_ref"], cursor=None, request_id="read")
+    assert ManagedRunArtifactContent.from_payload({**value, "private": "not rendered"}, **args).as_dict() == value
+    with pytest.raises(ContractError): ManagedRunArtifactContent.from_payload({**value, **mutation}, **args)

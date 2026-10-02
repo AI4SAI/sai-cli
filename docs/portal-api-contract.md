@@ -806,3 +806,18 @@ This issuer is CLI-specific. WebUI/Pilot require their own entrypoint policy
 before consuming the same native DTO; this route does not expand Agent grants.
 Installation and a read as the actual gateway service UID on the actual Lustre
 client remain separate deployment/acceptance gates.
+
+## Managed output content
+
+`GET /v1/compute/cli/runs/{run_ref}/artifacts/{artifact_ref}/content` uses the
+existing Identity resource scope and shell policy. The corresponding browser
+route under `/v1/account/compute/runs` supports its existing read policy.
+`workspace_key` and `site_id` are required; optional `artifact_cursor` is the
+selected output-list request page, and `cursor` is the previous content response's
+version-bound byte cursor. No filename or native path is accepted from the client.
+
+The response is the allowlisted [content contract](../contracts/managed-run-content/v1/README.md).
+Run and applied file READ are independently rechecked for every section. A changed
+file is not appended to old contents. `artifact.read` exposes the same DTO through
+the existing independent internal Agent read service; native Pilot tool registration
+and production release are separate, and this change grants no execution rights.

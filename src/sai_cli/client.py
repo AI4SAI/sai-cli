@@ -13,6 +13,7 @@ from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateR
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .job_web_context import JobWebContext
+from .artifact_content import ManagedRunArtifactContent, ARTIFACT, content_cursor
 from .managed_runs import (
     ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, ManagedRunWorkspaces,
     clean_run_ref, clean_tasks_workspace,
@@ -481,6 +482,19 @@ class PortalClient:
                                       stream=stream, cursor=cursor, max_bytes=max_bytes)
         return ManagedRunLogs.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
                                           run_ref=run_ref, stream=stream, cursor=cursor, max_bytes=max_bytes, request_id=response.request_id)
+
+    def managed_run_artifact_content(self, run_ref: str, *, workspace_key: str, site_id: str,
+                                     artifact_ref: str, artifact_cursor: str | None = None,
+                                     cursor: str | None = None) -> ManagedRunArtifactContent:
+        if not isinstance(artifact_ref, str) or ARTIFACT.fullmatch(artifact_ref) is None:
+            raise ConfigError("artifact reference is invalid")
+        if artifact_cursor is not None and (not isinstance(artifact_cursor, str) or re.fullmatch(r"0|[1-9][0-9]{0,8}", artifact_cursor) is None):
+            raise ConfigError("artifact list cursor is invalid")
+        content_cursor(cursor)
+        response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref,
+            suffix=f"/artifacts/{artifact_ref}/content", artifact_cursor=artifact_cursor, cursor=cursor)
+        return ManagedRunArtifactContent.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
+            run_ref=run_ref, artifact_ref=artifact_ref, cursor=cursor, request_id=response.request_id)
 
     def managed_run_artifacts(self, run_ref: str, *, workspace_key: str, site_id: str,
                              cursor: str | None = None, limit: int = 100) -> ManagedRunArtifacts:

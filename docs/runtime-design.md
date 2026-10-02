@@ -36,12 +36,11 @@ The first release does not implement:
 - full-site asset exports, node topology, utilization or storage management.
 
 Managed-run result reads are shared with Pilot through the independent
-`pilot-read-call/v1` operations `run.get`, `run.logs` and `artifact.list`.
+`pilot-read-call/v1` operations `run.get`, `run.logs`, `artifact.list` and `artifact.read`.
 They use current project READ and the run's frozen output mount, rather than
 the submit/cancel execution grant. A console or TUI file continuation carries
-only an opaque run/artifact reference and a bounded page cursor. Pilot requires
-an explicit original-Session confirmation before opening the native file view
-or inserting an editable prompt. Runtime renewal and model submission remain
+only an opaque run/artifact reference and a bounded page cursor. The task page's explicit action opens original history directly; file previews
+and prompt insertion remain separately authorized. Runtime renewal and model submission remain
 separate user actions.
 
 `jobs placement` requires the explicit site gateway and an independent
@@ -439,3 +438,13 @@ The rollout sequence is: inventory and checksum, stage the new package, canary
 through an explicit path, atomically switch package-managed wrappers, validate,
 and retain a package-level rollback. This repository does not authorize manual
 editing of production command directories.
+
+## Direct output inspection
+
+`runs read` and TUI file inspection consume the same current UTF-8 content DTO as
+the console and internal Agent API. Each request returns at most 64 KiB, with byte
+positions, observed time and a native file version. A changed, missing or unsupported
+file contains no preview text. Back restores the prior file-list cursor; refreshing
+starts a new observation rather than combining old/new content. JSON preserves
+exact counters and text; terminal output escapes controls. Bulk downloads and the
+native Pilot tool registration are separate work, not implied by the read endpoint.

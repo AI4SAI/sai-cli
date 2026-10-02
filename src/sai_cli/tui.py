@@ -28,6 +28,7 @@ from .client import JobQuery, PortalClient, clean_states
 from .contracts import JobCostResult, JobResult
 from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, NotFoundError, SaiCliError
 from .job_web_context import JobWebContext
+from .artifact_content import ManagedRunArtifactContent
 from .managed_runs import (
     ManagedReadResult, ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts,
     clean_tasks_workspace, terminal_log, ManagedRunWorkspaces,
@@ -170,11 +171,12 @@ class Workbench(App, inherit_bindings=False):
         self.selected_run: str | None = None
         self.task_mode = "list"
         self.task_cursor: str | None = None
-        self.task_file_page: ManagedRunLogs | ManagedRunArtifacts | None = None
+        self.task_file_page: ManagedRunLogs | ManagedRunArtifacts | ManagedRunArtifactContent | None = None
         self.task_cost: ManagedRunCost | None = None
         self.task_stats: ManagedRunStats | None = None
         self.task_placement: ManagedRunPlacement | SiteJobAllocationResult | None = None
         self.selected_artifact: tuple[ManagedRunArtifacts, str] | None = None
+        self._artifact_return_ref: str | None = None
         self.task_projects: ManagedRunWorkspaces | None = None
         self.project_cursor: str | None = None
         self.tasks_workspace_label: str | None = None
@@ -350,7 +352,7 @@ class Workbench(App, inherit_bindings=False):
         automatic = (view not in self._failed_views
             and not (view == "resources" and selected)
             and not (view == "jobs" and selected and self.job_mode in {"allocation", "placement", "cost"})
-            and not (view == "tasks" and (not self.tasks_workspace_key or self.task_mode in {"projects", "stdout", "stderr", "files", "cost", "stats", "placement"}))
+            and not (view == "tasks" and (not self.tasks_workspace_key or self.task_mode in {"projects", "stdout", "stderr", "files", "content", "cost", "stats", "placement"}))
             and not (view == "storage" and self.storage_workspace_key is None))
         actions = {"refresh", "quit", "command_palette", "help_quit"}
         if automatic:
@@ -423,7 +425,7 @@ class Workbench(App, inherit_bindings=False):
             button.tooltip = self.t("command_" + name)
         self.query_one("#task-page-actions").display = self.task_mode != "projects"
         self.query_one("#task-back").display = state.view == "tasks" and inspection
-        self.query_one("#task-placement").display = state.view == "tasks" and inspection and self.task_mode not in {"stdout", "stderr", "files"}
+        self.query_one("#task-placement").display = state.view == "tasks" and inspection and self.task_mode not in {"stdout", "stderr", "files", "content"}
         self.query_one("#open-task-web").display = state.view == "tasks" and inspection
         self.query_one("#task-start").display = self.task_mode not in {"detail", "cost", "stats", "placement"}
         self.query_one("#task-next").display = self.task_mode not in {"detail", "cost", "stats", "placement"}
@@ -509,9 +511,9 @@ class Workbench(App, inherit_bindings=False):
                 storage_source = self.storage_source
                 storage_cursor = self.storage_cursor
                 job_mode = self.job_mode
-                task_request = (self.tasks_workspace_key, self.task_mode, self.selected_run, self.task_cursor)
+                task_request = (self.tasks_workspace_key, self.task_mode, self.selected_run, self.task_cursor, self.selected_artifact)
                 if view == "tasks" and self.task_mode == "projects":
-                    task_request = (None, "projects", None, self.project_cursor)
+                    task_request = (None, "projects", None, self.project_cursor, None)
                 resolve_scope = ((view == "tasks" and task_request[0] is not None and self.tasks_workspace_label is None)
                     or (view == "storage" and workspace is not None and self.storage_workspace_label is None))
                 scope_lookup = resolve_scope or (view == "storage" and workspace is None) or (view == "tasks" and task_request[1] == "projects")
@@ -554,7 +556,7 @@ class Workbench(App, inherit_bindings=False):
                             self.task_stats = result
                         elif view == "tasks" and isinstance(result, ManagedRunCost):
                             self.task_cost = result
-                        elif view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts)):
+                        elif view == "tasks" and isinstance(result, (ManagedRunLogs, ManagedRunArtifacts, ManagedRunArtifactContent)):
                             self.task_file_page = result
                         elif view == "jobs" and isinstance(result, JobCostResult):
                             self.job_cost = result
@@ -700,7 +702,7 @@ class Workbench(App, inherit_bindings=False):
         result = self.results["tasks"]
         if self.selected_artifact is not None:
             page, artifact_ref = self.selected_artifact
-            if self.task_mode != "files" or page is not self.task_file_page:
+            if self.task_mode not in {"files", "content"} or (self.task_mode == "files" and page is not self.task_file_page):
                 self._clear_artifact_selection()
                 return
             url = result.web_url(self.client.transport.base_url, artifact_page=page, artifact_ref=artifact_ref)
@@ -916,6 +918,7 @@ class Workbench(App, inherit_bindings=False):
     def _clear_task_files(self) -> None:
         self._clear_artifact_selection()
         self.task_file_page = None
+        self._artifact_return_ref = None
         self.query_one("#task-artifacts", OptionList).clear_options()
         self.query_one("#task-artifacts").display = False
         self.query_one("#task-artifact-hint").display = False
@@ -939,7 +942,7 @@ class Workbench(App, inherit_bindings=False):
         self.refresh_bindings()
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
-        if (event.option_list.id == "task-artifacts" and self.selected_artifact is not None
+        if (event.option_list.id == "task-artifacts" and self.task_mode == "files" and self.selected_artifact is not None
                 and any(option is event.option for option in event.option_list.options)):
             if event.option.id != self.selected_artifact[1]:
                 self._clear_artifact_selection()
@@ -958,7 +961,14 @@ class Workbench(App, inherit_bindings=False):
         self.selected_artifact = (page, reference)
         item = next(item for item in page.values["items"] if item["artifact_ref"] == reference)
         event.option_list.replace_option_prompt(reference, task_artifact_option(item, self.language, selected=True))
-        self.query_one("#task-artifact-hint", Static).update(self.t("file_continue"))
+        self.task_mode, self.task_cursor = "content", None
+        self.task_file_page = None
+        self._revision += 1
+        self.query_one("#task-artifacts").display = False
+        self.query_one("#task-artifact-hint").display = False
+        self.query_one("#details", Static).update("")
+        self.query_one("#details-scroll", VerticalScroll).focus()
+        self.request_read()
         self._update_task_actions()
 
     def _project_labels(self) -> dict[str, str]:
@@ -981,8 +991,8 @@ class Workbench(App, inherit_bindings=False):
         for name in ("detail", "stdout", "stderr", "files", "cost", "stats", "placement"):
             button = self.query_one(f"#task-{name}", Button)
             button.disabled = not (detail or (name == "detail" and rows))
-            button.variant = "primary" if self.selected_run and self.task_mode == name else "default"
-        page = result if self.task_mode == "list" else self.task_file_page if self.task_mode in {"stdout", "stderr", "files"} else None
+            button.variant = "primary" if self.selected_run and (self.task_mode == name or name == "files" and self.task_mode == "content") else "default"
+        page = result if self.task_mode == "list" else self.task_file_page if self.task_mode in {"stdout", "stderr", "files", "content"} else None
         more = page is not None and bool(page.values.get("has_more") if isinstance(page, ManagedRunList)
             else page.values["truncated"] if isinstance(page, ManagedRunLogs) else not page.values["complete"])
         self.query_one("#task-next", Button).disabled = busy or not more or page.values.get("next_cursor") is None
@@ -1048,7 +1058,12 @@ class Workbench(App, inherit_bindings=False):
             return
         self.task_cursor = None if start else page.values["next_cursor"]
         self._revision += 1
-        self._clear_task_files()
+        if self.task_mode == "content":
+            self._clear_web_link()
+            self.task_file_page = None
+            self.query_one("#details", Static).update("")
+        else:
+            self._clear_task_files()
         if self.task_mode == "list":
             self._task_list_row = None
             self._task_list_scroll = 0.0
@@ -1060,12 +1075,22 @@ class Workbench(App, inherit_bindings=False):
                storage_source: str = "summary", job_mode: str = "detail", task_request: tuple = (),
                resolve_scope: bool = False, storage_cursor: str | None = None):
         if view == "tasks":
-            task_workspace, mode, run, cursor = task_request
+            task_workspace, mode, run, cursor, artifact = task_request
             if resolve_scope:
                 return self.client.list_run_workspaces(site_id=query.site_id, workspace_key=task_workspace)
             if mode == "projects":
                 return self.client.list_run_workspaces(site_id=query.site_id, limit=50, cursor=cursor)
             scope = {"workspace_key": task_workspace, "site_id": query.site_id}
+            if mode == "content":
+                if artifact is None:
+                    raise ConfigError("select an output file to read")
+                page, reference = artifact
+                result = self.client.managed_run_artifact_content(run, **scope, artifact_ref=reference,
+                    artifact_cursor=page.request_cursor, cursor=cursor)
+                item = next(item for item in page.values["items"] if item["artifact_ref"] == reference)
+                if result.values["relative_path"] != item["relative_path"]:
+                    raise ContractError()
+                return result
             if mode == "list":
                 return self.client.list_managed_runs(**scope, limit=50, cursor=cursor)
             if mode == "detail":
@@ -1176,8 +1201,18 @@ class Workbench(App, inherit_bindings=False):
                 self.query_one("#status", Static).update(self._failed_views[view])
                 self._sync_presentation()
                 return
+        if view == "tasks" and self.task_mode == "content" and not isinstance(error, (AuthenticationError, ForbiddenError)):
+            self.task_file_page = None
+            self._clear_web_link()
+            self.query_one("#details", Static).update(self.t("read_failed"))
+            self.query_one("#status", Static).update(f"{self.t('read_failed')} · {error.code}")
+            self._update_task_actions()
+            return
         was_projects = view == "tasks" and self.task_mode == "projects"
         if view == "tasks" and not scope_lookup and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
+            if self.task_mode == "content":
+                self.task_mode = "files"
+                self.task_cursor = self.selected_artifact[0].request_cursor if self.selected_artifact else None
             self._failed_views[view] = self.t("file_denied")
             self._clear_task_files()
             self.query_one("#status", Static).update(f"{self.t('file_denied')} · {error.code}")
@@ -1313,6 +1348,9 @@ class Workbench(App, inherit_bindings=False):
                     else self.t("files_empty")
                 )
                 if data["items"]:
+                    if self._artifact_return_ref and any(item["artifact_ref"] == self._artifact_return_ref for item in data["items"]):
+                        options.highlighted = options.get_option_index(self._artifact_return_ref)
+                    self._artifact_return_ref = None
                     options.focus()
                 status = self.t("file_status", mode=self.t(self.task_mode), time=data["observed_at"])
             else:
@@ -1647,7 +1685,12 @@ class Workbench(App, inherit_bindings=False):
             self._clear_task_cost()
             self._clear_task_stats()
             self._clear_task_placement()
-            if self.task_mode not in {"cost", "stats", "placement"}:
+            if self.task_mode == "content":
+                self.task_cursor = None
+                self.task_file_page = None
+                self.query_one("#details", Static).update("")
+                self._clear_web_link()
+            elif self.task_mode not in {"cost", "stats", "placement"}:
                 self._clear_task_files()
         if self.view == "jobs":
             self._revision += 1
@@ -1679,6 +1722,14 @@ class Workbench(App, inherit_bindings=False):
             self._clear_web_link()
             self._comparison()
             self.query_one("#resources-table", DataTable).focus()
+            return
+        if self.view == "tasks" and self.task_mode == "content" and self.selected_artifact:
+            page, reference = self.selected_artifact
+            self.task_mode, self.task_cursor = "files", page.request_cursor
+            self._revision += 1
+            self._clear_task_files()
+            self._artifact_return_ref = reference
+            self.request_read()
             return
         if self.view == "tasks" and self.selected_run:
             self._revision += 1

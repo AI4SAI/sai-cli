@@ -1,5 +1,7 @@
 """The visible workbench actions and evidence follow the current interaction."""
 import asyncio
+import json
+from pathlib import Path
 from copy import deepcopy
 from io import StringIO
 import xml.etree.ElementTree as ET
@@ -57,8 +59,14 @@ def workbench_http(job_payload, job_cost_payload, monkeypatch, request):
             if "title" in options:
                 data["items"][0]["title"] = options["title"]
             return 200, data
+        if path.endswith("/content"):
+            value = json.loads((Path(__file__).resolve().parents[1] / "contracts/managed-run-content/v1/available.sample.json").read_text())
+            value["artifact_ref"] = path.split("/")[-2]
+            value["relative_path"] = sample("artifacts")["items"][0]["relative_path"]
+            return 200, value
         if path.endswith("/artifacts"):
-            return 200, sample("artifacts")
+            value = sample("artifacts"); value["items"][0]["artifact_ref"] = "artifact-" + "a" * 40
+            return 200, value
         if path.endswith("/logs"):
             return 200, sample("log")
         if path.endswith("/run-example-1"):
@@ -165,7 +173,8 @@ def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbenc
             if phase == "files":
                 await click(app, pilot, "#task-files")
                 app.query_one("#task-artifacts", OptionList).focus()
-                await pilot.press("home", "enter", "w")
+                await pilot.press("home", "enter"); await settled(app, pilot)
+                await pilot.press("w")
             elif phase == "allocation":
                 app.action_view_allocation()
                 await settled(app, pilot)

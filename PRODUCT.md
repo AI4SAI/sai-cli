@@ -25,7 +25,9 @@ decorative layer.
 Result inspection and retrieval are core workbench outcomes. Returning to a
 Pilot conversation with a file reference is an optional aid to further work;
 it does not establish that the user can inspect, obtain or interpret the result.
-The current output listing and handoff leave that product acceptance open.
+Bounded task-output text reading is implemented in paired source for Web, TUI
+and JSON. Production inspection, complete output retrieval and useful follow-up
+analysis leave the broader product acceptance open.
 It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
 workbench design, including hardware telemetry and result navigation, is described in
 [the unified workbench design](docs/unified-workbench.md); the design is not an

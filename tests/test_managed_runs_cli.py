@@ -101,3 +101,24 @@ def test_file_denial_is_a_bounded_error_without_partial_results(tmp_path):
 def test_tui_task_scope_is_explicit_and_independent_of_job_scope():
     args = build_parser().parse_args(["--site", "site-a", "tui", "--scope", "self", "--tasks-workspace-key", "project:project-example"])
     assert args.site == "site-a" and args.scope == "self" and args.tasks_workspace_key == "project:project-example"
+
+
+@pytest.mark.parametrize("prefix", [True, False])
+def test_selected_artifact_content_uses_one_authorized_get_and_escapes_terminal(tmp_path, prefix):
+    body = json.loads((Path(__file__).resolve().parents[1] / "contracts/managed-run-content/v1/available.sample.json").read_text())
+    body["content"] = "<html>result</html>\n\x1b[31m"
+    body["size_bytes"] = body["next_offset"] = body["bytes_read"] = len(body["content"].encode())
+    for presentation in ["json", "table"]:
+        with _server(body) as (origin, server):
+            options = ["--base-url", origin, "--site", "site-a"]
+            command = ["runs", "read", body["run_ref"], "--artifact-ref", body["artifact_ref"],
+                       "--workspace-key", body["workspace_key"], "--format", presentation]
+            out, err = StringIO(), StringIO()
+            result = main(options + command if prefix else command + options,
+                          environ=_env(tmp_path), stdout=out, stderr=err)
+            assert result == 0, err.getvalue()
+            assert len(server.requests) == 1 and server.requests[0]["path"].endswith("/content")
+            assert server.requests[0]["query"] == {"workspace_key": [body["workspace_key"]], "site_id": ["site-a"]}
+            assert "\x1b" not in out.getvalue()
+            if presentation == "json": assert json.loads(out.getvalue()) == body
+            else: assert "<html>result</html>" in out.getvalue()

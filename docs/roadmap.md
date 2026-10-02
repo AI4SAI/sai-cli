@@ -191,7 +191,8 @@ are candidate designs, not completed implementation milestones.
   these reads do not establish a complete new computation
 - [x] Paired console/Pilot reference handoff deployed; user confirmed the original
   conversation and file reference are visible
-- [ ] Result workflow: directly inspect or obtain an authorized output, then
+- [x] Paired bounded text-content source and Web/TUI/JSON readers; production deployment remains separate
+- [ ] Result workflow: deploy direct inspection, obtain required outputs, then
   optionally bring an explicit question to Pilot; visibility alone is insufficient
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time

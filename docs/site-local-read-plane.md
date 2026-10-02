@@ -509,3 +509,13 @@ No account, membership, signing key or policy epoch was changed.
 This proves revocation of that one lease, not immediate membership withdrawal,
 a cached-capability 401/retry path, external audit delivery or full package recovery.
 The observed normal-client recovery was a fresh successful read.
+
+## Managed artifact text boundary
+
+The first direct task-output text reader extends the existing managed log/file
+chain: current Center Run/file authority, dedicated site interactive-read credential,
+and the native owner-UID helper. It is not a new operation on the capability job
+gateway and is not direct storage access by a CLI. Its paired content contract
+bounds a section to 64 KiB, forbids client paths and stops at file-version changes.
+Future site-direct content routing must preserve this same authority and file scope;
+this source change does not claim that transport migration or deployment is done.

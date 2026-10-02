@@ -6,6 +6,7 @@ from rich.table import Table
 from rich.text import Text
 
 from .contracts import JobCostResult, short_job_state
+from .artifact_content import ManagedRunArtifactContent
 from .managed_runs import ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, terminal_log
 from .native_quota import NativeQuotaResult
 from .render import format_allocation_indices, format_decimal
@@ -56,9 +57,13 @@ def task_detail_panel(result: ManagedRunDetail, language: str = "en-US") -> Grou
                  Text(t("task_receipt", time=run["last_observed_at"] or t("unknown"))))
 
 
-def task_file_panel(result: ManagedRunLogs | ManagedRunArtifacts, language: str = "en-US") -> Group:
+def task_file_panel(result: ManagedRunLogs | ManagedRunArtifacts | ManagedRunArtifactContent, language: str = "en-US") -> Group:
     t, data = Messages(language), result.values
     page = t("last_page" if data["complete"] else "more_pages")
+    if isinstance(result, ManagedRunArtifactContent):
+        text = (terminal_log(data["content"]) or t("content_empty")) if data["status"] == "available" else t("content_" + data["status"])
+        return Group(Text(terminal_log(data["relative_path"]), style="bold", overflow="fold"), Text(text),
+                     Text(t("content_end" if data["complete"] else "content_more") if data["status"] == "available" else ""))
     if isinstance(result, ManagedRunLogs):
         if not data["available"]:
             return Group(Text(t("log_pending")))

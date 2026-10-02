@@ -205,8 +205,10 @@ separate file permission checks. It can open a historical run without reading
 the first list page, an active scheduler account or a Pilot runtime.
 The browser reads the referenced page and finds the file by reference. If the
 page changed and the file is absent, it asks for a refresh instead of selecting
-another file. The terminal does not read file contents, create a Pilot session
-or send an Agent message.
+another file. Enter reads the selected text output in the same task, up to 64 KiB
+at a time. Next reads the version-bound next section; Escape restores the file list
+and its current page. File changes require a fresh read. The terminal does not
+create a Pilot session or send an Agent message.
 
 ## Continue a recorded result in Pilot
 

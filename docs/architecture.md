@@ -298,3 +298,13 @@ execution boundary. See [software module access](software-access.md).
 - A live read-only canary must separately record the site, authorized scope,
   exact filters, scheduler comparison, package version, and rollback boundary.
 - Production wrapper rollout is a separate deployment operation.
+
+## Task output content
+
+The existing managed file authority resolves a selected output reference from
+one current list page, checks Run READ and independent applied directory READ,
+and uses the existing site reader as the Run owner. CLI, TUI, Web and the internal
+Agent read API share `compute.run-artifact-content/v1`. No new file service,
+authorization store, archive or native CLI fallback is introduced. File-version
+byte cursors prevent combining sections after file changes; UI text rendering
+never executes markup. See [the content contract](../contracts/managed-run-content/v1/README.md).
