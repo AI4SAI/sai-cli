@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 from io import StringIO
 import threading
+import xml.etree.ElementTree as ET
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -116,6 +117,7 @@ def test_files_keyboard_read_and_return_keep_the_exact_page_and_web_reference(tm
             assert isinstance(app.task_file_page, ManagedRunArtifactContent) and app.task_mode == "content"
             assert app.selected_artifact[1] == FIRST_REF and not options.display
             app.save_screenshot(str(tmp_path / f"content-{language}-{width}.svg"))
+            assert "first result" in "".join(ET.fromstring(app.export_screenshot()).itertext()).replace("\xa0", " ")
             assert len(calls) == before + 1
             await click(app, pilot, "#task-next")
             assert app.task_file_page.values["content"] == "second result\n"

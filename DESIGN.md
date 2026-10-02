@@ -58,7 +58,8 @@ a compact list only when enough space remains for useful evidence.
 
 Details, stdout, stderr and output files are modes of the same task. A log or
 file view keeps a short task heading instead of repeating all metadata. Paths
-wrap fully; file size and readable time stay separate. Empty, unavailable and
+wrap fully in the file list; a one-line content heading may abbreviate the path
+so the file body stays visible, with the full name retained in the return list. File size and readable time stay separate. Empty, unavailable and
 complete pages are different states. Read one bounded page explicitly; no
 unbounded scrolling buffer or automatic file polling is required.
 
