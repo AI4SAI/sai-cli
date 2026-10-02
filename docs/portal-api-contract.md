@@ -206,8 +206,10 @@ The console re-reads only that bounded page and never substitutes another file.
 Run/artifact references do not identify sealed content versions. The console's
 `GET /v1/account/compute/runs/{run_ref}/pilot-context` rechecks current reads and
 the original Pool/Session/mount. It returns no path, ticket or credential.
-Original-Session confirmation, any model-window renewal, native preview and
-prompt insertion remain explicit actions in the paired Web/Pilot clients.
+The task page's explicit Open in Pilot action opens that history without a second
+confirmation page. It does not start or renew a model window. Native preview,
+prompt insertion and any later execution remain explicit, separately authorized
+actions in the paired Web/Pilot clients.
 
 The console and Pilot relay can use separate HTTPS origins. The console carries
 one existing Job/Run/resource draft in the bootstrap URL's `sai-context` fragment;

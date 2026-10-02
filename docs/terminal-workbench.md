@@ -213,9 +213,10 @@ or send an Agent message.
 Files can also be carried into the existing SAI Pilot flow. The console link
 keeps only the exact run reference, selected artifact reference and the request
 cursor for the bounded page. The console rechecks the run, current file READ
-permission and the selected page before showing the original Session. It never
-places a path or file content in the URL. The user confirms the original
-Session, and only then resumes it or explicitly renews its existing window.
+permission and the selected page before opening the original Session. It never
+places a path or file content in the URL. The task page's explicit Open in Pilot
+action opens history directly; no second confirmation, runtime start or renewal
+is required. This simplified Web flow is merged source, not yet deployed.
 
 Pilot receives a same-tab reference containing the run and optional
 artifact. It rechecks the selected native Session and current file before
