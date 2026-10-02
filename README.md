@@ -90,6 +90,9 @@ Tasks also has an explicit Cost mode. It shows standard usage, cash, Credit and
 coverage only when authorized, using the shared final-cost contract. F5 replaces
 the observation; W opens the same task's Cost tab in the console. A cost-only
 refusal preserves readable task metadata. Cancellation never implies zero cost.
+Human views group numbers and normally show two amount decimals and four usage
+decimals. Tiny nonzero values retain their necessary precision; signed adjustments
+stay signed. JSON keeps the exact server strings for scripts and reconciliation.
 
 Tasks also has a manual Statistics mode. F5 replaces its observation and W opens
 the same Run's Statistics tab in the console. Each step retains its node coverage,

@@ -219,7 +219,7 @@ def test_tiny_positive_cost_and_usage_never_render_as_zero(job_cost_payload):
         output = StringIO()
         Console(file=output, width=100, color_system=None).print(job_cost_panel(JobCostResult.from_payload(job_cost_payload, request_id="small"), language))
         text = output.getvalue()
-        assert text.count("<0.01 CNY") == 2 and "<0.0001" in text
+        assert text.count("0.00000001 CNY") == 2 and "0.00000001" in text
     item.update(gross_cny="0.00000000", cash_before_credit_cny="0.00000000")
     item["resources"]["usage_quantity"] = "0.00000000"
     output = StringIO()

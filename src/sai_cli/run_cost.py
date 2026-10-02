@@ -4,6 +4,7 @@ import re
 
 from .errors import ContractError
 from .managed_runs import ManagedReadResult, _boolean, _context, _object, _text, _time, _token
+from .render import format_decimal
 from .tui_messages import Messages
 
 
@@ -50,15 +51,15 @@ def cost_lines(result: ManagedRunCost, language: str = "en-US") -> list[str]:
     lines = [t("final_cost") + " · " + t("cost_" + data["status"])]
     if data["status"] == "settled":
         amounts = data["amounts"]
-        lines.append(f"{t('cost_gross')}: {amounts['gross_amount']} CNY")
+        lines.append(f"{t('cost_gross')}: {format_decimal(amounts['gross_amount'])} CNY")
         if data["cash_visible"]:
-            lines.extend((f"{t('cost_cash')}: {amounts['cash_amount']} CNY",
-                          f"SAI Credit: {amounts['sai_credit_amount']} {t('credit_unit')} ({amounts['sai_credit_cny_equivalent_amount']} CNY)",
-                          f"{t('cost_coverage')}: {amounts['reservation_coverage_amount']} CNY",
-                          f"{t('cost_adjustment')}: {amounts['price_adjustment_amount']} CNY"))
+            lines.extend((f"{t('cost_cash')}: {format_decimal(amounts['cash_amount'])} CNY",
+                          f"SAI Credit: {format_decimal(amounts['sai_credit_amount'], trim=True)} {t('credit_unit')} ({format_decimal(amounts['sai_credit_cny_equivalent_amount'])} CNY)",
+                          f"{t('cost_coverage')}: {format_decimal(amounts['reservation_coverage_amount'])} CNY",
+                          f"{t('cost_adjustment')}: {format_decimal(amounts['price_adjustment_amount'])} CNY"))
         else:
             lines.append(t("cost_funding_hidden"))
-        lines.extend((f"{t('cost_quantity')}: {amounts['quantity']} {data['unit_name'] or t('unknown')}",
+        lines.extend((f"{t('cost_quantity')}: {format_decimal(amounts['quantity'], 4, trim=True)} {data['unit_name'] or t('unknown')}",
                       f"{t('cost_settled_at')}: {data['settled_at'] or t('unknown')}"))
     lines.extend((t("queried", time=data["queried_at"]), t("cost_source")))
     return lines

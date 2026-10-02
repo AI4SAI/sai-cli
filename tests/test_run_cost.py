@@ -32,7 +32,7 @@ def test_cost_shared_vectors_are_bound_allowlists_without_amount_inference(name)
     if data["status"] != "settled":
         assert "0.00000000" not in text and "Cash charged" not in text
     if not data["cash_visible"]:
-        assert "10.00000000" in text and "Cash charged" not in text and "points" not in text
+        assert "10.00" in text and "Cash charged" not in text and "points" not in text
 
 
 @pytest.mark.parametrize("field,value", [
@@ -69,6 +69,19 @@ def test_cost_state_nulls_and_all_required_fields_fail_closed():
     assert parse(data).as_dict() == data
 
 
+def test_readable_final_cost_keeps_tiny_signed_adjustment_and_exact_json():
+    from sai_cli.run_cost import cost_lines
+    data = sample()
+    data["amounts"].update(price_adjustment_amount="-0.00100000", quantity="0.12345678")
+    result = parse(data)
+    for language in ("zh-CN", "en-US"):
+        text = "\n".join(cost_lines(result, language))
+        assert "-0.001 CNY" in text and "0.1235" in text
+        assert "10.00 CNY" in text and "400 " in text
+        assert "10.00000000" not in text and "400.00000000" not in text
+    assert result.as_dict() == data
+
+
 @pytest.mark.parametrize("prefix", [True, False])
 @pytest.mark.parametrize("output_format", ["json", "table"])
 def test_cost_command_uses_exact_http_path_and_explicit_scope(tmp_path, prefix, output_format):
@@ -87,8 +100,8 @@ def test_cost_command_uses_exact_http_path_and_explicit_scope(tmp_path, prefix, 
     assert server.requests[0]["capability"] is None
     if output_format == "json": assert json.loads(output.getvalue()) == body
     else:
-        assert "Cash charged: 7.20000000 CNY" in output.getvalue() and "400.00000000 points" in output.getvalue()
-        assert "-1.20000000 CNY" in output.getvalue()
+        assert "Cash charged: 7.20 CNY" in output.getvalue() and "400 points" in output.getvalue()
+        assert "-1.20 CNY" in output.getvalue()
 
 
 @pytest.mark.parametrize("code", ["identity_scope_denied", "run_cost_read_denied", "run_read_denied"])

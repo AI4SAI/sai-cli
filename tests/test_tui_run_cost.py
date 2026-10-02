@@ -76,18 +76,19 @@ def test_cost_is_explicit_manual_and_readable_at_all_terminal_sizes(tmp_path, mo
                 pane = app.query_one("#details-scroll").region
                 assert pane.height >= max(6, height // 2 - 1)
                 visible = "\n".join(strip.text for strip in app.screen._compositor.render_strips())
-                assert "10.00000000" in visible and "3.00000000" in visible
+                assert "10.00" in visible and "3.00" in visible
                 app.save_screenshot(str(tmp_path/f"cost-{language}-{width}x{height}.svg"))
             await pilot.press("w"); await pilot.pause(.05)
             assert parse_qs(urlsplit(opened[-1]).fragment.split("?",1)[1]) == {"run_ref": ["run-example-1"], "view": ["cost"]}
             state["sample"] = "gross-only"
             await pilot.press("f5"); await settled(app,pilot)
-            assert "10.00000000" in details(app) and "400.00000000" not in details(app)
+            assert "10.00" in details(app)
+            assert "400 " + app.t("credit_unit") not in details(app)
             for name in ("pending", "unavailable", "not_chargeable"):
                 state["sample"] = name
                 await pilot.press("f5"); await settled(app,pilot)
                 assert app.t("cost_"+name) in details(app)
-                assert "0.00000000" not in details(app) and "10.00000000" not in details(app)
+                assert "0.00000000" not in details(app) and "10.00" not in details(app)
             await click(app,pilot,"#task-detail")
             assert app.task_cost is None and app._presentation().automatic_refresh
             await click(app,pilot,"#task-stdout")
@@ -111,7 +112,7 @@ def test_cost_denial_preserves_only_independently_authorized_facts(code,status,r
             await click(app,pilot,"#task-cost")
             state.update(error=code,status=status)
             await pilot.press("f5"); await settled(app,pilot)
-            assert app.task_cost is None and "10.00000000" not in details(app)
+            assert app.task_cost is None and "10.00" not in details(app)
             if retained:
                 assert app.results["tasks"] is metadata and app.task_file_page is files
                 assert app.selected_run == "run-example-1"
@@ -149,7 +150,7 @@ def test_old_cost_response_cannot_restore_amounts_or_clear_new_context(transitio
                     app._read_projects(); await pilot.pause(.05)
             finally: state["release"].set()
             await settled(app,pilot)
-            assert app.task_cost is None and "10.00000000" not in details(app)
+            assert app.task_cost is None and "10.00" not in details(app)
             assert "tasks" not in app._failed_views
             if transition == "detail": assert app.selected_run == "run-example-1" and "tasks" in app.results
             if transition == "tab": assert app.view == "resources" and "resources" in app.results

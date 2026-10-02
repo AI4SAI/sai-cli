@@ -5,11 +5,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from .overview import AccountOverview
+from .render import format_decimal
 from .tui_messages import Messages
-
-
-def _money(value: str) -> str:
-    return f"¥{Decimal(value):,.2f}"
 
 
 def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, language: str = "zh-CN") -> list[tuple[str, str, str]]:
@@ -44,19 +41,19 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, lan
     else:
         amounts = []
         if funds["budget_mode"]:
-            budget = t("unlimited") if funds["budget_mode"] == "unlimited" and funds["budget_available"] is None else _money(funds["budget_available"])
+            budget = t("unlimited") if funds["budget_mode"] == "unlimited" and funds["budget_available"] is None else "¥" + format_decimal(funds["budget_available"])
             amounts.append(t("project_budget") + " " + budget)
         if funds["net_balance"] is not None:
-            amounts.append(t("cash") + " " + _money(funds["net_balance"]))
+            amounts.append(t("cash") + " ¥" + format_decimal(funds["net_balance"]))
         if funds["available_credit"] is not None:
-            points = f"{Decimal(funds['available_credit']):,.2f}".rstrip("0").rstrip(".")
+            points = format_decimal(funds["available_credit"], trim=True)
             amounts.append(t("credit_points", points=points))
         rows.append((t("org_shared" if context["kind"] == "org" else "funds"), " · ".join(amounts) or t("no_visible_amount"), "money"))
         extra = []
         if funds["postpaid_available"] is not None and Decimal(funds["postpaid_available"]) > 0:
-            extra.append(t("postpaid") + " " + _money(funds["postpaid_available"]))
+            extra.append(t("postpaid") + " ¥" + format_decimal(funds["postpaid_available"]))
         if funds["running_cash_exposure"] is not None and Decimal(funds["running_cash_exposure"]) > 0:
-            extra.append(t("running_cash") + " " + _money(funds["running_cash_exposure"]))
+            extra.append(t("running_cash") + " ¥" + format_decimal(funds["running_cash_exposure"]))
         if extra:
             rows.append((t("funds_detail"), " · ".join(extra), "plain"))
         if funds["credit_expires_at"]:

@@ -78,6 +78,15 @@ def test_overview_failure_and_message_states_are_not_fabricated():
         AccountOverview.from_payload(value, site_id="site-a", request_id="test")
 
 
+def test_overview_small_balances_and_credit_are_not_zero():
+    value = sample()
+    value["funds"].update(net_balance="-0.00100000", available_credit="0.00000001")
+    parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
+    text = render_overview(parsed)
+    assert "¥-0.001" in text and "0.00000001 点" in text
+    assert parsed.as_dict()["funds"]["net_balance"] == "-0.00100000"
+
+
 def test_missing_default_does_not_hide_personal_verification_action():
     value = sample()
     value["context"] = {key: "unavailable" if key == "state" else None for key in value["context"]}

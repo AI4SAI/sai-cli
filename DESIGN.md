@@ -90,6 +90,13 @@ of an empty primary area. Empty results must not ask the user to select a row
 that does not exist. Unknown values stay unknown, including zero-looking money
 or resource counts.
 
+Overview, running estimates and final costs share the same human number format:
+group large values, normally round amounts to two decimal places and quantities
+to four, and omit trailing zeroes for Credit and quantities. Preserve the sign
+and exact necessary digits of values smaller than that display precision; a
+nonzero value must not look like zero. This is presentation only. JSON retains
+the validated decimal strings, and clients never recompute prices or settlement.
+
 Use one interface language at a time, `zh-CN` or `en-US`. Translate fixed
 labels, navigation, states and bounded diagnostics; do not translate user
 filenames or provider data. Keep JSON names and machine errors stable. A

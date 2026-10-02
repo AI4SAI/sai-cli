@@ -15,7 +15,17 @@ from sai_cli.contracts import (
     RunningEstimateResult,
 )
 from sai_cli.errors import ContractError
-from sai_cli.render import render_account_status, render_json, render_running_estimate_table, render_table
+from sai_cli.render import format_decimal, render_account_status, render_json, render_running_estimate_table, render_table
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("1234.50000000", "1,234.50"), ("1.22500000", "1.23"),
+    ("-1.22500000", "-1.23"), ("0.00000001", "0.00000001"),
+    ("-0.00100000", "-0.001"), ("-0.00000000", "0.00"),
+    ("9007199254740993.01500000", "9,007,199,254,740,993.02"),
+])
+def test_human_decimal_keeps_sign_and_small_amounts_without_binary_float(value, expected):
+    assert format_decimal(value) == expected
 
 
 def test_account_status_allowlist_and_table_output() -> None:

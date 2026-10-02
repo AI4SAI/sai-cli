@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP, localcontext
 from zoneinfo import ZoneInfo
 
 from .catalog import ResourceCatalog
@@ -43,6 +44,19 @@ _RUNNING_ESTIMATE_COLUMNS = (
     ("estimate", "Estimate", 16),
     ("uncertainty", "Uncertainty", 36),
 )
+
+
+def format_decimal(value: str, places: int = 2, *, trim: bool = False) -> str:
+    """Format a validated decimal for readers without hiding nonzero small values."""
+    amount = Decimal(value)
+    if amount.is_zero():
+        amount = Decimal(0)
+    with localcontext() as context:
+        context.rounding = ROUND_HALF_UP
+        if 0 < amount.copy_abs() < Decimal(1).scaleb(-places):
+            return f"{amount:,f}".rstrip("0").rstrip(".")
+        text = f"{amount:,.{places}f}"
+    return text.rstrip("0").rstrip(".") if trim and "." in text else text
 
 
 def render_json(payload: dict[str, Any]) -> str:
@@ -141,8 +155,8 @@ def _running_estimate_row(item: RunningEstimateItem) -> dict[str, str]:
         "state": _display(values["state"]),
         "elapsed": _duration(values["elapsed_seconds"]),
         "billable": _billable(item),
-        "usage": _display(values["resources"]["usage_quantity"]),
-        "gross": _display(values["gross_cny"]),
+        "usage": format_decimal(values["resources"]["usage_quantity"], 4, trim=True) if values["resources"]["usage_quantity"] is not None else "-",
+        "gross": format_decimal(values["gross_cny"]) if values["gross_cny"] is not None else "-",
         "estimate": _estimate_state(item),
         "uncertainty": _display(",".join(values["uncertainty"])),
     }

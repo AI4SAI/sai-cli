@@ -406,6 +406,13 @@ Table mode keeps the established SAI meanings:
 Table rendering uses no ANSI color by default so redirects and wrapper output
 remain deterministic.
 
+Overview, current-job estimates and final Run costs share a decimal presenter
+for human views: two amount decimals, four quantity decimals and grouped digits.
+Credit and quantities omit trailing zeroes. Values below the normal display
+precision retain their exact necessary digits and sign; unknown values stay
+unknown. Display rounding is half-up, never binary-float arithmetic, and does
+not alter the server strings retained in JSON or calculate a new price.
+
 ## Exit codes
 
 | Code | Meaning |
