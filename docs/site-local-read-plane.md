@@ -443,9 +443,10 @@ releases and rollback evidence remain outside this repository.
 
 This proves normal authorization, native list reads and local journal/issuance
 correlation. Empty lists do not prove job detail, allocation or a task journey.
-Explicit revocation, journal collection/failure handling and full gateway
-package/runtime recovery remain separate acceptance work. No workload, account
-binding, service configuration or authorization state was changed by this probe.
+The earlier expiry probe changed no workload, account binding or authorization
+state. The explicit single-capability revocation check below is a separate operation;
+membership-policy revocation, journal collection/failure handling and full gateway
+package/runtime recovery remain separate acceptance work.
 
 ## Unified observation release
 
@@ -483,3 +484,28 @@ new authorization, asset publication, GPU mapping or 3D scene was created.
 This proves installed code and a real authorized no-sample path. Positive running
 CPU/RSS, full browser/Agent consumption, physical assets and permanent execution
 identity remain separate acceptance gates. No source fallback was introduced.
+
+## Single-capability revocation acceptance
+
+On 2026-10-02, an ordinary user's existing approved session obtained one
+`self` / `jobs.list` capability limited to one row. The real gateway accepted it.
+Only that test JTI was added to the protected revocation bundle. The current
+verifier loads this bundle at startup, so the existing read service was explicitly
+restarted; changing the file alone was not presented as immediate revocation.
+
+The same capability was rejected with 401 before its expiry. Normal client
+acquisition/read then returned 200. After the test lease expired, the exact original
+bundle bytes, ownership and permissions were restored and the service restarted;
+a final normal read returned 200. The execution gateway stayed unchanged. This
+required two intentional read-service restarts and does not prove zero downtime.
+
+The standard protected CLI credential/capability cache was reused without export.
+No full token entered command arguments, probe files or logs. Only non-authorizing
+JTI/expiry metadata was handed to the operator. A matching accepted-read start/finish
+pair remained in the local journal. All temporary probes/directories and operator
+sessions were removed/closed; normal user caches and protected audit were retained.
+No account, membership, signing key or policy epoch was changed.
+
+This proves revocation of that one lease, not immediate membership withdrawal,
+a cached-capability 401/retry path, external audit delivery or full package recovery.
+The observed normal-client recovery was a fresh successful read.

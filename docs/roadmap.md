@@ -33,8 +33,10 @@ uses temporary signing inputs and is separate from this release gate.
   then normal issuance restored the read without changing server policy
 - [x] Retain gateway package/runtime and configuration rollback materials;
   exercise HTTPS routing and shared-CLI rollback/restoration without static changes
-- [ ] Exercise full gateway package/runtime recovery and repeat authorized reads;
-  explicit revocation retains its own acceptance
+- [x] Revoke one normally issued test capability by JTI and reload the existing
+  gateway: old lease rejected before expiry, normal acquisition/read succeeds;
+  original inputs restored only after expiry. This is not membership revocation
+- [ ] Exercise full gateway package/runtime recovery and repeat authorized reads
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
@@ -255,8 +257,9 @@ font diversity or unbounded long-session stability.
 Acceptance boundary: implemented protocols, local fixtures, the separately
 recorded native candidate probe, and the basic production runtime/three GET
 routes, plus real-user lists, expiry/renewal and matched issuance/journal pairs.
-Positive detail/allocation, explicit revocation and audit delivery/failure
-acceptance remain open.
+One normally issued capability was also explicitly revoked and rejected before
+expiry. Positive detail/allocation, membership-policy revocation and audit
+delivery/failure acceptance remain open.
 
 The job path stays on-demand. Cache reuse or coalescing should be considered
 only when measured load or latency justifies it; a shared collector is not a
