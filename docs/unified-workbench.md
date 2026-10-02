@@ -251,7 +251,12 @@ ComputeRun 表示已接受的业务执行及其持久记录，不是 Slurm 的�
 
 ## 9. WebUI 与 Pilot/Agent 接入
 
-沿用现有 WebUI start/resume/renew 和同域 handoff、Pilot 原生 Session、产品 MCP/HTTP 工具及 browser projection。对话、子 Agent、Shell、Git、Skills、Workflow 和长期任务能力保留；不再建立聊天库或第二任务引擎。
+沿用现有 WebUI start/resume/renew/open、后端核定的 HTTPS handoff、Pilot 原生 Session、产品 MCP/HTTP 工具及 browser projection。控制台与 Pilot 可以使用不同域名。
+Job、Run 和资源引用通过既有 bootstrap URL 的 `sai-context` fragment 传递，
+目标原生客户端清除 fragment 后，按现有 schema 和 Session 绑定消费；来源域
+session storage 不承担跨域搬运。引用不含权限、凭据、路径或自由提示词，
+不自动发送、启动或续用。发送端与接收端需配对部署，本地测试不代表现场验收。
+对话、子 Agent、Shell、Git、Skills、Workflow 和长期任务能力保留；不再建立聊天库或第二任务引擎。
 
 选择任务或硬件后，用户可把 `object_refs + scope_ref + snapshot_ref + time_window + question` 带入会话。引用不是权限凭证；服务端重新核权、解析可信对象、检查当前 Session 的完整绑定。历史上下文显示原观测时间；Agent 若刷新到新事实须说明变化。
 

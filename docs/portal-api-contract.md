@@ -209,6 +209,13 @@ the original Pool/Session/mount. It returns no path, ticket or credential.
 Original-Session confirmation, any model-window renewal, native preview and
 prompt insertion remain explicit actions in the paired Web/Pilot clients.
 
+The console and Pilot relay can use separate HTTPS origins. The console carries
+one existing Job/Run/resource draft in the bootstrap URL's `sai-context` fragment;
+the native receiver consumes it at the destination origin. Portal's authenticated
+response owns the approved relay destination. The fragment is not a credential,
+does not enter HTTP requests, and never triggers a prompt or model renewal.
+This paired browser transport does not change the CLI's fixed console deep link.
+
 Paired result-continuation producer:
 `61dfde2fef4f75f9116a755b3ce715ada9a3f11c`.
 
