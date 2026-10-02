@@ -189,7 +189,9 @@ are candidate designs, not completed implementation milestones.
   actual browser/Pilot continuation and complete new computation remain open
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
-- [ ] Paired installation and real-site acceptance of native Run statistics
+- [x] Paired site statistics role installation and ordinary-user CLI/API/native
+  no-sample response, with existing file and independent gateway reads preserved
+- [ ] Positive running-step CPU/RSS and full Web/Pilot native statistics acceptance
 - [x] Current Run-bound allocation and node registration across TUI/Web/Pilot,
   reusing the existing signed gateway and registration/scene components
 - [ ] Paired Run-placement gateway deployment and real-asset acceptance
@@ -214,8 +216,9 @@ is implemented locally, using fresh reads and native preview/input actions.
 Explicit final-cost association and the
 [`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)
 are implemented in paired source. The statistics path uses bounded owner-UID
-native reads; it does not provide GPU or whole-node utilization. Its matched
-package installation and real-site application-chain acceptance remain open.
+native reads; it does not provide GPU or whole-node utilization. Its site role is now installed and a real ordinary-user no-sample
+application chain passed. Positive running statistics and complete Web/Pilot
+acceptance remain open.
 Estimate-to-final replacement and full resource eligibility views remain
 unfinished. Native storage shows authorized quota subjects, not an organization
 pool aggregate. The TUI discards late results and bounds HTTP calls; this is not

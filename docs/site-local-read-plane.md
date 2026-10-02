@@ -103,8 +103,9 @@ read-only operation. It is not a gateway retry or privilege fallback. Scope,
 native job owner/account/correlation and before/after execution/allocation
 evidence must agree. Unknown metric values remain unknown. The client never
 executes `sstat` itself. `runs stats` and the Web/Pilot readers share
-`compute.run-stats/v1`; no collector is introduced. The paired source is merged,
-while site installation and live application-chain acceptance remain separate.
+`compute.run-stats/v1`; no collector is introduced. The paired site role is installed; an ordinary user exercised the complete
+CLI/Portal/native read and received an explicit unavailable observation for a
+historical task. Positive running metrics and other-client acceptance remain open.
 See [the digital-twin design](digital-twin-design.md) for fixed-version semantics.
 
 The outer token is exactly the `sai-authz` v1 envelope. Product fields are the
@@ -363,8 +364,8 @@ uses the existing dedicated interactive-read credential. The fixed helper drops
 privileges before reading; it adds no gateway sudo rule, collector or cache.
 Its total native budget is 15 seconds, 4 MiB stdout/stderr and 16 commands; the
 HTTP receipt is bounded to 1 MiB. Oversize or incomplete observations fail closed.
-Client JSON and three UI views share `compute.run-stats/v1`. This implementation
-does not establish paired package installation or live application-chain proof.
+Client JSON and three UI views share `compute.run-stats/v1`. The 2026-10-02 site role installation and ordinary-user no-sample read
+are recorded below; a positive active-step sample is still required.
 
 A transport proxy may be used for center/satellite topology; it only forwards
 the request and response. It does not authorize, read Slurm, calculate money, or
@@ -460,3 +461,25 @@ were empty, so they do not prove positive detail/allocation or the full task
 journey. Source truncation, pricing unknowns and financial permission retain
 separate states. The public static artifact matched the deployed package; no
 Identity, Pilot runtime, business schema or settings were changed by this slice.
+
+## Native task-statistics role delivery
+
+On 2026-10-02, the existing site execution-gateway role was updated from its exact
+installed baseline with the already implemented statistics reader. Release source
+`6e0d1e2d193d05a4880ad089dc0611d66a874871` changes three existing runtime files
+and adds two modules; the role's other payload, dependency, environment, sudo and
+unit boundaries remain. Its package and 70 local native/helper/API/artifact checks
+passed. Only this execution service restarted; the independent capability reader
+and its configuration stayed unchanged.
+
+An ordinary user's existing approved credential read a historical Run through
+CLI, Portal, the dedicated site API and the owner-UID native path. The response was
+`unavailable`, with the actual read window, null execution and no steps; it did
+not fabricate zero metrics. Existing output and authorized job-list reads still
+succeeded. Uploaded staging and operator sessions are closed; the previous role
+package and audit are retained for rollback. No computation or billing action,
+new authorization, asset publication, GPU mapping or 3D scene was created.
+
+This proves installed code and a real authorized no-sample path. Positive running
+CPU/RSS, full browser/Agent consumption, physical assets and permanent execution
+identity remain separate acceptance gates. No source fallback was introduced.
