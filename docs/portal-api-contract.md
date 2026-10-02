@@ -39,7 +39,9 @@ admission. The [compute.run-cost/v1 contract](../contracts/managed-run-cost/v1/R
 is shared with the console and Pilot. Metadata and file endpoints keep their
 existing scopes. Cost access does not extend a Session or enable submission.
 
-Paired Run cost producer: `25713516858fbce06cc3719dfaa85f3262ea957f`.
+Paired Run cost producer: `61e9a5cea214915f4c7506fcf569cf93d236cb43`.
+The signed price adjustment preserves a fixed contract price above the current
+public price. Other money and quantity fields remain nonnegative.
 
 The pre-Identity compatibility bootstrap currently retained by Portal uses:
 

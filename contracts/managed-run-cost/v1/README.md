@@ -20,7 +20,9 @@ evidence and the complete shared absence-of-economic-writes check. Cancellation,
 missing facts and zero cash alone never imply that status. Non-settled amounts,
 unit and settlement time are null, including `not_chargeable`.
 
-Amounts are nonnegative decimal strings with eight fractional digits. Gross
+Amounts are decimal strings with eight fractional digits. Only
+`price_adjustment_amount` may be negative when the fixed contract price exceeds
+the public price; other amounts and quantity remain nonnegative. Gross
 is the standard usage amount. Cash, SAI Credit equivalent, reserved coverage
 and price adjustment retain the existing billing semantics; SAI Credit points
 are independently supplied by the producer. Clients never calculate prices,

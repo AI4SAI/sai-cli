@@ -27,7 +27,8 @@ class ManagedRunCost(ManagedReadResult):
         checked = {}
         for key in AMOUNT_FIELDS:
             value = _text(amounts, key, request_id, nullable=True, maximum=64)
-            if value is not None and re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{8}", value) is None:
+            unsigned = value.removeprefix("-") if key == "price_adjustment_amount" and value is not None else value
+            if unsigned is not None and re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{8}", unsigned) is None:
                 raise ContractError(request_id=request_id)
             checked[key] = value
         settled = status == "settled"

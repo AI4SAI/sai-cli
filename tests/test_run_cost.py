@@ -73,6 +73,7 @@ def test_cost_state_nulls_and_all_required_fields_fail_closed():
 @pytest.mark.parametrize("output_format", ["json", "table"])
 def test_cost_command_uses_exact_http_path_and_explicit_scope(tmp_path, prefix, output_format):
     body = sample()
+    body["amounts"].update(cash_amount="7.20000000", price_adjustment_amount="-1.20000000")
     with _server(body) as (origin, server):
         connection = ["--site", "site-a", "--base-url", origin]
         command = ["runs", "cost", "run-example-1", "--workspace-key", "project:project-example", "--format", output_format]
@@ -85,7 +86,9 @@ def test_cost_command_uses_exact_http_path_and_explicit_scope(tmp_path, prefix, 
     assert server.requests[0]["query"] == {"site_id": ["site-a"], "workspace_key": ["project:project-example"]}
     assert server.requests[0]["capability"] is None
     if output_format == "json": assert json.loads(output.getvalue()) == body
-    else: assert "Cash charged: 3.00000000 CNY" in output.getvalue() and "400.00000000 points" in output.getvalue()
+    else:
+        assert "Cash charged: 7.20000000 CNY" in output.getvalue() and "400.00000000 points" in output.getvalue()
+        assert "-1.20000000 CNY" in output.getvalue()
 
 
 @pytest.mark.parametrize("code", ["identity_scope_denied", "run_cost_read_denied", "run_read_denied"])
