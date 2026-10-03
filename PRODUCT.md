@@ -14,6 +14,14 @@ separately authorized view of hardware, networks and failures.
 
 ## Product Purpose
 
+Researchers come to complete scientific work, resume it, diagnose failures and
+obtain results. Resource selection, execution, files and costs are supporting
+capabilities, not a mandatory sequence of pages. Experienced users retain native
+scripts and terminals; users who need assistance may enter the complete Agent.
+Account/project context changes the authorized scope, not where users look for
+their computations. Job and managed-Run records must not become competing product
+menus, and a runtime pool must not be presented as a scientific task or workspace.
+
 The implemented product is a read-only compute CLI with an optional terminal
 workbench for resource comparison, job allocation and operator-recorded
 locations, managed task history, logs, output listings, storage quota and
@@ -55,6 +63,8 @@ visual system; do not define a competing WebUI theme in this repository.
 - Decorative hardware scenes with invented utilization or placement.
 - Independent business rules or task histories for each client.
 - A restricted chatbot replacing the full SAI Pilot Agent experience.
+- Portal pages owning a second Pilot Session/Pool workflow instead of a thin
+  integration with the native workbench and its SAI plugin.
 - Internal protocol terms, raw errors or credentials in ordinary user flows.
 
 ## Design Principles
