@@ -9,8 +9,12 @@ The first implementation milestone is intentionally read-only:
 - `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
   reads one bounded UTF-8 output section. TUI Enter opens the selected file in
   the task; Escape returns to its file page. Current file permission is checked
-  independently; no Pilot session or model window is needed. Paired deployment
-  remains separate from this source implementation.
+  independently; no Pilot session or model window is needed.
+- `sai runs download RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example --output result.bin`
+  saves the complete authorized file, including binary contents. Existing paths
+  are never replaced. A failed or interrupted transfer removes its temporary
+  file; retry starts from the beginning. This download contract requires paired
+  Center and site deployment.
 - `sai runs workspaces` discovers currently readable task projects by name.
   `sai storage workspaces` discovers readable storage scopes at the selected site.
   Both accept `--workspace-key` for an exact authorized name lookup.
@@ -87,7 +91,7 @@ after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not
 start Pilot, renew its model window, submit work or grant file access.
 
-In Files, Enter confirms a file and W opens the same output page in the console.
+In Files, Enter opens the selected text file and W opens the same output page in the console.
 The console can explicitly continue into the original Pilot Session for native
 preview or an editable analysis request, with fresh permissions at each step.
 

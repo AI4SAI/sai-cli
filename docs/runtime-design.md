@@ -439,5 +439,34 @@ the console and internal Agent API. Each request returns at most 64 KiB, with by
 positions, observed time and a native file version. A changed, missing or unsupported
 file contains no preview text. Back restores the prior file-list cursor; refreshing
 starts a new observation rather than combining old/new content. JSON preserves
-exact counters and text; terminal output escapes controls. Bulk downloads and the
-native Pilot tool registration are separate work, not implied by the read endpoint.
+exact counters and text; terminal output escapes controls. Full-file download uses
+the separate contract below. Native Pilot tool registration remains separate
+work, not implied by the read endpoint.
+
+## Save a complete output file
+
+```bash
+sai runs download run-example --workspace-key project:example \
+  --artifact-ref artifact-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --artifact-cursor 100 --output result.bin
+```
+
+The artifact reference and optional list cursor come from `runs files`. The
+explicit output is a local filename, never a server path. The client acquires a
+short-lived, version-bound download grant from Portal, then sends only its
+capability to the fixed site-files endpoint. Reads use at most 8 MiB per range;
+status, length, range and ETag must agree with the original file version/size.
+An expired capability permits one new grant per failed range, pinned to that
+same version. Redirects and non-loopback HTTP are refused, including when the
+general development HTTP override is enabled.
+
+Bytes go into a private `0600` temporary file in a random `0700` subdirectory of
+the destination directory. The client holds that private directory by descriptor
+so another writer to a shared destination directory cannot replace the source.
+After complete-size verification and file sync, a hard link publishes the file
+atomically without replacing an existing file, directory or symbolic link.
+Failure or interruption removes the current temporary file and directory. No capability or
+resume metadata is saved; a new command starts from the beginning. Successful
+JSON contains only workspace/site/Run/artifact references, the chosen local
+output path, complete byte count and version. The batch CLI still needs no
+third-party runtime dependency. Paired server deployment is a separate gate.

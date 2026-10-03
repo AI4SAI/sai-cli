@@ -9,12 +9,14 @@ import pytest
 
 pytest.importorskip("textual")
 from rich.console import Console
-from textual.widgets import Button, DataTable, OptionList, Select, Static, TabbedContent
+from textual.widgets import Button, DataTable, Input, OptionList, Select, Static, TabbedContent
 
 from sai_cli.client import JobQuery
 from sai_cli.artifact_content import ManagedRunArtifactContent
 from sai_cli.managed_runs import ManagedRunArtifacts, terminal_log
 from sai_cli.tui import Workbench
+from sai_cli.tui_artifact_save import ArtifactSaveScreen
+from sai_cli.errors import ForbiddenError, SaiCliError
 from test_managed_runs_contract import sample
 from test_site_transport import http_endpoint
 from test_tui import settled
@@ -234,3 +236,174 @@ def test_content_wrong_path_cannot_replace_the_selected_file(monkeypatch):
             assert not isinstance(app.task_file_page, ManagedRunArtifactContent)
             assert "different.txt" not in str(app.query_one("#details",Static).content)
     with http_endpoint(wrong_path) as (origin,_): asyncio.run(scenario(client_for(origin)))
+
+
+async def open_save(app, pilot):
+    await open_files(app, pilot)
+    await pilot.press("home", "down", "enter")
+    await settled(app, pilot)
+    assert app.selected_artifact[1] == SECOND_REF
+    assert app.query_one("#save-task-file", Button).display
+    await pilot.press("s")
+    await pilot.pause(.05)
+    assert isinstance(app.screen, ArtifactSaveScreen)
+    return app.screen
+
+
+async def save_closed(app, pilot):
+    for _ in range(150):
+        await pilot.pause(.02)
+        if app._save_screen is None:
+            return
+    raise AssertionError("save did not finish")
+
+
+@pytest.mark.parametrize("language", ["zh-CN", "en-US"])
+def test_save_binary_from_same_task_over_real_http_and_retry_existing_path(tmp_path, monkeypatch, language):
+    from test_artifact_download import binary_endpoint, grant, response as range_response
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    content = bytes(range(256)) * 32769
+    target = tmp_path / "result #1.bin"
+    existing = tmp_path / "existing.bin"
+    existing.write_bytes(b"keep")
+
+    async def scenario(client, calls):
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
+                        tasks_workspace_key="project:project-example", language=language)
+        app.open_url = lambda _: pytest.fail("saving must not open a browser")
+        async with app.run_test(size=(40, 18)) as pilot:
+            screen = await open_save(app, pilot)
+            field = screen.query_one(Input)
+            assert field.value == "第二个文件.txt" and field.has_focus
+            assert screen.query_one("#artifact-save-hint", Static).content == app.t("save_host")
+            field.value = ""
+            await pilot.press("s", "w", "a", "c", "e", "q")
+            assert field.value == "swaceq" and app.screen is screen
+            field.value = str(existing)
+            await pilot.press("enter")
+            for _ in range(100):
+                await pilot.pause(.02)
+                if not screen.busy:
+                    break
+            assert screen.query_one("#artifact-save-status", Static).content == app.t("save_exists")
+            assert existing.read_bytes() == b"keep"
+            assert not any(call["method"] == "POST" for call in calls)
+            field.value = str(target)
+            await pilot.pause(.02)
+            assert screen.query_one("#artifact-save-status", Static).content == ""
+            app.save_screenshot(str(tmp_path / f"save-prompt-{language}.svg"))
+            assert screen.query_one("#artifact-save-actions").region.bottom <= 18
+            await pilot.press("enter")
+            await save_closed(app, pilot)
+            assert target.read_bytes() == content
+            assert not list(tmp_path.glob(".sai-download-*"))
+            assert app.task_mode == "content" and app.selected_artifact[1] == SECOND_REF
+            assert app.t("save_complete", path=str(target)) == app.query_one("#status", Static).content
+            text = "".join(ET.fromstring(app.export_screenshot()).itertext()).replace("\xa0", " ")
+            assert "".join(app.t("content_unsupported").split()) in "".join(text.split())
+            assert app.query_one("#details-scroll").region.height >= 3
+            app.save_screenshot(str(tmp_path / f"saved-binary-{language}.svg"))
+
+    with binary_endpoint(lambda call, _: range_response(content, call)) as (site, reads):
+        def reply(call, count):
+            if call["method"] == "POST":
+                assert call["body"] == {"workspace_key": "project:project-example", "site_id": "site-a", "artifact_cursor": None, "version": None}
+                return 200, grant(site, len(content), artifact_ref=SECOND_REF, download_name="第二个文件.txt")
+            status, body = response(call, count)
+            if "/content?" in call["path"]:
+                body.update(status="unsupported", content="", bytes_read=0, next_offset=0, next_cursor=None, complete=False)
+            return status, body
+        with http_endpoint(reply) as (origin, calls):
+            asyncio.run(scenario(client_for(origin), calls))
+    assert len(reads) == 2 and all(call["bearer"] is None for call in reads)
+
+
+@pytest.mark.parametrize("transition", ["cancel", "mode", "project", "tab", "quit", "unmount", "late_success"])
+def test_save_cancellation_drains_worker_before_close_and_never_shows_old_success(tmp_path, monkeypatch, transition):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    started, canceled, release, finished = (threading.Event() for _ in range(4))
+
+    def download(run, **kwargs):
+        assert run == "run-example-1" and kwargs["artifact_ref"] == SECOND_REF
+        assert kwargs["artifact_cursor"] is None and kwargs["workspace_key"] == "project:project-example"
+        started.set()
+        try:
+            for _ in range(500):
+                if kwargs["cancelled"]():
+                    canceled.set()
+                    break
+                threading.Event().wait(.01)
+            assert canceled.is_set()
+            assert release.wait(5)
+            if transition == "late_success":
+                return {"output": "old-file.bin"}
+            raise SaiCliError(code="download_cancelled", message="cancelled", exit_code=130)
+        finally:
+            finished.set()
+
+    async def scenario(client):
+        client.download_managed_run_artifact = download
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
+                        tasks_workspace_key="project:project-example")
+        app.open_url = lambda _: pytest.fail("saving must not open a browser")
+        async with app.run_test(size=(40, 18)) as pilot:
+            screen = await open_save(app, pilot)
+            screen.query_one(Input).value = str(tmp_path / "saved.bin")
+            await pilot.press("enter")
+            for _ in range(100):
+                await pilot.pause(.01)
+                if started.is_set(): break
+            assert started.is_set()
+            if transition == "cancel": await pilot.press("escape")
+            elif transition in {"mode", "late_success"}: app._inspect_task("detail")
+            elif transition == "project": app._read_projects()
+            elif transition == "tab": app.query_one("#views", TabbedContent).active = "resources"
+            elif transition == "quit": await pilot.press("ctrl+q")
+            else:
+                app.exit()
+            if transition == "unmount":
+                for _ in range(100):
+                    await asyncio.sleep(.01)
+                    if canceled.is_set(): break
+            else:
+                for _ in range(100):
+                    await pilot.pause(.01)
+                    if canceled.is_set(): break
+                assert screen.is_mounted and screen.busy and not finished.is_set()
+            assert canceled.is_set()
+            release.set()
+            if transition not in {"quit", "unmount"}:
+                await save_closed(app, pilot)
+                await settled(app, pilot)
+                assert "Saved on this host" not in str(app.query_one("#status", Static).content)
+        assert finished.is_set() and screen._transfer.done()
+        assert not (tmp_path / "saved.bin").exists()
+
+    with http_endpoint(response) as (origin, _):
+        try:
+            asyncio.run(scenario(client_for(origin)))
+        finally:
+            release.set()
+
+
+@pytest.mark.parametrize("code", ["run_file_read_denied", "run_read_denied"])
+def test_save_denial_uses_existing_task_and_file_authority_boundary(monkeypatch, code):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    def download(*args, **kwargs):
+        raise ForbiddenError("must-not-render-sensitive-detail", code=code)
+
+    async def scenario(client):
+        client.download_managed_run_artifact = download
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
+                        tasks_workspace_key="project:project-example")
+        async with app.run_test(size=(40, 18)) as pilot:
+            await open_save(app, pilot)
+            await pilot.press("enter")
+            await save_closed(app, pilot)
+            assert app.selected_artifact is None
+            assert ("tasks" in app.results) == (code == "run_file_read_denied")
+            assert "must-not-render-sensitive-detail" not in app.export_screenshot()
+
+    with http_endpoint(response) as (origin, _):
+        asyncio.run(scenario(client_for(origin)))

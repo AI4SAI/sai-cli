@@ -311,3 +311,11 @@ Agent read API share `compute.run-artifact-content/v1`. No new file service,
 authorization store, archive or native CLI fallback is introduced. File-version
 byte cursors prevent combining sections after file changes; UI text rendering
 never executes markup. See [the content contract](../contracts/managed-run-content/v1/README.md).
+
+Full-file downloads obtain a separate version-bound grant from the same current
+Run/file authority. The CLI sends only this short-lived capability to the
+grant's fixed site-files HTTPS endpoint, never the Identity Bearer. Binary ranges
+are checked against the original version and size; renewal cannot select a new
+file. Local output is published atomically without replacing an existing path.
+No transfer state or capability is persisted. This source contract requires a
+paired Center/site release; text preview and full downloads have separate limits.

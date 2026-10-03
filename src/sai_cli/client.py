@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from collections.abc import Callable
 import re
 from urllib.parse import quote, urljoin
 
@@ -14,6 +15,7 @@ from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .job_web_context import JobWebContext
 from .artifact_content import ManagedRunArtifactContent, ARTIFACT, content_cursor
+from .artifact_download import ArtifactDownloadGrant, download_artifact
 from .managed_runs import (
     ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, ManagedRunWorkspaces,
     clean_run_ref, clean_tasks_workspace,
@@ -495,6 +497,41 @@ class PortalClient:
             suffix=f"/artifacts/{artifact_ref}/content", artifact_cursor=artifact_cursor, cursor=cursor)
         return ManagedRunArtifactContent.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
             run_ref=run_ref, artifact_ref=artifact_ref, cursor=cursor, request_id=response.request_id)
+
+    def download_managed_run_artifact(self, run_ref: str, *, workspace_key: str, site_id: str,
+                                      artifact_ref: str, output: str,
+                                      artifact_cursor: str | None = None,
+                                      cancelled: Callable[[], bool] | None = None) -> dict[str, object]:
+        workspace = clean_tasks_workspace(workspace_key)
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        run = clean_run_ref(run_ref)
+        if not isinstance(artifact_ref, str) or ARTIFACT.fullmatch(artifact_ref) is None:
+            raise ConfigError("artifact reference is invalid")
+        if artifact_cursor is not None and (not isinstance(artifact_cursor, str)
+                or re.fullmatch(r"0|[1-9][0-9]{0,8}", artifact_cursor) is None):
+            raise ConfigError("artifact list cursor is invalid")
+        path = f"/v1/compute/cli/runs/{quote(run, safe='')}/artifacts/{artifact_ref}/download"
+
+        def acquire(version: str | None) -> ArtifactDownloadGrant:
+            lease = self.token_provider.get()
+            for attempt in range(2):
+                try:
+                    response = self.transport.request("POST", path,
+                        headers={"Authorization": f"Bearer {lease.token}"}, json_body={
+                            "workspace_key": workspace, "site_id": site,
+                            "artifact_cursor": artifact_cursor, "version": version,
+                        })
+                    break
+                except AuthenticationError:
+                    if attempt or lease.source != "cache":
+                        raise
+                    self.token_provider.invalidate(lease)
+                    lease = self.token_provider.get(force_exchange=True)
+            return ArtifactDownloadGrant.from_payload(response.payload, workspace_key=workspace,
+                site_id=site, run_ref=run, artifact_ref=artifact_ref, version=version)
+
+        return download_artifact(output=output, acquire=acquire, timeout_seconds=self.transport.timeout_seconds,
+            workspace_key=workspace, site_id=site, run_ref=run, artifact_ref=artifact_ref, cancelled=cancelled)
 
     def managed_run_artifacts(self, run_ref: str, *, workspace_key: str, site_id: str,
                              cursor: str | None = None, limit: int = 100) -> ManagedRunArtifacts:

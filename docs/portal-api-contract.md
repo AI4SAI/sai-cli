@@ -807,3 +807,33 @@ Run and applied file READ are independently rechecked for every section. A chang
 file is not appended to old contents. `artifact.read` exposes the same DTO through
 the existing independent internal Agent read service; native Pilot tool registration
 and production release are separate, and this change grants no execution rights.
+
+## Complete managed output download
+
+`POST /v1/compute/cli/runs/{run_ref}/artifacts/{artifact_ref}/download` reuses
+current Identity authorization and Run/file READ. Its exact JSON request is
+`{workspace_key, site_id, artifact_cursor, version}`; the last two fields may be
+null. A renewal sends the original version. A version change fails the transfer.
+
+The `compute.run-artifact-download/v1` grant binds `workspace_key`, `site_id`,
+`run_ref` and `artifact_ref`, and includes `download_name` (basename only),
+`size_bytes` (integer, at most `2^53-1`), a 64-lowercase-hex `version`,
+`download_url`, opaque `capability` (at most 16 KiB), integer Unix-second
+`expires_at` and `transfer_until`, and `range_max_bytes=8388608`.
+Capability lifetime is at most 300 seconds and the transfer window at most one
+hour; the client permits at most 60 seconds of positive clock skew on these
+upper bounds, while rejecting an already expired grant.
+Only HTTPS or loopback HTTP and the exact `/v1/site-files/artifacts/download`
+path are accepted; credentials, queries, fragments and redirects are forbidden.
+
+The direct GET sends `X-SAI-Capability` and `If-Match: "<version>"`, with one
+`Range: bytes=start-end` of at most 8 MiB. It never sends Identity Bearer or login
+cookies. Each nonempty response must be `206` with exact `Content-Range`,
+`Content-Length` and ETag. An empty file instead uses GET without Range and
+requires `200`, zero length and the same ETag. Encoded/chunked or mismatching
+responses fail closed. A `401` permits one fresh grant for that range; `403`,
+changed files and other failures do not trigger broad retries.
+
+Neither grant nor binary contents are printed. A completed local save returns
+`compute.run-artifact-saved/v1` with the request bindings, explicit local output
+path, size and version. Download capability material is never persisted.

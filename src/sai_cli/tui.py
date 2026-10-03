@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime
+from threading import Event
 import time
 from webbrowser import Error as BrowserError
 
@@ -43,6 +44,7 @@ from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, StorageWorkspaces
 from .tui_messages import Messages
+from .tui_artifact_save import ArtifactSaveScreen, SaveResult
 from .tui_views import (
     allocation_panel, job_cost_panel, placement_panel, resource_panel, display, modified_time_text, task_detail_panel, task_file_panel, task_artifact_option, storage_panel, state_text, task_state,
 )
@@ -85,7 +87,8 @@ class Workbench(App, inherit_bindings=False):
         Binding("ctrl+c", "help_quit", show=False, system=True),
         Binding("f5", "refresh", "Refresh"), Binding("f6", "pause", show=False),
         Binding("escape", "back", "Back"), Binding("a", "view_allocation", "Allocation"),
-        Binding("c", "compare_resource", "Compare"), Binding("e", "view_cost", "Cost"), Binding("w", "open_web", "Open Web"),
+        Binding("c", "compare_resource", "Compare"), Binding("e", "view_cost", "Cost"),
+        Binding("s", "save_artifact", "Save"), Binding("w", "open_web", "Open Web"),
         Binding("ctrl+q", "quit", show=False, priority=True),
     ]
     CSS = """
@@ -112,6 +115,7 @@ class Workbench(App, inherit_bindings=False):
     #task-artifact-hint { height: auto; padding: 0 1; }
     #task-artifacts { height: 1fr; min-height: 3; border: none; padding: 0 1; }
     #view-placement { height: 1; border: none; padding: 0 1; width: auto; }
+    #save-task-file { height: 1; border: none; padding: 0 1; width: auto; }
     #web-link { width: 1fr; height: 100%; padding: 0 1; content-align: left middle; }
     #storage-scroll { height: 1fr; }
     #storage-summary { height: auto; }
@@ -194,6 +198,8 @@ class Workbench(App, inherit_bindings=False):
         self._web_request: tuple[int, JobQuery, JobResult | SiteJobResult | SiteJobAllocationResult] | None = None
         self._web_url: str | None = None
         self._workbench_ready = False
+        self._save_screen: ArtifactSaveScreen | None = None
+        self._client_lock = asyncio.Lock()
 
     def compose(self) -> ComposeResult:
         t = self.t
@@ -299,6 +305,9 @@ class Workbench(App, inherit_bindings=False):
             placement_button = Button(t("placement"), id="view-placement", tooltip=t("placement_help"))
             placement_button.display = False
             yield placement_button
+            save_button = Button(t("save_file"), id="save-task-file", tooltip=t("save_host") + " (S)")
+            save_button.display = False
+            yield save_button
             yield Static("", id="details", markup=False)
             artifact_hint = Static("", id="task-artifact-hint", markup=False)
             artifact_hint.display = False
@@ -322,7 +331,7 @@ class Workbench(App, inherit_bindings=False):
         self.request_read()
 
     def on_resize(self, event: Resize) -> None:
-        self.screen.set_class(event.size.height < 28 or event.size.width < 80, "compact")
+        self.default_screen.set_class(event.size.height < 28 or event.size.width < 80, "compact")
         if self._workbench_ready:
             self.call_after_refresh(self._sync_presentation)
             if self.view == "resources":
@@ -374,6 +383,8 @@ class Workbench(App, inherit_bindings=False):
             actions.add("copy_web_link")
         if view == "tasks" and isinstance(result, ManagedRunDetail) and result.values["run"]["run_ref"] == self.selected_run:
             actions.update("task_" + mode for mode in ("detail", "stdout", "stderr", "files", "cost", "stats", "placement"))
+        if self._can_save_artifact():
+            actions.add("save_artifact")
         notice = self._failed_views.get(view, "")
         if not notice and not busy:
             if view == "resources" and self.catalog and not (self.catalog.values["compute"] or self.catalog.values["storage"]):
@@ -390,8 +401,8 @@ class Workbench(App, inherit_bindings=False):
             return
         state = self._presentation()
         inspection = state.phase == "inspect"
-        self.screen.set_class(inspection, "inspection")
-        self.screen.set_class(self.size.width < 60, "narrow-evidence")
+        self.default_screen.set_class(inspection, "inspection")
+        self.default_screen.set_class(self.size.width < 60, "narrow-evidence")
         for name in ("job-scope-controls", "job-filter-controls"):
             self.query_one(f"#{name}").display = state.view == "jobs" and not inspection
         heading = self.query_one("#object-heading", Static)
@@ -429,6 +440,9 @@ class Workbench(App, inherit_bindings=False):
         self.query_one("#open-task-web").display = state.view == "tasks" and inspection
         self.query_one("#task-start").display = self.task_mode not in {"detail", "cost", "stats", "placement"}
         self.query_one("#task-next").display = self.task_mode not in {"detail", "cost", "stats", "placement"}
+        save_button = self.query_one("#save-task-file", Button)
+        save_button.display = state.view == "tasks" and self.task_mode == "content" and self.selected_artifact is not None
+        save_button.disabled = "save_artifact" not in state.actions
         for name in ("jobs-hint",):
             self.query_one(f"#{name}").display = not (state.view == "jobs" and inspection)
         for name, action in (("view-job", "view_job"), ("view-allocation", "view_allocation"), ("view-cost", "view_cost"),
@@ -529,8 +543,9 @@ class Workbench(App, inherit_bindings=False):
                     context = f"{self.t(query.scope)} · {query.account_name or query.account_id or self.t('self')}"
                 self.query_one("#status", Static).update(self.t("refreshing", view=self.t(view), context=context))
                 try:
-                    result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source,
-                                                   job_mode, task_request, resolve_scope, storage_cursor)
+                    async with self._client_lock:
+                        result = await asyncio.to_thread(self._fetch, view, query, selected, workspace, storage_source,
+                                                       job_mode, task_request, resolve_scope, storage_cursor)
                 except SaiCliError as error:
                     if revision == self._revision:
                         self._read_error(view, error, scope_lookup=scope_lookup)
@@ -610,6 +625,8 @@ class Workbench(App, inherit_bindings=False):
                   "view_placement": ("placement", "placement_help"),
                   "quit": ("quit", "exit_help"), "command_palette": ("palette", "command_search"),
                   "help_quit": ("quit", "exit_help")}
+        if action == "save_artifact":
+            return self.t("save_short"), self.t("save_host")
         if action == "compare_resource":
             return self.t("remove_compare" if self.selected_resource in self.compared else "add_compare"), self.t("resource_comparison")
         if action == "open_web":
@@ -624,10 +641,12 @@ class Workbench(App, inherit_bindings=False):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if not getattr(self, "_workbench_ready", False):
             return action in {"command_palette", "quit", "help_quit"}
-        if action in {"back", "view_allocation", "view_cost", "open_web", "compare_resource"}:
+        if self._save_screen is not None:
+            return action in {"quit", "help_quit"}
+        if action in {"back", "view_allocation", "view_cost", "open_web", "compare_resource", "save_artifact"}:
             if self.focused and any(isinstance(widget, (Input, Select)) for widget in self.focused.ancestors_with_self):
                 return False
-        if action in {"refresh", "pause", "back", "view_allocation", "view_cost", "open_web", "compare_resource", "copy_web_link"}:
+        if action in {"refresh", "pause", "back", "view_allocation", "view_cost", "open_web", "compare_resource", "copy_web_link", "save_artifact"}:
             return action in self._presentation().actions
         return super().check_action(action, parameters)
 
@@ -716,9 +735,12 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#status", Static).update(self.t("copy_ready"))
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        if self._save_screen is not None:
+            yield SystemCommand(self.t("quit"), self.t("exit_help"), self.action_quit)
+            return
         state = self._presentation()
         yield SystemCommand(self.t("theme"), self.t("theme_help"), self.action_change_theme)
-        for action in ("quit", "refresh", "pause", "back", "view_allocation", "view_cost", "view_placement", "open_web", "compare_resource", "copy_web_link"):
+        for action in ("quit", "refresh", "pause", "back", "view_allocation", "view_cost", "view_placement", "open_web", "compare_resource", "copy_web_link", "save_artifact"):
             if action in state.actions:
                 if action == "copy_web_link":
                     label, help_text = self.t("command_copy"), self.t("command_copy_help")
@@ -797,7 +819,8 @@ class Workbench(App, inherit_bindings=False):
         link_ready = False
         self.query_one("#status", Static).update(self.t("web_resolving"))
         try:
-            target = await asyncio.to_thread(self.client.job_web_context, job.canonical_id, query)
+            async with self._client_lock:
+                target = await asyncio.to_thread(self.client.job_web_context, job.canonical_id, query)
             if revision != self._revision:
                 return
             if not isinstance(target, JobWebContext):
@@ -928,6 +951,8 @@ class Workbench(App, inherit_bindings=False):
         self._update_task_actions()
 
     def _clear_artifact_selection(self) -> None:
+        if self._save_screen is not None:
+            self._save_screen.action_cancel()
         previous = self.selected_artifact
         self.selected_artifact = None
         self._clear_web_link()
@@ -940,6 +965,46 @@ class Workbench(App, inherit_bindings=False):
         self.query_one("#task-artifact-hint", Static).update(self.t("files_choose"))
         self.query_one("#open-task-web", Button).tooltip = self.t("web_task") + " (W)"
         self.refresh_bindings()
+
+    def _can_save_artifact(self) -> bool:
+        return (self._save_screen is None and self._can_open_task_web() and self.task_mode == "content"
+                and self.selected_artifact is not None and (not isinstance(self.task_file_page, ManagedRunArtifactContent)
+                    or self.task_file_page.values["status"] not in {"missing", "changed"}))
+
+    def action_save_artifact(self) -> None:
+        if not self._can_save_artifact():
+            return
+        page, reference = self.selected_artifact
+        item = next(item for item in page.values["items"] if item["artifact_ref"] == reference)
+        revision, run, workspace, site = self._revision, self.selected_run, self.tasks_workspace_key, self.job_query.site_id
+
+        async def save(output: str, cancelled: Event) -> dict[str, object]:
+            async with self._client_lock:
+                return await asyncio.to_thread(self.client.download_managed_run_artifact, run,
+                    workspace_key=workspace, site_id=site, artifact_ref=reference, output=output,
+                    artifact_cursor=page.request_cursor, cancelled=cancelled.is_set)
+
+        def finished(result: SaveResult) -> None:
+            self._save_screen = None
+            if revision != self._revision or self.selected_artifact != (page, reference) or self.view != "tasks":
+                return
+            if isinstance(result, SaiCliError):
+                self._read_error("tasks", result)
+            elif result is not None:
+                self.query_one("#status", Static).update(self.t("save_complete", path=terminal_log(str(result["output"]))))
+            elif screen.started:
+                self.query_one("#status", Static).update(self.t("save_cancelled"))
+            self._sync_presentation()
+
+        screen = ArtifactSaveScreen(item["relative_path"].rsplit("/", 1)[-1], self.language, save)
+        self._save_screen = screen
+        self.push_screen(screen, finished)
+
+    async def action_quit(self) -> None:
+        if self._save_screen is not None:
+            self._save_screen.action_cancel(quit_app=True)
+        else:
+            self.exit()
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if (event.option_list.id == "task-artifacts" and self.task_mode == "files" and self.selected_artifact is not None
@@ -1553,7 +1618,9 @@ class Workbench(App, inherit_bindings=False):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id in {"load-projects", "projects-first"}:
+        if event.button.id == "save-task-file":
+            self.action_save_artifact()
+        elif event.button.id in {"load-projects", "projects-first"}:
             self._read_projects()
         elif event.button.id == "projects-next" and self.task_projects is not None:
             self._read_projects(self.task_projects.values["next_cursor"])

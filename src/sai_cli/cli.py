@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("logs", "read a bounded page of a managed run's stdout or stderr"),
         ("files", "list current files in a managed run's declared outputs"),
         ("read", "read a bounded text section from one authorized output file"),
+        ("download", "save one complete authorized output file without overwriting"),
     ):
         run_parser = run_commands.add_parser(command, help=description)
         _add_connection_arguments(run_parser, suppress_defaults=True)
@@ -80,9 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
                                     help="maximum rows in one page (1-100)")
         if command in {"workspaces", "list", "logs", "files", "read"}:
             run_parser.add_argument("--cursor", help="next cursor returned by the previous page")
-        if command == "read":
+        if command in {"read", "download"}:
             run_parser.add_argument("--artifact-ref", required=True, help="file reference returned by runs files")
             run_parser.add_argument("--artifact-cursor", help="request cursor of the selected file list page")
+        if command == "download":
+            run_parser.add_argument("--output", required=True, help="new local file path; existing files are never replaced")
         if command == "logs":
             run_parser.add_argument("--stream", choices=("stdout", "stderr"), default="stdout")
             run_parser.add_argument("--max-bytes", type=int, default=65536, help="maximum log bytes (1-65536)")
@@ -571,6 +574,13 @@ def main(
                 from .artifact_content import render_artifact_content
                 result = client.managed_run_artifact_content(args.run_ref, **scope, artifact_ref=args.artifact_ref,
                     artifact_cursor=args.artifact_cursor, cursor=args.cursor)
+            elif args.runs_command == "download":
+                receipt = client.download_managed_run_artifact(args.run_ref, **scope, artifact_ref=args.artifact_ref,
+                    artifact_cursor=args.artifact_cursor, output=args.output)
+                from .managed_runs import terminal_log
+                output.write(render_json(receipt) if output_format == "json" else
+                    f"Saved {receipt['size_bytes']} bytes to {terminal_log(receipt['output'])}\n")
+                return 0
             elif args.runs_command == "logs":
                 result = client.managed_run_logs(args.run_ref, **scope, stream=args.stream,
                                                  cursor=args.cursor, max_bytes=args.max_bytes)

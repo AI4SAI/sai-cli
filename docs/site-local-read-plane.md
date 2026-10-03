@@ -519,3 +519,12 @@ gateway and is not direct storage access by a CLI. Its paired content contract
 bounds a section to 64 KiB, forbids client paths and stops at file-version changes.
 Future site-direct content routing must preserve this same authority and file scope;
 this source change does not claim that transport migration or deployment is done.
+
+Complete output downloads use a separate narrow `compute.run-artifact-download/v1`
+grant issued after the same current Run/file checks. The CLI receives an exact
+site-files URL and version-bound capability, then reads binary byte ranges
+directly; Identity Bearer remains at Portal. The client does not choose native
+paths or users, reuse the jobs capability, or fall back to filesystem access.
+8 MiB ranges, version-preserving renewal and atomic local publication are source
+implementation; paired server/site deployment and real transfers remain separate
+acceptance. This adds no persistent transfer state to the CLI.

@@ -172,6 +172,10 @@ are candidate designs, not completed implementation milestones.
   observation comparison and a visible same-origin link (local HTTP/Textual only)
 - [x] Explicit project-scoped Tasks with owner-only managed-run history, detail,
   bounded stdout/stderr and output-file pages (local validation; no runtime start)
+- [x] Batch `runs download` for complete binary output, version-bound direct
+  ranges, credential separation and atomic non-overwriting local save
+- [ ] Paired Center/site release and real-user complete-download acceptance;
+  cross-process resume is not implemented
 - [x] Exact managed-run Web navigation to the independently authorized console
   task page, without requiring an active scheduler account or starting Pilot
 - [x] Bounded discovery of readable task projects with safe display names,

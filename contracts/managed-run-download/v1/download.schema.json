@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One authorized output transfer",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workspace_key",
+    "site_id",
+    "run_ref",
+    "artifact_ref",
+    "download_name",
+    "size_bytes",
+    "version",
+    "download_url",
+    "capability",
+    "expires_at",
+    "transfer_until",
+    "range_max_bytes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "compute.run-artifact-download/v1"
+    },
+    "workspace_key": {
+      "type": "string",
+      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "run_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "artifact_ref": {
+      "type": "string",
+      "pattern": "^artifact-[0-9a-f]{40}$"
+    },
+    "download_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "download_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "expires_at": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "transfer_until": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "range_max_bytes": {
+      "const": 8388608
+    }
+  }
+}

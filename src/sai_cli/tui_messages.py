@@ -5,6 +5,15 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "save_file": ("保存文件", "Save file"), "save_short": ("保存", "Save"),
+    "save_host": ("保存到当前终端主机；SSH 时为登录主机。", "Saves on this terminal's host; over SSH, the login host."),
+    "save_destination": ("输入保存路径", "Enter a destination path"),
+    "save_busy": ("正在保存… Esc 可取消", "Saving… Esc cancels"),
+    "save_stopping": ("正在取消并清理，请稍候…", "Canceling and cleaning up…"),
+    "save_cancel": ("取消", "Cancel"), "save_cancelled": ("已取消保存", "Save canceled"),
+    "save_exists": ("路径已存在，请换一个保存路径。", "That path exists. Choose another destination."),
+    "save_failed": ("保存未完成，请检查路径或稍后重试。", "Save did not complete. Check the path or retry later."),
+    "save_complete": ("已保存到当前主机：{path}", "Saved on this host: {path}"),
     "task_placement": ("位置", "Location"), "command_placement": ("查看任务登记位置", "Read task registered location"),
     "run_placement_disabled": ("本站未开放登记位置读取，任务仍可查看", "Registered location is disabled here; task records remain readable"),
     "run_placement_failed": ("无法确认当前任务位置，F5 重试", "Current Run location could not be confirmed; F5 retries"),

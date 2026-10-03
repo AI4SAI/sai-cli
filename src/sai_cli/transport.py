@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.client import HTTPException
 import ipaddress
 import json
 import re
@@ -50,6 +51,13 @@ class JsonResponse:
     payload: dict[str, Any]
     request_id: str
     status: int
+
+
+@dataclass(frozen=True)
+class BinaryResponse:
+    data: bytes
+    status: int
+    headers: Mapping[str, str]
 
 
 def _is_loopback_host(hostname: str | None) -> bool:
@@ -177,6 +185,39 @@ class JsonTransport:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
         self._opener = opener or build_opener(_NoRedirect())
+
+    def request_bytes(self, path: str, *, headers: Mapping[str, str], maximum: int) -> BinaryResponse:
+        """Read one bounded binary range without interpreting a provider error body."""
+        if not path.startswith("/") or path.startswith("//") or not 0 <= maximum <= 8 * 1024 * 1024:
+            raise ConfigError("binary request is invalid")
+        request_id = f"sai-cli-{uuid.uuid4().hex}"
+        request = Request(self.base_url + path, method="GET", headers={
+            "Accept": "application/octet-stream", "Accept-Encoding": "identity",
+            "User-Agent": f"sai-cli/{__version__}", "X-SAI-Request-ID": request_id, **headers,
+        })
+        try:
+            with self._opener.open(request, timeout=self.timeout_seconds) as response:
+                # Reject ambiguous framing instead of trusting the first duplicated header.
+                for name in ("Content-Length", "Content-Range", "ETag", "Content-Encoding"):
+                    if len(response.headers.get_all(name, [])) > 1:
+                        raise ContractError("the download response has ambiguous headers")
+                length = response.headers.get("Content-Length", "")
+                if not re.fullmatch(r"0|[1-9][0-9]{0,6}", length) or int(length) > maximum:
+                    raise ContractError("the download response has an invalid length")
+                if response.headers.get("Transfer-Encoding") is not None:
+                    raise ContractError("the download response has unsupported framing")
+                data = response.read(maximum + 1)
+                if len(data) != int(length):
+                    raise ContractError("the download response is incomplete")
+                return BinaryResponse(data, int(response.status), dict(response.headers.items()))
+        except HTTPError as exc:
+            # Error text is not a file receipt and may contain credentials or paths.
+            exc.close()
+            raise _http_error(status=int(exc.code), payload={}, request_id=request_id) from None
+        except SaiCliError:
+            raise
+        except (URLError, HTTPException, TimeoutError, ConnectionError, OSError) as exc:
+            raise NetworkError("the artifact download was interrupted", request_id=request_id) from exc
 
     def request(
         self,

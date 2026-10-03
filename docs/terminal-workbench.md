@@ -230,7 +230,7 @@ visible and gives the user a refresh or return action.
 
 This continuation reuses the existing Portal Run readback and Pilot native file
 viewer. It does not create a result archive, new task engine, second file
-browser, implicit runtime start or hidden renewal. Agent `run.get`, `run.logs`
+browser, implicit runtime start or hidden renewal. Agent `run.get`, `run.logs`,
 `artifact.list` and `artifact.read` use the same current project READ owner as the console;
 submission, cancellation and confirmation retain their separate execution
 authority. Native Pilot tool registration is a separate delivery.
@@ -417,3 +417,20 @@ and one explicit history open using real handlers and synthetic external sources
 Full output download, native Pilot tool registration, positive running telemetry
 and the complete resource-to-result journey remain open. A bounded text section
 is not a complete file-transfer feature or scientific-result validation.
+
+## Save the selected output
+
+The selected file content view offers S / Save file, including binary files that
+cannot be previewed as text. Enter the destination once; the suggested basename
+is relative to the terminal process directory. Over SSH this saves on the login
+host, not on the computer running the browser. Existing destinations are never
+overwritten. No file browser or second confirmation is introduced.
+
+The workbench uses the same `runs download` client in its serialized background
+read path. Escape cancels; quitting or changing context also cancels and waits
+for the bounded request and temporary-file cleanup. A late completion cannot be
+shown for a different task. Input editing retains ordinary letter keys.
+
+This is a paired candidate; see the [download contract](../contracts/managed-run-download/v1/README.md).
+Local native/HTTP, binary transfer and 40-column rendering checks do not establish
+production file retrieval or a complete scientific workflow.
