@@ -66,6 +66,15 @@ class WorkbenchPresentation:
     notice: str
 
 
+@dataclass(frozen=True)
+class TaskReadingPosition:
+    mode: str
+    cursor: str | None
+    scroll_y: float
+    artifact: tuple[ManagedRunArtifacts, str] | None = None
+    highlighted: str | None = None
+
+
 class WorkbenchScreen(Screen):
     @property
     def active_bindings(self) -> dict[str, ActiveBinding]:
@@ -181,6 +190,8 @@ class Workbench(App, inherit_bindings=False):
         self.task_placement: ManagedRunPlacement | SiteJobAllocationResult | None = None
         self.selected_artifact: tuple[ManagedRunArtifacts, str] | None = None
         self._artifact_return_ref: str | None = None
+        self._task_reading: dict[str, TaskReadingPosition] = {}
+        self._task_restore_scroll: float | None = None
         self.task_projects: ManagedRunWorkspaces | None = None
         self.project_cursor: str | None = None
         self.tasks_workspace_label: str | None = None
@@ -457,6 +468,8 @@ class Workbench(App, inherit_bindings=False):
         if view == self.view:
             return
         previous_view = self.view
+        if previous_view == "tasks":
+            self._remember_task_reading()
         self.screen.set_focus(None)
         self.view = view
         self._clear_task_cost()
@@ -472,8 +485,10 @@ class Workbench(App, inherit_bindings=False):
         if view == "storage":
             self.query_one("#storage-workspace", Select).focus()
         elif view == "tasks":
-            self.task_mode = "detail" if self.selected_run else "list"
-            self.task_cursor = None if self.selected_run else self._task_list_cursor
+            if self.selected_run:
+                self._restore_task_reading(self.task_mode)
+            else:
+                self.task_mode, self.task_cursor = "list", self._task_list_cursor
             self.screen.set_focus(self.query_one("#details-scroll" if self.selected_run else "#tasks-project"))
         elif view == "overview":
             self.query_one("#overview-summary", Static).scroll_visible()
@@ -950,6 +965,34 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#details", Static).update(task_detail_panel(result, self.language) if isinstance(result, ManagedRunDetail) else "")
         self._update_task_actions()
 
+    def _remember_task_reading(self) -> None:
+        if not self._can_open_task_web():
+            return
+        if self.task_mode == "content" and (not isinstance(self.task_file_page, ManagedRunArtifactContent)
+                or self.task_file_page.values["status"] in {"missing", "changed"}):
+            return
+        if (self.task_mode == "files" and not isinstance(self.task_file_page, ManagedRunArtifacts)
+                or self.task_mode in {"stdout", "stderr"} and not isinstance(self.task_file_page, ManagedRunLogs)):
+            return
+        options = self.query_one("#task-artifacts", OptionList)
+        highlighted = (options.get_option_at_index(options.highlighted).id
+                       if self.task_mode == "files" and options.highlighted is not None else None)
+        key = "files" if self.task_mode == "content" else self.task_mode
+        self._task_reading[key] = TaskReadingPosition(self.task_mode, self.task_cursor,
+            self.query_one("#details-scroll", VerticalScroll).scroll_y, self.selected_artifact, highlighted)
+
+    def _restore_task_reading(self, mode: str) -> None:
+        key = "files" if mode == "content" else mode
+        position = self._task_reading.get(key, TaskReadingPosition(key, None, 0.0))
+        self.task_mode, self.task_cursor = position.mode, position.cursor
+        self.selected_artifact = position.artifact
+        self._artifact_return_ref = position.highlighted
+        self._task_restore_scroll = position.scroll_y
+
+    def _restore_task_scroll(self, revision: int, mode: str, offset: float) -> None:
+        if self._revision == revision and self.view == "tasks" and self.task_mode == mode:
+            self.query_one("#details-scroll", VerticalScroll).scroll_to(y=offset, animate=False, immediate=True)
+
     def _clear_artifact_selection(self) -> None:
         if self._save_screen is not None:
             self._save_screen.action_cancel()
@@ -1095,19 +1138,17 @@ class Workbench(App, inherit_bindings=False):
             run_ref = result.values["run"]["run_ref"]
         else:
             return
+        self._remember_task_reading()
+        if run_ref != self.selected_run:
+            self._task_reading.clear()
         self._clear_task_cost()
         self._clear_task_stats()
         self._clear_task_placement()
         self.selected_run = run_ref
         self.task_mode, self.task_cursor = mode, None
         self._revision += 1
-        if mode in {"cost", "stats", "placement"}:
-            self._clear_artifact_selection()
-            self.query_one("#task-artifacts").display = False
-            self.query_one("#task-artifact-hint").display = False
-            self.query_one("#details", Static).update("")
-        else:
-            self._clear_task_files()
+        self._clear_task_files()
+        self._restore_task_reading(mode)
         self.request_read()
         self.query_one("#details-scroll", VerticalScroll).scroll_home(animate=False)
         self.query_one(f"#task-{mode}", Button).focus()
@@ -1121,6 +1162,7 @@ class Workbench(App, inherit_bindings=False):
         page = self.results.get("tasks") if self.task_mode == "list" else self.task_file_page
         if not start and page is None:
             return
+        self._remember_task_reading()
         self.task_cursor = None if start else page.values["next_cursor"]
         self._revision += 1
         if self.task_mode == "content":
@@ -1193,6 +1235,8 @@ class Workbench(App, inherit_bindings=False):
     def _clear(self, view: str) -> None:
         self.results.pop(view, None)
         if view == "tasks":
+            self._task_reading.clear()
+            self._task_restore_scroll = None
             self._clear_task_cost()
             self._clear_task_stats()
             self._clear_task_placement()
@@ -1225,6 +1269,8 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#details", Static).update("")
 
     def _read_error(self, view: str, error: SaiCliError, *, scope_lookup: bool = False) -> None:
+        if view == "tasks":
+            self._task_restore_scroll = None
         self._failed_views[view] = self.t("read_failed")
         if view == "jobs" and self.job_mode == "cost" and not isinstance(error, AuthenticationError):
             if not isinstance(error, ForbiddenError) or error.code == "job_cost_read_denied":
@@ -1275,6 +1321,8 @@ class Workbench(App, inherit_bindings=False):
             return
         was_projects = view == "tasks" and self.task_mode == "projects"
         if view == "tasks" and not scope_lookup and isinstance(error, ForbiddenError) and error.code == "run_file_read_denied":
+            for mode in ("files", "stdout", "stderr"):
+                self._task_reading.pop(mode, None)
             if self.task_mode == "content":
                 self.task_mode = "files"
                 self.task_cursor = self.selected_artifact[0].request_cursor if self.selected_artifact else None
@@ -1420,6 +1468,9 @@ class Workbench(App, inherit_bindings=False):
                 status = self.t("file_status", mode=self.t(self.task_mode), time=data["observed_at"])
             else:
                 self.query_one("#details", Static).update(task_file_panel(result, self.language))
+                if isinstance(result, ManagedRunArtifactContent) and result.values["status"] in {"missing", "changed"}:
+                    self._task_reading.pop("files", None)
+                    self._task_restore_scroll = None
                 status = self.t("file_status", mode=self.t(self.task_mode), time=data["observed_at"])
             self._update_task_actions()
         elif view == "overview" and isinstance(result, AccountOverview):
@@ -1484,6 +1535,9 @@ class Workbench(App, inherit_bindings=False):
                 status += " · " + self.t("empty_jobs")
         self.query_one("#status", Static).update(status + (" · " + self.t("auto_paused") if self.paused else ""))
         self._sync_presentation()
+        if view == "tasks" and self._task_restore_scroll is not None and not isinstance(result, ManagedRunWorkspaces):
+            offset, self._task_restore_scroll = self._task_restore_scroll, None
+            self.call_after_refresh(self._restore_task_scroll, self._revision, self.task_mode, offset)
 
     def _comparison(self) -> None:
         if self.catalog is None:
@@ -1748,6 +1802,7 @@ class Workbench(App, inherit_bindings=False):
     def action_refresh(self) -> None:
         self._clear_job_cost()
         if self.view == "tasks":
+            self._remember_task_reading()
             self._revision += 1
             self._clear_task_cost()
             self._clear_task_stats()
@@ -1793,6 +1848,7 @@ class Workbench(App, inherit_bindings=False):
         if self.view == "tasks" and self.task_mode == "content" and self.selected_artifact:
             page, reference = self.selected_artifact
             self.task_mode, self.task_cursor = "files", page.request_cursor
+            self._task_reading["files"] = TaskReadingPosition("files", page.request_cursor, 0.0, highlighted=reference)
             self._revision += 1
             self._clear_task_files()
             self._artifact_return_ref = reference

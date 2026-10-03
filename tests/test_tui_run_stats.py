@@ -104,12 +104,12 @@ def test_stats_failure_clears_only_the_authority_that_failed(status):
         app=app_for(origin)
         async with app.run_test(size=(40,24)) as pilot:
             await open_detail(app,pilot);metadata=app.results["tasks"]
-            await click(app,pilot,"#task-files");files=app.task_file_page
+            await click(app,pilot,"#task-files")
             await click(app,pilot,"#task-stats")
             state['status']=status;await pilot.press('f5');await settled(app,pilot)
             assert app.task_stats is None and '1073741824' not in details(app)
             if status==503:
-                assert app.results['tasks'] is metadata and app.task_file_page is files
+                assert app.results['tasks'] is metadata and app.task_file_page is None
                 assert app.selected_run=='run-example-1'
                 await click(app,pilot,'#task-detail');assert 'simulation.py' in details(app)
             else:

@@ -108,13 +108,12 @@ def test_cost_denial_preserves_only_independently_authorized_facts(code,status,r
             await open_detail(app,pilot)
             metadata = app.results["tasks"]
             await click(app,pilot,"#task-files")
-            files = app.task_file_page
             await click(app,pilot,"#task-cost")
             state.update(error=code,status=status)
             await pilot.press("f5"); await settled(app,pilot)
             assert app.task_cost is None and "10.00" not in details(app)
             if retained:
-                assert app.results["tasks"] is metadata and app.task_file_page is files
+                assert app.results["tasks"] is metadata and app.task_file_page is None
                 assert app.selected_run == "run-example-1"
                 await click(app,pilot,"#task-detail")
                 assert "simulation.py" in details(app)

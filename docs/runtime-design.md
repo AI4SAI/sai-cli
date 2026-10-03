@@ -226,6 +226,11 @@ output pages are explicit, one-page observations. Next/Start replace the page;
 they do not append an unbounded log. Changing project, mode or tab invalidates
 late responses. File-read denial clears only the file observation; task-scope
 denial clears Tasks, and authentication failure clears all protected views.
+Within the same task, changing mode or visiting another tab preserves the last
+reading position. Returning rereads the original file, log or evidence through
+the same authorized client, then restores its page and scroll position. It does
+not reuse a saved body or Web link. Project/task changes and permission loss
+clear the corresponding navigation; missing or changed files stop restoration.
 
 ### Scheduler jobs
 

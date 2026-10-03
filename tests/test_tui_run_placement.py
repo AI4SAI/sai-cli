@@ -92,14 +92,15 @@ def test_run_placement_failure_clears_location_at_the_correct_authority(status,c
         app=app_for(origin)
         async with app.run_test(size=(60,24)) as pilot:
             await open_detail(app,pilot);metadata=app.results['tasks']
-            await click(app,pilot,'#task-files');files=app.task_file_page
+            await click(app,pilot,'#task-files')
             await command(app,pilot,app.t('command_placement'))
             state.update(status=status,code=code)
             await pilot.press('f5');await settled(app,pilot)
             assert app.task_placement is None and 'Rack A' not in details(app)
             if keeps_run:
-                assert app.results['tasks'] is metadata and app.task_file_page is files and app.selected_run=='run-example-1'
+                assert app.results['tasks'] is metadata and app.task_file_page is None and app.selected_run=='run-example-1'
                 await click(app,pilot,'#task-detail');assert 'simulation.py' in details(app)
+                await click(app,pilot,'#task-files');assert app.task_file_page is not None
             else:
                 assert app.selected_run is None and 'tasks' not in app.results and app.task_file_page is None
                 if status==401:assert app.results=={} and app.paused

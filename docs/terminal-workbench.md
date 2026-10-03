@@ -186,6 +186,14 @@ not hide still-authorized task metadata. Output filenames describe current files
 under the declared roots, not a sealed result version. Text outputs can be read
 inside the task; native Pilot file tools remain a separate consumer.
 
+Checking cost, statistics or another top-level view preserves where the user was
+reading in the same task. Returning restores the chosen file, page and scroll
+position after a fresh authorized read. Only navigation and the existing bounded
+file-selection metadata are retained, not file content, fees or download grants.
+Changing project/task or losing access clears the related navigation. Missing or
+changed files stop restoration; binary files remain selected for Save even when
+their content cannot be previewed as text.
+
 Files uses a keyboard-selectable list. Full relative paths wrap without
 shortening; byte size and modification time remain separate. Arrow keys browse,
 and Enter opens the highlighted text file in the task's content view.

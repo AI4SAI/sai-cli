@@ -235,11 +235,12 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             return 401, {"detail": "old discovery expired"}
         if path.endswith("/logs"):
             query = parse_qs(urlsplit(call["path"]).query)
-            if query["stream"] == ["stdout"]:
+            if query["stream"] == ["stdout"] and not release.is_set():
                 started.set(); assert release.wait(5)
                 return 401, {"detail": "old read expired"}
             result = sample("log")
-            result.update(stream="stderr", cursor="log-stderr-0", next_cursor="log-stderr-40")
+            if query["stream"] == ["stderr"]:
+                result.update(stream="stderr", cursor="log-stderr-0", next_cursor="log-stderr-40")
             return 200, result
         if path.endswith("/workspaces"):
             value = workspace_sample()
@@ -307,7 +308,7 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             if transition == "tab":
                 await command(app, pilot, "My managed tasks")
                 assert app.view == "tasks" and isinstance(app.results["tasks"], ManagedRunDetail)
-                assert app.task_file_page is None
+                assert app.task_mode == "stdout" and app.task_file_page.values["stream"] == "stdout"
             if transition == "workspace":
                 assert "tasks" not in app.results and app.tasks_workspace_key is None
                 picker = app.query_one("#tasks-project", Select)
@@ -316,4 +317,4 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
                 assert app.task_file_page is None
     with http_endpoint(reply) as (origin, calls):
         asyncio.run(asyncio.wait_for(scenario(client_for(origin)), 25))
-    assert sum("/logs" in call["path"] for call in calls) == (0 if transition == "discovery" else 2 if transition == "mode" else 1)
+    assert sum("/logs" in call["path"] for call in calls) == (0 if transition == "discovery" else 2 if transition in {"mode", "tab"} else 1)

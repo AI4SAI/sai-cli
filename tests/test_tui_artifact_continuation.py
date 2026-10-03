@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("textual")
 from rich.console import Console
 from textual.widgets import Button, DataTable, Input, OptionList, Select, Static, TabbedContent
+from textual.containers import VerticalScroll
 
 from sai_cli.client import JobQuery
 from sai_cli.artifact_content import ManagedRunArtifactContent
@@ -22,6 +23,9 @@ from test_site_transport import http_endpoint
 from test_tui import settled
 from test_tui_managed_runs import client_for, click
 from test_managed_workspaces import sample as workspace_sample
+from test_run_cost import sample as cost_sample
+from test_run_stats import sample as stats_sample
+from test_tui import catalog
 
 
 LONG_PATH = "outputs/" + "长路径含Unicode-无空格" * 40 + "_[red]#1?%.txt\x85"
@@ -139,6 +143,106 @@ def test_files_keyboard_read_and_return_keep_the_exact_page_and_web_reference(tm
             assert query(opened[-1])["artifact_cursor"] == ["2"]
     with http_endpoint(response) as (origin, calls):
         asyncio.run(scenario(client_for(origin), calls))
+
+
+@pytest.mark.parametrize("width", [40, 100])
+def test_task_reading_position_survives_cost_stats_and_catalog(tmp_path, monkeypatch, width):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+
+    def reply(call, count):
+        path = urlsplit(call["path"]).path
+        if path.endswith("/billing"):
+            return 200, cost_sample()
+        if path.endswith("/stats"):
+            return 200, stats_sample()
+        if path.endswith("/resource-catalog"):
+            return 200, catalog()
+        status, body = response(call, count)
+        if path.endswith("/content") and body["offset"] > 0:
+            content = "second result\n" + "result evidence\n" * 60
+            end = body["offset"] + len(content.encode())
+            body.update(content=content, bytes_read=len(content.encode()), next_offset=end, size_bytes=end)
+        return status, body
+
+    async def scenario(client, calls):
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
+                        tasks_workspace_key="project:project-example", language="zh-CN")
+        async with app.run_test(size=(width, 24)) as pilot:
+            await open_files(app, pilot)
+            await click(app, pilot, "#task-next")
+            await pilot.press("home", "enter"); await settled(app, pilot)
+            await click(app, pilot, "#task-next")
+            assert app.selected_artifact[1] == LATER_REF
+            cursor = app.task_cursor
+            scroll = app.query_one("#details-scroll", VerticalScroll)
+            scroll.scroll_to(y=8, animate=False); await pilot.pause(.05)
+            position = scroll.scroll_y
+            assert position > 0
+            for mode in ("cost", "stats"):
+                await click(app, pilot, "#task-" + mode)
+            before = len(calls)
+            await click(app, pilot, "#task-files")
+            assert app.task_mode == "content" and app.selected_artifact[1] == LATER_REF
+            assert app.task_cursor == cursor and app.task_file_page.values["offset"] > 0
+            assert len(calls) > before and scroll.scroll_y == position
+            app.query_one("#views", TabbedContent).active = "resources"
+            await settled(app, pilot)
+            assert app.task_file_page is None and app.selected_artifact is None
+            app.query_one("#views", TabbedContent).active = "tasks"
+            await settled(app, pilot)
+            await pilot.pause()
+            assert app.task_mode == "content" and app.selected_artifact[1] == LATER_REF
+            assert app.task_cursor == cursor and scroll.scroll_y == position
+            assert app._web_url is None
+            app.save_screenshot(str(tmp_path / f"restored-result-{width}.svg"))
+            await pilot.press("escape"); await settled(app, pilot)
+            assert app.task_mode == "files" and app.task_cursor == "2"
+            assert app.query_one("#task-artifacts", OptionList).highlighted == 0
+
+    with http_endpoint(reply) as (origin, calls):
+        asyncio.run(scenario(client_for(origin), calls))
+
+
+@pytest.mark.parametrize("problem", ["changed", "missing", "run_file_read_denied", "run_read_denied", "identity_token_invalid"])
+def test_restored_file_rechecks_version_and_current_authority(problem):
+    failure = None
+
+    def reply(call, count):
+        status, body = response(call, count)
+        if failure is not None and "/content?" in call["path"]:
+            if failure not in {"changed", "missing"}:
+                return (401 if failure == "identity_token_invalid" else 403), {"detail": {"code": failure}}
+            body.update(status=failure, content="", bytes_read=0, next_offset=body["offset"], next_cursor=None, complete=False)
+            if failure == "missing":
+                body.update(version=None, size_bytes=None, modified_at_ns=None)
+        return status, body
+
+    async def scenario(client):
+        nonlocal failure
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
+                        tasks_workspace_key="project:project-example")
+        async with app.run_test(size=(60, 24)) as pilot:
+            await open_files(app, pilot)
+            await pilot.press("home", "down", "enter"); await settled(app, pilot)
+            await click(app, pilot, "#task-next")
+            await click(app, pilot, "#task-detail")
+            failure = problem
+            await click(app, pilot, "#task-files")
+            assert "second result" not in app.export_screenshot() and app._web_url is None
+            assert "files" not in app._task_reading
+            if problem in {"run_read_denied", "identity_token_invalid"}:
+                assert app.selected_run is None and not app._task_reading and "tasks" not in app.results
+            else:
+                assert "tasks" in app.results
+                await click(app, pilot, "#task-detail")
+                assert "files" not in app._task_reading
+                failure = None
+                await click(app, pilot, "#task-files")
+                assert app.task_mode == "files" and app.task_cursor is None and app.selected_artifact is None
+
+    with http_endpoint(reply) as (origin, _):
+        asyncio.run(scenario(client_for(origin)))
 
 
 @pytest.mark.parametrize("transition", ["page", "mode", "project", "tab", "escape", "permission"])
@@ -304,9 +408,15 @@ def test_save_binary_from_same_task_over_real_http_and_retry_existing_path(tmp_p
             assert "".join(app.t("content_unsupported").split()) in "".join(text.split())
             assert app.query_one("#details-scroll").region.height >= 3
             app.save_screenshot(str(tmp_path / f"saved-binary-{language}.svg"))
+            await click(app, pilot, "#task-cost")
+            await click(app, pilot, "#task-files")
+            assert app.task_file_page.values["status"] == "unsupported"
+            assert app.selected_artifact[1] == SECOND_REF and app._can_save_artifact()
 
     with binary_endpoint(lambda call, _: range_response(content, call)) as (site, reads):
         def reply(call, count):
+            if urlsplit(call["path"]).path.endswith("/billing"):
+                return 200, cost_sample()
             if call["method"] == "POST":
                 assert call["body"] == {"workspace_key": "project:project-example", "site_id": "site-a", "artifact_cursor": None, "version": None}
                 return 200, grant(site, len(content), artifact_ref=SECOND_REF, download_name="第二个文件.txt")
