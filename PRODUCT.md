@@ -16,8 +16,10 @@ separately authorized view of hardware, networks and failures.
 
 Researchers come to complete scientific work, resume it, diagnose failures and
 obtain results. Resource selection, execution, files and costs are supporting
-capabilities, not a mandatory sequence of pages. Experienced users retain native
-scripts and terminals; users who need assistance may enter the complete Agent.
+capabilities, not a mandatory sequence of pages. The same researcher may use
+Pilot, native scripts or terminals for different work. Pilot's existing compute
+plugin is the interactive Web workbench; the console owns account and financial
+management rather than a parallel daily compute workflow.
 Account/project context changes the authorized scope, not where users look for
 their computations. Job and managed-Run records must not become competing product
 menus, and a runtime pool must not be presented as a scientific task or workspace.
@@ -65,6 +67,7 @@ visual system; do not define a competing WebUI theme in this repository.
 - A restricted chatbot replacing the full SAI Pilot Agent experience.
 - Portal pages owning a second Pilot Session/Pool workflow instead of a thin
   integration with the native workbench and its SAI plugin.
+- Rebuilding the compute plugin as a second Portal job/task workbench.
 - Internal protocol terms, raw errors or credentials in ordinary user flows.
 
 ## Design Principles
