@@ -448,3 +448,17 @@ Task inspection and retrieval remain independent of Pilot. The next product
 acceptance concerns the continuous task workflow and retained navigation context,
 not another reference handoff. Full browser, native Agent tool and hardware
 acceptance remain open. Operational evidence stays outside this repository.
+
+## Preparation without a relay page
+
+The existing resource-preparation URL now renders the existing Pilot entry. A
+project-scoped link shows its current project and workspace choices together;
+an unscoped terminal link asks for the project on that same page. There is no
+separate Continue page. Resource/site selection remains explicit, and entering,
+refreshing or choosing a project does not open, start or renew a runtime.
+
+This paired Web source change leaves terminal URLs and backend contracts intact.
+Published specifications are available on demand while the resource, price and
+necessary choices stay visible. Server-owned file-workspace bootstrap and original
+Session handoff remain unchanged. Deployment and real-user workflow acceptance
+are separate from source and local browser verification.
