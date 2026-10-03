@@ -199,6 +199,10 @@ are candidate designs, not completed implementation milestones.
   conversation and file reference are visible
 - [x] Paired bounded text-content Web/TUI/JSON readers deployed; ordinary-user
   historical text read through the stable shared CLI passed on 2026-10-03
+- [x] Paired Web workspace-context migration and one-page resource preparation
+  deployed; no-decision relay page removed, task/file reading context retained,
+  and financial reads complete independently. Public/service readback passed;
+  the authenticated production browser journey remains open
 - [x] Task inspection within the workspace and one-action original-history open
   deployed with the text readers; real-browser journey remains separate
 - [x] Complete output download for Web/CLI/TUI deployed; an ordinary user retrieved

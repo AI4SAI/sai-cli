@@ -457,8 +457,8 @@ an unscoped terminal link asks for the project on that same page. There is no
 separate Continue page. Resource/site selection remains explicit, and entering,
 refreshing or choosing a project does not open, start or renew a runtime.
 
-This paired Web source change leaves terminal URLs and backend contracts intact.
+This paired Web change was deployed on 2026-10-03 and leaves terminal URLs and backend contracts intact.
 Published specifications are available on demand while the resource, price and
 necessary choices stay visible. Server-owned file-workspace bootstrap and original
-Session handoff remain unchanged. Deployment and real-user workflow acceptance
-are separate from source and local browser verification.
+Session handoff remain unchanged. Public static and service readback passed. Real-user workflow acceptance
+remains separate from source and local browser verification.

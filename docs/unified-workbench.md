@@ -129,7 +129,8 @@ Run 冻结目录一致，不能在另一个目录打开同名文件。本次用�
 实施顺序：先冻结上述对象与页面职责，收敛现有任务阅读及返回行为；紧接着合并
 资源到准备的无意义中转，与 Pilot 原 owner 配对确认入口。随后验证同次执行的
 估算到结算及原生 Agent 消费，再扩硬件数据。每项改动按完整往返路径验收，
-不以某个按钮、合同测试或下载成功替代整体完成。任务详情与准备入口均有主线实现；它们仍不替代完整真人流程验收。
+不以某个按钮、合同测试或下载成功替代整体完成。任务详情与准备入口已于2026-10-03配套部署；公网制品与服务检查通过，
+它们仍不替代完整真人流程验收。
 
 验收覆盖两条真实路径：已有项目/站点的用户“资源→一次准备→原生工作→计算
 记录→日志/结果/费用”；熟练用户“原生提交→集群作业→执行证据/费用”。同时
@@ -404,3 +405,18 @@ Agent 直接调用白名单结构化工具。每个工具有输入 schema、oper
 - Portal：`sai_core/api/routes/cli_read.py`、`services/slurm/job_visibility.py`、`services/slurm/resource_catalog.py`、`services/sites/resource_catalog.py`、`services/billing/running_estimates.py`。
 - Portal/Pilot：`sai_core/api/routes/compute_product.py`、`services/compute/browser_projection.py`、`services/pilot/grants.py`；Pilot `src/sai_pilot/compute_mcp.py`、`compute_product_http.py`、`docs/architecture.md`。
 - WebUI：`WorkspaceShell.vue`、`PortalPilotPage.vue`、`api/services/portal_site_resources.ts`、`portal_pilot.ts`；视觉规范仍由 Portal `docs/40-webui/webui_visual_system.md` 维护。
+
+## 13. 工作台上下文配套交付
+
+2026-10-03，Web任务阅读与单页资源准备已随共享工作区读取迁移一起部署。
+工作区目录只提供项目、成员与站点；首页、管理及财务消费者从原财务接口读取
+余额，慢余额请求不阻塞资源和任务阅读。原生作业与受管任务保留真实来源，
+非财务页面退役无操作价值的通用余额显示，不新建账务事实。
+
+任务的概况、日志、输出、资源及费用保留同一对象，返回文件恢复原页与阅读
+位置；资源和项目、Pilot工作空间选择同页，进入或刷新不隐含启动/续用。
+既有TUI链接合同保持，原生Pilot会话/运行时仍由其owner维护。
+
+配套源码、静态manifest/checksum、公网文件和服务健康分别验证。真实登录
+浏览器完整计算、正向当前统计、原生Agent消费及真实硬件映射仍未验收。
+发布事实不等于上述产品目标已完成；详细站点证据在本仓之外保存。
