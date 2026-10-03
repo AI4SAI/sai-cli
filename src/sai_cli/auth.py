@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-import hashlib
-import hmac
 import os
-import secrets
 import time
 from typing import Callable, Mapping
 
@@ -18,7 +15,6 @@ except ImportError:  # pragma: no cover
 
 from .cache import (
     TokenCache,
-    cache_key,
     device_access_cache_key,
     device_pending_cache_key,
     device_refresh_cache_key,
@@ -95,14 +91,12 @@ class TokenProvider:
         transport: JsonTransport,
         environ: Mapping[str, str] | None = None,
         clock: Callable[[], float] = time.time,
-        nonce_factory: Callable[[], str] | None = None,
         oidc_client: OidcClient | None = None,
     ) -> None:
         self.settings = settings
         self.transport = transport
         self.environ = os.environ if environ is None else environ
         self.clock = clock
-        self.nonce_factory = nonce_factory or (lambda: secrets.token_hex(16))
         self.oidc_client = oidc_client
         self.cache = TokenCache(
             settings.cache_path,
@@ -160,18 +154,6 @@ class TokenProvider:
                         pass
                 os.close(descriptor)
 
-    def _entry_key(self) -> str:
-        if not self.settings.username:
-            raise AuthenticationError(
-                "missing SAI API username; set --username or SAI_API_USERNAME",
-                code="credentials_unavailable",
-            )
-        return cache_key(
-            base_url=self.settings.base_url,
-            username=self.settings.username,
-            key_id=self.settings.key_id,
-        )
-
     def get(self, *, force_exchange: bool = False) -> TokenLease:
         direct = (self.environ.get("SAI_TOKEN") or "").strip()
         if direct:
@@ -193,23 +175,10 @@ class TokenProvider:
         if refresh:
             return self._refresh_device(now=now)
 
-        if self.settings.managed_login_node:
-            raise AuthenticationError(
-                "no SAI Identity device session is available; run `sai auth login` once",
-                code="credentials_unavailable",
-            )
-
-        entry_key = self._entry_key()
-        if not force_exchange:
-            cached = self.cache.get(entry_key, now=now)
-            if cached:
-                return TokenLease(
-                    token=cached[0],
-                    expires_at=cached[1],
-                    source="cache",
-                    cache_key=entry_key,
-                )
-        return self._exchange(now=now, entry_key=entry_key)
+        raise AuthenticationError(
+            "no SAI Identity device session is available; run `sai auth login`",
+            code="credentials_unavailable",
+        )
 
     def invalidate(self, lease: TokenLease) -> None:
         if lease.source == "environment":
@@ -217,8 +186,6 @@ class TokenProvider:
         if lease.cache_key:
             self.cache.delete(lease.cache_key)
             return
-        if self.settings.username:
-            self.cache.delete(self._entry_key())
 
     def install_device_tokens(self, result: DeviceTokenResult) -> None:
         """Persist an OIDC token response without exposing token values."""
@@ -365,55 +332,6 @@ class TokenProvider:
                 "the SAI Identity device session is no longer valid; run `sai auth login`",
                 code="credentials_unavailable",
             )
-
-    def _exchange(self, *, now: int, entry_key: str) -> TokenLease:
-        if self.settings.managed_login_node:
-            raise AuthenticationError(
-                "managed login nodes use the SAI Identity device login",
-                code="credentials_unavailable",
-            )
-        username = self.settings.username or ""
-        shared_secret = (self.environ.get("SAI_API_SHARED_SECRET") or "").strip()
-        if not shared_secret:
-            raise AuthenticationError(
-                "no Bearer token or managed-node HMAC credential is available",
-                code="credentials_unavailable",
-            )
-        nonce = self.nonce_factory()
-        if (
-            not nonce
-            or len(nonce) > 128
-            or any(ord(char) < 33 or ord(char) == 127 for char in nonce)
-        ):
-            raise AuthenticationError("the generated authentication nonce is invalid")
-        canonical = f"{username}\n{now}\n{nonce}\n{self.settings.key_id}"
-        signature = hmac.new(
-            shared_secret.encode("utf-8"),
-            canonical.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        response = self.transport.request(
-            "POST",
-            "/v1/token",
-            query={
-                "username": username,
-                "ts": now,
-                "nonce": nonce,
-                "key_id": self.settings.key_id,
-                "sig": signature,
-            },
-        )
-        token = _validate_token(response.payload.get("token"))
-        expires_at = response.payload.get("expires_at")
-        if isinstance(expires_at, bool) or not isinstance(expires_at, int) or expires_at <= now:
-            raise ContractError("the token response is invalid", request_id=response.request_id)
-        self.cache.put(entry_key, token=token, expires_at=expires_at)
-        return TokenLease(
-            token=token,
-            expires_at=expires_at,
-            source="exchange",
-            cache_key=entry_key,
-        )
 
 
 __all__ = [

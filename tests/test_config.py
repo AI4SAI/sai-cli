@@ -39,8 +39,8 @@ default_profile = "lab"
 base_url = "https://profile.example.org"
 site_id = "profile-site"
 cluster_id = "profile-cluster"
-username = "profile-user"
-key_id = "profile-key"
+identity_issuer = "https://identity.example.org"
+oidc_client_id = "profile-client"
 timeout_seconds = 7
 """.strip(),
         encoding="utf-8",
@@ -53,7 +53,7 @@ timeout_seconds = 7
         {
             "SAI_API_BASE_URL": "https://environment.example.org",
             "SAI_SITE_ID": "environment-site",
-            "SAI_API_USERNAME": "environment-user",
+            "SAI_OIDC_CLIENT_ID": "environment-client",
             "XDG_CACHE_HOME": str(tmp_path / "cache"),
         },
     )
@@ -61,8 +61,8 @@ timeout_seconds = 7
     assert settings.base_url == "https://environment.example.org"
     assert settings.site_id == "cli-site"
     assert settings.cluster_id == "profile-cluster"
-    assert settings.username == "environment-user"
-    assert settings.key_id == "profile-key"
+    assert settings.identity_issuer == "https://identity.example.org"
+    assert settings.oidc_client_id == "environment-client"
     assert settings.timeout_seconds == 7
     assert settings.cache_path == tmp_path / "cache" / "sai" / "token-cache.json"
     assert settings.require_site_capability is False
@@ -85,6 +85,27 @@ def test_profile_rejects_secrets(tmp_path: Path, key: str) -> None:
 
     with pytest.raises(ConfigError, match="not allowed"):
         resolve_settings(_args("--config", str(config)), {})
+
+
+@pytest.mark.parametrize("key", ["username", "key_id"])
+def test_profile_rejects_retired_authentication_fields(tmp_path: Path, key: str) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text(f'[profiles.default]\n{key} = "old-setting"\n')
+    config.chmod(0o600)
+    with pytest.raises(ConfigError, match="retired.*sai auth login") as error:
+        resolve_settings(_args("--config", str(config)), {"SAI_TOKEN": "identity-access"})
+    assert f"remove {key} from the selected TOML profile" in str(error.value)
+    assert "old-setting" not in str(error.value)
+
+
+@pytest.mark.parametrize("flag", ["--username", "--key-id"])
+@pytest.mark.parametrize("after_leaf", [False, True])
+def test_retired_authentication_options_are_not_accepted(flag: str, after_leaf: bool) -> None:
+    old = [flag, "old-setting"]
+    command = ["jobs", "list"]
+    with pytest.raises(SystemExit) as error:
+        build_parser().parse_args(command + old if after_leaf else old + command)
+    assert error.value.code == 2
 
 
 def _gateway_config(tmp_path: Path, origin: object = "https://gateway.example.org") -> Path:
@@ -346,7 +367,6 @@ def test_managed_login_node_uses_root_config_and_allows_identity_profile(
     assert settings.managed_login_node is True
     assert settings.base_url == "https://portal.example.org"
     assert settings.site_id == "site-a"
-    assert settings.username is None
     assert settings.require_site_capability is True
     assert settings.identity_issuer == "https://id.example.org"
     assert settings.oidc_client_id == "sai-cli"
@@ -359,7 +379,7 @@ def test_managed_login_node_rejects_connection_overrides() -> None:
             _args("--base-url", "https://attacker.example.org"),
             {"SAI_MANAGED_LOGIN_NODE": "1"},
         )
-    with pytest.raises(ConfigError, match="cannot be overridden"):
+    with pytest.raises(ConfigError, match="retired.*sai auth login"):
         resolve_settings(
             _args(),
             {

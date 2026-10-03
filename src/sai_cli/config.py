@@ -20,13 +20,12 @@ from .transport import normalize_base_url
 _PROFILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _MANAGED_CONFIG_PATH = Path("/opt/sai/cli/config.toml")
 _MANAGED_CONFIG_OWNER_UID = 0
+_RETIRED_AUTH_ENV = ("SAI_API_USERNAME", "SAI_API_KEY_ID", "SAI_API_SHARED_SECRET")
 _MANAGED_OVERRIDE_ENV = (
     "SAI_API_BASE_URL",
     "SAI_SITE_ID",
     "SAI_CLUSTER_ID",
     "SAI_PROFILE",
-    "SAI_API_USERNAME",
-    "SAI_API_KEY_ID",
     "SAI_API_TIMEOUT",
     "SAI_TOKEN_CACHE",
     "SAI_CREDENTIAL_CACHE",
@@ -35,15 +34,12 @@ _MANAGED_OVERRIDE_ENV = (
     "SAI_OIDC_SCOPE",
     "SAI_OIDC_RESOURCE",
     "SAI_ALLOW_INSECURE_HTTP",
-    "SAI_API_SHARED_SECRET",
     "SAI_SITE_CAPABILITY",
 )
 _PROFILE_KEYS = {
     "base_url",
     "site_id",
     "cluster_id",
-    "username",
-    "key_id",
     "timeout_seconds",
     "allow_insecure_http",
     "cache_path",
@@ -68,8 +64,6 @@ _FORBIDDEN_PROFILE_KEYS = {
 class Settings:
     base_url: str
     site_id: str
-    username: str | None
-    key_id: str
     timeout_seconds: float
     allow_insecure_http: bool
     cache_path: Path
@@ -225,6 +219,13 @@ def _profile(config: dict[str, Any], requested: str | None) -> tuple[str, dict[s
         raise ConfigError(f"SAI profile {name!r} must be a TOML table")
 
     keys = set(raw)
+    retired_keys = keys & {"username", "key_id"}
+    if retired_keys:
+        raise ConfigError(
+            "legacy authentication settings are retired; remove "
+            f"{', '.join(sorted(retired_keys))} from the selected TOML profile, "
+            "then run `sai auth login`"
+        )
     if keys & _FORBIDDEN_PROFILE_KEYS:
         raise ConfigError("tokens and secrets are not allowed in the SAI config file")
     if keys - _PROFILE_KEYS:
@@ -293,6 +294,12 @@ def _site_read_origin(value: object, *, managed: bool) -> str | None:
 
 def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if environ is None else environ
+    retired_names = [name for name in _RETIRED_AUTH_ENV if name in env]
+    if retired_names:
+        raise ConfigError(
+            "legacy HMAC authentication settings are retired; unset "
+            f"{', '.join(retired_names)}, then run `sai auth login`"
+        )
     if "SAI_SITE_READ_BASE_URL" in env:
         raise ConfigError("site_read_base_url must be configured in TOML, not the environment")
     managed = _parse_bool(
@@ -306,8 +313,6 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
             "base_url",
             "site",
             "cluster",
-            "username",
-            "key_id",
             "timeout",
             "cache",
             "no_cache",
@@ -365,22 +370,6 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
         values.get("cluster_id"),
     )
 
-    username = None if managed else _first_text(
-        args.username,
-        env.get("SAI_API_USERNAME"),
-        values.get("username"),
-    )
-    key_id = (
-        "sai-cli"
-        if managed
-        else _first_text(
-            args.key_id,
-            env.get("SAI_API_KEY_ID"),
-            values.get("key_id"),
-            "sai-cli",
-        )
-        or "sai-cli"
-    )
     timeout_raw = _first_text(
         None if managed else args.timeout,
         None if managed else env.get("SAI_API_TIMEOUT"),
@@ -440,8 +429,6 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
     return Settings(
         base_url=base_url.rstrip("/"),
         site_id=site_id,
-        username=username,
-        key_id=key_id,
         timeout_seconds=_parse_timeout(timeout_raw),
         allow_insecure_http=_parse_bool(insecure_raw, field="allow_insecure_http"),
         cache_path=Path(cache_raw).expanduser() if cache_raw else default_cache_path(env),

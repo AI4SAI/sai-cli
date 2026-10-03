@@ -177,8 +177,6 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
     parser.add_argument("--base-url", default=default, help="SAI API base URL")
     parser.add_argument("--site", default=default, help="SAI site identifier")
     parser.add_argument("--cluster", default=default, help="optional cluster identifier")
-    parser.add_argument("--username", default=default, help="username for managed-node token exchange")
-    parser.add_argument("--key-id", default=default, help="key identifier for managed-node token exchange")
     parser.add_argument("--timeout", type=float, default=default, help="API timeout in seconds")
     parser.add_argument("--cache", default=default, help="short-lived token cache path")
     parser.add_argument(

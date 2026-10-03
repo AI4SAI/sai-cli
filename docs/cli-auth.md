@@ -1,6 +1,6 @@
 # CLI 登录与长期会话
 
-状态：`oidc-device-flow-contract`（需要 `sai-identity` consuming layer）
+状态：Identity-only 认证退役候选，待 Portal/CLI 配对发布
 
 ## 用户体验
 
@@ -57,11 +57,15 @@ rotation/reuse detection、revocation、logout 和 key rotation。CLI 只接受
 discovery 提供的端点和这些已审查的响应字段；不会猜测 issuer、scope 或
 refresh 有效期。
 
-Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。Portal 当前仍有
-历史密码/OTP/HMAC Bearer 供其既有非 CLI 消费者使用；CLI capability issuer 和
-三个 CLI read route 只接受 Identity resource token，不保留认证降级开关。
-`sai-identity` 的 OIDC provider、client registry、credential store
-和生产部署尚未完成前，CLI 生产登录门禁保持 blocked。
+Portal 不能新增一套平行的 `/v1/auth/cli/*` 身份 issuer。CLI 已删除旧
+`POST /v1/token` HMAC 消费路径及旧 Bearer 缓存选择；所有安装都使用
+Identity device/access/refresh 协议，或本进程显式提供的 Identity
+`SAI_TOKEN`。CLI 不解析令牌，Portal 负责验证 issuer、audience 和 scope。
+历史 `SAI_API_USERNAME`、`SAI_API_KEY_ID`、`SAI_API_SHARED_SECRET` 以及
+TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参数已移除。
+先取消设置提示中列出的旧环境变量、删除所选 TOML profile 中的旧字段，
+再运行 `sai auth login`；将旧环境变量设为空字符串仍会被拒绝。
+本片需与 Portal 旧 issuer 退役配对发布，当前不宣称已完成该生产发布。
 
 ## 生命周期与存储
 

@@ -66,8 +66,6 @@ def _settings(
     return Settings(
         base_url="https://portal.example.org",
         site_id="site-a",
-        username=None if managed else "alice",
-        key_id="managed-login",
         timeout_seconds=10,
         allow_insecure_http=False,
         cache_path=tmp_path / "cache" / "token-cache.json",

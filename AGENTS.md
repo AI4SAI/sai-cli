@@ -249,11 +249,10 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 - Never accept Bearer tokens, HMAC secrets, passwords, or other credentials as
   command-line arguments. They leak through process listings and shell history.
-- Never store tokens or secrets in TOML profiles. `SAI_TOKEN` is process-local;
-  unmanaged compatibility HMAC bootstrap reads its secret from the protected
-  runtime environment and caches only the returned short-lived token. Managed
-  login nodes use the SAI Identity device flow and a protected rotating
-  refresh credential; the wrapper rejects HMAC inputs.
+- Never store tokens or secrets in TOML profiles. Identity `SAI_TOKEN` is
+  process-local; all installations otherwise use the Identity device flow and
+  protected rotating refresh credentials. Retired HMAC inputs must fail at the
+  configuration boundary, and legacy bearer-cache entries never authenticate.
 - Token cache directories are user-owned `0700`; cache files are regular,
   user-owned `0600` files written by atomic replacement. Reject symbolic links,
   unsafe permissions, oversized payloads, and read races.

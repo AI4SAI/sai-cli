@@ -45,8 +45,9 @@ Storage has two explicit contracts: central business quota observations and
 on-demand native quota subjects through the site gateway. Both use existing
 Portal storage visibility; native reads never import a storage administration
 adapter into the CLI or present a physical project quota as a whole funding pool.
-Its development-only non-CLI compatibility mode
-still accepts a Portal credential. Managed capability/CLI routes accept only
+The CLI obtains credentials from Identity device authorization or an explicit,
+process-local Identity access token. It does not request Portal-issued tokens
+or restore their old cache entries. Managed capability/CLI routes accept only
 SAI Identity-issued resource tokens:
 
 ```text
@@ -217,8 +218,10 @@ job reads and the batch complete-scope `jobs cost` contract remain unchanged.
 
 ## Security invariants
 
-- Bearer tokens and compatibility HMAC secrets never appear in command-line
+- Bearer tokens and refresh credentials never appear in command-line
   arguments, JSON output, table output, logs, or exception messages.
+- HMAC credentials and their retired profile/environment settings are rejected
+  before any request; missing authentication directs the user to `sai auth login`.
 - OIDC refresh credentials are opaque, rotating, user-owned secrets; they are
   never sent to Portal read routes or stored in the TOML profile.
 - Token caches are user-owned, use a `0700` directory and `0600` file, and are

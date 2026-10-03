@@ -1,46 +1,31 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
-import os
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from sai_cli.auth import DeviceTokenResult, TokenProvider
-from sai_cli.cache import TokenCache, cache_key, device_access_cache_key, device_refresh_cache_key
+from sai_cli.cache import TokenCache, device_access_cache_key, device_refresh_cache_key
 from sai_cli.config import Settings
 from sai_cli.errors import AuthenticationError, NetworkError
-from sai_cli.transport import JsonResponse
 
 
 class FakeTransport:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
-
-    def request(self, method: str, path: str, *, query=None, headers=None) -> JsonResponse:
-        self.calls.append({"method": method, "path": path, "query": query, "headers": headers})
-        return JsonResponse(
-            payload={"token": "issued-token", "expires_at": 1_700_000_300},
-            request_id="request-token",
-            status=200,
-        )
+    def request(self, *_args, **_kwargs):
+        raise AssertionError("credential selection must not request a Portal token")
 
 
 def _settings(
     tmp_path: Path,
     *,
-    username: str | None = "alice",
     use_cache: bool = True,
     managed: bool = False,
 ) -> Settings:
     return Settings(
         base_url="https://portal.example.org",
         site_id="site-a",
-        username=username,
-        key_id="managed-login",
         timeout_seconds=10,
         allow_insecure_http=False,
         cache_path=tmp_path / "cache" / "token-cache.json",
@@ -54,7 +39,7 @@ def _settings(
 def test_token_cache_permissions_round_trip_and_delete(tmp_path: Path) -> None:
     path = tmp_path / "cache" / "token-cache.json"
     cache = TokenCache(path)
-    key = cache_key(base_url="https://example.org", username="alice", key_id="login")
+    key = device_access_cache_key(base_url="https://example.org")
 
     cache.put(key, token="short-token", expires_at=1_700_000_300)
 
@@ -137,38 +122,11 @@ def test_token_cache_put_prunes_expired_entries_with_provider_clock(tmp_path: Pa
     assert set(payload["entries"]) == {"live"}
 
 
-def test_hmac_exchange_uses_contract_and_reuses_cache(tmp_path: Path) -> None:
-    transport = FakeTransport()
+def test_environment_token_stays_process_local(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     provider = TokenProvider(
         settings=settings,
-        transport=transport,  # type: ignore[arg-type]
-        environ={"SAI_API_SHARED_SECRET": "managed-secret"},
-        clock=lambda: 1_700_000_000,
-        nonce_factory=lambda: "fixed-nonce",
-    )
-
-    first = provider.get()
-    second = provider.get()
-
-    canonical = "alice\n1700000000\nfixed-nonce\nmanaged-login"
-    expected = hmac.new(b"managed-secret", canonical.encode(), hashlib.sha256).hexdigest()
-    assert first.token == "issued-token"
-    assert first.source == "exchange"
-    assert second.token == "issued-token"
-    assert second.source == "cache"
-    assert len(transport.calls) == 1
-    assert transport.calls[0]["query"]["sig"] == expected
-    assert transport.calls[0]["query"]["nonce"] == "fixed-nonce"
-    assert "managed-secret" not in str(transport.calls[0])
-
-
-def test_environment_token_does_not_require_username_or_touch_cache(tmp_path: Path) -> None:
-    transport = FakeTransport()
-    settings = _settings(tmp_path, username=None)
-    provider = TokenProvider(
-        settings=settings,
-        transport=transport,  # type: ignore[arg-type]
+        transport=FakeTransport(),  # type: ignore[arg-type]
         environ={"SAI_TOKEN": "direct-token"},
     )
 
@@ -177,33 +135,36 @@ def test_environment_token_does_not_require_username_or_touch_cache(tmp_path: Pa
     assert lease.source == "environment"
     assert lease.token == "direct-token"
     assert not settings.cache_path.exists()
-    assert transport.calls == []
+    assert not provider.credential_cache.path.exists()
 
 
-def test_missing_credentials_fails_without_network(tmp_path: Path) -> None:
-    transport = FakeTransport()
+@pytest.mark.parametrize("managed", [False, True])
+def test_missing_credentials_requires_identity_login(tmp_path: Path, managed: bool) -> None:
     provider = TokenProvider(
-        settings=_settings(tmp_path),
-        transport=transport,  # type: ignore[arg-type]
+        settings=_settings(tmp_path, managed=managed),
+        transport=FakeTransport(),  # type: ignore[arg-type]
         environ={},
     )
 
-    with pytest.raises(AuthenticationError, match="no Bearer token"):
+    with pytest.raises(AuthenticationError, match="sai auth login") as error:
         provider.get()
-    assert transport.calls == []
+    assert error.value.code == "credentials_unavailable"
 
 
-def test_managed_login_node_never_uses_hmac_exchange(tmp_path: Path) -> None:
-    transport = FakeTransport()
-    provider = TokenProvider(
-        settings=_settings(tmp_path, username=None, managed=True),
-        transport=transport,  # type: ignore[arg-type]
-        environ={"SAI_API_SHARED_SECRET": "global-secret"},
-    )
+@pytest.mark.parametrize("managed", [False, True])
+def test_legacy_cached_bearer_cannot_authenticate(tmp_path: Path, managed: bool) -> None:
+    settings = _settings(tmp_path, managed=managed)
+    legacy_key = hashlib.sha256(
+        "\0".join((settings.base_url, "alice", "managed-login")).encode()
+    ).hexdigest()
+    provider = TokenProvider(settings=settings, transport=FakeTransport(), environ={},
+                             clock=lambda: 1_700_000_000)
+    provider.cache.put(legacy_key, token="old-portal-bearer", expires_at=1_700_000_300)
+    original_cache = settings.cache_path.read_bytes()
 
     with pytest.raises(AuthenticationError, match="sai auth login"):
         provider.get()
-    assert transport.calls == []
+    assert settings.cache_path.read_bytes() == original_cache
 
 
 @pytest.mark.parametrize("refresh_expiry", [None, 1_700_100_000])
@@ -230,12 +191,11 @@ def test_device_refresh_rotates_and_reuses_protected_cache(
                 device_id="device-1",
             )
 
-    transport = FakeTransport()
-    settings = _settings(tmp_path, username=None, managed=True)
+    settings = _settings(tmp_path, managed=True)
     oidc = FakeOidc()
     provider = TokenProvider(
         settings=settings,
-        transport=transport,  # type: ignore[arg-type]
+        transport=FakeTransport(),  # type: ignore[arg-type]
         environ={},
         clock=lambda: 1_700_000_000,
         oidc_client=oidc,  # type: ignore[arg-type]
@@ -271,7 +231,7 @@ def test_unknown_expiry_is_not_allowed_for_access_or_pending_tokens(tmp_path: Pa
 
 
 def test_install_device_tokens_requires_persistent_cache(tmp_path: Path) -> None:
-    settings = _settings(tmp_path, username=None, managed=True, use_cache=False)
+    settings = _settings(tmp_path, managed=True, use_cache=False)
     provider = TokenProvider(
         settings=settings,
         transport=FakeTransport(),  # type: ignore[arg-type]
@@ -300,7 +260,7 @@ def test_logout_clears_local_device_credentials_when_identity_is_unreachable(tmp
         def revoke(self, *, refresh_token: str) -> bool:
             raise NetworkError()
 
-    settings = _settings(tmp_path, username=None, managed=True)
+    settings = _settings(tmp_path, managed=True)
     provider = TokenProvider(
         settings=settings,
         transport=FakeTransport(),  # type: ignore[arg-type]

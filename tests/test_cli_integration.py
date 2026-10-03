@@ -11,6 +11,8 @@ import time
 from typing import Any, Iterator
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
+
 from sai_cli.cli import main
 
 
@@ -101,7 +103,39 @@ def _env(tmp_path: Path) -> dict[str, str]:
         "SAI_TOKEN": "test-bearer-token",
         "XDG_CONFIG_HOME": str(tmp_path / "config"),
         "XDG_CACHE_HOME": str(tmp_path / "cache"),
+        "XDG_DATA_HOME": str(tmp_path / "data"),
     }
+
+
+@pytest.mark.parametrize("name", ["SAI_API_USERNAME", "SAI_API_KEY_ID", "SAI_API_SHARED_SECRET"])
+@pytest.mark.parametrize("managed", [False, True])
+@pytest.mark.parametrize("value", ["", "retired-auth-value"])
+def test_retired_authentication_environment_fails_before_any_request(
+    tmp_path: Path, job_payload, name: str, managed: bool, value: str,
+) -> None:
+    output, errors = StringIO(), StringIO()
+    env = {**_env(tmp_path), name: value, "SAI_MANAGED_LOGIN_NODE": str(int(managed))}
+    with _server(job_payload) as (origin, server):
+        result = main(["jobs", "list", "--base-url", origin, "--site", "site-a"],
+                      environ=env, stdout=output, stderr=errors)
+        assert server.requests == []
+    assert result == 2 and output.getvalue() == ""
+    assert json.loads(errors.getvalue())["error"]["code"] == "configuration_invalid"
+    assert f"unset {name}, then run" in errors.getvalue()
+    assert "sai auth login" in errors.getvalue() and "retired-auth-value" not in errors.getvalue()
+
+
+def test_missing_identity_session_fails_before_any_request(tmp_path: Path, job_payload) -> None:
+    output, errors = StringIO(), StringIO()
+    env = _env(tmp_path)
+    env.pop("SAI_TOKEN")
+    with _server(job_payload) as (origin, server):
+        result = main(["jobs", "list", "--base-url", origin, "--site", "site-a"],
+                      environ=env, stdout=output, stderr=errors)
+        assert server.requests == []
+    assert result == 3 and output.getvalue() == ""
+    assert json.loads(errors.getvalue())["error"]["code"] == "credentials_unavailable"
+    assert "sai auth login" in errors.getvalue()
 
 
 def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_payload) -> None:

@@ -11,8 +11,7 @@ both repositories.
 ## Authentication
 
 User endpoints require a short-lived access token whose issuer and audience are
-validated by Portal. In the target architecture the token is issued by the
-SAI Identity OIDC provider:
+validated by Portal. The token is issued by the SAI Identity OIDC provider:
 
 ```http
 Authorization: Bearer <short-lived-token>
@@ -43,24 +42,12 @@ Paired Run cost producer: `61e9a5cea214915f4c7506fcf569cf93d236cb43`.
 The signed price adjustment preserves a fixed contract price above the current
 public price. Other money and quantity fields remain nonnegative.
 
-The pre-Identity compatibility bootstrap currently retained by Portal uses:
-
-```text
-POST /v1/token?username=...&ts=...&nonce=...&key_id=...&sig=...
-```
-
-Successful bootstrap response:
-
-```json
-{
-  "token": "redacted",
-  "expires_at": 1785427200,
-  "can_access_portal": true,
-  "can_access_mis": false
-}
-```
-
-The CLI never prints or logs `token` or `sig`.
+The former `POST /v1/token` HMAC bootstrap is retired with the Portal issuer.
+CLI authentication uses device authorization/refresh or an explicit process-local
+Identity `SAI_TOKEN`. Old bearer-cache entries and HMAC configuration cannot
+select another credential path. Tokens never enter output or logs.
+This coordinated authentication change awaits paired Portal/CLI production
+release; local protocol tests do not establish that release.
 
 ### Server-bound CLI capability
 
@@ -85,7 +72,6 @@ GET /v1/billing/cli/running-estimates
 The server requires the original user Bearer as well and binds it to the
 capability actor. The issuer and all three CLI read routes reject legacy
 Portal-issued credentials; there is no CLI authentication downgrade switch.
-Development compatibility credentials remain limited to the non-CLI endpoints.
 Operations are exact: `jobs.list`, `jobs.detail`, `jobs.allocation`, and
 `billing.running-estimate` do not imply one another. Missing, expired,
 wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
@@ -511,7 +497,7 @@ The `account.status/v1` DTO contains `verification_current`, `access_state`,
 The only accepted URL is `/portal/#/portal/account/identity-assurance`, resolved
 against the configured API origin. The CLI never accepts an arbitrary redirect,
 recalculates deadlines, queries identity databases, or emits credential material.
-Development bootstrap credentials retain their previous local-only status.
+The same Identity credential lifecycle applies to development clients.
 
 ## Published site resource catalog
 

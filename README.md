@@ -201,22 +201,26 @@ configuration, canary, and rollback are documented in the
 
 ## Configure
 
-Use a short-lived Bearer token when one is already available:
+Use an already-issued short-lived Identity access token for a single process:
 
 ```bash
 export SAI_API_BASE_URL=https://portal.example.org
 export SAI_SITE_ID=site-a
-export SAI_TOKEN='<short-lived-token>'
+export SAI_TOKEN='<short-lived-identity-token>'
 export SAI_REQUIRE_SITE_CAPABILITY=1
 ```
 
-Unmanaged compatibility clients may provide `SAI_API_USERNAME`,
-`SAI_API_KEY_ID`, and `SAI_API_SHARED_SECRET` through a protected runtime
-environment. Managed login nodes use the SAI Identity OIDC device flow and do
-not carry an HMAC secret. Capability-bound CLI routes reject Portal-issued
-legacy credentials. An already-issued short-lived Identity `SAI_TOKEN` remains a
-process-local emergency/compatibility input; neither form belongs in a shell
-profile or TOML file.
+All installations use SAI Identity authentication. `SAI_TOKEN` is process-local
+and is never cached; it does not belong in a shell profile or TOML file.
+Legacy HMAC exchange and its bearer cache are retired. `SAI_API_USERNAME`,
+`SAI_API_KEY_ID`, `SAI_API_SHARED_SECRET`, and TOML `username`/`key_id` settings
+are rejected before any request. The corresponding command-line options have
+been removed. Unset the named environment variables and remove the retired
+fields from the selected TOML profile before running `sai auth login`.
+An empty retired environment variable is still rejected.
+
+This authentication retirement is a source candidate awaiting paired
+Portal/CLI production release.
 
 For a user-managed or login-node installation, configure the non-secret Portal
 origin/site once and run `sai auth login`. It prints a one-time browser URL and

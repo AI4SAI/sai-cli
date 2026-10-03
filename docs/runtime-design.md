@@ -270,13 +270,15 @@ oidc_client_id = "sai-cli"
 oidc_scope = "openid offline_access sai.compute.read sai.billing.read sai.storage.read"
 oidc_resource = "sai-portal"
 site_id = "site-a"
-username = "alice"
-key_id = "managed-login"
 timeout_seconds = 10
 ```
 
-Tokens and shared secrets are rejected in the TOML file. They must be supplied
-through a short-lived environment or a managed node credential mechanism.
+Tokens and secrets are rejected in TOML. Device credentials use the protected
+user-owned cache; an explicit Identity `SAI_TOKEN` is process-local. Retired
+HMAC environment variables and TOML `username`/`key_id` fields are rejected,
+including when a valid `SAI_TOKEN` is also supplied.
+The diagnostic names the old inputs to unset or remove before running
+`sai auth login`; an explicitly present empty variable is also rejected.
 
 Relevant environment variables:
 
@@ -285,10 +287,7 @@ Relevant environment variables:
 | `SAI_API_BASE_URL` | Control-plane base URL |
 | `SAI_SITE_ID` | Default site |
 | `SAI_PROFILE` | Profile name |
-| `SAI_API_USERNAME` | Actor username for unmanaged compatibility token exchange |
-| `SAI_API_KEY_ID` | Client key identifier for unmanaged compatibility exchange |
-| `SAI_TOKEN` | Already-issued short-lived Bearer token |
-| `SAI_API_SHARED_SECRET` | Protected HMAC secret for unmanaged compatibility exchange |
+| `SAI_TOKEN` | Already-issued short-lived Identity access token for this process |
 | `SAI_API_TIMEOUT` | HTTP timeout in seconds |
 | `SAI_CREDENTIAL_CACHE` | Optional unmanaged path for the protected device refresh cache |
 | `SAI_IDENTITY_ISSUER` | SAI Identity OIDC issuer used by `sai auth login` |
@@ -302,24 +301,17 @@ Relevant environment variables:
 
 Token selection order is:
 
-1. use `SAI_TOKEN` for the current process without writing it to disk;
+1. use an explicit Identity `SAI_TOKEN` for the current process without writing it to disk;
 2. reuse a valid CLI device access token;
 3. rotate a valid SAI Identity OIDC refresh credential at the discovered
    `token_endpoint`;
-4. reuse a legacy protected cache entry;
-5. for an unmanaged compatibility client, exchange a HMAC request at
-   `POST /v1/token` and cache only the returned short-lived Bearer token.
-   Managed login nodes never carry the HMAC secret; they use SAI Identity's
-   OAuth 2.0 Device Authorization Grant after a one-time browser approval.
+4. return `credentials_unavailable` and direct the user to `sai auth login`.
 
-The HMAC canonical string is part of the existing Portal compatibility
-contract:
+Legacy bearer cache entries are ignored. The client never calls Portal's retired
+HMAC token endpoint. `SAI_API_USERNAME`, `SAI_API_KEY_ID`, and
+`SAI_API_SHARED_SECRET` are no longer supported.
 
-```text
-username + "\n" + unix_timestamp + "\n" + nonce + "\n" + key_id
-```
-
-The compatibility secret is not a general login mechanism. `sai auth login`
+`sai auth login`
 uses a short-lived browser/device authorization and persists only a rotating,
 revocable refresh credential. The CLI must not accept a secret, Bearer token,
 or refresh credential as a command-line argument because process listings and
@@ -348,7 +340,8 @@ Requirements:
 - directory mode `0700`, file mode `0600`;
 - no symbolic-link cache files;
 - atomic same-directory replacement;
-- entries keyed by normalized base URL, username, and key ID;
+- device entries bound to the Portal base URL, Identity issuer, public client
+  ID, resource, scope and credential kind;
 - a token is considered expired before its actual expiry to leave request
   margin;
 - malformed or weak-permission caches fail closed with a bounded diagnostic.

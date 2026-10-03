@@ -23,11 +23,6 @@ from .errors import AuthenticationError
 _MAX_CACHE_BYTES = 1_048_576
 
 
-def cache_key(*, base_url: str, username: str, key_id: str) -> str:
-    material = "\0".join((base_url.rstrip("/"), username, key_id)).encode("utf-8")
-    return hashlib.sha256(material).hexdigest()
-
-
 def _device_cache_key(
     *,
     base_url: str,
