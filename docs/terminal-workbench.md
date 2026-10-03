@@ -194,12 +194,23 @@ Changing project/task or losing access clears the related navigation. Missing or
 changed files stop restoration; binary files remain selected for Save even when
 their content cannot be previewed as text.
 
+Shared source `4c81f2734ed650630b412c098687f19fa5dc90a3` was published on
+2026-10-04 through the existing single shared runtime. An ordinary user's existing
+Identity session exercised the explicit candidate and selected runtime against
+real APIs, retaining a complete output after cost/statistics/catalog navigation
+at 40, 60 and 100 columns. Final cost was settled; statistics were unavailable.
+This used a headless Textual driver on a login host, not physical terminal or
+browser acceptance. Dependencies and protected configuration were unchanged;
+the previous runtime and atomic rollback remain available.
+
 Files uses a keyboard-selectable list. Full relative paths wrap without
 shortening; byte size and modification time remain separate. Arrow keys browse,
 and Enter opens the highlighted text file in the task's content view.
 Ctrl+Up/Down scrolls within long entries without changing the selected file.
 Highlighting makes no request; Enter requests the current authorized content.
-Changing the project, run or evidence mode clears selection and any link.
+Changing the project or run clears selection, navigation and links. Changing
+evidence mode clears displayed file data and links, while retaining the same
+task's reading position for a fresh read on return.
 
 After loading a task's details, Open Web (W or the command palette) opens that
 exact managed run in the console's read-only task page. With an opened file,

@@ -7,12 +7,13 @@ Portal repository.
 Checkmarks cover the implementation or evidence stated on that line. They do
 not imply production activation or completion of a paired rollout.
 
-## Next release gate: basic job reads
+## Basic job reads: deployed, acceptance still open
 
-The next formal release covers `jobs.list`, `jobs.detail` and `jobs.allocation`.
-The source, role packages and a bounded native candidate probe are available;
-the [candidate record](site-local-read-plane.md#isolated-native-http-acceptance)
-uses temporary signing inputs and is separate from this release gate.
+The formal basic release covers `jobs.list`, `jobs.detail` and `jobs.allocation`.
+It is deployed with the bounded acceptance below. The earlier
+[candidate record](site-local-read-plane.md#isolated-native-http-acceptance)
+used temporary signing inputs; it does not replace the production evidence or
+the remaining acceptance gates.
 
 - [x] Publish the versioned read-gateway runtime with its required dependencies,
   managed environment, verifier keys, policy epoch and revocation inputs; bind
@@ -207,6 +208,11 @@ are candidate designs, not completed implementation milestones.
   deployed with the text readers; real-browser journey remains separate
 - [x] Complete output download for Web/CLI/TUI deployed; an ordinary user retrieved
   an existing file through the stable CLI, with exact hash and no-overwrite readback
+- [x] Same-task TUI reading position across evidence modes and catalog navigation,
+  published as shared source `4c81f27` on 2026-10-04; ordinary-user candidate and
+  selected-runtime reads retained one complete output at 40/60/100 columns.
+  This headless TUI check used real APIs; physical terminal and browser acceptance
+  remain separate, and the statistics source returned unavailable.
 - [ ] Result workflow: authenticated browser retrieval and the complete task journey;
   optionally bring an explicit question to Pilot; visibility alone is insufficient
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
