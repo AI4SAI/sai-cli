@@ -528,3 +528,21 @@ paths or users, reuse the jobs capability, or fall back to filesystem access.
 8 MiB ranges, version-preserving renewal and atomic local publication are source
 implementation; paired server/site deployment and real transfers remain separate
 acceptance. This adds no persistent transfer state to the CLI.
+
+## Native active-runtime correction
+
+The 2026-10-03 paired release deployed the shared normalization fix from
+`99f32e5551d30a93825c70f3cf0438a10c1e440f` onto each role's actual installed
+baseline. It preserves Slurm suspension counters and freezes the last observed
+duration for retained queue rows. No client, pricing engine, authorization,
+schema or UI was added; the existing risk reader also consumes the corrected
+duration. Final billing remains independently validated.
+
+The real read-service identity checked two existing running jobs before and
+after installation against Slurm's own RunTime, with matching seconds. Ordinary
+user reads through the stable CLI still returned the empty queue/estimate and an
+existing task's settled cost and complete text. Controlled inputs and original
+service/timer states were preserved, and temporary staging/sessions were removed.
+There was no live suspended-job sample, new computation, model request or browser
+journey acceptance. This data correction does not establish completion of the
+Pilot-native compute plugin or the estimate-to-final workflow.

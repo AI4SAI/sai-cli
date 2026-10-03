@@ -353,6 +353,12 @@ Missing native usage yields unavailable amounts and `native_usage_unavailable`;
 cash restrictions retain the existing partial/gross semantics. Price errors do
 not alter scheduler state. A page estimate never claims a complete account total.
 
+Native elapsed time follows Slurm's active-runtime semantics, including suspension,
+at the same source observation time. Paused time is not priced as active runtime.
+The existing queue-retention path freezes the last observed duration instead of
+extending it when a job leaves the queue. Explicit zero elapsed stays zero and
+does not become a wall-clock estimate or a claim of free final billing.
+
 ## Running job cost estimates
 
 ```text
