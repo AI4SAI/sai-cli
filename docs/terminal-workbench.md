@@ -183,22 +183,22 @@ permissions. They replace a single bounded page; Next follows the returned
 cursor and Start returns to the first page. Logs and file pages do not auto-poll,
 and changing the project clears earlier protected data. A denied directory does
 not hide still-authorized task metadata. Output filenames describe current files
-under the declared roots, not a sealed result version. Pilot's native document
-preview remains the file viewer; this terminal slice does not create one.
+under the declared roots, not a sealed result version. Text outputs can be read
+inside the task; native Pilot file tools remain a separate consumer.
 
 Files uses a keyboard-selectable list. Full relative paths wrap without
 shortening; byte size and modification time remain separate. Arrow keys browse,
-and Enter confirms the highlighted file with a visible Selected file marker.
+and Enter opens the highlighted text file in the task's content view.
 Ctrl+Up/Down scrolls within long entries without changing the selected file.
-Selection makes no request. Moving to another file clears the confirmation;
-changing the project, run, page or evidence mode clears selection and any link.
+Highlighting makes no request; Enter requests the current authorized content.
+Changing the project, run or evidence mode clears selection and any link.
 
 After loading a task's details, Open Web (W or the command palette) opens that
-exact managed run in the console's read-only task page. With a confirmed file,
+exact managed run in the console's read-only task page. With an opened file,
 it additionally selects Files and carries that file's existing `artifact_ref`
 and the current page's request cursor. The initial cursor is omitted when the
 request omitted it; `next_cursor` is never used for the current selection.
-Paths, sizes, contents and credentials never enter the URL. Without a confirmed
+Paths, sizes, contents and credentials never enter the URL. Without an opened
 file, the existing run-only link remains available. Links use the configured
 Portal origin. The browser authenticates and authorizes the read again, including
 separate file permission checks. It can open a historical run without reading
@@ -218,7 +218,8 @@ cursor for the bounded page. The console rechecks the run, current file READ
 permission and the selected page before opening the original Session. It never
 places a path or file content in the URL. The task page's explicit Open in Pilot
 action opens history directly; no second confirmation, runtime start or renewal
-is required. This simplified Web flow is merged source, not yet deployed.
+is required. This simplified Web flow and the direct text view were deployed
+together on 2026-10-03; their real-user acceptance scopes are recorded below.
 
 Pilot receives a same-tab reference containing the run and optional
 artifact. It rechecks the selected native Session and current file before
@@ -230,9 +231,9 @@ visible and gives the user a refresh or return action.
 This continuation reuses the existing Portal Run readback and Pilot native file
 viewer. It does not create a result archive, new task engine, second file
 browser, implicit runtime start or hidden renewal. Agent `run.get`, `run.logs`
-and `artifact.list` use the same current project READ owner as the console;
+`artifact.list` and `artifact.read` use the same current project READ owner as the console;
 submission, cancellation and confirmation retain their separate execution
-authority.
+authority. Native Pilot tool registration is a separate delivery.
 
 The shared visible link and Copy link action also work over SSH without a local
 desktop browser. Refreshing, changing project or losing task access clears the
@@ -396,3 +397,23 @@ logs and files, confirm an output and construct the same-output Web link.
 Selection survived a narrow resize. It submitted no job and opened no browser.
 Current live jobs were empty, so positive running-cost/detail acceptance and
 actual browser/Pilot continuation remain separate.
+
+## Task text and navigation delivery
+
+On 2026-10-03 the paired site reader, central read API, console static assets and
+shared CLI/TUI were installed. The console keeps Jobs and Tasks inspection in
+their workspace, preserves the object/view and list context across navigation,
+and removes the second confirmation before opening original Pilot history.
+Text inspection remains in the task and does not depend on Pilot availability.
+
+An ordinary user with an existing managed Identity login read an existing task's
+10-byte UTF-8 output through the candidate and again through the stable shared
+`sai runs read` entrypoint. The deployed console's 173 public static files matched
+the tested build. These are production API/native-file and static-publication
+checks, not authenticated production-browser or complete-workflow acceptance.
+The local paired-browser test exercised cold login, content, return navigation
+and one explicit history open using real handlers and synthetic external sources.
+
+Full output download, native Pilot tool registration, positive running telemetry
+and the complete resource-to-result journey remain open. A bounded text section
+is not a complete file-transfer feature or scientific-result validation.

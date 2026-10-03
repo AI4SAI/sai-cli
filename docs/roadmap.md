@@ -193,8 +193,11 @@ are candidate designs, not completed implementation milestones.
   these reads do not establish a complete new computation
 - [x] Paired console/Pilot reference handoff deployed; user confirmed the original
   conversation and file reference are visible
-- [x] Paired bounded text-content source and Web/TUI/JSON readers; production deployment remains separate
-- [ ] Result workflow: deploy direct inspection, obtain required outputs, then
+- [x] Paired bounded text-content Web/TUI/JSON readers deployed; ordinary-user
+  historical text read through the stable shared CLI passed on 2026-10-03
+- [x] Task inspection within the workspace and one-action original-history open
+  deployed with the text readers; real-browser journey remains separate
+- [ ] Result workflow: obtain complete required outputs, then
   optionally bring an explicit question to Pilot; visibility alone is insufficient
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
@@ -222,8 +225,9 @@ the HTTP timeout. Cost inspection has one job observation, not a second paged
 list. Managed Tasks have server keyset pages and an exact Web detail link.
 Selected output continuation through the console to the original Pilot Session
 is deployed; user confirmation covers conversation and file-reference visibility.
-Preview/input actions have separate local evidence. Direct result inspection and
-retrieval, useful follow-up analysis and the complete computation remain open;
+Direct text inspection and task navigation are now deployed, with ordinary-user
+CLI/native-file readback and public static checks. Authenticated production-browser
+acceptance, complete output retrieval, useful follow-up analysis and the complete computation remain open;
 the handoff is an auxiliary action, not the result page's primary outcome.
 Explicit final-cost association and the
 [`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)
