@@ -201,7 +201,9 @@ are candidate designs, not completed implementation milestones.
   historical text read through the stable shared CLI passed on 2026-10-03
 - [x] Task inspection within the workspace and one-action original-history open
   deployed with the text readers; real-browser journey remains separate
-- [ ] Result workflow: obtain complete required outputs, then
+- [x] Complete output download for Web/CLI/TUI deployed; an ordinary user retrieved
+  an existing file through the stable CLI, with exact hash and no-overwrite readback
+- [ ] Result workflow: authenticated browser retrieval and the complete task journey;
   optionally bring an explicit question to Pilot; visibility alone is insufficient
 - [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
   owner-UID Slurm reads, execution/step coverage checks and unknown sample time
@@ -231,7 +233,8 @@ Selected output continuation through the console to the original Pilot Session
 is deployed; user confirmation covers conversation and file-reference visibility.
 Direct text inspection and task navigation are now deployed, with ordinary-user
 CLI/native-file readback and public static checks. Authenticated production-browser
-acceptance, complete output retrieval, useful follow-up analysis and the complete computation remain open;
+acceptance, useful follow-up analysis and the complete computation remain open;
+complete download is deployed with bounded ordinary-user CLI verification, not full browser acceptance;
 the handoff is an auxiliary action, not the result page's primary outcome.
 Explicit final-cost association and the
 [`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)

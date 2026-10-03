@@ -434,3 +434,17 @@ shown for a different task. Input editing retains ordinary letter keys.
 This is a paired candidate; see the [download contract](../contracts/managed-run-download/v1/README.md).
 Local native/HTTP, binary transfer and 40-column rendering checks do not establish
 production file retrieval or a complete scientific workflow.
+
+## Complete output delivery
+
+The paired Web/CLI/TUI download was deployed on 2026-10-03. An ordinary user
+retrieved the same existing 10-byte artifact through the candidate and stable
+shared CLI; the version, content hash, user ownership and 0600 mode matched.
+An existing destination was refused without changing its contents. This proves
+that bounded production file path, not large-file or authenticated browser
+acceptance. Local Chromium covered a 20 MiB native attachment.
+
+Task inspection and retrieval remain independent of Pilot. The next product
+acceptance concerns the continuous task workflow and retained navigation context,
+not another reference handoff. Full browser, native Agent tool and hardware
+acceptance remain open. Operational evidence stays outside this repository.
