@@ -7,12 +7,14 @@ Portal repository.
 Checkmarks cover the implementation or evidence stated on that line. They do
 not imply production activation or completion of a paired rollout.
 
-The current three-kind managed-read migration preserves personal, organization
-and project account selection independently of files and future computation
-funding. CLI/TUI source and shared Run binding are being paired with the existing
-Portal/Pilot owner. New schema/migration, gateway ordering and production user
-acceptance remain part of that coordinated release; the earlier deployed reader
-does not prove the new domain contract is active.
+The three-kind managed-read migration preserves personal, organization and
+project account selection independently of files and future computation funding.
+The [gateway and shared CLI prerequisite](site-local-read-plane.md#three-kind-reader-prerequisite)
+was deployed on 2026-10-05; existing-task reads passed with an ordinary user's
+Identity login. The original Portal/Pilot owner retains the paired domain,
+migration and native plugin work. New personal/organization task acceptance and
+the complete product workflow remain open; this prerequisite does not activate
+the new domain contract.
 
 ## Basic job reads: deployed, acceptance still open
 

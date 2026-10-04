@@ -1,5 +1,28 @@
 # Site-Local Interactive Read Plane
 
+## Three-kind reader prerequisite
+
+On 2026-10-05, gateway source `6ab564984` and shared CLI/TUI `b99963b` were
+deployed ahead of the paired personal/organization/project domain change. Only
+the gateway's shared Run binding module and package manifest changed; the CLI
+used its existing versioned shared publication. The execution gateway, trust
+inputs, shared CLI configuration and dependency sets were preserved.
+
+The installed gateway parser accepted all three matching scope kinds and
+rejected a mismatch using synthetic facts under its actual service UID. An
+ordinary user's existing Identity login read the same completed task, settled
+cost and complete output before and after the CLI switch. Real-API headless TUI
+checks at 40/60/100 columns preserved file selection across cost, statistics and
+catalog views. Statistics remained unavailable. The exact authorized native
+queue was empty; its normal capability read had a journal start/finish pair.
+
+This establishes prerequisite compatibility and existing-task continuity, not
+new personal/organization Runs, positive allocation/statistics, physical-terminal
+or native-browser acceptance. The original Portal/Pilot owner retains the
+domain, migration and native plugin release. Remote staging and operator sessions
+are closed; the previous gateway package and shared CLI release remain available
+for rollback. No live rollback was exercised in this slice.
+
 ## Shared Pilot reader delivery
 
 The 2026-10-04 paired release installed Center reader source `5912ea49d` and
