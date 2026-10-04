@@ -1,5 +1,23 @@
 # Site-Local Interactive Read Plane
 
+## Shared Pilot reader delivery
+
+The 2026-10-04 paired release installed Center reader source `5912ea49d` and
+Pilot Python `1787ab7`. Managed project/history discovery and original output
+text reuse the existing authorized Run owner; native SSH job discovery uses the
+same `jobs/v1` gateway observations as this CLI. Read selection does not change
+execution, payer, directory or budget. The native gateway and shared CLI required
+no update. Pilot's DSH, sandbox and interface artifacts remain at `b2a8b79`.
+
+Production checks covered the actual service identity reading current projects
+and native conversation metadata, plus an ordinary user's existing Identity
+login reading the same completed task, settled cost and complete text output.
+The Python switch preserved history, budgets and Session records. Operator
+sessions and temporary staging are closed; rollback artifacts remain private.
+This is shared reader delivery, not native browser discovery or full workflow
+acceptance. The separate three-kind compute billing contract remains with its
+existing owner; this release does not broaden managed historical scope.
+
 Status: the basic job list/detail/allocation runtime and HTTPS routes were
 deployed on 2026-10-01. Normal user authorization, self/account lists and matched
 production issuance/read-use audit pairs passed; positive detail/allocation and
