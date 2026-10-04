@@ -19,14 +19,14 @@ additive field never becomes a credential, path, command or new permission.
 
 ## Run receipts and authority
 
-Every response binds an explicit `project:<id>` workspace and site. List and
+Every response binds an explicit `personal:<id>`, `org:<id>` or `project:<id>` account scope and site. List and
 detail use `source=portal_run_receipts` and UTC `queried_at`. They read the
 existing durable ComputeRun records; they do not query `squeue`, infer current
 allocation or price a job. A recent query time is not a fresh scheduler
 observation: `last_observed_at` can be null or older.
 
-The actor may read only their own Runs within a currently readable project and
-site. Portal resolves active/effective membership and current workspace access
+The actor may read only their own Runs within a currently readable account and
+site. Portal resolves personal ownership or active/effective membership and current workspace access
 on every request, including detail and continuation pages. Another member's
 Run, a different workspace/site or a removed membership does not inherit access.
 READ membership can read these records without compute-submit authority.

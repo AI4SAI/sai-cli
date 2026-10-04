@@ -5,7 +5,7 @@ allocation and operator registrations to an actor-owned managed Run. It reuses
 jobs.placement/v1 and jobs.allocation/v2 without turning scheduler indices into
 physical GPU identities or registration into measured machine truth.
 
-Clients select only Run/project/site. Portal checks current Run READ and the
+Clients select only Run/account/site, with an explicit personal, organization or project scope. Portal checks current Run READ and the
 site placement flag, derives native user/account/job/correlation/accepted time,
 and signs the independent interactive-run-read-grant.v1. The outer sai-authz
 envelope and exact jobs.placement operation are unchanged. Ordinary job reads

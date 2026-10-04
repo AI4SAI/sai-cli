@@ -6,7 +6,7 @@ one explicit actor-owned Run read. The source is Slurm sstat under the actual
 job owner's site identity, through the existing site-run helper after its
 permanent privilege drop. It is not a capability-gateway privilege fallback.
 
-The producer resolves current project/site/Run READ and derives the exact
+The producer resolves current account/site/Run READ and derives the exact
 scheduler ID, account and submission marker. Clients supply only the Run,
 workspace and site, never a username, node, native command or another actor.
 Compute READ does not imply file, billing or submission permission. No file

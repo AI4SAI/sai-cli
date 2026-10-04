@@ -4,7 +4,7 @@ Implemented paired read contract. Portal owns production and authorization.
 CLI/TUI, the console and SAI Pilot consume the same explicit per-Run read.
 It does not change the compute-only `compute.run/v1` metadata contract.
 
-The response binds the actor-owned Run, explicit project workspace and site.
+The response binds the actor-owned Run, explicit personal, organization or project account and site.
 `source=portal_final_billing` describes persisted billing facts; `queried_at`
 is the query time, not a new scheduler observation. No caller-selected payer,
 wallet, accounting index or another actor is accepted. Internal financial
@@ -28,12 +28,12 @@ and price adjustment retain the existing billing semantics; SAI Credit points
 are independently supplied by the producer. Clients never calculate prices,
 convert Credit or infer missing values. Quantity uses the returned unit.
 
-Current project financial visibility is independent of Run READ and file READ.
+Current account financial visibility is independent of Run READ and file READ.
 When `cash_visible=false`, settled gross and quantity remain visible; cash,
 Credit and funding components are null. No client may switch to organization
 scope to obtain those hidden fields. CLI cost reads require `sai.billing.read`
 as well as existing current Run/CLI read admission. Missing billing permission
-does not invalidate independently readable task metadata. Revoked Run/project
+does not invalidate independently readable task metadata. Revoked Run/account
 access still clears protected task observations.
 
 The explicit routes are `/v1/compute/cli/runs/{run_ref}/billing` and
@@ -41,7 +41,7 @@ The explicit routes are `/v1/compute/cli/runs/{run_ref}/billing` and
 The console Run link accepts an explicit `view=cost`, mutually exclusive with
 file-selection parameters. The link carries no amounts or financial record IDs.
 Pilot uses `run_cost` via its existing `run.cost` read transport and browser
-`run.billing` action. Existing Session identity/current project READ is checked
+`run.billing` action. Existing Session identity/current account READ is checked
 again; model activation remains required for MCP, while the authorized browser
 history path retains its existing independent activation policy. No request
 starts/renews a runtime, submits/cancels a job, or writes financial facts.

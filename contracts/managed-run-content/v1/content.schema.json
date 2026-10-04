@@ -32,8 +32,8 @@
     },
     "workspace_key": {
       "maxLength": 128,
-      "minLength": 9,
-      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "minLength": 5,
+      "pattern": "^(personal|org|project):[A-Za-z0-9][A-Za-z0-9._:-]*$",
       "title": "Workspace Key",
       "type": "string"
     },

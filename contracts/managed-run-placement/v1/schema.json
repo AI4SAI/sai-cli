@@ -18,9 +18,9 @@
     },
     "workspace_key": {
       "type": "string",
-      "minLength": 9,
+      "minLength": 5,
       "maxLength": 128,
-      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "pattern": "^(personal|org|project):[A-Za-z0-9][A-Za-z0-9._:-]*$",
       "not": {
         "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
       }
@@ -1205,7 +1205,7 @@
             "allocation": {
               "properties": {
                 "scope_type": {
-                  "const": "project_account"
+                  "enum": ["personal_account", "org_account", "project_account"]
                 },
                 "subject": {
                   "properties": {

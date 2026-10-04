@@ -47,6 +47,18 @@ def test_run_placement_reuses_existing_nested_allowlist(name):
     assert value.placement.allocation.site_id=='site-a'
 
 
+@pytest.mark.parametrize("kind", ["personal", "org", "project"])
+def test_managed_placement_binds_account_kind_without_inferencing_native_names(kind):
+    body = sample()
+    key = kind + ":account-example"
+    body["workspace_key"] = key
+    body["placement"]["allocation"]["scope_type"] = kind + "_account"
+    args = dict(workspace_key=key, site_id="site-a", run_ref="run-example-1", request_id="kind")
+    assert ManagedRunPlacement.from_payload(body, **args).as_dict() == body
+    body["placement"]["allocation"]["scope_type"] = "org_account" if kind != "org" else "personal_account"
+    with pytest.raises(ContractError): ManagedRunPlacement.from_payload(body, **args)
+
+
 @pytest.mark.parametrize("path,value",[
     (("schema_version",),"jobs.placement/v1"),(("run_ref",),"run-other"),(("site_id",),"site-b"),(("workspace_key",),"project:other"),
     (("queried_at",),"2030-02-30T00:00:00Z"),(("queried_at",),"2030-01-01T00:00:02Z\n"),

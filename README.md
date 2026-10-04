@@ -15,7 +15,8 @@ The first implementation milestone is intentionally read-only:
   are never replaced. A failed or interrupted transfer removes its temporary
   file; retry starts from the beginning. This download contract requires paired
   Center and site deployment.
-- `sai runs workspaces` discovers currently readable task projects by name.
+- `sai runs workspaces` discovers currently readable personal, organization and
+  project task scopes by name.
   `sai storage workspaces` discovers readable storage scopes at the selected site.
   Both accept `--workspace-key` for an exact authorized name lookup.
   `sai tui --language zh-CN` uses Chinese navigation; `en-US` selects English.
@@ -35,7 +36,7 @@ The first implementation milestone is intentionally read-only:
   metadata. Task records and current file reads remain separate sources.
 - `sai runs cost RUN_REF --workspace-key project:example` explicitly reads
   final cost, independently of task metadata. It requires `sai.billing.read`
-  and current project access; funding details follow the same financial
+  and current account access; funding details follow the same financial
   visibility as the console. Missing amounts remain unknown.
 - `sai runs stats RUN_REF --workspace-key project:example` reads an explicit
   native step observation: average cumulative CPU seconds and step task RSS.
@@ -86,7 +87,7 @@ console preparation page. Users without job history can select a project and
 Session there before inserting an editable resource preference into Pilot.
 Published specifications do not imply idle capacity, admission or a job quote.
 
-Tasks uses an independently chosen project. It finds your accepted managed runs
+Tasks uses an independently chosen read scope. It finds your accepted managed runs
 after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not
 start Pilot, renew its model window, submit work or grant file access.

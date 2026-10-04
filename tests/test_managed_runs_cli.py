@@ -21,8 +21,10 @@ def payload(name):
     ("files", "artifacts", "/v1/compute/cli/runs/run-example-1/artifacts", ["--limit", "100"], {"limit": ["100"]}),
 ])
 @pytest.mark.parametrize("prefix", [True, False])
-def test_batch_reads_shared_contract_with_connection_options_in_both_positions(tmp_path, command, sample_name, path, options, query, prefix):
+@pytest.mark.parametrize("kind", ["personal", "org", "project"])
+def test_batch_reads_shared_contract_with_connection_options_in_both_positions(tmp_path, command, sample_name, path, options, query, prefix, kind):
     body = payload(sample_name)
+    body["workspace_key"] = kind + ":account-example"
     with _server(body) as (origin, server):
         connection = ["--site", body["site_id"], "--base-url", origin]
         args = ["runs", command, *([] if command == "list" else ["run-example-1"]),
@@ -74,7 +76,7 @@ def test_log_content_stays_exact_json_and_cannot_inject_terminal_controls(tmp_pa
 
 
 @pytest.mark.parametrize("arguments", [
-    ["--cluster", "other"], ["--workspace-key", "org:project-example"],
+    ["--cluster", "other"], ["--workspace-key", "all:project-example"],
     ["--limit", "101"], ["--cursor", "../unsafe"],
 ])
 def test_invalid_run_selectors_never_send_http(tmp_path, arguments):
@@ -104,8 +106,10 @@ def test_tui_task_scope_is_explicit_and_independent_of_job_scope():
 
 
 @pytest.mark.parametrize("prefix", [True, False])
-def test_selected_artifact_content_uses_one_authorized_get_and_escapes_terminal(tmp_path, prefix):
+@pytest.mark.parametrize("kind", ["personal", "org", "project"])
+def test_selected_artifact_content_uses_one_authorized_get_and_escapes_terminal(tmp_path, prefix, kind):
     body = json.loads((Path(__file__).resolve().parents[1] / "contracts/managed-run-content/v1/available.sample.json").read_text())
+    body["workspace_key"] = kind + ":account-example"
     body["content"] = "<html>result</html>\n\x1b[31m"
     body["size_bytes"] = body["next_offset"] = body["bytes_read"] = len(body["content"].encode())
     for presentation in ["json", "table"]:

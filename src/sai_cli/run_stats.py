@@ -103,5 +103,5 @@ def stats_lines(result: ManagedRunStats, language: str = "en-US") -> list[str]:
 
 def render_run_stats(result: ManagedRunStats) -> str:
     data = result.values
-    return "\n".join([f"Run: {data['run_ref']} · Project: {data['workspace_key']} · Site: {data['site_id']}",
+    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}",
                       *stats_lines(result)]) + "\n"

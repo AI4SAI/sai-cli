@@ -1,27 +1,28 @@
 # Terminal workbench design
 
-The workbench helps a researcher choose a readable project, find a computation,
+The workbench helps a researcher choose a readable account scope, find a computation,
 inspect its evidence and continue in the console. It uses existing Portal
 facts and permissions. A polished screen must also make the current object,
 scope, observation time and next action understandable.
 
 ## Context and selection
 
-The header gives the current project and site, with at most two lines of
+The header gives the current read scope and site, with at most two lines of
 context. Use authorized display names in normal selection; keep opaque keys
-available for explicit command arguments and technical details. The task
-project, native job scope, storage workspace and default billing identity are
+available for explicit command arguments and technical details. Personal,
+organization and project kinds distinguish the authorized names. The task read
+scope, native job scope, storage workspace and default billing identity are
 independent. Selecting one never silently changes another.
 
-Project discovery is a bounded server page. Highlighting a choice is different
+Task scope discovery is a bounded server page. Highlighting a choice is different
 from applying it: arrow keys explore, Enter confirms, Escape cancels. Loading
-another page must not silently select its first project. Duplicate labels need
+another page must not silently select its first account. Duplicate labels need
 visible disambiguation while exact workspace keys remain the selectors. Do not
 manufacture a catalog entry from a command-line key or a default identity.
 
 An empty authorized list, an invalid continuation, lost access and a source
-failure each have their own explanation and next action. A revoked project
-must not redirect to another project. Discovery is not a grant; every task and
+failure each have their own explanation and next action. A revoked read scope
+must not redirect to another account. Discovery is not a grant; every task and
 file read still authorizes independently.
 
 Storage follows the same explicit name-selection interaction with its own

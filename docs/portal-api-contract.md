@@ -1,5 +1,14 @@
 # Portal Read API Contract
 
+Managed task READ accepts explicit personal, organization and project account
+keys while retaining the existing DTO versions and field names. The authorized
+directory sorts by complete workspace key and validates each cursor in the
+current actor/site scope. Task records remain actor-owned; native job visibility
+uses its separate account policy. Placement binds the nested scope type to the
+Run's account kind while retaining exact user/account and native execution checks.
+This client migration requires the paired Center/domain and gateway release;
+updating a validator does not activate new account authority or change a payer.
+
 Status: current client contracts, including the deployed unified native-job
 observation and central estimate reader.
 

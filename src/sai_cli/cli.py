@@ -55,12 +55,12 @@ def build_parser() -> argparse.ArgumentParser:
     tui.add_argument("--partition", help="partition narrowing filter")
     tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
-    tui.add_argument("--tasks-workspace-key", help="independent managed-run workspace (project:<id>)")
+    tui.add_argument("--tasks-workspace-key", help="managed-task read scope (personal:<id>, org:<id>, project:<id>)")
     tui.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="workbench display language (default: zh-CN)")
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
-        ("workspaces", "list projects where you may read your managed computations"),
+        ("workspaces", "list account scopes where you may read your managed computations"),
         ("list", "list your managed computations, including completed runs"),
         ("show", "show the recorded state of one managed computation"),
         ("cost", "read the independently authorized final cost of one managed computation"),
@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         run_parser = run_commands.add_parser(command, help=description)
         _add_connection_arguments(run_parser, suppress_defaults=True)
-        run_parser.add_argument("--workspace-key", required=command != "workspaces", help="authorized project:<id> workspace")
+        run_parser.add_argument("--workspace-key", required=command != "workspaces", help="authorized read scope: personal:<id>, org:<id>, or project:<id>")
         if command not in {"list", "workspaces"}:
             run_parser.add_argument("run_ref", help="managed run reference returned by runs list")
         if command in {"workspaces", "list", "files"}:
@@ -603,9 +603,8 @@ def main(
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
-            tasks_workspace = clean_workspace_key(args.tasks_workspace_key) if args.tasks_workspace_key else None
-            if tasks_workspace is not None and not tasks_workspace.startswith("project:"):
-                raise ConfigError("managed runs require an explicit project workspace")
+            from .managed_runs import clean_tasks_workspace
+            tasks_workspace = clean_tasks_workspace(args.tasks_workspace_key) if args.tasks_workspace_key else None
             Workbench(client, query, storage_workspace_key=workspace,
                       tasks_workspace_key=tasks_workspace,
                       overview_account=login_account, initial_view="overview", language=args.language).run()

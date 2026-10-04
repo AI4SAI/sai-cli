@@ -52,7 +52,7 @@ def test_choice_projection_drops_private_fields_and_rejects_invalid_pages(family
     for fields in changes:
         with pytest.raises(ContractError): parse({**expected, **fields})
     for fields in ({"label": "\x1b[2J"}, {"label": "\x85"}, {"label": "x" * 257},
-                   {"workspace_key": "org:example" if family == "runs" else "all:users"},
+                   {"workspace_key": "all:users"},
                    {"workspace_key": "project:a+b"}, {"organization_label": []},
                    {"organization_label": "\x9bprivate"}, {"label": " "}):
         changed = deepcopy(expected); changed["items"][0].update(fields)
@@ -132,11 +132,15 @@ def test_exact_workspace_rejects_unbound_http_success(tmp_path, family, fault):
     assert "unrelated" not in stderr.getvalue()
 
 
-def test_storage_directory_exact_accepts_each_scope_without_deriving_keys_from_names():
+@pytest.mark.parametrize("family", ["runs", "storage"])
+def test_directory_exact_accepts_each_scope_without_deriving_keys_from_names(family):
     body = sample("storage")
+    if family == "runs": body["schema_version"] = "compute.workspaces/v1"
     for row in body["items"]:
         page = {**body, "items": [{**row, "label": "Same / label"}]}
-        assert parse(page, workspace_key=row["workspace_key"]).values["items"][0]["workspace_key"] == row["workspace_key"]
+        key = row["workspace_key"].split(":", 1)[0] + ":x"
+        page["items"][0]["workspace_key"] = key
+        assert parse(page, workspace_key=key).values["items"][0]["workspace_key"] == key
 
 
 @pytest.mark.parametrize("family", ["runs", "storage"])
@@ -162,7 +166,7 @@ def test_invalid_discovery_filters_send_no_request(tmp_path, arguments, family):
     assert code == 2 and stdout.getvalue() == "" and server.requests == []
 
 
-@pytest.mark.parametrize("family,key", [("runs", "org:example"), ("storage", "project:has.dot")])
+@pytest.mark.parametrize("family,key", [("runs", "file:example"), ("storage", "project:has.dot")])
 def test_directory_scope_rules_apply_to_both_cursor_and_exact_key(tmp_path, family, key):
     with _server(sample(family)) as (origin, server):
         for option in ("--cursor", "--workspace-key"):

@@ -26,7 +26,8 @@ class ManagedRunPlacement(ManagedReadResult):
         placement = SiteJobPlacementResult.from_payload(data.get("placement"), request_id=request_id)
         allocation = placement.allocation
         if (allocation.site_id != site_id or allocation.freshness.source != "scontrol"
-                or allocation.scope_type != "project_account" or allocation.slurm_user is None or allocation.slurm_account is None
+                or allocation.scope_type != workspace_key.split(":", 1)[0] + "_account"
+                or allocation.slurm_user is None or allocation.slurm_account is None
                 or allocation.job.values["array_task_id"] is not None):
             raise ContractError(request_id=request_id)
         execution = None
@@ -54,7 +55,7 @@ class ManagedRunPlacement(ManagedReadResult):
 
 def render_run_placement(result: ManagedRunPlacement) -> str:
     data = result.values
-    lines = [f"Run: {data['run_ref']} · Project: {data['workspace_key']} · Site: {data['site_id']}",
+    lines = [f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}",
              f"Queried: {data['queried_at']}"]
     if data["execution"] is not None:
         lines.append(f"Runtime SLUID: {data['execution']['sluid']}")

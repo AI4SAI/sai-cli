@@ -73,24 +73,32 @@ def client_for(origin):
         capability_provider=SimpleNamespace(get=forbidden), site_transport=SimpleNamespace(request=forbidden))
 
 
-def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp_path, monkeypatch):
+@pytest.mark.parametrize("kind", ["personal", "org", "project"])
+def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp_path, monkeypatch, kind):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     failure = None
+    workspace = kind + ":project-example"
+    def task_sample(name):
+        value = sample(name)
+        value["workspace_key"] = workspace
+        return value
     def reply(call, _):
         assert call["method"] == "GET" and call["bearer"] == "Bearer identity-token" and call["capability"] is None
         path = urlsplit(call["path"]).path
         query = parse_qs(urlsplit(call["path"]).query)
         if path.endswith("/workspaces"):
             assert query == {"site_id": ["site-a"], "limit": ["50"]}
-            return 200, workspace_sample()
-        assert query["workspace_key"] == ["project:project-example"] and query["site_id"] == ["site-a"]
+            value = workspace_sample()
+            value["items"][0]["workspace_key"] = workspace
+            return 200, value
+        assert query["workspace_key"] == [workspace] and query["site_id"] == ["site-a"]
         assert not set(query) & {"scope_type", "slurm_account_name", "cluster_id", "username", "user"}
         if failure:
             status, code = failure
             return status, {"detail": {"code": code, "message": "Managed read denied", "native": "hidden"}}
         if path.endswith("/runs"):
-            result = sample("list")
+            result = task_sample("list")
             result["items"][0]["title"] = "train\x85part.sh"
             assert query["limit"] == ["50"]
             if "cursor" not in query:
@@ -100,7 +108,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
                 result["items"][0].update(run_ref="run-example-2", title="older.py")
             return 200, result
         if path.endswith("/logs"):
-            result = sample("log")
+            result = task_sample("log")
             stream = query["stream"][0]
             cursor = query.get("cursor", [f"log-{stream}-0"])[0]
             offset = int(cursor.rsplit("-", 1)[1])
@@ -111,7 +119,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert query["max_bytes"] == ["65536"]
             return 200, result
         if path.endswith("/artifacts"):
-            result = sample("artifacts")
+            result = task_sample("artifacts")
             assert query["limit"] == ["100"]
             if "cursor" not in query:
                 result.update(next_cursor="1", complete=False)
@@ -122,7 +130,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
                 result["items"][0].update(display_name="outputs/second.txt", relative_path="outputs/second.txt")
             return 200, result
         assert path.endswith("/run-example-1")
-        result = sample("detail")
+        result = task_sample("detail")
         result["run"]["title"] = "train\x85part.sh"
         return 200, result
 
@@ -136,7 +144,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             await settled(app, pilot)
             assert len(calls) == 1 and app.tasks_workspace_key is None
             assert app.query_one("#open-task-web", Button).disabled
-            app.query_one("#tasks-project", Select).value = "project:project-example"
+            app.query_one("#tasks-project", Select).value = workspace
             await settled(app, pilot)
             assert isinstance(app.results["tasks"], ManagedRunList)
             assert app.results["tasks"].values["items"][0]["title"] == "train\x85part.sh"
@@ -170,7 +178,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert (url.scheme, url.netloc) == (urlsplit(client.transport.base_url).scheme, urlsplit(client.transport.base_url).netloc)
             assert url.path == "/portal/" and url.query == ""
             route, query = url.fragment.split("?", 1)
-            assert route == "/portal/workspaces/project%3Aproject-example/site-a/runs"
+            assert route == f"/portal/workspaces/{kind}%3Aproject-example/site-a/runs"
             assert parse_qs(query) == {"run_ref": ["run-example-1"]}
             assert app._web_url == opened[-1] and app.clipboard == ""
             await click(app, pilot, "#copy-web-link")
@@ -206,7 +214,7 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
             failure = None
             await click(app, pilot, "#load-projects")
-            app.query_one("#tasks-project", Select).value = "project:project-example"
+            app.query_one("#tasks-project", Select).value = workspace
             await settled(app, pilot)
             app.query_one("#tasks-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
             for name in ("resources", "jobs", "storage", "overview"):
@@ -313,7 +321,7 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
                 assert "tasks" not in app.results and app.tasks_workspace_key is None
                 picker = app.query_one("#tasks-project", Select)
                 picker.focus(); await pilot.press("enter", "end", "enter"); await settled(app, pilot)
-                assert app.tasks_workspace_label.startswith("Current authorized project")
+                assert "Current authorized project" in app.tasks_workspace_label
                 assert app.task_file_page is None
     with http_endpoint(reply) as (origin, calls):
         asyncio.run(asyncio.wait_for(scenario(client_for(origin)), 25))

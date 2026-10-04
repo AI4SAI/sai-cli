@@ -67,16 +67,16 @@ JobCandidate. Native input receives a reference only; existing script validation
 server pricing, immutable proposal and user confirmation remain authoritative.
 
 Managed-run reads reuse Portal's existing ComputeRun records and readback
-services. The CLI supplies an explicit project/site and reads only its own runs;
-current project membership/site and CLI read admission are independent of
+services. The CLI supplies an explicit personal/org/project account scope and site,
+and reads only its own runs. Current ownership or membership/site and CLI read admission are independent of
 submission, payer activation and Pilot Session grants. State is a persisted
 execution receipt, not a refreshed Slurm queue observation. Metadata includes no
 final billing projection. An independent per-Run cost read requires billing
-scope and the same project financial visibility as the console. Portal validates
+scope and the same account financial visibility as the console. Portal validates
 the final graph and exact accounting incarnation; no client prices work or
 guesses a scheduler-ID-to-Run relationship.
 
-An explicit per-Run statistics read uses the same current actor/project/site
+An explicit per-Run statistics read uses the same current actor/account/site
 READ owner. Portal derives native identity and correlation; the existing site-run
 helper permanently drops to the site's NSS user before fixed Slurm commands.
 TUI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
@@ -91,7 +91,7 @@ after the observation. A Run wrapper contains the unchanged placement DTO;
 ordinary job reads keep their original contract. No consumer may downgrade a
 failed Run binding to a plain numeric-job lookup.
 
-Readable project and storage discovery use their respective current membership
+Readable task and storage discovery use their respective current ownership/membership
 and site authority with bounded SQL pages. Storage shares the quota reader's
 membership predicates; it does not inherit compute admission. Only safe names
 and exact selectors reach the CLI; the full Web workspace topology, financial

@@ -26,9 +26,9 @@ def clean_run_ref(value: object) -> str:
 
 
 def clean_tasks_workspace(value: object) -> str:
-    if (not isinstance(value, str) or len(value) > 128 or not value.startswith("project:")
-            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]*", value[8:]) is None):
-        raise ConfigError("tasks workspace must be project:<id>")
+    if (not isinstance(value, str) or len(value) > 128
+            or re.fullmatch(r"(?:personal|org|project):[A-Za-z0-9][A-Za-z0-9._:-]*", value) is None):
+        raise ConfigError("tasks workspace must be personal:<id>, org:<id>, or project:<id>")
     return value
 
 
@@ -290,13 +290,13 @@ def _relative_filename(value: object, request_id: str) -> str:
 def render_managed_runs(result: ManagedReadResult) -> str:
     data = result.values
     if isinstance(result, ManagedRunWorkspaces):
-        lines = [f"Readable projects · Site: {data['site_id']} · queried {data['queried_at']}"]
+        lines = [f"Readable task scopes · Site: {data['site_id']} · queried {data['queried_at']}"]
         lines.extend(f"{row['workspace_key']}  {row['label']}" + (
             f" · {row['organization_label']}" if row['organization_label'] is not None else ""
         ) for row in data["items"])
         lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
         return "\n".join(lines) + "\n"
-    lines = [f"Project: {data['workspace_key']} · Site: {data['site_id']}"]
+    lines = [f"Read scope: {data['workspace_key']} · Site: {data['site_id']}"]
     if isinstance(result, (ManagedRunList, ManagedRunDetail)):
         lines.append(f"Managed run records · queried {data['queried_at']} (not live queue state)")
         for run in data["items"] if isinstance(result, ManagedRunList) else [data["run"]]:

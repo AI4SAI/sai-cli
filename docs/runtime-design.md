@@ -37,7 +37,7 @@ The first release does not implement:
 
 Managed-run result reads are shared with Pilot through the independent
 `pilot-read-call/v1` operations `run.get`, `run.logs`, `artifact.list` and `artifact.read`.
-They use current project READ and the run's frozen output mount, rather than
+They use current account READ and the run's frozen output mount, rather than
 the submit/cancel execution grant. A console or TUI file continuation carries
 only an opaque run/artifact reference and a bounded page cursor. The task page's explicit action opens original history directly; file previews
 and prompt insertion remain separately authorized. Runtime renewal and model submission remain
@@ -184,14 +184,14 @@ establish that authorization boundary.
 ### Managed tasks
 
 `runs placement RUN_REF` and the task Location action use the same current
-project/site READ selectors. `compute.run-placement/v1` wraps one verified
+account/site READ selectors. `compute.run-placement/v1` wraps one verified
 native execution and the existing `jobs.placement/v1` result. The terminal
 reuses its placement parser, display and expiry timer. Expiry removes location
 records, retaining only the allocation from that same response. F5 is explicit;
 W opens the exact Run with `view=placement`, without carrying metrics or native
 identifiers. Site opt-out affects this view; revoked task READ clears Tasks.
 
-`runs stats RUN_REF` uses compute READ and the same project/site selectors.
+`runs stats RUN_REF` uses compute READ and the same account/site selectors.
 The serialized TUI reader keeps a separate manual statistics snapshot: F5 replaces
 it, and scope/Run/mode changes discard late responses. W adds `view=stats` to the
 same Run's console URL, without metrics or file selectors. Source failure clears
@@ -206,8 +206,8 @@ to the exact Run link. File-selection parameters and cost mode are mutually
 exclusive. See [the shared cost contract](../contracts/managed-run-cost/v1/README.md).
 
 `runs list`, `runs show RUN_REF`, `runs logs RUN_REF` and `runs files RUN_REF`
-require `--workspace-key project:ID` and the configured or explicit site. The
-current producer owns project-backed ComputeRuns. These commands reject an
+require `--workspace-key personal:ID`, `org:ID` or `project:ID` and the configured
+or explicit site. Each task remains bound to its recorded account. These commands reject an
 explicit `--cluster`; each task's recorded cluster is a returned fact. Run
 references come from the task list, not from numeric scheduler IDs.
 
@@ -216,14 +216,14 @@ Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
 JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
-Tasks in `sai tui` uses its own authorized project-name selection or explicit
+Tasks in `sai tui` uses its own authorized account-name selection or explicit
 `--tasks-workspace-key`. Explicit preselection resolves its name through an exact
 `runs workspaces --workspace-key` read, without scanning the directory or
 inventing a choice. Tasks operates without
 inheriting the Jobs account, storage workspace or Overview's default identity.
 The existing worker serializes all reads. Run metadata may refresh; log and
 output pages are explicit, one-page observations. Next/Start replace the page;
-they do not append an unbounded log. Changing project, mode or tab invalidates
+they do not append an unbounded log. Changing read scope, mode or tab invalidates
 late responses. File-read denial clears only the file observation; task-scope
 denial clears Tasks, and authentication failure clears all protected views.
 Within the same task, changing mode or visiting another tab preserves the last

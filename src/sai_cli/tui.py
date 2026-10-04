@@ -549,7 +549,7 @@ class Workbench(App, inherit_bindings=False):
                 if view == "tasks" and task_request[0] is None and task_request[1] != "projects":
                     continue
                 if view == "tasks":
-                    context = self.tasks_workspace_label or self.t("scope_resolving" if task_request[0] else "project")
+                    context = self.tasks_workspace_label or self.t("scope_resolving" if task_request[0] else "task_scope")
                 elif view == "storage":
                     context = self.storage_workspace_label or self.t("scope_resolving" if workspace else "storage_choose_scope")
                 elif view == "resources":
@@ -1080,7 +1080,18 @@ class Workbench(App, inherit_bindings=False):
         self._update_task_actions()
 
     def _project_labels(self) -> dict[str, str]:
-        return self._workspace_labels(self.task_projects)
+        if self.task_projects is None:
+            return {}
+        labels = []
+        items = self.task_projects.values["items"]
+        for item in items:
+            kind = item["workspace_key"].split(":", 1)[0]
+            label = f"{self.t('task_scope_' + kind)} · {item['label']}"
+            if kind == "project" and item["organization_label"]:
+                label += f" · {item['organization_label']}"
+            labels.append(label)
+        return {item["workspace_key"]: label + (f" · {item['workspace_key']}" if labels.count(label) > 1 else "")
+                for item, label in zip(items, labels)}
 
     @staticmethod
     def _workspace_labels(page: ManagedRunWorkspaces | StorageWorkspaces | None) -> dict[str, str]:

@@ -24,7 +24,7 @@
     },
     "workspace_key": {
       "type": "string",
-      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      "pattern": "^(personal|org|project):[A-Za-z0-9][A-Za-z0-9_.:-]*$"
     },
     "site_id": {
       "type": "string",

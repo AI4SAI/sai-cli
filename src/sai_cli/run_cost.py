@@ -67,4 +67,4 @@ def cost_lines(result: ManagedRunCost, language: str = "en-US") -> list[str]:
 
 def render_run_cost(result: ManagedRunCost) -> str:
     data = result.values
-    return "\n".join([f"Run: {data['run_ref']} · Project: {data['workspace_key']} · Site: {data['site_id']}", *cost_lines(result)]) + "\n"
+    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}", *cost_lines(result)]) + "\n"

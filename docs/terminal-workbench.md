@@ -163,14 +163,15 @@ amounts. A cost-only denial leaves task metadata readable, while Run-scope
 revocation and authentication failure keep the existing protected-data cleanup.
 W opens the exact Run's Cost tab without putting amounts in the URL.
 
-Tasks keeps an explicit project workspace independent of Jobs and Storage.
-Choose a readable project by its authorized name. Project choices are bounded
-pages; More projects reads the next page and selecting a project applies it.
+Tasks keeps an explicit read scope independent of Jobs, Storage and future
+computation funding. Choose a readable personal, organization or project account
+by its authorized name and kind. Choices are bounded pages; More scopes reads
+the next page and selecting an account applies only that task read scope.
 Moving the highlight does not change the current scope. Scripts can discover
 the same labels and exact keys with `sai runs workspaces --site site-a`.
 The explicit `--tasks-workspace-key` option first resolves the exact authorized
 name through the same directory, without scanning pages or creating a fake
-project choice. Every task read rechecks current access.
+account choice. Every task read rechecks current access.
 
 The task list includes accepted managed runs that have left the live queue.
 Enter opens the recorded status and its source time. It does not query Slurm or
@@ -181,7 +182,7 @@ restores the selected row. File pages remain explicitly loaded and bounded.
 Stdout, Stderr and Files are explicit reads under the task's current file
 permissions. They replace a single bounded page; Next follows the returned
 cursor and Start returns to the first page. Logs and file pages do not auto-poll,
-and changing the project clears earlier protected data. A denied directory does
+and changing the read scope clears earlier protected data. A denied directory does
 not hide still-authorized task metadata. Output filenames describe current files
 under the declared roots, not a sealed result version. Text outputs can be read
 inside the task; native Pilot file tools remain a separate consumer.
@@ -190,7 +191,7 @@ Checking cost, statistics or another top-level view preserves where the user was
 reading in the same task. Returning restores the chosen file, page and scroll
 position after a fresh authorized read. Only navigation and the existing bounded
 file-selection metadata are retained, not file content, fees or download grants.
-Changing project/task or losing access clears the related navigation. Missing or
+Changing scope/task or losing access clears the related navigation. Missing or
 changed files stop restoration; binary files remain selected for Save even when
 their content cannot be previewed as text.
 
@@ -208,7 +209,7 @@ shortening; byte size and modification time remain separate. Arrow keys browse,
 and Enter opens the highlighted text file in the task's content view.
 Ctrl+Up/Down scrolls within long entries without changing the selected file.
 Highlighting makes no request; Enter requests the current authorized content.
-Changing the project or run clears selection, navigation and links. Changing
+Changing the read scope or run clears selection, navigation and links. Changing
 evidence mode clears displayed file data and links, while retaining the same
 task's reading position for a fresh read on return.
 

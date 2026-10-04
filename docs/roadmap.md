@@ -7,6 +7,13 @@ Portal repository.
 Checkmarks cover the implementation or evidence stated on that line. They do
 not imply production activation or completion of a paired rollout.
 
+The current three-kind managed-read migration preserves personal, organization
+and project account selection independently of files and future computation
+funding. CLI/TUI source and shared Run binding are being paired with the existing
+Portal/Pilot owner. New schema/migration, gateway ordering and production user
+acceptance remain part of that coordinated release; the earlier deployed reader
+does not prove the new domain contract is active.
+
 ## Basic job reads: deployed, acceptance still open
 
 The formal basic release covers `jobs.list`, `jobs.detail` and `jobs.allocation`.
