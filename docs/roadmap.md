@@ -66,7 +66,12 @@ the remaining acceptance gates.
 - [x] Revoke one normally issued test capability by JTI and reload the existing
   gateway: old lease rejected before expiry, normal acquisition/read succeeds;
   original inputs restored only after expiry. This is not membership revocation
-- [ ] Exercise full gateway package/runtime recovery and repeat authorized reads
+- [x] Exercise a real cached-capability 401 before expiry, exactly one new
+  capability issuance, and a successful retry through the installed client
+  (2026-10-05). Original revocations and the complete access ACL were restored;
+  this is separate from revoking Identity sessions or workspace membership.
+- [ ] Verify the ordinary user's bounded failure when the gateway is unavailable,
+  with no broader source fallback; runtime restoration is recorded above
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native

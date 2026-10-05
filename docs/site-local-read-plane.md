@@ -582,6 +582,25 @@ This proves revocation of that one lease, not immediate membership withdrawal,
 a cached-capability 401/retry path, external audit delivery or full package recovery.
 The observed normal-client recovery was a fresh successful read.
 
+On 2026-10-05, a separate check exercised the installed client's actual cached
+401/retry path. An ordinary user's existing device session acquired a narrow
+self-list capability in an isolated access/capability cache. After revoking only
+that test JTI and restarting the reader, the same cached token returned 401 about
+52 seconds before expiry. The client then made exactly one successful capability
+issuance and retried with a different token; the gateway returned 200 about
+0.42 seconds after the refusal. Token digests, cache source and response times
+were checked without exporting credentials.
+
+After expiry, the original revocation bytes and complete ACL, including the
+execution reader's named access, were restored and the reader restarted again.
+A final ordinary read returned 200. The original refresh store was used normally
+and was not rolled back; only the test access cache and staging were removed.
+Both intentional reader restarts completed with no unexpected restarts, and the
+execution gateway remained unchanged. Observed access JWT lifetime was 300
+seconds, capability lifetime 120 seconds and gateway leeway zero; these values
+alone do not prove the complete Identity-session revocation window. Membership,
+shell-policy and Identity-session withdrawal remain separate acceptance gates.
+
 ## Managed artifact text boundary
 
 The first direct task-output text reader extends the existing managed log/file
