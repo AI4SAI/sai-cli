@@ -55,6 +55,14 @@ the remaining acceptance gates.
   then normal issuance restored the read without changing server policy
 - [x] Retain gateway package/runtime and configuration rollback materials;
   exercise HTTPS routing and shared-CLI rollback/restoration without static changes
+- [x] Restore the complete archived dependency runtime to a fresh prefix,
+  reinstall the exact current gateway role, and return to the original runtime.
+  An ordinary user's authorized self/account reads and the same small-file
+  download passed before, during and after the switch; service invocation logs
+  confirmed both restored and returned readers handled requests (2026-10-05).
+  Trust/configuration, the execution gateway and shared CLI remained unchanged.
+  This does not prove cold-host or credential recovery, external audit delivery,
+  or positive allocation when the sampled queues are empty.
 - [x] Revoke one normally issued test capability by JTI and reload the existing
   gateway: old lease rejected before expiry, normal acquisition/read succeeds;
   original inputs restored only after expiry. This is not membership revocation
