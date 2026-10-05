@@ -1,5 +1,31 @@
 # Site-Local Interactive Read Plane
 
+## Unified compute delivery gate
+
+Center source `4f343e3f5` was deployed on 2026-10-05 over the preceding live
+release. It adds the canonical workspace selector to existing native READ
+requests; signed grants, response DTOs and gateway behavior remain unchanged.
+Ten runtime modules and the manifest changed. Controlled configuration and
+timer states were preserved, with healthy services and clean package readback.
+
+Shared CLI `af14104` is an immutable, unselected candidate. An ordinary user's
+existing Identity login read the same completed task, settled cost and complete
+output with both versions. The candidate's real-API headless TUI passed
+40/60/100-column file/cost/statistics/resource return and common-scope queue
+checks. Statistics remained unavailable and the authorized queues were empty.
+
+The default remains `b99963b`: the deployed workspace directory still discovers
+projects only. Selecting the new unified picker now would remove interactive
+personal/organization account choices. Its activation therefore requires the
+original owner's full-account producer release and authorized scope-selection
+acceptance. A project-only canary is insufficient. Do not add an inferred
+account map, second directory or fallback interface to bypass this dependency.
+
+Remote staging and operator sessions are closed, and the release window is
+free. Exact Center rollback materials and both shared CLI versions are retained.
+No live rollback, new task, budget renewal, full native-browser workflow or
+personal/organization Run acceptance was performed in this slice.
+
 ## Three-kind reader prerequisite
 
 On 2026-10-05, gateway source `6ab564984` and shared CLI/TUI `b99963b` were
