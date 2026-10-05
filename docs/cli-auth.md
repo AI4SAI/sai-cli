@@ -85,6 +85,11 @@ TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参�
   又可能使用至到期。成员、站点和 shell 权限在新的能力签发时重新校验，
   已有能力则按到期、受控 JTI 撤销或策略 epoch 校验。完整停止窗口必须结合
   实际配置和实测确定，不能只报 capability 的两分钟寿命。
+- 2026-10-06 已用普通用户独立设备会话完成生产撤销验收：最新成功轮换的
+  refresh 在撤销后被原生端点拒绝；原 access 到期后不能再签发 capability，
+  最后一份 capability 到期后也被拒绝。该样本的最后读取授权在撤销约399秒后
+  到期，比 access 晚100秒；这是本次实测，不是所有凭据的统一失效承诺。
+  日常独立会话随后正常刷新并读取，临时凭据与缓存已清理。
 - OAuth token 响应不要求提供 refresh 到期字段。字段缺失，或 provider 用
   `refresh_expires_in=0` 表示服务端管理的 offline session 时，CLI 保存未知
   到期时间，状态输出 `refresh_expires_at=null`，不编造期限或宣称永久有效。
@@ -109,4 +114,5 @@ TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参�
 设备登录完成不等于生产闭环完成：还必须验证 Identity discovery/keys/rotation、
 Portal resource-token consuming layer、issuer key/epoch、login-node package、
 真实用户 GET-only canary 和回滚证据。已经完成和仍未完成的门槛分别记录在
-[roadmap](roadmap.md)；缓存能力的真实401后自动续签已验，不替代独立会话或成员撤权验收。
+[roadmap](roadmap.md)；缓存能力的真实401后自动续签与独立设备撤销已验，
+成员和 shell 权限变更仍有各自的生产验收门槛。

@@ -71,6 +71,13 @@ the remaining acceptance gates.
   capability issuance, and a successful retry through the installed client
   (2026-10-05). Original revocations and the complete access ACL were restored;
   this is separate from revoking Identity sessions or workspace membership.
+- [x] Revoke a separately approved ordinary-user device session using the native
+  revocation endpoint (2026-10-06). Its latest successfully rotated refresh token
+  was rejected, while the separate daily session refreshed and read successfully.
+  The old access token lost issuance permission at its signed expiry; the last
+  capability remained usable until its own expiry, then was rejected. Native
+  metadata confirmed only the test session disappeared. This does not prove
+  membership or shell-access revocation, or instantaneous resource revocation.
 - [x] Verify the installed ordinary-user client when its configured read endpoint
   is unreachable: an isolated process network policy produced a network error
   after about 10 seconds, exit code 8 and empty stdout. The observed client made
