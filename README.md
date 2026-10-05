@@ -228,8 +228,8 @@ been removed. Unset the named environment variables and remove the retired
 fields from the selected TOML profile before running `sai auth login`.
 An empty retired environment variable is still rejected.
 
-This authentication retirement is a source candidate awaiting paired
-Portal/CLI production release.
+This authentication retirement is deployed in the paired Portal/CLI release.
+Remaining production acceptance gates are tracked in [the roadmap](docs/roadmap.md).
 
 For a user-managed or login-node installation, configure the non-secret Portal
 origin/site once and run `sai auth login`. It prints a one-time browser URL and

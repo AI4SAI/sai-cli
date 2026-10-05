@@ -1,6 +1,6 @@
 # CLI 登录与长期会话
 
-状态：Identity-only 认证退役候选，待 Portal/CLI 配对发布
+状态：Identity-only 认证已配对发布；剩余生产验收见 [roadmap](roadmap.md)
 
 ## 用户体验
 
@@ -44,11 +44,11 @@ Device Authorization Grant 是 OAuth 2.0 的授权方式，不是 OAuth 的替�
    MFA、consent 和风控确认。
 3. CLI 轮询 Identity 的 token endpoint。批准后得到短期 OAuth access token
    和 rotating refresh token。CLI 不解析或伪造 Identity token。
-4. access token 以 Portal resource audience 使用：Portal 校验 Identity
-   issuer/signature/audience/scope（或受保护的 introspection），再执行
+4. access token 以 Portal resource audience 使用：当前 Portal 离线校验 Identity
+   issuer/signature/audience/scope 和有效期，再执行
    workspace、membership、site、account、policy 判定。
 5. Portal 通过 `POST /v1/authz/site-read` 签发独立的 `sai-authz` capability，
-   CLI 最终只访问 `/v1/slurm/cli/*` 或 `/v1/billing/cli/*`。
+   CLI 访问授权的中心 CLI 路由，或配置好的站点读取网关；它不直接查询调度器。
 
 Identity 侧必须先注册一个 public CLI client（不保存 client secret），允许
 `urn:ietf:params:oauth:grant-type:device_code` 和 `refresh_token`，并明确
@@ -65,7 +65,7 @@ Identity device/access/refresh 协议，或本进程显式提供的 Identity
 TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参数已移除。
 先取消设置提示中列出的旧环境变量、删除所选 TOML profile 中的旧字段，
 再运行 `sai auth login`；将旧环境变量设为空字符串仍会被拒绝。
-本片需与 Portal 旧 issuer 退役配对发布，当前不宣称已完成该生产发布。
+旧认证路径已经随 Portal/CLI 配对发布退役；这不等于撤权、日志交付等全部验收完成。
 
 ## 生命周期与存储
 
@@ -78,8 +78,13 @@ TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参�
 - access token 默认由 Identity policy 控制为短期（客户端接受不超过 1 小时）。
 - refresh token 由 Identity 轮换、可撤销并受绝对/闲置生命周期限制；客户端不
   提供不可撤销的“永久 Bearer”。在 SSH 可信的前提下，用户可以数月乃至更久
-  不重新交互，但账号禁用、全局 logout、token-family reuse 或策略过期会立即
-  收敛权限。
+  不重新交互。refresh 会话失效后不能继续续期；已签出的 access token
+  和站点 capability 仍分别受自己的有效期及验证规则约束。
+- 撤销 refresh 不等于所有读取立即失效。当前 Portal 不逐请求查询 Identity
+  会话；尚有效的 access token 可能继续申请 capability，最后签出的 capability
+  又可能使用至到期。成员、站点和 shell 权限在新的能力签发时重新校验，
+  已有能力则按到期、受控 JTI 撤销或策略 epoch 校验。完整停止窗口必须结合
+  实际配置和实测确定，不能只报 capability 的两分钟寿命。
 - OAuth token 响应不要求提供 refresh 到期字段。字段缺失，或 provider 用
   `refresh_expires_in=0` 表示服务端管理的 offline session 时，CLI 保存未知
   到期时间，状态输出 `refresh_expires_at=null`，不编造期限或宣称永久有效。
@@ -97,10 +102,11 @@ TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参�
 ## 失败与恢复
 
 `sai` 不会猜测身份、回退到原始 Slurm、静默换用 `portal_read`，或把空列表
-当作成功。Identity device/session 无效、过期或被撤销时，命令返回
+当作成功。续期收到 Identity 的 `invalid_grant` 后，命令返回
 `credentials_unavailable`，并提示重新执行 `sai auth login`。网络暂时失败
 不会删除仍然有效的本地 refresh token。
 
 设备登录完成不等于生产闭环完成：还必须验证 Identity discovery/keys/rotation、
 Portal resource-token consuming layer、issuer key/epoch、login-node package、
-真实用户 GET-only canary 和回滚证据。本文件不宣称这些部署门禁已经通过。
+真实用户 GET-only canary 和回滚证据。已经完成和仍未完成的门槛分别记录在
+[roadmap](roadmap.md)；缓存能力的真实401后自动续签已验，不替代独立会话或成员撤权验收。
