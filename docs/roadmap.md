@@ -46,8 +46,9 @@ the remaining acceptance gates.
 - [x] Verify real-user self and authorized account lists through the shared CLI
   and native gateway; empty results matched independent native reads, and an
   unauthorized account was denied
-- [ ] Verify positive detail/allocation on naturally available authorized jobs
-  and the remaining Portal consuming paths; the accepted list scopes were empty
+- [x] Verify positive detail/allocation on naturally available authorized jobs
+  using an ordinary user's account scope, including a non-default organization
+- [ ] Complete the remaining Portal consuming-path acceptance
 - [x] Correlate actual Center issuance with production journal start/finish pairs
   by capability ID digest, subject, operation and limit
 - [ ] Verify audit collection beyond the local journal and production failure handling
@@ -70,8 +71,13 @@ the remaining acceptance gates.
   capability issuance, and a successful retry through the installed client
   (2026-10-05). Original revocations and the complete access ACL were restored;
   this is separate from revoking Identity sessions or workspace membership.
-- [ ] Verify the ordinary user's bounded failure when the gateway is unavailable,
-  with no broader source fallback; runtime restoration is recorded above
+- [x] Verify the installed ordinary-user client when its configured read endpoint
+  is unreachable: an isolated process network policy produced a network error
+  after about 10 seconds, exit code 8 and empty stdout. The observed client made
+  one read attempt with no Identity, capability-issuer or broader-source fallback;
+  removing the policy restored reading with the same access token and capability
+  (2026-10-06). Shared services remained running; this was a client network
+  partition, not a whole-service shutdown. Runtime restoration is recorded above.
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
@@ -323,8 +329,9 @@ Acceptance boundary: implemented protocols, local fixtures, the separately
 recorded native candidate probe, and the basic production runtime/three GET
 routes, plus real-user lists, expiry/renewal and matched issuance/journal pairs.
 One normally issued capability was also explicitly revoked and rejected before
-expiry. Positive detail/allocation, membership-policy revocation and audit
-delivery/failure acceptance remain open.
+expiry. Positive detail/allocation and isolated client network failure/recovery
+have ordinary-user production evidence. Membership-policy revocation and external
+audit delivery/failure acceptance remain open.
 
 The job path stays on-demand. Cache reuse or coalescing should be considered
 only when measured load or latency justifies it; a shared collector is not a

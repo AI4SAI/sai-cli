@@ -69,8 +69,10 @@ existing owner; this release does not broaden managed historical scope.
 
 Status: the basic job list/detail/allocation runtime and HTTPS routes were
 deployed on 2026-10-01. Normal user authorization, self/account lists and matched
-production issuance/read-use audit pairs passed; positive detail/allocation and
-the complete task journey remain open. Native Lustre quota has local transport/gateway code
+production issuance/read-use audit pairs passed. Later ordinary-user acceptance
+also covered positive job detail/allocation in a non-default organization and
+isolated client network failure followed by recovery with the same capability.
+The complete task journey remains open. Native Lustre quota has local transport/gateway code
 but is not enabled by this release. Billing and resources retain their own gates.
 
 The deployed unified job-observation implementation below changes the estimate reader and
