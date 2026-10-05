@@ -20,13 +20,11 @@ The terminal implementation consolidates Compute into one read scope,
 list and inspection context, with Current queue and Records and results purposes.
 It extends existing native READ requests with a canonical workspace selector;
 grants and response DTOs stay unchanged. Self/legacy native-account scopes remain
-queue-only until an account is explicitly selected for records. Native plugin
-discovery, its replacement deep links and retirement of Portal compute pages
-remain with the coordinated product migration. Center's request selector is
-deployed; the new TUI is [staged but not selected](site-local-read-plane.md#unified-compute-delivery-gate).
-The default remains the previous shared CLI until the original full-account
-producer makes authorized personal/organization choices available in the common
-directory. Project-only candidate success does not close this product gate.
+queue-only until an account is explicitly selected for records. The full-account
+producer and compatible Pilot consumer are deployed, and the new TUI was
+[selected after ordinary-user three-kind acceptance](site-local-read-plane.md#unified-compute-delivery-gate)
+on 2026-10-06. Native plugin discovery, replacement deep links and retirement
+of duplicate Portal compute pages remain part of the wider product migration.
 
 ## Basic job reads: deployed, acceptance still open
 

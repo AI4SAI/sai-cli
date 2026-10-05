@@ -2,29 +2,38 @@
 
 ## Unified compute delivery gate
 
-Center source `4f343e3f5` was deployed on 2026-10-05 over the preceding live
-release. It adds the canonical workspace selector to existing native READ
-requests; signed grants, response DTOs and gateway behavior remain unchanged.
-Ten runtime modules and the manifest changed. Controlled configuration and
-timer states were preserved, with healthy services and clean package readback.
+The canonical workspace selector first reached Center in `4f343e3f5`. The
+complete personal, organization and project producer and compatible Pilot
+consumer were then deployed from the selected Portal main `95101a01e2b5` and
+Pilot `ef617c6e90e9`; the later Identity/account Center release kept this READ
+chain. Signed grants, response DTOs and authorization ownership did not move.
 
-Shared CLI `af14104` is an immutable, unselected candidate. An ordinary user's
-existing Identity login read the same completed task, settled cost and complete
-output with both versions. The candidate's real-API headless TUI passed
-40/60/100-column file/cost/statistics/resource return and common-scope queue
-checks. Statistics remained unavailable and the authorized queues were empty.
+On 2026-10-06 the existing ordinary-user login exercised the immutable
+`af1410430059` CLI/TUI candidate against real APIs. The authorized directory
+contained all three account kinds. Each kind's Current queue and Records and
+results worked at 40, 60 and 100 columns. Organization and project queues were
+nonempty; this user's personal queue and personal/organization Run lists were
+empty, so they do not prove positive Run creation in those kinds. The selected
+existing project result kept the same complete file after cost, statistics and
+resource navigation. Its final cost was settled; statistics were unavailable.
+One existing running job also returned detail and a single-node allocation.
 
-The default remains `b99963b`: the deployed workspace directory still discovers
-projects only. Selecting the new unified picker now would remove interactive
-personal/organization account choices. Its activation therefore requires the
-original owner's full-account producer release and authorized scope-selection
-acceptance. A project-only canary is insufficient. Do not add an inferred
-account map, second directory or fallback interface to bypass this dependency.
+A project queue initially failed because native `squeue --json` output exceeded
+the site's existing 8 MiB capture limit. The site READ service now inherits
+Slurm's `SLURM_JSON=compact`, preserving the same native query and output limit;
+the account's 550-row native response fell below that limit. This is a native
+format selection, not a client fallback or a second source of truth. Larger
+queues may still exceed the limit and fail closed.
 
-Remote staging and operator sessions are closed, and the release window is
-free. Exact Center rollback materials and both shared CLI versions are retained.
-No live rollback, new task, budget renewal, full native-browser workflow or
-personal/organization Run acceptance was performed in this slice.
+After candidate acceptance, the shared `/opt/sai/cli/current` selector was
+atomically moved from `b99963b` to `af1410430059`. The selected runtime on the
+login node repeated the ordinary-user file, settled-cost and three-kind TUI
+checks successfully; the stable command entry resolved to that runtime. Both
+934-file runtime inventories and the protected CLI configuration passed
+readback; the previous shared release and exact rollback
+script remain available. Temporary test files and remote sessions were closed.
+No new task, model call, budget renewal, physical-terminal or browser journey, or
+personal/organization Run creation was part of this acceptance.
 
 ## Three-kind reader prerequisite
 
