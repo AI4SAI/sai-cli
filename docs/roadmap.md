@@ -137,7 +137,7 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] Protected short-lived token cache
 - [x] Identity device authorization/refresh and process-local Identity access token
 - [x] Remove HMAC bootstrap, legacy bearer-cache selection and retired auth inputs
-- [ ] Pair the authentication retirement with Portal's issuer removal in production
+- [x] Pair the authentication retirement with Portal's issuer removal in production
 - [x] `sai jobs list` and `sai jobs show`
 - [x] `sai jobs allocation JOB_ID` against the explicit site gateway snapshot
   (paired contract/local HTTP checks and a separate bounded native candidate
