@@ -1,3 +1,4 @@
+from test_tui import task_query
 import asyncio
 from copy import deepcopy
 from io import StringIO
@@ -83,10 +84,10 @@ def response(call, _):
 
 async def open_files(app, pilot):
     await settled(app, pilot)
-    app.query_one("#tasks-table", DataTable).focus()
+    app.query_one("#compute-table", DataTable).focus()
     await pilot.press("enter")
     await settled(app, pilot)
-    await click(app, pilot, "#task-files")
+    await click(app, pilot, "#compute-files")
     await pilot.pause(.05)
 
 
@@ -104,8 +105,8 @@ def test_files_keyboard_read_and_return_keep_the_exact_page_and_web_reference(tm
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     async def scenario(client, calls):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example", language=language)
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999,
+                         language=language)
         opened = []
         app.open_url = opened.append
         async with app.run_test(size=(width, 24)) as pilot:
@@ -139,7 +140,7 @@ def test_files_keyboard_read_and_return_keep_the_exact_page_and_web_reference(tm
             await click(app, pilot, "#task-next")
             options.focus(); await pilot.press("home", "enter"); await settled(app, pilot)
             assert app.selected_artifact[0].request_cursor == "2"
-            await click(app, pilot, "#open-task-web")
+            await click(app, pilot, "#compute-web")
             assert query(opened[-1])["artifact_cursor"] == ["2"]
     with http_endpoint(response) as (origin, calls):
         asyncio.run(scenario(client_for(origin), calls))
@@ -166,8 +167,8 @@ def test_task_reading_position_survives_cost_stats_and_catalog(tmp_path, monkeyp
         return status, body
 
     async def scenario(client, calls):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example", language="zh-CN")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999,
+                         language="zh-CN")
         async with app.run_test(size=(width, 24)) as pilot:
             await open_files(app, pilot)
             await click(app, pilot, "#task-next")
@@ -180,16 +181,16 @@ def test_task_reading_position_survives_cost_stats_and_catalog(tmp_path, monkeyp
             position = scroll.scroll_y
             assert position > 0
             for mode in ("cost", "stats"):
-                await click(app, pilot, "#task-" + mode)
+                await click(app, pilot, "#compute-" + ("resources" if mode == "stats" else mode))
             before = len(calls)
-            await click(app, pilot, "#task-files")
+            await click(app, pilot, "#compute-files")
             assert app.task_mode == "content" and app.selected_artifact[1] == LATER_REF
             assert app.task_cursor == cursor and app.task_file_page.values["offset"] > 0
             assert len(calls) > before and scroll.scroll_y == position
             app.query_one("#views", TabbedContent).active = "resources"
             await settled(app, pilot)
             assert app.task_file_page is None and app.selected_artifact is None
-            app.query_one("#views", TabbedContent).active = "tasks"
+            app._select_compute_mode("records")
             await settled(app, pilot)
             await pilot.pause()
             assert app.task_mode == "content" and app.selected_artifact[1] == LATER_REF
@@ -220,25 +221,24 @@ def test_restored_file_rechecks_version_and_current_authority(problem):
 
     async def scenario(client):
         nonlocal failure
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await open_files(app, pilot)
             await pilot.press("home", "down", "enter"); await settled(app, pilot)
             await click(app, pilot, "#task-next")
-            await click(app, pilot, "#task-detail")
+            await click(app, pilot, "#compute-detail")
             failure = problem
-            await click(app, pilot, "#task-files")
+            await click(app, pilot, "#compute-files")
             assert "second result" not in app.export_screenshot() and app._web_url is None
             assert "files" not in app._task_reading
             if problem in {"run_read_denied", "identity_token_invalid"}:
                 assert app.selected_run is None and not app._task_reading and "tasks" not in app.results
             else:
                 assert "tasks" in app.results
-                await click(app, pilot, "#task-detail")
+                await click(app, pilot, "#compute-detail")
                 assert "files" not in app._task_reading
                 failure = None
-                await click(app, pilot, "#task-files")
+                await click(app, pilot, "#compute-files")
                 assert app.task_mode == "files" and app.task_cursor is None and app.selected_artifact is None
 
     with http_endpoint(reply) as (origin, _):
@@ -256,8 +256,7 @@ def test_confirmed_file_and_link_clear_before_context_changes(monkeypatch, trans
         return response(call, count)
     async def scenario(client):
         nonlocal deny
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999)
         app.open_url = lambda _: None
         async with app.run_test(size=(60,24)) as pilot:
             await open_files(app,pilot)
@@ -268,7 +267,7 @@ def test_confirmed_file_and_link_clear_before_context_changes(monkeypatch, trans
             old_option=options.options[0]
             if transition=="page": app._task_page(start=False)
             elif transition=="mode": app._inspect_task("stdout")
-            elif transition=="project": app._read_projects()
+            elif transition=="project": app._apply_compute_scope("self")
             elif transition=="tab":
                 app.query_one("#views",TabbedContent).active="storage"
                 await pilot.pause(.05)
@@ -304,8 +303,7 @@ def test_late_file_page_cannot_restore_old_selection_or_link(monkeypatch):
         return response(call,count)
     async def scenario(client):
         nonlocal block
-        app=Workbench(client,JobQuery(site_id="site-a"),initial_view="tasks",refresh_seconds=999,
-                      tasks_workspace_key="project:project-example")
+        app=Workbench(client,task_query(JobQuery(site_id="site-a"), "project:project-example"),initial_view="compute", compute_mode="records",refresh_seconds=999)
         app.open_url=lambda _:None
         async with app.run_test(size=(60,24)) as pilot:
             await open_files(app,pilot)
@@ -332,8 +330,7 @@ def test_content_wrong_path_cannot_replace_the_selected_file(monkeypatch):
         if "/content?" in call["path"]: body = {**body, "relative_path": "outputs/different.txt"}
         return status, body
     async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999)
         async with app.run_test(size=(60,24)) as pilot:
             await open_files(app,pilot)
             await pilot.press("home", "enter"); await settled(app,pilot)
@@ -373,8 +370,8 @@ def test_save_binary_from_same_task_over_real_http_and_retry_existing_path(tmp_p
     existing.write_bytes(b"keep")
 
     async def scenario(client, calls):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example", language=language)
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999,
+                         language=language)
         app.open_url = lambda _: pytest.fail("saving must not open a browser")
         async with app.run_test(size=(40, 18)) as pilot:
             screen = await open_save(app, pilot)
@@ -408,8 +405,8 @@ def test_save_binary_from_same_task_over_real_http_and_retry_existing_path(tmp_p
             assert "".join(app.t("content_unsupported").split()) in "".join(text.split())
             assert app.query_one("#details-scroll").region.height >= 3
             app.save_screenshot(str(tmp_path / f"saved-binary-{language}.svg"))
-            await click(app, pilot, "#task-cost")
-            await click(app, pilot, "#task-files")
+            await click(app, pilot, "#compute-cost")
+            await click(app, pilot, "#compute-files")
             assert app.task_file_page.values["status"] == "unsupported"
             assert app.selected_artifact[1] == SECOND_REF and app._can_save_artifact()
 
@@ -454,8 +451,7 @@ def test_save_cancellation_drains_worker_before_close_and_never_shows_old_succes
 
     async def scenario(client):
         client.download_managed_run_artifact = download
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999)
         app.open_url = lambda _: pytest.fail("saving must not open a browser")
         async with app.run_test(size=(40, 18)) as pilot:
             screen = await open_save(app, pilot)
@@ -467,7 +463,7 @@ def test_save_cancellation_drains_worker_before_close_and_never_shows_old_succes
             assert started.is_set()
             if transition == "cancel": await pilot.press("escape")
             elif transition in {"mode", "late_success"}: app._inspect_task("detail")
-            elif transition == "project": app._read_projects()
+            elif transition == "project": app._apply_compute_scope("self")
             elif transition == "tab": app.query_one("#views", TabbedContent).active = "resources"
             elif transition == "quit": await pilot.press("ctrl+q")
             else:
@@ -505,8 +501,7 @@ def test_save_denial_uses_existing_task_and_file_authority_boundary(monkeypatch,
 
     async def scenario(client):
         client.download_managed_run_artifact = download
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks", refresh_seconds=999,
-                        tasks_workspace_key="project:project-example")
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", refresh_seconds=999)
         async with app.run_test(size=(40, 18)) as pilot:
             await open_save(app, pilot)
             await pilot.press("enter")

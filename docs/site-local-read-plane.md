@@ -62,6 +62,11 @@ site gateway reads local native facts under a short-lived capability.
 
 Dynamic facts default to on-demand native reads at the site. The gateway
 normalizes those reads; it is not a replicated scheduler or storage database.
+The terminal's common compute workspace is resolved by Portal's existing job
+READ owner before issuance. It does not enter the signed grant or gateway query:
+the gateway continues to verify the same exact native user/account constraints.
+This request extension needs a paired Center/client release, not a new gateway
+operation, account mapping cache or authorization service.
 Coalesce concurrent identical reads and use brief, explicitly timestamped
 reuse where the source cost warrants it. A new UI does not require a central
 telemetry store or an always-running full-inventory collector.

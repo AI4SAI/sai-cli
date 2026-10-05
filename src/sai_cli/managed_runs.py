@@ -28,7 +28,7 @@ def clean_run_ref(value: object) -> str:
 def clean_tasks_workspace(value: object) -> str:
     if (not isinstance(value, str) or len(value) > 128
             or re.fullmatch(r"(?:personal|org|project):[A-Za-z0-9][A-Za-z0-9._:-]*", value) is None):
-        raise ConfigError("tasks workspace must be personal:<id>, org:<id>, or project:<id>")
+        raise ConfigError("compute workspace must be personal:<id>, org:<id>, or project:<id>")
     return value
 
 

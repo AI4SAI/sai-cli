@@ -25,6 +25,32 @@ from sai_cli.transport import JsonTransport
 from test_site_transport import http_endpoint
 
 
+def task_query(query, workspace):
+    from dataclasses import replace
+    return replace(query, scope=workspace.split(":", 1)[0] + "-account", workspace_key=workspace,
+                   account_name=None, account_id=None) if workspace else query
+
+
+def show_view(app, view):
+    if view in {"jobs", "tasks"}:
+        app._select_compute_mode("queue" if view == "jobs" else "records")
+    else:
+        app.query_one("#views", TabbedContent).active = view
+
+
+def choose_compute_scope(app, key):
+    # Existing reader-isolation tests supply their authorized directory as a DTO.
+    # The unified HTTP journey separately verifies directory acquisition.
+    from sai_cli.managed_runs import ManagedRunWorkspaces
+    from test_managed_workspaces import sample
+    payload = sample()
+    payload["items"] = [{"workspace_key": key, "label": "Selected scope", "organization_label": None}]
+    app.task_projects = ManagedRunWorkspaces.from_payload(payload, site_id=payload["site_id"], limit=50,
+        cursor=None, request_id="test-choice")
+    app._sync_scope_picker()
+    app.query_one("#compute-scope", Select).value = key
+
+
 async def settled(app, pilot):
     for _ in range(100):
         await pilot.pause(.02)
@@ -73,15 +99,15 @@ def test_workbench_resource_comparison_to_job_and_cost_over_http(tmp_path, job_p
             await pilot.press("up", "enter")
             await pilot.click("#use-partition")
             await settled(app, pilot)
-            assert app.view == "jobs" and app.job_query.partition == "gpu-standard"
-            app.query_one("#jobs-table", DataTable).focus()
+            assert app.read_view == "jobs" and app.job_query.partition == "gpu-standard"
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("enter")
             await settled(app, pilot)
             assert app.selected_job == "12345"
             assert "Reason / nodes:" in str(app.query_one("#details", Static).render())
-            await pilot.click("#view-cost")
+            await pilot.click("#compute-cost")
             await settled(app, pilot)
-            assert app.view == "jobs" and app.selected_job == "12345"
+            assert app.read_view == "jobs" and app.selected_job == "12345"
             assert app.job_cost is not None
             detail = str(app.query_one("#details", Static).render())
             app._tick()
@@ -142,15 +168,14 @@ def test_scope_switch_discards_delayed_old_response_and_coalesces_refresh(job_pa
         async with app.run_test(size=(100, 30)) as pilot:
             try:
                 await settled(app, pilot)
-                app.query_one("#views", TabbedContent).active = "jobs"
+                app._select_compute_mode("queue")
                 for _ in range(80):
                     if started.is_set(): break
                     await pilot.pause(.02)
                 assert started.is_set()
-                app.query_one("#scope", Select).value = "org-account"
-                app.query_one("#account", Input).value = "org-example"
-                await pilot.click("#apply")
-                assert app.query_one("#jobs-table", DataTable).row_count == 0
+                choose_compute_scope(app, "org:example")
+                await pilot.pause(.02)
+                assert app.query_one("#compute-table", DataTable).row_count == 0
                 for _ in range(20): app.request_read()
                 release.set()
                 await settled(app, pilot)
@@ -206,7 +231,7 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
         app = Workbench(client, JobQuery(site_id="site-a"), refresh_seconds=999)
         async with app.run_test(size=(80, 24)) as pilot:
             await settled(app, pilot)
-            app.query_one("#views", TabbedContent).active = "jobs"
+            app._select_compute_mode("queue")
             await settled(app, pilot)
             app.query_one("#views", TabbedContent).active = "storage"
             await settled(app, pilot)
@@ -214,7 +239,7 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
             app._tick()
             await settled(app, pilot)
             assert not any("quota-summary" in call["path"] for call in calls)
-            assert not app.query_one("#job-scope-controls").display
+            assert not app.query_one("#compute-scope-row").display
             assert "Not selected" in str(app.query_one("#context", Static).render())
             app.query_one("#storage-workspace", Select).value = "personal:storage-user"
             await settled(app, pilot)
@@ -231,9 +256,9 @@ def test_storage_requires_its_own_workspace_and_denial_does_not_clear_jobs(job_p
             await settled(app, pilot)
             assert "storage" not in app.results and "jobs" in app.results and app.catalog is not None
             assert str(app.query_one("#storage-summary", Static).render()) == ""
-            app.query_one("#views", TabbedContent).active = "jobs"
+            app._select_compute_mode("queue")
             await settled(app, pilot)
-            assert app.query_one("#job-scope-controls").display
+            assert app.query_one("#compute-scope-row").display
 
     with http_endpoint(reply) as (origin, calls):
         provider = SimpleNamespace(get=lambda: TokenLease("test-session", None, "environment"))

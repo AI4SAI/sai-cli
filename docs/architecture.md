@@ -166,9 +166,19 @@ The first client supports these scopes:
 | CLI scope | Server meaning | Selector |
 | --- | --- | --- |
 | `self` | Jobs owned by the current scheduler user | No account selector |
-| `personal-account` | Jobs charged to the actor's personal compute account | Required account name or ID |
-| `org-account` | Jobs charged to an organization account the actor may view | Required account name or ID |
-| `project-account` | Jobs charged to a project account the actor may view | Required account name or ID |
+| `personal-account` | Jobs charged to the actor's personal compute account | One workspace key, account name or account ID |
+| `org-account` | Jobs charged to an organization account the actor may view | One workspace key, account name or account ID |
+| `project-account` | Jobs charged to a project account the actor may view | One workspace key, account name or account ID |
+
+The terminal Compute area keeps one read scope across its Current queue and
+Records and results purposes. Both accept the same canonical workspace key;
+Portal's existing job-visibility owner resolves its native account and then
+applies current READ policy. Business owner IDs and native account IDs are not
+interchangeable. A scope selection changes no directory, payer or execution.
+Self and legacy native-account selectors remain queue-only until the user
+explicitly chooses a business scope. No cross-account managed query is invented.
+Native and Run records are not joined by job number or made into a second task
+database; each selected object retains its source, freshness and permitted actions.
 
 There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
 `--account` mode. Administrative fleet views belong to a separate management

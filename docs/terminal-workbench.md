@@ -9,6 +9,7 @@ Install the optional extra and use the existing connection configuration:
 python3 -m pip install '.[tui]'
 sai tui
 sai tui --language en-US
+sai tui --workspace-key project:example
 sai tui --site site-a --scope project-account --account project-example
 ```
 
@@ -20,8 +21,9 @@ shared login-node package or gateway.
 ## A useful first workflow
 
 The workbench starts with Overview: identity, authorized funds and unread
-messages. On managed nodes it retains the applied login Account; Jobs and
-Storage keep their independent, explicitly selected scopes.
+messages. Compute has one applied read scope and two purposes, Current queue
+and Records and results. Storage and the login/default billing identity remain
+independent.
 
 1. Resources is the site's published catalog. It has no account, job state or
    partition filters. Press Enter to select a compute candidate and read its
@@ -38,9 +40,10 @@ Storage keep their independent, explicitly selected scopes.
    cannot be selected as compute partitions. Refresh, errors and tab changes
    clear the candidate and Web link; inspecting a candidate pauses catalog
    polling. Copy link remains explicit for terminals without a local browser.
-3. Use View jobs to apply the explicitly selected candidate partition to the Jobs
-   view. Change scope, account name/ID, partition or states and select Apply.
-   The applied context remains visible; draft controls do not change authority.
+3. Use View jobs to open Compute's Current queue in the same applied scope,
+   narrowed to the selected partition. Choose a named account through Read scope;
+   partition and state filters are applied explicitly. The scope header remains
+   visible in Resources and Compute.
 4. Press Enter on a job or choose Details for its separately authorized
    detail. Allocation instead requests one allocation snapshot from the
    explicitly configured site gateway. Escape returns to the list. Ordinary
@@ -49,7 +52,7 @@ Storage keep their independent, explicitly selected scopes.
    mode; missing configuration displays an error. Neither path falls back.
 5. Choose Cost for the selected job to read its current state and running
    estimate together. Portal checks billing access separately and prices this
-   exact native observation. F5 replaces the snapshot; Escape returns to Jobs.
+   exact native observation. F5 replaces the snapshot; Escape returns to Current queue.
    The list's state and partition filters do not hide a selected job that has
    changed state. Amounts remain non-final, with source time and uncertainty.
    The separate estimate tab is removed; batch `sai jobs cost` retains its
@@ -87,7 +90,7 @@ Storage rows in Resources are published products only, not quota usage or
 file access. The separate Storage tab chooses an authorized scope by name from
 a bounded directory, then reads the explicitly selected stored or native source.
 Highlighting an option does not apply it; Enter confirms the choice. Directory
-pages do not automatically select their first item. Jobs and Tasks never select
+pages do not automatically select their first item. Compute never selects
 that storage scope. `sai storage workspaces` exposes the same names and keys for
 scripts. `sai tui --storage-workspace-key org:example` first resolves that exact
 authorized name, without scanning the directory or inventing an option.
@@ -134,7 +137,7 @@ settled billing or hardware telemetry features.
   tables can scroll horizontally. Comparison remains a table of the same
   validated facts, not a new product or pricing model.
 
-All five views share three layouts: browse for lists and project discovery,
+All four views share three layouts: browse for lists and scope discovery,
 inspect for a selected object, and summary for Overview and Storage. Inspection
 keeps the current object above the evidence. At 40 or 60 columns, or below 28
 rows, the list and filters give way to the evidence; at 100 columns with enough
@@ -163,15 +166,30 @@ amounts. A cost-only denial leaves task metadata readable, while Run-scope
 revocation and authentication failure keep the existing protected-data cleanup.
 W opens the exact Run's Cost tab without putting amounts in the URL.
 
-Tasks keeps an explicit read scope independent of Jobs, Storage and future
-computation funding. Choose a readable personal, organization or project account
-by its authorized name and kind. Choices are bounded pages; More scopes reads
-the next page and selecting an account applies only that task read scope.
+Compute's Current queue and Records and results use the same explicit read
+scope. Choose a readable personal, organization or project account by its
+authorized name and kind. Choices are bounded pages; the scope Next action
+reads the next directory page. Selecting an account applies its read scope to
+both purposes, independently of Storage and future computation funding.
 Moving the highlight does not change the current scope. Scripts can discover
 the same labels and exact keys with `sai runs workspaces --site site-a`.
-The explicit `--tasks-workspace-key` option first resolves the exact authorized
+The explicit `--workspace-key` option (`--tasks-workspace-key` is its legacy alias) first resolves the exact authorized
 name through the same directory, without scanning pages or creating a fake
 account choice. Every task read rechecks current access.
+
+The default Self selection reads the caller's current native jobs across
+accounts. Records and results then asks for a named account; it does not issue
+an all-account history query or silently choose one. Existing `--account` and
+`--account-id` invocations retain their native queue scope. They cannot select
+managed history by guessing a business ID. A denied or unavailable source
+clears its observations while keeping the chosen scope visible for retry.
+
+There is one list and one current object. Switching purpose returns to a list;
+it does not identify a Run from a matching scheduler number. The queue retains
+SSH jobs and the server's member-visibility rules; managed records show the
+caller's own accepted computations. Native jobs without a Run do not acquire
+file access or settled cost through this interface. Existing Web links remain
+bound to their current consumer until the Pilot owner migrates that contract.
 
 The task list includes accepted managed runs that have left the live queue.
 Enter opens the recorded status and its source time. It does not query Slurm or
@@ -290,7 +308,7 @@ information hierarchy and visual verification. The CLI defaults to Chinese;
 unchanged. Bilingual navigation, paginated project discovery, confirmation
 separate from highlight, narrow-window task details and return-to-list selection
 are implemented. The shared layout applies the existing teal theme, evidence
-hierarchy and contextual actions across all five views. Local rendered review
+hierarchy and contextual actions across all four views. Local rendered review
 covers both languages and narrow/short windows. A bounded real SSH run now
 covers task evidence, resizing, colour/monochrome modes and disconnect cleanup.
 Physical terminal fonts, clipboard behaviour, network diversity and longer

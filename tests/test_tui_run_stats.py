@@ -1,3 +1,4 @@
+from test_tui import task_query
 import asyncio
 import threading
 from urllib.parse import parse_qs, urlsplit
@@ -48,12 +49,12 @@ def responder(state):
 
 
 def app_for(origin,language="en-US"):
-    return Workbench(client_for(origin),JobQuery(site_id="site-a"),initial_view="tasks",language=language,
-                     tasks_workspace_key="project:project-example",refresh_seconds=999)
+    return Workbench(client_for(origin),task_query(JobQuery(site_id="site-a"), "project:project-example"),initial_view="compute", compute_mode="records",language=language,
+                     refresh_seconds=999)
 
 
 async def open_detail(app,pilot):
-    await settled(app,pilot);app.query_one("#tasks-table",DataTable).focus()
+    await settled(app,pilot);app.query_one("#compute-table",DataTable).focus()
     await pilot.press("enter");await settled(app,pilot)
 
 
@@ -67,7 +68,7 @@ def test_runtime_stats_are_explicit_manual_and_six_modes_fit_short_screens(tmp_p
             await open_detail(app,pilot)
             metadata=app.results["tasks"]
             assert not any('/stats?' in call["path"] for call in calls)
-            await click(app,pilot,"#task-stats")
+            await click(app,pilot,"#compute-resources")
             assert app.results["tasks"] is metadata and app.task_stats is not None
             assert not app._presentation().automatic_refresh and not app.check_action("pause",())
             assert not app.query_one("#task-next").display
@@ -77,9 +78,9 @@ def test_runtime_stats_are_explicit_manual_and_six_modes_fit_short_screens(tmp_p
             for width,height in ((40,18),(60,24),(100,32)):
                 await pilot.resize_terminal(width,height);await pilot.pause(.05)
                 for mode in ("detail","stdout","stderr","files","cost","stats"):
-                    region=app.query_one(f"#task-{mode}").region
+                    region=app.query_one(f"#compute-{'resources' if mode == 'stats' else mode}").region
                     assert 0<=region.x<region.right<=width and region.bottom<height, (mode,region)
-                assert app.query_one("#task-evidence-actions").region.height==(2 if width<60 else 1)
+                assert app.query_one("#compute-evidence-actions").region.height==(2 if width<60 else 1)
                 assert app.query_one("#details-scroll").region.height>=max(6,height//3)
                 visible='\n'.join(strip.text for strip in app.screen._compositor.render_strips())
                 assert '12345.batch' in visible and '240' in visible and '1073741824' in visible
@@ -91,7 +92,7 @@ def test_runtime_stats_are_explicit_manual_and_six_modes_fit_short_screens(tmp_p
                 assert app.t('stats_'+name) in details(app) and '240' not in details(app)
                 assert '1073741824' not in details(app)
             for mode in ("cost","files","stdout","stderr","detail"):
-                await click(app,pilot,f"#task-{mode}")
+                await click(app,pilot,f"#compute-{'resources' if mode == 'stats' else mode}")
                 assert app.task_stats is None
                 assert app._presentation().automatic_refresh==(mode=="detail")
     with http_endpoint(responder(state)) as (origin,calls):asyncio.run(scenario(origin,calls))
@@ -104,14 +105,14 @@ def test_stats_failure_clears_only_the_authority_that_failed(status):
         app=app_for(origin)
         async with app.run_test(size=(40,24)) as pilot:
             await open_detail(app,pilot);metadata=app.results["tasks"]
-            await click(app,pilot,"#task-files")
-            await click(app,pilot,"#task-stats")
+            await click(app,pilot,"#compute-files")
+            await click(app,pilot,"#compute-resources")
             state['status']=status;await pilot.press('f5');await settled(app,pilot)
             assert app.task_stats is None and '1073741824' not in details(app)
             if status==503:
                 assert app.results['tasks'] is metadata and app.task_file_page is None
                 assert app.selected_run=='run-example-1'
-                await click(app,pilot,'#task-detail');assert 'simulation.py' in details(app)
+                await click(app,pilot,'#compute-detail');assert 'simulation.py' in details(app)
             else:
                 assert 'tasks' not in app.results and app.task_file_page is None and app.selected_run is None
                 if status==401:assert app.results=={} and app.paused
@@ -127,17 +128,17 @@ def test_late_stats_do_not_restore_old_metrics_or_revoke_new_selection(transitio
         app=app_for(origin)
         async with app.run_test(size=(60,24)) as pilot:
             await open_detail(app,pilot)
-            app.query_one('#task-stats',Button).focus();await pilot.press('enter')
+            app.query_one('#compute-resources',Button).focus();await pilot.press('enter')
             for _ in range(100):
                 if state['started'].is_set():break
                 await pilot.pause(.02)
             assert state['started'].is_set()
             try:
                 if transition=='detail':
-                    app.query_one('#task-detail',Button).focus();await pilot.press('enter')
+                    app.query_one('#compute-detail',Button).focus();await pilot.press('enter')
                 elif transition=='tab':
                     app.query_one('#views',TabbedContent).active='resources';await pilot.pause(.05)
-                elif transition=='project':app._read_projects();await pilot.pause(.05)
+                elif transition=='project':app._apply_compute_scope("self");await pilot.pause(.05)
                 else:
                     await pilot.press('escape')
             finally:state['release'].set()
@@ -145,9 +146,9 @@ def test_late_stats_do_not_restore_old_metrics_or_revoke_new_selection(transitio
             assert app.task_stats is None and '1073741824' not in details(app) and 'tasks' not in app._failed_views
             if transition=='detail':assert app.selected_run=='run-example-1'
             if transition=='tab':assert app.view=='resources'
-            if transition=='project':assert app.tasks_workspace_key is None and app.task_projects is not None
+            if transition=='project':assert app.job_query.workspace_key is None and app.task_projects is not None
             if transition=='run':
                 assert app.selected_run is None
-                app.query_one('#tasks-table',DataTable).focus();await pilot.press('down','enter');await settled(app,pilot)
+                app.query_one('#compute-table',DataTable).focus();await pilot.press('down','enter');await settled(app,pilot)
                 assert app.selected_run=='run-other' and app.task_stats is None
     with http_endpoint(responder(state)) as (origin,_):asyncio.run(scenario(origin))

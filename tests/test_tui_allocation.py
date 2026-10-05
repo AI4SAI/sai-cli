@@ -1,3 +1,4 @@
+from test_tui import choose_compute_scope
 import asyncio
 from copy import deepcopy
 from dataclasses import replace
@@ -92,23 +93,23 @@ def test_http_allocation_uses_exact_array_id_and_refreshes_one_complete_snapshot
         app = Workbench(client, JobQuery(site_id="site-a", cluster_id="cluster-a", partition="gpu-standard"), refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            app.query_one("#views", TabbedContent).active = "jobs"
+            app._select_compute_mode("queue")
             await settled(app, pilot)
-            await pilot.click("#view-allocation")
+            await pilot.click("#compute-resources")
             await settled(app, pilot)
             assert app.selected_job == "12345_0" and isinstance(app.results["jobs"], SiteJobAllocationResult)
             assert "[red]literal[/red]" in detail_text(app)
             assert "compute-a" in detail_text(app) and "Unknown" in detail_text(app)
             app._tick()
             assert not app._pending and not app._reading
-            await pilot.click("#view-job")
+            await pilot.click("#compute-detail")
             await settled(app, pilot)
             assert app.job_mode == "detail" and app.results["jobs"].items[0].canonical_id == "12345_0"
             await pilot.press("escape")
             await settled(app, pilot)
-            app.query_one("#jobs-table", DataTable).focus()
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("down")
-            await pilot.click("#view-allocation")
+            await pilot.click("#compute-resources")
             await settled(app, pilot)
             assert app.selected_job == "12345_7"
             snapshot["restart_count"] = 1
@@ -158,13 +159,14 @@ def test_allocation_missing_native_configuration_shows_existing_error_without_ex
 
     async def scenario(client):
         app = Workbench(client, JobQuery(site_id="site-a", cluster_id="cluster-a"),
-                        initial_view="jobs", refresh_seconds=999)
+                        initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            await pilot.click("#view-allocation")
+            await pilot.click("#compute-resources")
             await settled(app, pilot)
             status = str(app.query_one("#status", Static).render())
-            assert "check site connection settings" in status and "configuration_invalid" in status
+            assert "check site connection settings" in status and "configuration_invalid" not in app.export_screenshot()
+            assert not app.query_one("#status").display
             assert "jobs" not in app.results and str(app.query_one("#details", Static).render()) == ""
 
     with http_endpoint(lambda *_: (200, job_payload)) as (portal, reads):
@@ -186,9 +188,9 @@ def test_late_allocation_never_overwrites_new_object_mode_or_scope(job_payload, 
         def list_jobs(self, query):
             payload = deepcopy(job_payload)
             payload.update(scope=query.scope.replace("-", "_"), slurm_user="alice" if query.scope == "self" else None,
-                           slurm_account=query.account_name)
+                           slurm_account=("org-example" if query.workspace_key else query.account_name))
             payload["items"] = [{**payload["items"][0], "array_task_id": task,
-                "slurm_account": query.account_name or "personal-alice"} for task in ("0", "7")]
+                "slurm_account": "org-example" if query.workspace_key else query.account_name or "personal-alice"} for task in ("0", "7")]
             payload["count"] = 2
             return JobResult.from_payload(payload, request_id="list")
         def show_job(self, identifier, query):
@@ -204,31 +206,30 @@ def test_late_allocation_never_overwrites_new_object_mode_or_scope(job_payload, 
             payload["job"]["array_task_id"] = identifier.split("_")[1]
             return SiteJobAllocationResult.from_payload(payload, request_id="allocation")
     async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(80, 24)) as pilot:
             try:
                 await settled(app, pilot)
-                await pilot.click("#view-allocation")
+                await pilot.click("#compute-resources")
                 for _ in range(80):
                     if started.is_set(): break
                     await pilot.pause(.02)
                 assert started.is_set()
                 if transition == "object":
-                    app.query_one("#jobs-table", DataTable).focus()
+                    app.query_one("#compute-table", DataTable).focus()
                     await pilot.press("down")
-                    button = app.query_one("#view-allocation", Button)
+                    button = app.query_one("#compute-resources", Button)
                     # Textual suppresses another activation during its press animation.
                     await pilot.pause(button.active_effect_duration)
                     button.focus()
                     await pilot.press("enter")
                     assert app.selected_job == "12345_7" and app._pending
                 elif transition == "detail":
-                    await pilot.click("#view-job")
+                    await pilot.click("#compute-detail")
                 elif transition == "scope":
                     await pilot.press("escape")
-                    app.query_one("#scope", Select).value = "org-account"
-                    app.query_one("#account", Input).value = "org-example"
-                    await pilot.click("#apply")
+                    choose_compute_scope(app, "org:example")
+                    await pilot.pause(.02)
                 elif transition == "escape":
                     await pilot.press("escape")
                 else:
@@ -240,7 +241,7 @@ def test_late_allocation_never_overwrites_new_object_mode_or_scope(job_payload, 
             if transition == "object":
                 assert calls == ["12345_0", "12345_7"] and app.results["jobs"].job.canonical_id == "12345_7"
             else:
-                assert calls == ["12345_0"] and app.job_mode == "detail"
+                assert calls == ["12345_0"] and app.job_mode == ("allocation" if transition == "tab" else "detail")
                 assert not any(isinstance(result, SiteJobAllocationResult) for result in app.results.values())
             if transition == "scope":
                 assert app.results["jobs"].scope == "org_account"
@@ -265,9 +266,9 @@ def test_allocation_auth_failure_clears_all_five_views_and_keeps_overview_accoun
             await settled(app, pilot)
             for view in ("resources", "storage"):
                 app.results[view] = object()
-            app.query_one("#views", TabbedContent).active = "jobs"
+            app._select_compute_mode("queue")
             await settled(app, pilot)
-            await pilot.click("#view-allocation")
+            await pilot.click("#compute-resources")
             await settled(app, pilot)
             assert app.results == {} and app.paused and app.selected_job is None
             assert app.overview_account == "org-example" and overview_calls == ["org-example"]

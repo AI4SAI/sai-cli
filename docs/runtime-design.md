@@ -216,11 +216,14 @@ Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
 JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
-Tasks in `sai tui` uses its own authorized account-name selection or explicit
-`--tasks-workspace-key`. Explicit preselection resolves its name through an exact
+The Compute area in `sai tui` uses one authorized account-name selection or explicit
+`--workspace-key` for both Current queue and Records and results.
+`--tasks-workspace-key` is an alias for that same scope, not independent state.
+Explicit preselection resolves its name through an exact
 `runs workspaces --workspace-key` read, without scanning the directory or
-inventing a choice. Tasks operates without
-inheriting the Jobs account, storage workspace or Overview's default identity.
+inventing a choice. Storage and Overview's default billing identity remain
+independent. Self/native-account-only scopes keep their queue meaning; opening
+records requires an explicit named account selection, never an automatic switch.
 The existing worker serializes all reads. Run metadata may refresh; log and
 output pages are explicit, one-page observations. Next/Start replace the page;
 they do not append an unbounded log. Changing read scope, mode or tab invalidates
@@ -239,7 +242,11 @@ clear the corresponding navigation; missing or changed files stop restoration.
 
 - `self` rejects account selectors.
 - `personal-account`, `org-account`, and `project-account` require exactly one
-  of `--account` or `--account-id` under the current Portal contract.
+  of `--workspace-key`, `--account` or `--account-id`.
+- A workspace key supplies the account kind when `--scope` is omitted. An
+  explicit scope must match that kind; explicit `self` cannot take a workspace.
+  Portal resolves the business key to its native account under the original READ
+  policy. The client never uses the workspace suffix as `--account-id`.
 - The CLI maps hyphenated user-facing values to the control-plane underscore
   values. The server remains authoritative.
 

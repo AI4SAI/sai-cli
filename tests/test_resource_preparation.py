@@ -76,9 +76,10 @@ def test_resource_candidate_comparison_and_prepare_are_separate_without_job_hist
         app.open_url = opened.append
         async with app.run_test(size=(width, 24)) as pilot:
             await settled(app, pilot)
-            assert not app.query_one("#job-scope-controls").display and not app.query_one("#job-filter-controls").display
+            assert not app.query_one("#compute-scope-row").display and not app.query_one("#job-filter-controls").display
             context = str(app.query_one("#context", Static).render())
-            assert "irrelevant-account" not in context and app.t("catalog_context") in context
+            assert app.t("compute_legacy", account="irrelevant-account") in context
+            assert app.job_query.account_name == "irrelevant-account"
             assert app.selected_resource is None and app.compared == [] and len(calls) == 1
             assert app.query_one("#prepare-resource", Button).disabled
             table = app.query_one("#resources-table", DataTable)

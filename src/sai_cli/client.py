@@ -79,6 +79,7 @@ class JobQuery:
     states: tuple[str, ...] = ()
     partition: str | None = None
     limit: int = 100
+    workspace_key: str | None = None
 
     def validated(self, *, detail: bool = False) -> "JobQuery":
         if not isinstance(self.scope, str):
@@ -93,14 +94,19 @@ class JobQuery:
         cluster_id = clean_token(self.cluster_id, field="cluster", maximum=64)
         account_name = clean_token(self.account_name, field="account", maximum=64)
         account_id = clean_token(self.account_id, field="account ID", maximum=64)
+        workspace = clean_tasks_workspace(self.workspace_key) if self.workspace_key is not None else None
         if account_name and account_id:
             raise ConfigError("use either --account or --account-id, not both")
-        if self.scope == "self" and (account_name or account_id):
+        if workspace is not None and (account_name or account_id):
+            raise ConfigError("use --workspace-key, --account, or --account-id, not more than one")
+        if self.scope == "self" and (account_name or account_id or workspace):
             raise ConfigError("self scope does not accept an account selector")
+        if workspace is not None and self.scope != workspace.split(":", 1)[0] + "-account":
+            raise ConfigError("workspace kind must match --scope")
         if self.scope in {"personal-account", "org-account", "project-account"} and not (
-            account_name or account_id
+            account_name or account_id or workspace
         ):
-            raise ConfigError(f"{self.scope} requires --account or --account-id")
+            raise ConfigError(f"{self.scope} requires --workspace-key, --account, or --account-id")
         if isinstance(self.limit, bool) or not isinstance(self.limit, int) or not 1 <= self.limit <= 500:
             raise ConfigError("limit must be between 1 and 500")
         if detail and self.partition:
@@ -114,6 +120,7 @@ class JobQuery:
             states=tuple(clean_states(",".join(self.states))),
             partition=clean_token(self.partition, field="partition", maximum=64),
             limit=self.limit,
+            workspace_key=workspace,
         )
 
     def parameters(
@@ -139,6 +146,8 @@ class JobQuery:
             params["limit"] = query.limit
         elif not detail:
             params["partition"] = query.partition
+        if query.workspace_key is not None:
+            params["workspace_key"] = query.workspace_key
         return params
 
     def capability_request(
@@ -162,7 +171,7 @@ class JobQuery:
             if detail
             else None
         )
-        return {
+        body: dict[str, object] = {
             "operation": operation,
             "site_id": query.site_id,
             "cluster_id": query.cluster_id,
@@ -174,6 +183,9 @@ class JobQuery:
             "job_id": clean_job_id,
             "limit": query.limit if operation == "jobs.list" else None,
         }
+        if query.workspace_key is not None:
+            body["workspace_key"] = query.workspace_key
+        return body
 
 
 class PortalClient:
@@ -293,25 +305,14 @@ class PortalClient:
         path: str,
         *,
         query: dict[str, str | int | None],
-        operation: str,
-        capability_request: dict[str, object] | None = None,
-        job_id: str | None = None,
+        capability_request: dict[str, object] | None,
     ) -> JsonResponse:
         lease = self.token_provider.get()
         capability: CapabilityLease | None = None
         if self.capability_provider is not None:
-            request_body = capability_request or {
-                "operation": operation,
-                "site_id": query.get("site_id"),
-                "cluster_id": query.get("cluster_id"),
-                "scope_type": query.get("scope_type"),
-                "slurm_account_id": query.get("slurm_account_id"),
-                "slurm_account_name": query.get("slurm_account_name"),
-                "partition": query.get("partition"),
-                "states": [],
-                "job_id": job_id,
-                "limit": query.get("limit"),
-            }
+            if capability_request is None:
+                raise ContractError("the site-read capability request is missing")
+            request_body = capability_request
             lease, capability = self._acquire_capability(request_body, lease=lease)
         try:
             return self._get_with_lease(
@@ -394,10 +395,12 @@ class PortalClient:
             "site_id": request.site_id, "cluster_id": request.cluster_id, "scope_type": _SCOPES[request.scope],
             "slurm_account_id": request.account_id, "slurm_account_name": request.account_name,
             "source_preference": "live",
+            **({"workspace_key": request.workspace_key} if request.workspace_key is not None else {}),
         })
         result = JobWebContext.from_payload(response.payload, request_id=response.request_id)
         result.require_request_binding(site_id=request.site_id, cluster_id=request.cluster_id, scope=_SCOPES[request.scope],
-                                       account_id=request.account_id, job_id=identifier, request_id=response.request_id)
+                                       account_id=request.account_id, workspace_key=request.workspace_key,
+                                       job_id=identifier, request_id=response.request_id)
         return result
 
     def _central_get(self, path: str, *, query: dict[str, str | int | None]) -> JsonResponse:
@@ -587,7 +590,6 @@ class PortalClient:
         response = self._authorized_get(
             path,
             query=query.parameters(),
-            operation="jobs.list",
             capability_request=capability_request,
         )
         result = JobResult.from_payload(
@@ -620,9 +622,7 @@ class PortalClient:
         response = self._authorized_get(
             path,
             query=query.parameters(detail=True),
-            operation="jobs.detail",
             capability_request=capability_request,
-            job_id=clean_job_id,
         )
         result = JobResult.from_payload(response.payload, request_id=response.request_id)
         request = query.validated(detail=True)
@@ -646,10 +646,8 @@ class PortalClient:
         response = self._authorized_get(
             f"{prefix}/{quote(clean_job_id, safe='')}",
             query={**request.parameters(detail=True), "include_estimate": "true"},
-            operation="jobs.detail",
             capability_request=(request.capability_request(operation="jobs.detail", job_id=clean_job_id)
                                 if self._cli_surface_enabled else None),
-            job_id=clean_job_id,
         )
         result = JobCostResult.from_payload(response.payload, request_id=response.request_id)
         result.observation.require_request_binding(
@@ -679,7 +677,6 @@ class PortalClient:
             # ``limit`` parameter.  Keep the user's limit local so it cannot
             # drift into an unsupported server query key.
             query=query.parameters(include_limit=False),
-            operation="billing.running-estimate",
             capability_request=capability_request,
         )
         result = RunningEstimateResult.from_payload(

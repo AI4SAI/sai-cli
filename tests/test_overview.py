@@ -240,7 +240,7 @@ def test_interactive_overview_refresh_navigation_and_revocation(tmp_path, monkey
         app.open_url = opened.append
         async with app.run_test(size=(80, 24)) as pilot:
             await settled(app, pilot)
-            assert "overview" in app.results and not app.query_one("#job-scope-controls").display
+            assert "overview" in app.results and not app.query_one("#compute-scope-row").display
             assert app.job_query.account_name == "org-jobs" and app.storage_workspace_key == "org:storage"
             await pilot.click("#overview-messages")
             assert opened == [app.results["overview"].messages_url(client.transport.base_url)]

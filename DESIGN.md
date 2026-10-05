@@ -10,9 +10,17 @@ scope, observation time and next action understandable.
 The header gives the current read scope and site, with at most two lines of
 context. Use authorized display names in normal selection; keep opaque keys
 available for explicit command arguments and technical details. Personal,
-organization and project kinds distinguish the authorized names. The task read
-scope, native job scope, storage workspace and default billing identity are
-independent. Selecting one never silently changes another.
+organization and project kinds distinguish the authorized names. Compute has
+one applied read scope for Current queue and Records and results. Storage and
+the default billing identity remain independent; selecting a read scope changes
+neither funding nor a working directory.
+
+Self means the current user's native queue across accounts. It has no matching
+all-account managed-history reader. Records asks for an explicit named account
+in the same selector and never chooses the personal account automatically.
+Legacy native account-name/ID arguments remain queue-only until the user picks
+a named workspace. Workspace IDs are passed as workspace selectors, never as
+Slurm account IDs or inferred native names.
 
 Task scope discovery is a bounded server page. Highlighting a choice is different
 from applying it: arrow keys explore, Enter confirms, Escape cancels. Loading
@@ -34,8 +42,8 @@ task project's authority to populate the storage selector.
 
 ## Information hierarchy
 
-The five views share three presentation phases. Browse gives the main area to
-the list or project discovery. Inspect gives it to the selected object and its
+Overview, Resources, Compute and Storage share three presentation phases. Browse gives the main area to
+the list or scope discovery. Inspect gives it to the selected object and its
 evidence. Summary gives the whole area to Overview or Storage. These phases are
 derived from existing view state; they do not own data, permissions or requests.
 
@@ -47,9 +55,17 @@ only on the current view, restores its list and never changes another view's
 retained selection. Keep titles readable without letting long names consume
 the entire short viewport; full evidence remains reachable by scrolling.
 
+Compute uses one list widget and one selected object. Current queue answers
+what the scheduler currently reports; Records and results finds the caller's
+accepted computations, including completed records. Switching purpose keeps the
+applied scope and returns to that purpose's list. It does not join rows by job
+number or claim unrecorded SSH history. The two readers retain their own time,
+pagination and authorization semantics. Queue visibility may include authorized
+members; managed records remain the caller's own computations.
+
 Task lists emphasize title, state and the last recorded observation. IDs,
 complete timestamps and scheduler references belong in details. Native jobs
-and managed computations keep distinct labels and source descriptions.
+and managed computations keep distinct source descriptions inside Compute.
 Unknown scheduler identity means unconfirmed, not unsubmitted.
 
 At 40 or 60 columns, selecting a task gives its evidence the main area.
@@ -63,6 +79,12 @@ wrap fully in the file list; a one-line content heading may abbreviate the path
 so the file body stays visible, with the full name retained in the return list. File size and readable time stay separate. Empty, unavailable and
 complete pages are different states. Read one bounded page explicitly; no
 unbounded scrolling buffer or automatic file polling is required.
+
+Visiting Resources retains the computation selection and reading position;
+returning rereads the evidence. View jobs explicitly opens Current queue in
+the same applied scope with the selected partition filter. This action does
+not carry a stale account choice from a second view. Native-only objects do
+not gain output files, final charges or a Run association from that navigation.
 
 ## Visual language
 

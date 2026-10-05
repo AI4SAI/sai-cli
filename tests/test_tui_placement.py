@@ -71,16 +71,16 @@ def test_location_explicit_read_uses_its_allocation_then_expires_without_network
     now = clock(monkeypatch)
     client = Client(job_payload)
     async def scenario():
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            assert not app.query_one("#view-placement", Button).display
+            assert app.query_one("#compute-placement", Button).disabled and client.placement_calls == 0
             app.action_view_allocation()
             await settled(app, pilot)
-            assert client.placement_calls == 0 and app.query_one("#view-placement", Button).display
+            assert client.placement_calls == 0 and not app.query_one("#compute-placement", Button).disabled
             client.document["allocation"]["restart_count"] = 7
             await pilot.pause(.05)
-            await pilot.click("#view-placement")
+            await pilot.click("#compute-placement")
             await settled(app, pilot)
             assert app.placement_result is not None and client.placement_calls == 1
             assert app.results["jobs"].restart_count == 7
@@ -102,7 +102,7 @@ def test_location_failure_clears_registration_and_respects_authorization(job_pay
     clock(monkeypatch)
     client = Client(job_payload)
     async def scenario():
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
             app.action_view_allocation()
@@ -128,7 +128,7 @@ def test_late_location_response_does_not_survive_context_change(job_payload, mon
     started, release = threading.Event(), threading.Event()
     client.block = (started, release)
     async def scenario():
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
             app.action_view_allocation()
@@ -162,7 +162,7 @@ def test_location_expires_at_real_deadline_independently_of_refresh_interval(job
             return super().job_placement(identifier, query)
     client = TimedClient(job_payload)
     async def scenario():
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
             app.action_view_allocation()

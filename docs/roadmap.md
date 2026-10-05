@@ -16,6 +16,14 @@ migration and native plugin work. New personal/organization task acceptance and
 the complete product workflow remain open; this prerequisite does not activate
 the new domain contract.
 
+The terminal implementation consolidates Compute into one read scope,
+list and inspection context, with Current queue and Records and results purposes.
+It extends existing native READ requests with a canonical workspace selector;
+grants and response DTOs stay unchanged. Self/legacy native-account scopes remain
+queue-only until an account is explicitly selected for records. Native plugin
+discovery, its replacement deep links and retirement of Portal compute pages
+remain with the coordinated product migration; this source work is not deployed.
+
 ## Basic job reads: deployed, acceptance still open
 
 The formal basic release covers `jobs.list`, `jobs.detail` and `jobs.allocation`.

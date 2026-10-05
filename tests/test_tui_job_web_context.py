@@ -1,3 +1,4 @@
+from test_tui import choose_compute_scope
 import asyncio
 from copy import deepcopy
 from dataclasses import replace
@@ -29,7 +30,7 @@ from test_tui import catalog, settled
 
 
 async def open_web(app, pilot):
-    button = app.query_one("#open-job-web", Button)
+    button = app.query_one("#compute-web", Button)
     await pilot.pause(button.active_effect_duration)
     assert button.display and not button.disabled
     button.focus()
@@ -70,13 +71,13 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
     async def scenario(client):
         nonlocal failure
         app = Workbench(client, JobQuery(site_id="site-a", cluster_id="cluster-a", partition="gpu-standard"),
-                        initial_view="jobs", overview_account="org-unrelated", refresh_seconds=999)
+                        initial_view="compute", compute_mode="queue", overview_account="org-unrelated", refresh_seconds=999)
         opened = []
         app.open_url = opened.append
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            assert not app.query_one("#open-job-web", Button).display
-            app.query_one("#jobs-table", DataTable).focus()
+            assert not app.query_one("#compute-web", Button).display
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("enter")
             await settled(app, pilot)
             await open_web(app, pilot)
@@ -88,7 +89,7 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
                 "submit_time": job_payload["items"][0]["submit_time"], "restart_count": None}
             assert urlsplit(opened[-1]).netloc == urlsplit(client.transport.base_url).netloc
             assert app.overview_account == "org-unrelated"
-            await pilot.click("#view-allocation")
+            await pilot.click("#compute-resources")
             await settled(app, pilot)
             assert not app.query_one("#web-link-row", Horizontal).display
             snapshot = app.results["jobs"]
@@ -111,13 +112,15 @@ def test_real_http_navigation_uses_portal_mapping_and_preserves_the_displayed_ob
                 await open_web(app, pilot)
                 assert app.results["jobs"] is snapshot and len(opened) == 2
                 assert not app.query_one("#web-link-row", Horizontal).display
-                assert failure[1] in str(app.query_one("#status", Static).render())
+                assert app.t("web_failed") in str(app.query_one("#status", Static).render())
             failure = (403, "site_read_not_authorized")
             await open_web(app, pilot)
-            assert "jobs" not in app.results and not app.query_one("#open-job-web", Button).display
+            assert "jobs" not in app.results and not app.query_one("#compute-web", Button).display
             failure = None
             await pilot.press("f5")
             await settled(app, pilot)
+            app.query_one("#compute-table", DataTable).focus()
+            await pilot.press("enter"); await settled(app, pilot)
             for name in ("resources", "storage", "overview"):
                 app.results[name] = object()
             failure = (401, "authentication_failed")
@@ -148,18 +151,18 @@ def test_headless_browser_failure_keeps_a_clickable_copyable_link_until_scope_ch
             return 200, sample()
         query = parse_qs(urlsplit(call["path"]).query)
         payload = deepcopy(job_payload)
-        account = query.get("slurm_account_name", [None])[0]
+        account = "org-example" if query.get("workspace_key") else query.get("slurm_account_name", [None])[0]
         payload.update(scope=query["scope_type"][0], slurm_user=None if account else "alice", slurm_account=account)
         payload["items"][0].update(array_task_id="0", slurm_account=account or "personal-alice")
         return 200, payload
     async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         def no_browser(url):
             raise OSError("no local desktop browser")
         app.open_url = no_browser
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            await pilot.click("#view-job")
+            await pilot.click("#compute-detail")
             await settled(app, pilot)
             snapshot = app.results["jobs"]
             await open_web(app, pilot)
@@ -176,9 +179,8 @@ def test_headless_browser_failure_keeps_a_clickable_copyable_link_until_scope_ch
             app.save_screenshot(str(tmp_path / "web-link.svg"))
             await pilot.press("escape")
             await settled(app, pilot)
-            app.query_one("#scope", Select).value = "org-account"
-            app.query_one("#account", Input).value = "org-example"
-            await pilot.click("#apply")
+            choose_compute_scope(app, "org:example")
+            await pilot.pause(.02)
             await settled(app, pilot)
             assert not app.query_one("#web-link-row", Horizontal).display and str(link.content) == ""
             assert app._web_url is None
@@ -203,8 +205,8 @@ def test_navigation_is_one_serialized_action_and_late_responses_cannot_open_a_br
         def list_jobs(self, query):
             payload = deepcopy(job_payload)
             payload.update(scope=query.scope.replace("-", "_"), slurm_user="alice" if query.scope == "self" else None,
-                           slurm_account=query.account_name)
-            payload["items"][0].update(array_task_id="0", slurm_account=query.account_name or "personal-alice")
+                           slurm_account=("org-example" if query.workspace_key else query.account_name))
+            payload["items"][0].update(array_task_id="0", slurm_account="org-example" if query.workspace_key else query.account_name or "personal-alice")
             return JobResult.from_payload(payload, request_id="jobs")
         def show_job(self, job_id, query):
             assert not started.is_set() or release.is_set()
@@ -222,15 +224,15 @@ def test_navigation_is_one_serialized_action_and_late_responses_cannot_open_a_br
                 raise AuthenticationError("old session failed")
             return JobWebContext.from_payload(sample(), request_id="web")
     async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         opened = []
         app.open_url = opened.append
         async with app.run_test(size=(80, 24)) as pilot:
             try:
                 await settled(app, pilot)
-                await pilot.click("#view-job")
+                await pilot.click("#compute-detail")
                 await settled(app, pilot)
-                await pilot.click("#open-job-web")
+                await pilot.click("#compute-web")
                 for _ in range(80):
                     if started.is_set(): break
                     await pilot.pause(.02)
@@ -240,12 +242,11 @@ def test_navigation_is_one_serialized_action_and_late_responses_cannot_open_a_br
                 app._tick()
                 assert calls == ["12345_0"] and not app._pending
                 if transition == "mode":
-                    await pilot.click("#view-allocation")
+                    await pilot.click("#compute-resources")
                 elif transition == "scope":
                     await pilot.press("escape")
-                    app.query_one("#scope", Select).value = "org-account"
-                    app.query_one("#account", Input).value = "org-example"
-                    await pilot.click("#apply")
+                    choose_compute_scope(app, "org:example")
+                    await pilot.pause(.02)
                 elif transition == "tab":
                     app.query_one("#views", TabbedContent).active = "resources"
                     await pilot.pause(.02)
@@ -272,8 +273,8 @@ def test_compact_job_actions_shortcuts_palette_and_explicit_copy(width, job_payl
         def list_jobs(self, query):
             payload = deepcopy(job_payload)
             payload.update(scope=query.scope.replace("-", "_"), slurm_user="alice" if query.scope == "self" else None,
-                           slurm_account=query.account_name)
-            payload["items"][0].update(array_task_id="0", slurm_account=query.account_name or "personal-alice")
+                           slurm_account=("org-example" if query.workspace_key else query.account_name))
+            payload["items"][0].update(array_task_id="0", slurm_account="org-example" if query.workspace_key else query.account_name or "personal-alice")
             return JobResult.from_payload(payload, request_id="jobs")
         def show_job(self, job_id, query):
             return self.list_jobs(query)
@@ -292,7 +293,7 @@ def test_compact_job_actions_shortcuts_palette_and_explicit_copy(width, job_payl
         await pilot.press("enter")
         await settled(app, pilot)
     async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         app.open_url = opened.append
         native_copy = app.copy_to_clipboard
         def copy_link(value):
@@ -301,20 +302,20 @@ def test_compact_job_actions_shortcuts_palette_and_explicit_copy(width, job_payl
         app.copy_to_clipboard = copy_link
         async with app.run_test(size=(width, 24)) as pilot:
             await settled(app, pilot)
-            app.query_one("#jobs-table", DataTable).focus()
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("enter")
             await settled(app, pilot)
-            for name in ("view-job", "view-allocation", "open-job-web"):
+            for name in ("compute-detail", "compute-resources", "compute-web"):
                 button = app.query_one(f"#{name}", Button)
                 assert button.display and button.region.x >= 0 and button.region.right <= width
-            for name in ("account", "partition", "states"):
+            for name in ("partition", "states"):
                 field = app.query_one(f"#{name}", Input)
                 before = field.value
                 field.focus()
                 await pilot.press("end", "a", "w")
                 assert field.value == before + "aw" and calls == []
                 field.value = before
-            app.query_one("#jobs-table", DataTable).focus()
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("a")
             await settled(app, pilot)
             assert calls == ["allocation"] and app.job_mode == "allocation"
@@ -351,13 +352,13 @@ def test_quitting_during_web_resolution_does_not_update_unmounted_controls(job_p
             assert release.wait(5)
             return JobWebContext.from_payload(sample(), request_id="web")
     async def scenario():
-        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(Client(), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         opened = []
         app.open_url = opened.append
         try:
             async with app.run_test(size=(40, 24)) as pilot:
                 await settled(app, pilot)
-                await pilot.click("#view-job")
+                await pilot.click("#compute-detail")
                 await settled(app, pilot)
                 await pilot.press("w")
                 for _ in range(80):

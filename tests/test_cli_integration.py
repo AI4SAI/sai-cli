@@ -138,7 +138,12 @@ def test_missing_identity_session_fails_before_any_request(tmp_path: Path, job_p
     assert "sai auth login" in errors.getvalue()
 
 
-def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_payload) -> None:
+@pytest.mark.parametrize("selector", [
+    ["--scope", "project-account", "--account", "project-example"],
+    ["--workspace-key", "project:owner-example"],
+    ["--scope", "project-account", "--workspace-key", "project:owner-example"],
+])
+def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_payload, selector) -> None:
     payload = deepcopy(job_payload)
     payload["scope"] = "project_account"
     payload["visibility_role"] = "read"
@@ -158,10 +163,7 @@ def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_pay
                 base_url,
                 "--site",
                 "site-a",
-                "--scope",
-                "project-account",
-                "--account",
-                "project-example",
+                *selector,
                 "--states",
                 "r,pd",
                 "--partition",
@@ -185,7 +187,8 @@ def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_pay
     assert request["query"] == {
         "site_id": ["site-a"],
         "scope_type": ["project_account"],
-        "slurm_account_name": ["project-example"],
+        **({"workspace_key": ["project:owner-example"]} if "--workspace-key" in selector
+           else {"slurm_account_name": ["project-example"]}),
         "states": ["PD,R"],
         "source_preference": ["live"],
         "partition": ["gpu-standard"],
@@ -353,7 +356,7 @@ def test_scope_validation_fails_before_network(tmp_path: Path) -> None:
     )
 
     assert result == 2
-    assert "requires --account" in stderr.getvalue()
+    assert "requires --workspace-key" in stderr.getvalue()
 
 
 def test_jobs_cost_uses_independent_endpoint_and_allowlisted_json(

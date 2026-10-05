@@ -59,9 +59,10 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-The optional `sai tui` workbench compares published resources, narrows job
-queries, inspects job details or allocation snapshots, and reads non-final running
-estimates through the same clients, starting with the default-identity Overview. Managed login
+The optional `sai tui` workbench has one Compute area with Current queue and
+Records and results views. They share the selected account scope, list and
+inspection layout while retaining their existing native and managed readers.
+It starts with the default-identity Overview. Managed login
 shows the summary panel and returns to Shell; the full workbench opens manually.
 Existing login help, rules, quota/resource status and notes remain available
 automatically, with directory selection before quota reads.
@@ -87,8 +88,11 @@ console preparation page. Users without job history can select a project and
 Session there before inserting an editable resource preference into Pilot.
 Published specifications do not imply idle capacity, admission or a job quote.
 
-Tasks uses an independently chosen read scope. It finds your accepted managed runs
-after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
+Choose a named compute scope once for both queue and task records. The default
+self queue still shows your native jobs across accounts; records require an
+explicit account choice in the same selector. Selecting a resource's queue keeps
+this scope and narrows only the partition. Records and results finds your accepted
+managed runs after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not
 start Pilot, renew its model window, submit work or grant file access.
 
@@ -115,7 +119,7 @@ Expired registrations are removed while the same allocation snapshot stays
 visible. Site-disabled location reads preserve task metadata. These records
 remain operator registrations, not verified physical GPU identity or telemetry.
 
-The five views share browse, inspection and summary layouts. Selected evidence
+The four top-level views share browse, inspection and summary layouts. Selected evidence
 gets the main area in narrow or short terminals, with the current object above
 it. Escape returns within the current view. F6 works only for views that can
 automatically refresh; logs, files, allocations, locations, resources and
@@ -255,6 +259,7 @@ site_id = "site-a"
 ```bash
 sai jobs list
 sai jobs list --scope project-account --account project-example
+sai jobs list --workspace-key project:example
 sai jobs list --states R,PD --partition gpu-standard --format table
 sai jobs show 12345
 sai jobs cost --states R,PD --format table
@@ -265,6 +270,12 @@ sai runs logs run-example --workspace-key project:example --stream stderr --form
 
 Connection options are accepted before or after the leaf command, so both
 `sai --site site-a jobs list` and `sai jobs list --site site-a` work.
+
+`--workspace-key` selects the business account scope; Portal resolves its native
+compute account. It cannot be combined with `--account` or `--account-id`.
+An omitted `--scope` follows the workspace kind; an explicit conflicting scope
+is rejected. In TUI, the earlier `--tasks-workspace-key` spelling is an alias
+for this same computation scope, with no separate task selection.
 
 The default jobs transport retains the Portal response contract. Opting into
 the direct gateway selects the versioned `jobs/v1` response with an exact

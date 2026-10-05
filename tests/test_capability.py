@@ -152,8 +152,9 @@ def test_billing_capability_cache_remains_bound_to_portal(tmp_path: Path) -> Non
     assert len(transport.calls) == 1
 
 
+@pytest.mark.parametrize("workspace", [None, "personal:owner-a", "org:owner-a", "project:owner-a"])
 def test_capability_provider_posts_exact_json_and_reuses_opaque_token(
-    tmp_path: Path,
+    tmp_path: Path, workspace,
 ) -> None:
     transport = FakeTransport()
     settings = _settings(tmp_path)
@@ -164,6 +165,8 @@ def test_capability_provider_posts_exact_json_and_reuses_opaque_token(
     )
     lease = TokenLease(token="user-token", expires_at=None, source="environment")
     body = _query().capability_request(operation="jobs.list")
+    if workspace is not None:
+        body.update(scope_type=workspace.split(":", 1)[0] + "_account", workspace_key=workspace)
 
     first = provider.get(request_body=body, user_lease=lease)
     second = provider.get(request_body=body, user_lease=lease)
@@ -178,6 +181,21 @@ def test_capability_provider_posts_exact_json_and_reuses_opaque_token(
     assert call["headers"] == {"Authorization": "Bearer user-token"}
     assert call["json_body"] == body
     assert call["query"] is None
+
+
+@pytest.mark.parametrize("fields", [
+    {"workspace_key": True}, {"workspace_key": "org:../other"},
+    {"scope_type": "self"}, {"scope_type": "project_account"},
+    {"slurm_account_id": "native-account-a"}, {"slurm_account_name": "native-org-a"},
+])
+def test_capability_provider_rejects_workspace_scope_conflict_before_issuing(tmp_path, fields):
+    transport = FakeTransport()
+    provider = CapabilityProvider(settings=_settings(tmp_path), portal_transport=transport)
+    body = {**_query().capability_request(operation="jobs.list"),
+            "scope_type": "org_account", "workspace_key": "org:owner-a", **fields}
+    with pytest.raises(ContractError):
+        provider.get(request_body=body, user_lease=TokenLease("user-token", None, "environment"))
+    assert transport.calls == []
 
 
 def test_capability_provider_rejects_mismatched_response(tmp_path: Path) -> None:

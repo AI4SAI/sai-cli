@@ -116,6 +116,26 @@ def test_two_origins_keep_identity_at_portal_and_exact_grant_at_gateway(tmp_path
     assert issued[1]["body"]["operation"] == "jobs.detail" and issued[1]["body"]["job_id"] == "12345"
 
 
+def test_workspace_switch_keeps_identity_at_portal_and_separates_capability_cache(tmp_path, site_payload):
+    def gateway_reply(call, _):
+        assert call["bearer"] is None
+        suffix = "a" if call["capability"] == "opaque-capability-1" else "b"
+        payload = deepcopy(site_payload)
+        payload.update(scope_type="org_account", subject={"slurm_user": None, "slurm_account": "native-" + suffix})
+        payload["items"][0]["slurm_account"] = "native-" + suffix
+        return 200, payload
+
+    with http_endpoint(issuer) as (portal, issued), http_endpoint(gateway_reply) as (gateway, reads):
+        config = profile(tmp_path, portal, gateway)
+        for owner in ("owner-a", "owner-b", "owner-a"):
+            result, output, errors = invoke(config, tmp_path, ["jobs", "list", "--workspace-key", "org:" + owner])
+            assert result == 0, errors
+            assert json.loads(output)["subject"]["slurm_account"] == "native-" + owner[-1]
+    assert [call["body"]["workspace_key"] for call in issued] == ["org:owner-a", "org:owner-b"]
+    assert all(call["body"]["slurm_account_id"] is None and call["body"]["slurm_account_name"] is None for call in issued)
+    assert [call["capability"] for call in reads] == ["opaque-capability-1", "opaque-capability-2", "opaque-capability-1"]
+
+
 @pytest.mark.parametrize("status", [401, 403, 503])
 @pytest.mark.parametrize("command", [["jobs", "list"], ["jobs", "allocation", "12345"]])
 def test_fresh_capability_failure_does_not_retry_or_fall_back(tmp_path, site_payload, status, command):

@@ -87,6 +87,14 @@ wrong-site, wrong-operation, stale-epoch, or scope/filter-mismatched grants
 fail closed. The existing non-CLI routes remain a Portal/Agent contract and
 are not a production CLI fallback.
 
+Account scopes accept exactly one of `workspace_key`, `slurm_account_id` or
+`slurm_account_name`. A canonical `personal|org|project:<id>` workspace key must
+match `scope_type`; self accepts none of these selectors. Portal's existing
+READ resolver maps business ownership to the active native account and repeats
+membership, site and channel policy. A workspace ID is not a SlurmAccount ID.
+The selector is an issuer/central-request input only: signed grants, gateway
+requests and response DTOs retain their existing shapes. Old requests omit it.
+
 The unified observation implementation also routes these central CLI job and cost
 reads through the same capability gateway. Center forwards the already verified
 capability with explicit narrowing filters, keeps the existing client JSON and
@@ -109,6 +117,8 @@ site, cluster, destination account scope/ID, canonical job ID and observation/
 submission/restart evidence. The server returns no arbitrary URL or credential.
 Original account scopes remain bound to the same account; self can resolve to
 any currently authorized account kind. Unknown added response fields are dropped.
+An explicit workspace request must also match the returned `workspace_key` exactly.
+Source reauthorization after the observation uses the same original selector.
 
 The client constructs a fixed same-origin Jobs link carrying bounded observation
 context. `403/job_navigation_workspace_denied` refuses the destination without
@@ -229,8 +239,9 @@ Supported query parameters:
 | `site_id` | yes | Site token |
 | `cluster_id` | no | Optional cluster token |
 | `scope_type` | yes | `self`, `personal_account`, `org_account`, or `project_account` |
-| `slurm_account_id` | account scopes | Exactly one account ID or name is required for every account scope |
-| `slurm_account_name` | account scopes | Exactly one account name or ID is required; server authorizes it |
+| `workspace_key` | one selector for account scopes | Canonical business scope matching `scope_type`; server resolves native ownership |
+| `slurm_account_id` | one selector for account scopes | Native compute account ID, distinct from the workspace owner ID |
+| `slurm_account_name` | one selector for account scopes | Account name; mutually exclusive with the other selectors |
 | `partition` | no | Narrowing filter |
 | `states` | no | Comma-separated narrowing filter |
 | `limit` | no | Integer from 1 through 500, default 100 |

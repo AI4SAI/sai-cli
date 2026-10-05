@@ -1,3 +1,4 @@
+from test_tui import choose_compute_scope
 """One selected native job owns detail, allocation and explicit cost inspection."""
 import asyncio
 from copy import deepcopy
@@ -84,13 +85,13 @@ def test_cost_keeps_one_array_job_updates_state_and_uses_central_price_only(
 
     async def scenario(client, calls, reads):
         app = Workbench(client, JobQuery(site_id="site-a", cluster_id="cluster-a", states=("R",)),
-                        initial_view="jobs", refresh_seconds=999, language=language)
+                        initial_view="compute", compute_mode="queue", refresh_seconds=999, language=language)
         opened = []
         app.open_url = opened.append
         async with app.run_test(size=(100, 32)) as pilot:
             await settled(app, pilot)
-            assert len(app.query(TabPane)) == 5 and app.job_cost is None
-            app.query_one("#jobs-table", DataTable).focus()
+            assert len(app.query(TabPane)) == 4 and app.job_cost is None
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("e")
             await settled(app, pilot)
             assert app.selected_job == "12345_0" and app.job_mode == "cost"
@@ -110,7 +111,7 @@ def test_cost_keeps_one_array_job_updates_state_and_uses_central_price_only(
             for width, height in ((40, 24), (60, 24), (100, 32)):
                 await pilot.resize_terminal(width, height)
                 await pilot.pause(.05)
-                for identifier in ("view-job", "view-allocation", "view-cost", "open-job-web"):
+                for identifier in ("compute-detail", "compute-resources", "compute-cost", "compute-web"):
                     bounds = app.query_one(f"#{identifier}").region
                     assert 0 <= bounds.x < bounds.right <= width
                 app.save_screenshot(str(tmp_path / f"job-cost-{language}-{width}.svg"))
@@ -127,7 +128,7 @@ def test_cost_keeps_one_array_job_updates_state_and_uses_central_price_only(
             assert "12.34" not in detail_text(app) and app.t("unavailable") in detail_text(app)
             await pilot.press("escape")
             await settled(app, pilot)
-            assert app.view == "jobs" and app.selected_job is None and app.job_cost is None
+            assert app.read_view == "jobs" and app.selected_job is None and app.job_cost is None
             assert app.results["jobs"].items[0].values["state"] == "R"
             assert len(reads) == 2
 
@@ -160,7 +161,7 @@ def test_late_cost_or_denial_cannot_restore_an_old_job_context(job_payload, job_
         return 200, response
 
     async def scenario(origin):
-        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(100, 32)) as pilot:
             try:
                 await settled(app, pilot)
@@ -171,16 +172,14 @@ def test_late_cost_or_denial_cannot_restore_an_old_job_context(job_payload, job_
                 assert started.is_set()
                 if transition == "detail": app._inspect_job("detail")
                 elif transition == "scope":
-                    app.query_one("#scope", Select).value = "org-account"
-                    app.query_one("#account", Input).value = "org-example"
-                    app._apply()
+                    choose_compute_scope(app, "org:example")
                 elif transition == "tab": app.query_one("#views", TabbedContent).active = "resources"
                 else: app.action_back()
                 await pilot.pause(.02)
             finally:
                 release.set()
             await settled(app, pilot)
-            assert app.job_cost is None and app.job_mode == "detail"
+            assert app.job_cost is None and app.job_mode == ("cost" if transition == "tab" else "detail")
             if transition == "scope": assert app.results["jobs"].scope == "org_account"
             assert app.t("job_cost_denied") not in detail_text(app)
             assert "12.34" not in detail_text(app)
@@ -195,7 +194,7 @@ def test_general_job_denial_clears_cost_and_native_observation(job_cost_payload,
         return (status, {"detail": {"code": "permission_denied"}}) if denied else (200, job_cost_payload)
     async def scenario(origin):
         nonlocal denied
-        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999)
+        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
             app.action_view_cost()

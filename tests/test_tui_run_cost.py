@@ -1,3 +1,4 @@
+from test_tui import task_query
 import asyncio
 import threading
 from urllib.parse import parse_qs, urlsplit
@@ -37,13 +38,13 @@ def responder(state):
 
 
 def app_for(origin, language="en-US"):
-    return Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="tasks", language=language,
-                     tasks_workspace_key="project:project-example", refresh_seconds=999)
+    return Workbench(client_for(origin), task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records", language=language,
+                      refresh_seconds=999)
 
 
 async def open_detail(app, pilot):
     await settled(app, pilot)
-    app.query_one("#tasks-table", DataTable).focus()
+    app.query_one("#compute-table", DataTable).focus()
     await pilot.press("enter")
     await settled(app, pilot)
 
@@ -61,7 +62,7 @@ def test_cost_is_explicit_manual_and_readable_at_all_terminal_sizes(tmp_path, mo
             metadata = app.results["tasks"]
             assert not any(call["path"].split("?")[0].endswith("/billing") for call in calls)
             assert app._presentation().automatic_refresh
-            await click(app, pilot, "#task-cost")
+            await click(app, pilot, "#compute-cost")
             assert app.results["tasks"] is metadata and app.task_cost is not None
             assert not app._presentation().automatic_refresh and not app.check_action("pause", ())
             assert not app.query_one("#task-next").display
@@ -71,7 +72,7 @@ def test_cost_is_explicit_manual_and_readable_at_all_terminal_sizes(tmp_path, mo
             for width, height in ((40,18), (60,24), (100,32)):
                 await pilot.resize_terminal(width,height); await pilot.pause(.05)
                 for name in ("detail", "stdout", "stderr", "files", "cost"):
-                    region = app.query_one(f"#task-{name}").region
+                    region = app.query_one(f"#compute-{'resources' if name == 'stats' else name}").region
                     assert 0 <= region.x < region.right <= width and region.bottom < height
                 pane = app.query_one("#details-scroll").region
                 assert pane.height >= max(6, height // 2 - 1)
@@ -89,9 +90,9 @@ def test_cost_is_explicit_manual_and_readable_at_all_terminal_sizes(tmp_path, mo
                 await pilot.press("f5"); await settled(app,pilot)
                 assert app.t("cost_"+name) in details(app)
                 assert "0.00000000" not in details(app) and "10.00" not in details(app)
-            await click(app,pilot,"#task-detail")
+            await click(app,pilot,"#compute-detail")
             assert app.task_cost is None and app._presentation().automatic_refresh
-            await click(app,pilot,"#task-stdout")
+            await click(app,pilot,"#compute-stdout")
             assert not app._presentation().automatic_refresh
     with http_endpoint(responder(state)) as (origin,calls): asyncio.run(scenario(origin,calls))
 
@@ -107,17 +108,17 @@ def test_cost_denial_preserves_only_independently_authorized_facts(code,status,r
         async with app.run_test(size=(40,24)) as pilot:
             await open_detail(app,pilot)
             metadata = app.results["tasks"]
-            await click(app,pilot,"#task-files")
-            await click(app,pilot,"#task-cost")
+            await click(app,pilot,"#compute-files")
+            await click(app,pilot,"#compute-cost")
             state.update(error=code,status=status)
             await pilot.press("f5"); await settled(app,pilot)
             assert app.task_cost is None and "10.00" not in details(app)
             if retained:
                 assert app.results["tasks"] is metadata and app.task_file_page is None
                 assert app.selected_run == "run-example-1"
-                await click(app,pilot,"#task-detail")
+                await click(app,pilot,"#compute-detail")
                 assert "simulation.py" in details(app)
-                await click(app,pilot,"#task-files")
+                await click(app,pilot,"#compute-files")
                 assert "energy result.txt" in details(app)
             else:
                 assert "tasks" not in app.results and app.task_file_page is None
@@ -135,23 +136,23 @@ def test_old_cost_response_cannot_restore_amounts_or_clear_new_context(transitio
         app = app_for(origin)
         async with app.run_test(size=(60,24)) as pilot:
             await open_detail(app,pilot)
-            app.query_one("#task-cost",Button).focus(); await pilot.press("enter")
+            app.query_one("#compute-cost",Button).focus(); await pilot.press("enter")
             for _ in range(100):
                 if state["started"].is_set(): break
                 await pilot.pause(.02)
             assert state["started"].is_set()
             try:
                 if transition == "detail":
-                    app.query_one("#task-detail",Button).focus(); await pilot.press("enter")
+                    app.query_one("#compute-detail",Button).focus(); await pilot.press("enter")
                 elif transition == "tab":
                     app.query_one("#views",TabbedContent).active="resources"; await pilot.pause(.05)
                 else:
-                    app._read_projects(); await pilot.pause(.05)
+                    app._apply_compute_scope("self"); await pilot.pause(.05)
             finally: state["release"].set()
             await settled(app,pilot)
             assert app.task_cost is None and "10.00" not in details(app)
             assert "tasks" not in app._failed_views
             if transition == "detail": assert app.selected_run == "run-example-1" and "tasks" in app.results
             if transition == "tab": assert app.view == "resources" and "resources" in app.results
-            if transition == "workspace": assert app.tasks_workspace_key is None and app.task_projects is not None
+            if transition == "workspace": assert app.job_query.workspace_key is None and app.task_projects is not None
     with http_endpoint(responder(state)) as (origin,_): asyncio.run(scenario(origin))

@@ -44,9 +44,10 @@ workbench design, including hardware telemetry and result navigation, is describ
 [the unified workbench design](docs/unified-workbench.md); the design is not an
 implementation or deployment claim.
 
-Bilingual navigation, readable project/storage discovery and narrow task inspection
-are implemented. The five views share browse, inspect and summary layouts,
-contextual actions and the terminal visual rules in DESIGN.md.
+Bilingual navigation, readable compute/storage discovery and narrow task inspection
+are implemented. Four top-level views share browse, inspect and summary layouts;
+Compute uses one scope and selected object across queue and records/results purposes.
+Contextual actions follow the terminal visual rules in DESIGN.md.
 [Bounded SSH acceptance](docs/ssh-terminal-acceptance.md) covers a 14-minute
 synthetic workflow on one login host, resize and disconnect cleanup. Broader
 terminal/font coverage, longer resource profiling and production backend

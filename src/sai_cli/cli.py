@@ -51,11 +51,10 @@ def build_parser() -> argparse.ArgumentParser:
     overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
     tui = commands.add_parser("tui", help="open the optional resource and job workbench")
     _add_connection_arguments(tui, suppress_defaults=True)
-    _add_job_scope_arguments(tui)
+    _add_job_scope_arguments(tui, task_scope_alias=True)
     tui.add_argument("--partition", help="partition narrowing filter")
     tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
-    tui.add_argument("--tasks-workspace-key", help="managed-task read scope (personal:<id>, org:<id>, project:<id>)")
     tui.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="workbench display language (default: zh-CN)")
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
@@ -196,16 +195,17 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
     )
 
 
-def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
+def _add_job_scope_arguments(parser: argparse.ArgumentParser, *, task_scope_alias: bool = False) -> None:
     parser.add_argument(
         "--scope",
         choices=("self", "personal-account", "org-account", "project-account"),
-        default="self",
-        help="authorized visibility scope",
+        help="authorized visibility scope (default: workspace kind, or self without a workspace)",
     )
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--account", help="Portal compute account name")
     selector.add_argument("--account-id", help="Portal compute account ID")
+    workspace_flags = ("--workspace-key", "--tasks-workspace-key") if task_scope_alias else ("--workspace-key",)
+    selector.add_argument(*workspace_flags, help="compute read scope: personal:<id>, org:<id>, or project:<id>")
     parser.add_argument("--states", help="comma-separated state narrowing filter")
 
 
@@ -430,15 +430,18 @@ def _handle_auth_command(
 
 
 def _job_query(args: argparse.Namespace, *, settings: Settings) -> JobQuery:
+    from .managed_runs import clean_tasks_workspace
+    workspace = clean_tasks_workspace(args.workspace_key) if args.workspace_key is not None else None
     return JobQuery(
         site_id=settings.site_id,
-        scope=args.scope,
+        scope=args.scope or (workspace.split(":", 1)[0] + "-account" if workspace is not None else "self"),
         cluster_id=getattr(args, "cluster", None) or settings.cluster_id,
         account_name=args.account,
         account_id=args.account_id,
         states=clean_states(args.states),
         partition=getattr(args, "partition", None),
         limit=getattr(args, "limit", 100),
+        workspace_key=workspace,
     )
 
 
@@ -603,10 +606,7 @@ def main(
             if not sys.stdin.isatty() or not output.isatty():
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
-            from .managed_runs import clean_tasks_workspace
-            tasks_workspace = clean_tasks_workspace(args.tasks_workspace_key) if args.tasks_workspace_key else None
             Workbench(client, query, storage_workspace_key=workspace,
-                      tasks_workspace_key=tasks_workspace,
                       overview_account=login_account, initial_view="overview", language=args.language).run()
             return 0
 

@@ -59,10 +59,12 @@ class JobWebContext:
         return cls(**values, observed_at=observed, submit_time=submitted, restart_count=restart)
 
     def require_request_binding(self, *, site_id: str, cluster_id: str | None, scope: str,
-                                account_id: str | None, job_id: str, request_id: str) -> None:
+                                account_id: str | None, job_id: str, request_id: str,
+                                workspace_key: str | None = None) -> None:
         if (self.site_id != site_id or (cluster_id is not None and self.cluster_id != cluster_id)
                 or self.job_id != job_id or (scope != "self" and self.scope_type != scope)
-                or (account_id is not None and self.slurm_account_id != account_id)):
+                or (account_id is not None and self.slurm_account_id != account_id)
+                or (workspace_key is not None and self.workspace_key != workspace_key)):
             raise ContractError(request_id=request_id)
 
     def as_dict(self) -> dict:

@@ -10,7 +10,8 @@ from typing import Mapping
 from .auth import TokenLease, _validate_token
 from .cache import TokenCache
 from .config import Settings
-from .errors import AuthenticationError, ContractError
+from .errors import AuthenticationError, ConfigError, ContractError
+from .managed_runs import clean_tasks_workspace
 from .storage_summary import clean_workspace_key
 from .transport import JsonTransport
 
@@ -127,7 +128,7 @@ class CapabilityProvider:
                 body, operation=STORAGE_OPERATION, user_lease=user_lease,
                 force_refresh=force_refresh,
             )
-        if set(body) != _REQUEST_FIELDS:
+        if set(body) not in (_REQUEST_FIELDS, _REQUEST_FIELDS | {"workspace_key"}):
             raise ContractError("the site-read capability request is invalid")
         operation = body.get("operation")
         if operation not in _OPERATIONS:
@@ -140,9 +141,17 @@ class CapabilityProvider:
             raise ContractError("the site-read capability request is invalid")
         if body["scope_type"] not in _SCOPES:
             raise ContractError("the site-read capability request is invalid")
-        selector_count = int(body.get("slurm_account_id") is not None) + int(
-            body.get("slurm_account_name") is not None
-        )
+        workspace = body.get("workspace_key")
+        if workspace is not None:
+            try:
+                workspace = clean_tasks_workspace(workspace)
+            except ConfigError as exc:
+                raise ContractError("the site-read capability workspace is invalid") from exc
+            if workspace.split(":", 1)[0] + "_account" != body["scope_type"]:
+                raise ContractError("the site-read capability workspace does not match its scope")
+        selector_count = sum(body.get(key) is not None for key in (
+            "slurm_account_id", "slurm_account_name", "workspace_key",
+        ))
         if body["scope_type"] == "self":
             if selector_count:
                 raise ContractError("the site-read capability request is invalid")

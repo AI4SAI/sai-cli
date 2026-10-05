@@ -107,6 +107,30 @@ def test_capability_request_rejects_missing_cluster() -> None:
         JobQuery(site_id="site-a").capability_request(operation="jobs.list")
 
 
+@pytest.mark.parametrize("kind", ["personal", "org", "project"])
+def test_workspace_selector_preserves_business_identity_for_server_resolution(kind):
+    workspace = f"{kind}:owner-example"
+    query = JobQuery(site_id="site-a", cluster_id="cluster-a", scope=kind + "-account",
+                     workspace_key=workspace)
+    for request in (query.parameters(), query.capability_request(operation="jobs.list")):
+        assert request["workspace_key"] == workspace
+        assert request["scope_type"] == kind + "_account"
+        assert request["slurm_account_id"] is None and request["slurm_account_name"] is None
+    assert query.validated().workspace_key == workspace
+
+
+@pytest.mark.parametrize("scope,workspace,selector", [
+    ("self", "project:owner-example", {}),
+    ("org-account", "project:owner-example", {}),
+    ("project-account", "project:owner-example", {"account_id": "native-account-example"}),
+    ("project-account", "project:owner-example", {"account_name": "project-example"}),
+    ("project-account", "project:../other", {}),
+])
+def test_workspace_selector_rejects_conflicting_or_invalid_scope(scope, workspace, selector):
+    with pytest.raises(ConfigError):
+        JobQuery(site_id="site-a", scope=scope, workspace_key=workspace, **selector).parameters()
+
+
 @pytest.mark.parametrize("task", ["0", "7"])
 def test_central_show_binds_exact_canonical_array_identity(job_payload, task, monkeypatch):
     from types import SimpleNamespace

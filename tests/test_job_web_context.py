@@ -71,7 +71,8 @@ def test_web_context_requires_every_modeled_field_and_exact_request_binding():
     result.require_request_binding(**binding)
     result.require_request_binding(**{**binding, "scope": "self", "account_id": None, "cluster_id": None})
     for changed in ({"site_id": "other"}, {"cluster_id": "other"}, {"scope": "org_account"},
-                    {"account_id": "other"}, {"job_id": "12345"}, {"job_id": "12345_7"}):
+                    {"account_id": "other"}, {"job_id": "12345"}, {"job_id": "12345_7"},
+                    {"workspace_key": "project:other-owner"}):
         with pytest.raises(ContractError):
             result.require_request_binding(**{**binding, **changed})
 
@@ -92,7 +93,8 @@ def test_web_context_http_is_identity_only_and_keeps_exact_scope(tmp_path, monke
             capability_provider=SimpleNamespace(get=forbidden), site_transport=SimpleNamespace(request=forbidden))
         for query in (JobQuery(site_id="site-a"), JobQuery(site_id="site-a", cluster_id="cluster-a",
                       scope="project-account", account_id="account-project", partition="gpu", states=("R",), limit=2),
-                      JobQuery(site_id="site-a", scope="project-account", account_name="legacy-project")):
+                      JobQuery(site_id="site-a", scope="project-account", account_name="legacy-project"),
+                      JobQuery(site_id="site-a", scope="project-account", workspace_key="project:project-example")):
             assert client.job_web_context("12345_0", query).as_dict() == payload
         for invalid in ("12345_[0-9]", "12345/0", "123\n45", "12345+0"):
             with pytest.raises(ConfigError):
@@ -101,7 +103,7 @@ def test_web_context_http_is_identity_only_and_keeps_exact_scope(tmp_path, monke
         with pytest.raises(ForbiddenError) as error:
             client.job_web_context("12345_0", JobQuery(site_id="site-a"))
         assert error.value.code == "job_navigation_workspace_denied"
-    assert len(calls) == 4
+    assert len(calls) == 5
     assert all(c["method"] == "GET" and c["bearer"] == "Bearer identity-token" and c["capability"] is None for c in calls)
     parsed = [urlsplit(c["path"]) for c in calls]
     assert all(p.path == "/v1/slurm/cli/jobs/12345_0/web-context" for p in parsed)
@@ -109,3 +111,5 @@ def test_web_context_http_is_identity_only_and_keeps_exact_scope(tmp_path, monke
     assert parse_qs(parsed[1].query) == {"site_id": ["site-a"], "cluster_id": ["cluster-a"],
         "scope_type": ["project_account"], "slurm_account_id": ["account-project"], "source_preference": ["live"]}
     assert parse_qs(parsed[2].query)["slurm_account_name"] == ["legacy-project"]
+    assert parse_qs(parsed[3].query) == {"site_id": ["site-a"], "scope_type": ["project_account"],
+        "workspace_key": ["project:project-example"], "source_preference": ["live"]}

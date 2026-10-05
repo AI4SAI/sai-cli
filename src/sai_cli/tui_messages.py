@@ -5,6 +5,14 @@ from .errors import ConfigError
 
 
 MESSAGES = {
+    "change_scope": ("选择范围", "Read scope"),
+    "compute": ("计算", "Compute"), "queue": ("当前队列", "Current queue"),
+    "records": ("记录与结果", "Records & results"),
+    "compute_self": ("本人当前队列 · 跨账户", "My current queue · all accounts"),
+    "compute_legacy": ("队列账户：{account}", "Queue account: {account}"),
+    "records_choose_scope": ("请在上方选择账号范围查看记录", "Choose an account scope above to read records"),
+    "records_coverage": ("本人的已受理计算与结果", "My accepted computations and results"),
+    "queue_coverage": ("当前范围内获准查看的实时作业", "Currently visible jobs in this read scope"),
     "save_file": ("保存文件", "Save file"), "save_short": ("保存", "Save"),
     "save_host": ("保存到当前终端主机；SSH 时为登录主机。", "Saves on this terminal's host; over SSH, the login host."),
     "save_destination": ("输入保存路径", "Enter a destination path"),
@@ -18,7 +26,7 @@ MESSAGES = {
     "run_placement_disabled": ("本站未开放登记位置读取，任务仍可查看", "Registered location is disabled here; task records remain readable"),
     "run_placement_failed": ("无法确认当前任务位置，F5 重试", "Current Run location could not be confirmed; F5 retries"),
 
-    "stats": ("观测", "Stats"), "runtime_stats": ("运行观测", "Runtime stats"),
+    "stats": ("统计", "Stats"), "runtime_stats": ("运行观测", "Runtime stats"),
     "command_stats": ("读取任务运行观测", "Read task runtime stats"),
     "stats_available": ("已读取", "Read"), "stats_not_running": ("当前无适用的运行步骤", "No current running-step read"),
     "stats_unavailable": ("无法建立可靠观测", "Observation unavailable"),
@@ -136,7 +144,7 @@ MESSAGES = {
     "web_resolving": ("正在核对此作业所属工作区…", "Resolving this job's Web workspace…"),
     "web_changed": ("作业观测已改变，请先刷新当前视图", "The job observation changed. Refresh this view first"),
     "web_failed": ("暂时无法生成链接，可再次选择控制台重试", "The Web link is unavailable. Choose Open Web to retry"),
-    "command_tasks": ("查看我的计算任务", "My managed tasks"),
+    "command_tasks": ("记录与结果", "Records & results"),
     "command_tasks_help": ("选择查看范围，查找本人的任务", "Choose a read scope and find your tasks"),
     "command_allocation": ("查看作业分配", "View allocation"),
     "command_allocation_help": ("读取所选作业已分配的节点", "Read the selected job's allocated nodes"),
@@ -163,7 +171,7 @@ MESSAGES = {
     "prepare_resource_help": ("进入控制台选择项目并核对计算方案", "Choose a project and review a compute plan in the console"),
     "resource_reference_invalid": ("此分区引用暂不能用于准备计算", "This partition reference cannot be used for preparation"),
     "compare_full": ("最多对比两个资源，请先移出一个", "Compare up to two resources; remove one first"),
-    "view_jobs": ("查看作业", "View jobs"), "clear_compare": ("清除对比", "Clear"),
+    "view_jobs": ("查看队列", "View queue"), "clear_compare": ("清除对比", "Clear"),
     "jobs_hint": ("当前范围最多显示 {limit} 个作业", "At most {limit} jobs in this scope"),
     "jobs_actions": ("Enter 详情 · A 分配 · E 费用", "Enter details · A allocation · E cost"), "jobs_web_hint": (" · W 控制台", " · W Web"),
     "storage_stored": ("已存配额采样", "Stored quota sample"), "storage_native": ("原生 Lustre 配额", "Native Lustre quota"),

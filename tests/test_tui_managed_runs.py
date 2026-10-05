@@ -1,3 +1,4 @@
+from test_tui import task_query
 import asyncio
 from copy import deepcopy
 from io import StringIO
@@ -138,22 +139,22 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
         nonlocal failure
         opened = []
         app = Workbench(client, JobQuery(site_id="site-a", scope="org-account", account_name="org-unrelated"),
-                        initial_view="tasks", storage_workspace_key="project:other", overview_account="other-account", refresh_seconds=999)
+                        initial_view="compute", compute_mode="records", storage_workspace_key="project:other", overview_account="other-account", refresh_seconds=999)
         app.open_url = opened.append
         async with app.run_test(size=(40, 24)) as pilot:
             await settled(app, pilot)
-            assert len(calls) == 1 and app.tasks_workspace_key is None
-            assert app.query_one("#open-task-web", Button).disabled
-            app.query_one("#tasks-project", Select).value = workspace
+            assert len(calls) == 1 and app.job_query.workspace_key is None
+            assert app.query_one("#compute-web", Button).disabled
+            app.query_one("#compute-scope", Select).value = workspace
             await settled(app, pilot)
             assert isinstance(app.results["tasks"], ManagedRunList)
             assert app.results["tasks"].values["items"][0]["title"] == "train\x85part.sh"
-            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
+            assert str(app.query_one("#compute-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
             assert not app.query_one("#task-next", Button).disabled
             await click(app, pilot, "#task-next")
             assert app.results["tasks"].values["items"][0]["run_ref"] == "run-example-2"
             await click(app, pilot, "#task-start")
-            app.query_one("#tasks-table", DataTable).focus()
+            app.query_one("#compute-table", DataTable).focus()
             await pilot.press("enter")
             await settled(app, pilot)
             metadata = app.results["tasks"]
@@ -162,10 +163,10 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert metadata.as_dict()["run"]["title"] == "train\x85part.sh"
             assert "Record revision: 4" in details(app) and "Scheduler state: COMPLETED" in details(app)
             assert "train\\x85part.sh" in details(app) and "\x85" not in details(app)
-            assert str(app.query_one("#tasks-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
+            assert str(app.query_one("#compute-table", DataTable).get_row("run-example-1")[0]) == "train\\x85part.sh"
             for width in (40, 60, 100):
                 await pilot.resize_terminal(width, 24)
-                for name in ("task-detail", "task-stdout", "task-stderr", "task-files", "task-start", "task-next", "open-task-web"):
+                for name in ("compute-detail", "compute-stdout", "compute-stderr", "compute-files", "task-start", "task-next", "compute-web"):
                     button = app.query_one(f"#{name}", Button)
                     if button.display:
                         assert 0 <= button.region.x < button.region.right <= width
@@ -194,36 +195,37 @@ def test_tasks_http_workflow_is_explicit_paginated_and_retains_one_file_page(tmp
             assert "second page" in details(app) and "first page" not in details(app)
             await click(app, pilot, "#task-start")
             assert "first page" in details(app) and "second page" not in details(app)
-            await click(app, pilot, "#task-stderr")
+            await click(app, pilot, "#compute-stderr")
             assert "stderr page" in details(app) and "first page" not in details(app)
-            await click(app, pilot, "#task-files")
+            await click(app, pilot, "#compute-files")
             assert isinstance(app.task_file_page, ManagedRunArtifacts) and "first result.txt\\x85" in details(app)
             app._tick(); await pilot.pause(.03)
             await click(app, pilot, "#task-next")
             assert "second.txt" in details(app) and "first result" not in details(app)
             failure = (403, "run_file_read_denied")
-            await click(app, pilot, "#task-files")
+            await click(app, pilot, "#compute-files")
             assert app.task_file_page is None and app.results["tasks"] is metadata
             assert "second.txt" not in details(app) and "Completed" in details(app)
-            assert "run_file_read_denied" in str(app.query_one("#status", Static).render())
-            assert not app.query_one("#open-task-web", Button).disabled
+            assert app.t("file_denied") in str(app.query_one("#status", Static).render())
+            assert not app.query_one("#status").display
+            assert not app.query_one("#compute-web", Button).disabled
             failure = (403, "run_scope_denied")
             app.results["storage"] = object()
-            await click(app, pilot, "#task-detail")
+            await click(app, pilot, "#compute-detail")
             assert "tasks" not in app.results and "storage" in app.results and app.selected_run is None
-            assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
+            assert app._web_url is None and app.query_one("#compute-web", Button).disabled
             failure = None
             await click(app, pilot, "#load-projects")
-            app.query_one("#tasks-project", Select).value = workspace
+            app.query_one("#compute-scope", Select).value = workspace
             await settled(app, pilot)
-            app.query_one("#tasks-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
+            app.query_one("#compute-table", DataTable).focus(); await pilot.press("enter"); await settled(app, pilot)
             for name in ("resources", "jobs", "storage", "overview"):
                 app.results[name] = object()
             failure = (401, "authentication_failed")
-            await click(app, pilot, "#task-stdout")
+            await click(app, pilot, "#compute-stdout")
             assert app.results == {} and app.task_file_page is None and app.paused
-            assert app._web_url is None and app.query_one("#open-task-web", Button).disabled
-            assert app.job_query.account_name == "org-unrelated" and app.overview_account == "other-account"
+            assert app._web_url is None and app.query_one("#compute-web", Button).disabled
+            assert app.job_query.workspace_key == workspace and app.job_query.account_name is None and app.overview_account == "other-account"
 
     with http_endpoint(reply) as (origin, calls):
         asyncio.run(scenario(client_for(origin), calls))
@@ -258,9 +260,9 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
         if path.endswith("/runs"): return 200, sample("list")
         return 200, sample("detail")
     async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a"),
-                        tasks_workspace_key=None if transition == "discovery" else "project:project-example",
-                        initial_view="tasks", refresh_seconds=999)
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), None if transition == "discovery" else "project:project-example"),
+
+                        initial_view="compute", compute_mode="records", refresh_seconds=999)
         async with app.run_test(size=(40, 24)) as pilot:
             try:
                 if transition == "discovery":
@@ -273,33 +275,33 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
                     release.set()
                     await settled(app, pilot)
                     assert not app.paused and app.task_projects is None and "tasks" not in app.results
-                    await command(app, pilot, "My managed tasks")
-                    assert app.task_projects is not None and app.tasks_workspace_key is None
-                    assert app.query_one("#tasks-project", Select).is_blank()
+                    await command(app, pilot, "Records & results")
+                    assert app.task_projects is not None and app.job_query.workspace_key is None
+                    assert app.query_one("#compute-scope", Select).value == "self"
                     return
                 await settled(app, pilot)
-                assert app.task_projects is not None and app.query_one("#tasks-project", Select).value == "project:project-example"
+                assert app.task_projects is not None and app.query_one("#compute-scope", Select).value == "project:project-example"
                 assert [item["workspace_key"] for item in app.task_projects.values["items"]] == ["project:project-example"]
                 assert app.task_projects.values["next_cursor"] is None and app.task_projects.values["has_more"] is False
                 assert [urlsplit(call["path"]).path for call in calls] == ["/v1/compute/cli/workspaces", "/v1/compute/cli/runs"]
                 assert all(parse_qs(urlsplit(call["path"]).query)["workspace_key"] == ["project:project-example"] for call in calls)
                 assert "Materials" in str(app.query_one("#context", Static).render())
-                app.query_one("#tasks-table", DataTable).focus()
+                app.query_one("#compute-table", DataTable).focus()
                 await pilot.press("enter")
                 await settled(app, pilot)
-                await pilot.click("#task-stdout")
+                await pilot.click("#compute-stdout")
                 for _ in range(80):
                     if started.is_set(): break
                     await pilot.pause(.02)
                 assert started.is_set()
                 if transition == "workspace":
-                    app._read_projects()
+                    app._apply_compute_scope("self")
                     for _ in range(80):
-                        if app.tasks_workspace_key is None: break
+                        if app.job_query.workspace_key is None: break
                         await pilot.pause(.02)
                     assert "tasks" not in app.results and app.task_file_page is None
                 elif transition == "mode":
-                    await pilot.click("#task-stderr")
+                    await pilot.click("#compute-stderr")
                 elif transition == "tab":
                     app.query_one("#views", TabbedContent).active = "storage"
                     await pilot.pause(.03)
@@ -314,14 +316,14 @@ def test_tasks_delayed_file_pages_cannot_replace_new_context(monkeypatch, transi
             else:
                 assert app.task_file_page is None
             if transition == "tab":
-                await command(app, pilot, "My managed tasks")
-                assert app.view == "tasks" and isinstance(app.results["tasks"], ManagedRunDetail)
+                await command(app, pilot, "Records & results")
+                assert app.read_view == "tasks" and isinstance(app.results["tasks"], ManagedRunDetail)
                 assert app.task_mode == "stdout" and app.task_file_page.values["stream"] == "stdout"
             if transition == "workspace":
-                assert "tasks" not in app.results and app.tasks_workspace_key is None
-                picker = app.query_one("#tasks-project", Select)
+                assert "tasks" not in app.results and app.job_query.workspace_key is None
+                picker = app.query_one("#compute-scope", Select)
                 picker.focus(); await pilot.press("enter", "end", "enter"); await settled(app, pilot)
-                assert "Current authorized project" in app.tasks_workspace_label
+                assert "Materials" in app.scope_label and app.job_query.workspace_key == "project:project-example"
                 assert app.task_file_page is None
     with http_endpoint(reply) as (origin, calls):
         asyncio.run(asyncio.wait_for(scenario(client_for(origin)), 25))

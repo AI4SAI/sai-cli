@@ -1,3 +1,5 @@
+from test_tui import show_view
+from test_tui import task_query
 """The visible workbench actions and evidence follow the current interaction."""
 import asyncio
 import json
@@ -74,7 +76,14 @@ def workbench_http(job_payload, job_cost_payload, monkeypatch, request):
             if "title" in options:
                 data["run"]["title"] = options["title"]
             return 200, data
-        return 200, job_payload
+        native = deepcopy(job_payload)
+        requested = parse_qs(urlsplit(call["path"]).query)
+        if requested.get("workspace_key"):
+            native.update(scope=requested["scope_type"][0], slurm_account="native-project", slurm_user="alice")
+            native["items"][0]["slurm_account"] = "native-project"
+            if native["items"][0].get("running_estimate"):
+                native["items"][0]["running_estimate"]["slurm_account"] = "native-project"
+        return 200, native
     with http_endpoint(reply) as (origin, calls):
         configured = client_for(origin)
         yield PortalClient(
@@ -117,9 +126,9 @@ def error_workbench_http(job_payload, job_cost_payload, monkeypatch):
 
 
 async def enter_detail(app, pilot, view):
-    app.query_one("#views", TabbedContent).active = view
+    show_view(app, view)
     await settled(app, pilot)
-    app.query_one(f"#{view}-table", DataTable).focus()
+    app._table(view).focus()
     await pilot.press("enter")
     await settled(app, pilot)
 
@@ -127,13 +136,13 @@ async def enter_detail(app, pilot, view):
 def test_retained_task_selection_does_not_advertise_back_in_another_view(workbench_http):
     client, _calls = workbench_http
     async def scenario():
-        app = Workbench(client, JobQuery(site_id="site-a"), initial_view="tasks",
-                        tasks_workspace_key="project:project-example", refresh_seconds=999)
+        app = Workbench(client, task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records",
+                         refresh_seconds=999)
         async with app.run_test(size=(40, 24)) as pilot:
             await enter_detail(app, pilot, "tasks")
             assert app.selected_run == "run-example-1"
             for view in ("overview", "resources", "jobs"):
-                app.query_one("#views", TabbedContent).active = view
+                show_view(app, view)
                 await settled(app, pilot)
                 app.query_one("#views").focus()
                 await pilot.pause(.03)
@@ -162,16 +171,16 @@ def test_paused_inspection_has_no_fake_resume_and_f6_preserves_evidence(workbenc
         }[phase]
         app = Workbench(
             client,
-            JobQuery(site_id="site-a"),
-            initial_view=initial,
-            tasks_workspace_key="project:project-example",
+            task_query(JobQuery(site_id="site-a"), "project:project-example" if initial == "tasks" else None),
+            initial_view="compute" if initial in {"jobs", "tasks"} else initial, compute_mode="records" if initial == "tasks" else "queue",
+
             refresh_seconds=999,
         )
         app.open_url = lambda _: None
         async with app.run_test(size=(60, 18)) as pilot:
             await enter_detail(app, pilot, initial)
             if phase == "files":
-                await click(app, pilot, "#task-files")
+                await click(app, pilot, "#compute-files")
                 app.query_one("#task-artifacts", OptionList).focus()
                 await pilot.press("home", "enter"); await settled(app, pilot)
                 await pilot.press("w")
@@ -210,23 +219,23 @@ def test_each_view_gives_primary_evidence_a_readable_viewport(workbench_http, tm
     async def scenario():
         app = Workbench(
             client,
-            JobQuery(site_id="site-a"),
+            task_query(JobQuery(site_id="site-a"), "project:project-example"),
             initial_view="overview",
             language=language,
-            tasks_workspace_key="project:project-example",
+
             storage_workspace_key="project:storage-example",
             refresh_seconds=999,
         )
         async with app.run_test(size=(width, height)) as pilot:
             for view in ("overview", "resources", "jobs", "storage", "tasks"):
-                app.query_one("#views", TabbedContent).active = view
+                show_view(app, view)
                 await settled(app, pilot)
                 if view in {"resources", "jobs", "tasks"}:
-                    app.query_one(f"#{view}-table", DataTable).focus()
+                    app._table(view).focus()
                     await pilot.press("enter")
                     await settled(app, pilot)
                 if view == "tasks":
-                    await click(app, pilot, "#task-files")
+                    await click(app, pilot, "#compute-files")
                     region_widget = app.query_one("#task-artifacts", OptionList)
                     marker = "energy result.txt"
                 elif view == "overview":
@@ -283,8 +292,8 @@ def test_pause_only_changes_automatic_refresh_in_supported_phase(workbench_http,
     async def scenario():
         view = "tasks" if phase == "task_detail" else "jobs"
         app = Workbench(
-            client, JobQuery(site_id="site-a"), initial_view=view,
-            tasks_workspace_key="project:project-example", refresh_seconds=999,
+            client, task_query(JobQuery(site_id="site-a"), "project:project-example" if view == "tasks" else None), initial_view="compute" if view in {"jobs", "tasks"} else view, compute_mode="records" if view == "tasks" else "queue",
+             refresh_seconds=999,
         )
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
@@ -292,7 +301,7 @@ def test_pause_only_changes_automatic_refresh_in_supported_phase(workbench_http,
                 await enter_detail(app, pilot, view)
                 app.query_one("#details-scroll").focus()
             else:
-                app.query_one(f"#{view}-table", DataTable).focus()
+                app._table(view).focus()
             assert app.check_action("pause", ()) is True
             before = len(calls)
             await pilot.press("f6")
@@ -309,11 +318,11 @@ def test_input_letters_and_escape_remain_owned_by_editing_widget(workbench_http)
     client, calls = workbench_http
     async def scenario():
         app = Workbench(
-            client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999,
+            client, JobQuery(site_id="site-a"), initial_view="compute", compute_mode="queue", refresh_seconds=999,
         )
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
-            for name in ("account", "partition", "states"):
+            for name in ("partition", "states"):
                 field = app.query_one("#" + name, Input)
                 assert field.display and field.parent.display
                 field.focus()
@@ -322,12 +331,12 @@ def test_input_letters_and_escape_remain_owned_by_editing_widget(workbench_http)
                 await pilot.press("end", "c", "a", "w", "escape")
                 await pilot.pause(.05)
                 assert field.value == before + "caw" and len(calls) == read_count
-                assert app.selected_job is None and app.view == "jobs"
+                assert app.selected_job is None and app.read_view == "jobs"
                 for key in ("a", "c", "w", "escape"):
                     binding = app.screen.active_bindings.get(key)
                     assert binding is None or binding.node is not app
                 field.value = before
-            selector = app.query_one("#scope", Select)
+            selector = app.query_one("#compute-scope", Select)
             assert selector.display and selector.parent.display
             selector.focus()
             before = selector.value
@@ -341,29 +350,33 @@ def test_input_letters_and_escape_remain_owned_by_editing_widget(workbench_http)
     asyncio.run(scenario())
 
 
-def test_empty_jobs_buttons_keys_and_palette_agree(job_payload, monkeypatch):
+@pytest.mark.parametrize("compute_mode", ["queue", "records"])
+def test_empty_jobs_buttons_keys_and_palette_agree(job_payload, monkeypatch, compute_mode):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
-    payload = deepcopy(job_payload)
-    payload.update(items=[], count=0)
+    payload = deepcopy(job_payload) if compute_mode == "queue" else sample("list")
+    payload.update(items=[], **({"count": 0} if compute_mode == "queue" else {"has_more": False, "next_cursor": None}))
 
     async def scenario(client):
         app = Workbench(
-            client, JobQuery(site_id="site-a"), initial_view="jobs", refresh_seconds=999,
+            client, task_query(JobQuery(site_id="site-a"), "project:project-example" if compute_mode == "records" else None),
+            initial_view="compute", compute_mode=compute_mode, refresh_seconds=999,
         )
         async with app.run_test(size=(40, 24)) as pilot:
             await settled(app, pilot)
-            assert app.query_one("#view-job", Button).disabled
-            assert app.query_one("#view-cost", Button).disabled
+            assert app.query_one("#compute-detail", Button).disabled
+            assert app.query_one("#compute-cost", Button).disabled
             assert "e" not in app.screen.active_bindings
-            assert app.query_one("#view-allocation", Button).disabled
+            assert app.query_one("#compute-resources", Button).disabled
             assert "a" not in app.screen.active_bindings
             assert not any(
                 command.callback == app.action_view_allocation
                 for command in app.get_system_commands(app.screen)
             )
+            if compute_mode == "records":
+                assert str(app.query_one("#compute-hint", Static).content) == app.t("task_empty")
 
-    with http_endpoint(lambda *_: (200, payload)) as (origin, _):
+    with http_endpoint(lambda call, _: (200, workspace_sample() if urlsplit(call["path"]).path.endswith("/workspaces") else payload)) as (origin, _):
         configured = client_for(origin)
         client = PortalClient(
             transport=configured.transport, token_provider=configured.token_provider,
@@ -382,7 +395,7 @@ def test_job_cost_error_is_visible_and_f5_recovers_from_real_http(
         app = Workbench(
             client,
             JobQuery(site_id="site-a"),
-            initial_view="jobs",
+            initial_view="compute", compute_mode="queue",
             refresh_seconds=999,
         )
         async with app.run_test(size=(60, 24)) as pilot:
@@ -414,7 +427,7 @@ def test_job_cost_error_is_visible_and_f5_recovers_from_real_http(
             assert app.job_cost is not None
             assert app.query_one("#inspection-notice", Static).display is False
             assert app.results["jobs"] is app.job_cost.observation
-            assert app.query_one("#jobs-table", DataTable).row_count == 1
+            assert app.query_one("#compute-table", DataTable).row_count == 1
             assert message not in str(app.query_one("#status", Static).render())
             assert len(calls) == failed_calls + 1
 
@@ -428,9 +441,9 @@ def test_long_task_title_wraps_in_full_detail_on_a_short_screen(workbench_http):
     async def scenario():
         app = Workbench(
             client,
-            JobQuery(site_id="site-a"),
-            initial_view="tasks",
-            tasks_workspace_key="project:project-example",
+            task_query(JobQuery(site_id="site-a"), "project:project-example"),
+            initial_view="compute", compute_mode="records",
+
             refresh_seconds=999,
         )
         async with app.run_test(size=(40, 18)) as pilot:

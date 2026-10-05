@@ -1,3 +1,4 @@
+from test_tui import task_query
 import asyncio
 from copy import deepcopy
 from dataclasses import replace
@@ -103,8 +104,8 @@ def native_client(origin, tmp_path):
 def test_storage_named_discovery_paging_keyboard_and_sources(tmp_path, monkeypatch, language):
     monkeypatch.delenv("NO_COLOR", raising=False)
     async def scenario(origin, calls):
-        app = Workbench(native_client(origin, tmp_path), JobQuery(site_id="site-a", scope="org-account", account_name="org-compute"),
-                        initial_view="storage", language=language, tasks_workspace_key="project:independent", refresh_seconds=999)
+        app = Workbench(native_client(origin, tmp_path), task_query(JobQuery(site_id="site-a", scope="org-account", account_name="org-compute"), "project:independent"),
+                        initial_view="storage", language=language,  refresh_seconds=999)
         async with app.run_test(size=(40, 18)) as pilot:
             await settled(app, pilot)
             assert app.storage_workspace_key is None and app.query_one("#storage-workspace", Select).is_blank()
@@ -120,7 +121,7 @@ def test_storage_named_discovery_paging_keyboard_and_sources(tmp_path, monkeypat
             assert app.storage_workspace_key == "project:project-example" and "Materials" in app.storage_workspace_label
             assert "project:project-example" not in panel(app) and "Materials" in panel(app, "context")
             assert "portal_quota_observation" not in panel(app)
-            assert app.job_query.account_name == "org-compute" and app.tasks_workspace_key == "project:independent"
+            assert app.job_query.account_name is None and app.job_query.workspace_key == "project:independent"
             for width, height in ((40, 18), (60, 24), (100, 32)):
                 await pilot.resize_terminal(width, height); await pilot.pause(.1)
                 for name in ("storage-workspace", "storage-source", "load-storage", "storage-first", "storage-next"):
@@ -149,8 +150,8 @@ def test_storage_named_discovery_paging_keyboard_and_sources(tmp_path, monkeypat
 @pytest.mark.parametrize("view,key", [("tasks", "project:project-example"), ("storage", "org:preselected")])
 def test_explicit_key_resolves_once_without_page_scanning_then_reads(view, key):
     async def scenario(origin, calls):
-        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view=view, refresh_seconds=999,
-                        **({"tasks_workspace_key": key} if view == "tasks" else {"storage_workspace_key": key}))
+        app = Workbench(client_for(origin), task_query(JobQuery(site_id="site-a"), key if view == "tasks" else None), initial_view="compute" if view in {"jobs", "tasks"} else view, compute_mode="records" if view == "tasks" else "queue", refresh_seconds=999,
+                        **({} if view == "tasks" else {"storage_workspace_key": key}))
         async with app.run_test(size=(40, 18)) as pilot:
             await settled(app, pilot)
             assert len(calls) == 2
@@ -166,10 +167,12 @@ def test_explicit_key_resolves_once_without_page_scanning_then_reads(view, key):
 def test_scope_and_quota_failures_clear_the_correct_named_context(status, phase):
     state = {}
     async def scenario(origin, calls):
-        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view="tasks",
-                        tasks_workspace_key="project:project-example", storage_workspace_key="org:preselected", refresh_seconds=999)
+        app = Workbench(client_for(origin), task_query(JobQuery(site_id="site-a"), "project:project-example"), initial_view="compute", compute_mode="records",
+                         storage_workspace_key="org:preselected", refresh_seconds=999)
         async with app.run_test(size=(60, 24)) as pilot:
             await settled(app, pilot)
+            compute_choices = app.task_projects
+            assert compute_choices is not None
             if phase == "scope": state["scope_status"] = status
             app.query_one("#views", TabbedContent).active = "storage"; await settled(app, pilot)
             if phase == "quota":
@@ -184,9 +187,11 @@ def test_scope_and_quota_failures_clear_the_correct_named_context(status, phase)
                 assert app.storage_workspace_label is None
                 assert not any("quota-summary" in call["path"] for call in calls)
             if status == 401:
-                assert app.results == {} and app.paused and app.tasks_workspace_key is None and app.tasks_workspace_label is None
-                assert app.task_projects is None and app.query_one("#tasks-project", Select).is_blank()
-            else: assert app.tasks_workspace_label is not None and "tasks" in app.results
+                assert app.results == {} and app.paused and app.job_query.workspace_key == "project:project-example" and app.scope_label is None
+                assert app.task_projects is None and app.query_one("#compute-scope", Select).value == app.job_query.workspace_key
+            else:
+                assert app.scope_label is not None and "tasks" in app.results
+                assert app.task_projects is compute_choices
     with http_endpoint(responder(state)) as (origin, calls): asyncio.run(scenario(origin, calls))
 
 
@@ -196,8 +201,8 @@ def test_late_exact_scope_name_or_denial_cannot_replace_another_tab(view, late_e
     key = "project:project-example"
     state = {"block_scope": key, "started": threading.Event(), "release": threading.Event(), "late_error": late_error}
     async def scenario(origin):
-        app = Workbench(client_for(origin), JobQuery(site_id="site-a"), initial_view=view, refresh_seconds=999,
-                        **({"tasks_workspace_key": key} if view == "tasks" else {"storage_workspace_key": key}))
+        app = Workbench(client_for(origin), task_query(JobQuery(site_id="site-a"), key if view == "tasks" else None), initial_view="compute" if view in {"jobs", "tasks"} else view, compute_mode="records" if view == "tasks" else "queue", refresh_seconds=999,
+                        **({} if view == "tasks" else {"storage_workspace_key": key}))
         async with app.run_test(size=(60, 24)) as pilot:
             try:
                 for _ in range(100):
@@ -208,7 +213,7 @@ def test_late_exact_scope_name_or_denial_cannot_replace_another_tab(view, late_e
             finally: state["release"].set()
             await settled(app, pilot)
             assert app.view == "resources" and app.catalog is not None and not app.paused
-            assert app.storage_workspace_label is None and app.tasks_workspace_label is None
+            assert app.storage_workspace_label is None and app.scope_label is None
     with http_endpoint(responder(state)) as (origin, _): asyncio.run(scenario(origin))
 
 
