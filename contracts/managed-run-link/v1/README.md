@@ -1,7 +1,9 @@
 # Recorded work and native activity correlation
 
-Status: additive source candidate, not deployed. Existing read routes, scopes,
-capabilities and version identifiers remain unchanged.
+Status: implementation deployed on 2026-10-06 with native identity and
+ordinary-user read checks; positive running managed-Run association still needs
+a real sample. Existing read routes, scopes, capabilities and version identifiers
+remain unchanged.
 
 `run_link` is an optional nullable lowercase SHA-256 string on native `jobs/v1`
 items and managed `compute.runs/v1`, `compute.run/v1`, `compute.my-runs/v1` items.
