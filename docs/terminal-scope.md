@@ -33,6 +33,15 @@ SAI-specific account, budget and monetary facts keep their control-plane owner.
 Plain `sai` reads the existing account summary and returns to the shell. It uses
 plain text for a terminal and JSON for redirected output, with no optional UI
 dependency or automatic login. Explicit `sai status` keeps its JSON default.
+Source `3468ea841490` was selected in the shared runtime on 2026-10-07 after
+928 local tests, package checks and installed-wheel HTTP/pipe/PTY validation.
+An ordinary user's before, candidate and selected reads retained the same
+authorized context. Bare terminal output, redirected JSON and explicit-status
+JSON passed against the installed entrypoint, including a 40-column PTY and a
+literal `sai` invocation. All 574 runtime files and permissions matched the
+artifact; shared configuration and normal login were preserved. Operator staging
+and sessions were removed, and the previous runtime remains available for
+rollback. This verifies technical behavior, not human product acceptance.
 
 The existing `sai status` and explicit cost commands already answer parts of
 this need. Start there. A short status panel returning to the shell is a useful
