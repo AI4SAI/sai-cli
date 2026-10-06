@@ -24,6 +24,12 @@ and issues requiring attention. Slurm knows scheduler state; Linux knows files
 and process permissions. Neither owns SAI membership, Credit, commercial prices,
 project budget or final charges.
 
+When the current Unix/Slurm identity can already read a local fact, use the
+native command directly. A queue, file or native quota lookup does not need a
+trip through the SAI gateway. That gateway serves authorized remote readers;
+testing it with the batch CLI does not make it the normal local workflow.
+SAI-specific account, budget and monetary facts keep their control-plane owner.
+
 The existing `sai status` and explicit cost commands already answer parts of
 this need. Start there. A short status panel returning to the shell is a useful
 outcome in itself. Interactive choice earns its place only when it removes a

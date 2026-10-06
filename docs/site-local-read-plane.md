@@ -5,6 +5,12 @@ now retires the full-screen terminal workbench under [terminal scope](terminal-s
 `sai tui` reads only the compact central account overview. Earlier TUI deployment
 records below retain their historical evidence boundary.
 
+Local users keep native Slurm/Linux reads wherever their current identity can
+already obtain the fact. This API plane serves clients that need authorized
+remote access, including Web and remote Agent consumers. It is not a mandatory
+hop for local queue, file or quota commands. The batch CLI can exercise that
+remote contract; it does not replace local tools or add a second native adapter.
+
 The workbench replacement adds central actor-owned Run discovery while retaining
 this site's native read paths. Native job rows optionally include a scoped
 `run_link` and canonical Run reference parsed from the existing marker. The
@@ -332,13 +338,19 @@ read succeeded before and after the restart. Temporary probes were removed and
 operator sessions closed. Protected configuration backups and rollback remain.
 These native probes still used operator-created grants, not user authorization.
 
-Ordinary-user acceptance still needs an explicitly consented storage-read
-session and an issuer-to-gateway read with matching audit evidence. Current
-managed configuration requests compute/billing only; an existing user's storage
-request was rejected for missing scope. Identity discovery advertises storage
-scope, which does not grant it to that session. Device caches are scope-bound;
-permission expansion must preserve basic read sessions rather than changing
-their default scope or silently widening existing grants.
+An ordinary user's browser-approved isolated device session then read one
+authorized Home quota through the installed CLI, real Portal issuer, public
+HTTPS gateway and native Lustre reader. Center issuance and journal start/finish
+records matched the actor, capability digest, workspace and quota subjects.
+The temporary refresh revocation was acknowledged and the isolated profile was
+removed. The original login still read jobs and still rejected storage without
+its own scope. All operator staging and sessions were closed.
+
+This proves one personal-scope remote read and its local journal evidence,
+not all workspace cohorts, load behavior or Web/Agent integration. Managed
+configuration still requests compute/billing only; the isolated test did not
+enable storage for existing sessions. Device caches are scope-bound. A future
+permission expansion must preserve basic sessions and obtain explicit consent.
 
 ## Native observations and running estimates
 

@@ -188,7 +188,8 @@ expose funds or messages; the overview uses the normal CLI read authority.
   on-demand Lustre project quota subjects; the actual service UID and temporary
   read-only mount namespace passed a native-adapter preflight on 2026-10-07.
   The exact HTTPS route and formal control-plane mount bindings are deployed;
-  ordinary-user authorization, quota read and audit acceptance remain open
+  one ordinary-user Home quota read and matching issuer/journal pair passed.
+  Its isolated device session was revoked and cleaned; managed defaults stayed unchanged
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -242,10 +243,10 @@ Relevant acceptance that remains outside this terminal reduction:
 - Real asset publication, verified physical-device mapping and telemetry.
 - Estimate-to-final association under the existing execution/billing owners.
 - Pilot-native discovery, resource/result continuation and browser usability.
-- Native storage user scope consent, issuer-to-gateway quota read and audit;
-  formal bindings, the service UID's read-only native path and exact HTTPS route
-  are deployed. Physical quota subjects are not funding pools, and operator
-  grants are not ordinary-user acceptance.
+- Native storage coverage beyond the verified ordinary-user personal scope,
+  production failure/load behavior and actual Web/Agent consumers. Formal
+  bindings, explicit user consent, one native read and its issuer/journal match
+  passed. This remote API does not replace native local quota commands.
 
 Complete text/binary output delivery has bounded ordinary-user evidence,
 including a selected-runtime result, exact file readback and no-overwrite
