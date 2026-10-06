@@ -16,30 +16,29 @@ migration and native plugin work. New personal/organization task acceptance and
 the complete product workflow remain open; this prerequisite does not activate
 the new domain contract.
 
-## Current product replacement
+## Current terminal correction
 
-The previously deployed terminal was rejected as difficult and uninteresting.
-Its technical read acceptance remains evidence, not product approval. The
-[whole-workbench replacement](workbench-rebuild.md) is deployed with the paired actor-owned work-discovery contract. Existing
-ordinary-user result/cost/context and actual SSH/PTY reads passed; whole-product
-acceptance remains open. The existing native readers and authorization/billing owners remain.
+The full terminal workbench deployed on 2026-10-06 has been rejected. The
+[terminal scope decision](terminal-scope.md) replaces the complete-workflow
+brief: native Slurm/Linux remain the normal tools; SAI supplies concise
+business context, access, funds/budget and costs. Shared Web/Agent contracts
+do not require matching TUI screens.
 
-- [x] Default work discovery without a required account/job/partition form
-- [x] Standalone work-to-results shell and actual CLI entry; old shell removed
-- [x] Direct result reading/saving, contextual tools and in-workbench device login
-- [x] Local paired producer/client reads and rendered navigation checks
-- [x] Scoped current native/Run correlation and bounded exact discovery in source
-- [x] Paired native gateway/Center correlation delivery and actual native identity bridge
-- [ ] Positive current managed-Run correlation and full scientific-work acceptance
-- [ ] Pilot-native resource and result continuation, retiring old console links
-- [x] Shared replacement CLI and paired Center/site readers selected; Pilot's
-  independent browser entry is available through its existing owner
-- [ ] First-time and returning-user workflow acceptance in real terminals/Web
+- [x] Correct product scope, presentation rules and cross-interface requirements
+- [x] Classify current features against native tools and existing batch commands
+- [ ] Retire the broad workbench navigation and private view machinery
+- [ ] Verify the compact status/cost experience and remove unused UI code
+- [ ] Deliver the reduced runtime through the existing shared publication
 
-Detailed historical checkmarks below describe the stated read capabilities and
-release evidence; they do not restore the rejected layout as the target. The
-replacement's local test, package, deployment and user-acceptance boundaries
-remain separately recorded.
+The existing `sai status` summary is the starting point. Named interaction is
+appropriate only when it removes necessary lookup or technical input. No new
+dashboard, Portal management pages or Pilot orchestration belongs in the TUI.
+
+The deployed read contracts remain independently useful. Bounded ordinary-user
+result/cost/context and SSH/PTY checks passed, but they are not acceptance of
+the rejected product. Positive current managed-Run association, native Pilot
+workflow and hardware evidence retain their own verification boundaries.
+The historical capabilities below do not prescribe terminal features.
 
 ## Basic job reads: deployed, acceptance still open
 
@@ -145,7 +144,7 @@ prove a site deployment or refresh the groups of existing sessions.
 The [login summary design](login-summary-design.md) defines a compact view of
 the applied default identity, authorized funds, unread messages and actionable
 access issues. It adds to the existing login help, rules, quota/resource status
-and notes, and reuses the workbench's facts and permissions.
+and notes, and reuses the existing account overview and permissions.
 
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
 - [x] `sai status` JSON/plain/Rich panel and Textual Overview, with one shared login fragment
@@ -209,95 +208,35 @@ Acceptance boundary: source compatibility, local integration and the bounded
 production user-list/lease checks above. Shared files alone do not establish
 production registration, deployed keys or a successful real-user read.
 
-## Milestone 0.3: optional TUI
+## Shared reads and terminal scope
 
-The [unified workbench design](unified-workbench.md) defines shared TUI, WebUI,
-and Agent semantics beyond a job list: resource selection, task diagnosis,
-results, usage, and Pilot context. Establish those contracts and task flows
-first. The [digital-twin design](digital-twin-design.md) keeps hardware 3D work
-behind validation of asset, allocation, and telemetry facts. Both documents
-are candidate designs, not completed implementation milestones.
+The former optional-TUI feature checklist is retired. It rewarded reproducing
+resource preparation, queues, files, storage, messages and Pilot navigation in
+one terminal application. [Terminal scope](terminal-scope.md) determines what
+remains; [the deployed record](terminal-workbench.md) preserves current behavior
+and technical evidence without turning them back into requirements.
 
-- [x] Optional TUI dependency group and interactive `sai tui` entry
-- [x] Contextual published partition/QOS metadata and comparison; resource
-  eligibility and admission remain separate from catalog presentation
-- [x] Explicit resource candidate, independent two-item comparison and shared
-  console-to-Pilot preparation intent without requiring an existing job;
-  current eligibility and concrete proposal validation stay server-owned
-- [x] TUI selected-job Cost mode over one central native observation and price,
-  with independent billing scope; duplicate estimate list removed and paired
-  installation completed. Batch `jobs cost` keeps the complete-scope contract
-- [x] Separate TUI allocation inspection over one site snapshot, including exact
-  array-task identity, paused refresh and complete F5 replacement (local HTTP only)
-- [x] Open in Web for an inspected job using Portal-owned workspace mapping,
-  observation comparison and a visible same-origin link (local HTTP/Textual only)
-- [x] Explicit project-scoped Tasks with owner-only managed-run history, detail,
-  bounded stdout/stderr and output-file pages (local validation; no runtime start)
-- [x] Batch `runs download` for complete binary output, version-bound direct
-  ranges, credential separation and atomic non-overwriting local save
-- [ ] Paired Center/site release and real-user complete-download acceptance;
-  cross-process resume is not implemented
-- [x] Exact managed-run Web navigation to the independently authorized console
-  task page, without requiring an active scheduler account or starting Pilot
-- [x] Bounded discovery of readable task projects with safe display names,
-  explicit selection and the same current project/site read authority
-- [x] Independent storage-name discovery and exact authorized name resolution
-  for explicit task/storage selections, without raw-key editing or native probes
-- [x] Bilingual task workflow, contextual actions and narrow-screen evidence
-  layout, checked with local HTTP and rendered views
-- [x] Shared browse/inspection/summary layout across the five views, current-view
-  Back and polling-aware actions; local rendered and HTTP checks
-- [ ] SSH terminal diversity and long-session experience acceptance
-- [x] Bounded real SSH/PTY task evidence checks: 14-minute Chinese run, English
-  monochrome, three sizes, delayed-read resize, revocation recovery and cleanup
-- [ ] Estimate-to-final replacement without duplicate display or aggregation
-- [x] Explicit per-Run final cost with shared Portal graph validation, independent
-  billing permission, role-filtered funding components and console continuation
-- [x] Bounded production-user historical Run detail, stdout, output and final-cost
-  reads, plus headless TUI same-output Web reference and narrow selection retention;
-  these reads do not establish a complete new computation
-- [x] Paired console/Pilot reference handoff deployed; user confirmed the original
-  conversation and file reference are visible
-- [x] Paired bounded text-content Web/TUI/JSON readers deployed; ordinary-user
-  historical text read through the stable shared CLI passed on 2026-10-03
-- [x] Paired Web workspace-context migration and one-page resource preparation
-  deployed; no-decision relay page removed, task/file reading context retained,
-  and financial reads complete independently. Public/service readback passed;
-  the authenticated production browser journey remains open
-- [x] Task inspection within the workspace and one-action original-history open
-  deployed with the text readers; real-browser journey remains separate
-- [x] Complete output download for Web/CLI/TUI deployed; an ordinary user retrieved
-  an existing file through the stable CLI, with exact hash and no-overwrite readback
-- [x] Same-task TUI reading position across evidence modes and catalog navigation,
-  published as shared source `4c81f27` on 2026-10-04; ordinary-user candidate and
-  selected-runtime reads retained one complete output at 40/60/100 columns.
-  This headless TUI check used real APIs; physical terminal and browser acceptance
-  remain separate, and the statistics source returned unavailable.
-- [ ] Result workflow: authenticated browser retrieval and the complete task journey;
-  optionally bring an explicit question to Pilot; visibility alone is insufficient
-- [x] Explicit native Run step statistics shared with WebUI and Pilot; bounded
-  owner-UID Slurm reads, execution/step coverage checks and unknown sample time
-- [x] Paired site statistics role installation and ordinary-user CLI/API/native
-  no-sample response, with existing file and independent gateway reads preserved
-- [ ] Positive running-step CPU/RSS and full Web/Pilot native statistics acceptance
-- [x] Current Run-bound allocation and node registration across TUI/Web/Pilot,
-  reusing the existing signed gateway and registration/scene components
-- [ ] Paired Run-placement gateway deployment and real-asset acceptance
-- [x] Local-state keyboard interactions and serialized asynchronous refresh
-- [x] Bounded empty/error states, paged managed tasks and scope directories
-- [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
+Shared capabilities already implemented include authorized Run discovery,
+logs, bounded text content, complete binary download, final cost, native step
+statistics and exact-Run allocation/registered location. Independent
+file/billing authority, pagination, observation quality and protected transport
+remain required for their API, batch and Web/Agent consumers.
 
-The replacement [terminal workbench](terminal-workbench.md) reuses these read
-capabilities in one work-to-results journey. The old task-page-to-Pilot handoff
-and resource preparation URL remain compatibility consumers pending native
-Pilot replacement, not accepted user workflows. Estimate-to-final association,
-full resource eligibility, measured GPU utilization and real asset publication
-remain unfinished. Native storage reads authorized physical quota subjects,
-not an inferred organization pool aggregate.
+Relevant acceptance that remains outside this terminal reduction:
 
-Acceptance boundary: local HTTP/rendered checks. Prior production reads and
-[bounded SSH/PTY runs](ssh-terminal-acceptance.md) do not validate the replacement
-layout, terminal font diversity or the user's interest in the product.
+- Positive current managed-Run/native association, including execution changes.
+- Positive running-step CPU/RSS and the native Web/Agent consuming path.
+- Real asset publication, verified physical-device mapping and telemetry.
+- Estimate-to-final association under the existing execution/billing owners.
+- Pilot-native discovery, resource/result continuation and browser usability.
+- Native storage service-UID access; physical quota subjects are not funding pools.
+
+Complete text/binary output delivery has bounded ordinary-user evidence,
+including a selected-runtime result, exact file readback and no-overwrite
+behavior. Shared work discovery and the native identity bridge were paired and
+deployed on 2026-10-06. Neither proves a useful TUI or complete scientific work.
+Removal of a TUI page does not require an equivalent terminal replacement; a
+shared backend can be retired only after its actual consumers are checked.
 
 ## Milestone 0.4: site-local capability transport
 

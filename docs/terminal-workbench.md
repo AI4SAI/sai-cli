@@ -1,9 +1,10 @@
-# Terminal workbench
+# Deployed terminal workbench record
 
-Status: deployed on the shared CLI on 2026-10-06, with bounded ordinary-user
-reading and SSH/PTY checks. Complete product and human usability acceptance
-remain open. This replaces the former Overview-first, tabbed terminal. The
-remaining work is in [the rebuild brief](workbench-rebuild.md).
+Status: deployed on the shared CLI on 2026-10-06, then rejected as a product
+direction. Bounded ordinary-user reading and SSH/PTY checks remain technical
+evidence. This file records the still-installed behavior, not a design target
+or a feature backlog. [Terminal scope](terminal-scope.md) replaces the rebuild
+brief and requires retiring this broad workbench.
 
 ```bash
 python3 -m pip install '.[tui]'
@@ -43,7 +44,7 @@ Resource comparison, storage usage, account messages and named account choices
 are secondary tools. There is no permanent seven-button mode bar or ID form.
 Advanced numeric diagnostics remain available through `sai jobs show`.
 
-## Existing authority, clearer interaction
+## Existing authority and runtime behavior
 
 Default recorded history uses `compute.my-runs/v1`: actor-bound, site-bound,
 paginated and joined once to currently readable workspaces. The terminal never
@@ -95,12 +96,12 @@ saver and transport/permission contracts remain the authoritative implementation
 | Resource comparison and messages | Contextual choices preserve selection and independent account authority |
 | Evidence formatting | Kept unit/unknown/path/decimal and language presenter checks |
 
-The legacy resource preparation URL and Run console deep links remain explicit
-secondary consumers until native Pilot accepts those exact references. Their
-removal condition is a paired native replacement preserving resource/file
-context and read authority. They are not the default Start work path or evidence
-of an accepted end-to-end experience. Native job-to-console navigation is no
-longer a workbench action; its existing protocol code is separate from this UI.
+The legacy resource preparation URL and Run console deep links remain existing
+consumers in this version. Retiring their TUI actions does not require building
+an equivalent TUI-to-Pilot journey. Before deleting shared protocol code, check
+batch and other consumers separately. Pilot's native plugin and entry remain
+with its owner. Native job-to-console protocol code is already separate from
+this UI and is not a reason to keep the broad terminal shell.
 
 Source tests use bounded HTTP fixtures and actual Textual rendering at 40, 60 and
 100 columns in Chinese/English. A local Portal/CLI pair verifies work discovery

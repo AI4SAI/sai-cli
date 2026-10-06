@@ -9,6 +9,12 @@ site-local read gateways. Its job is to translate explicit user intent into a
 bounded request, validate the response contract, and render JSON or a human
 table. It is not an authorization engine and it is not a second scheduler.
 
+Terminal users continue using native Slurm/Linux tools. The SAI presentation
+adds business context, access and cost information through the existing owners.
+The broad TUI described below is an implementation baseline being reduced under
+[terminal scope](terminal-scope.md), not a requirement for interface parity.
+Shared read APIs remain useful independently of that interface.
+
 The architecture separates three responsibilities:
 
 | Owner | Responsibility | Explicitly does not own |

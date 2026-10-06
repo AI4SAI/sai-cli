@@ -2,6 +2,11 @@
 
 Status: read-only commands frozen
 
+The TUI behavior below records the currently implemented runtime. Its full
+workbench scope has been rejected; [terminal scope](terminal-scope.md) governs
+the planned reduction. The compact `sai status` panel and batch commands remain
+independent. This documentation correction does not change installed behavior.
+
 ## Command surface
 
 The current release exposes read-only job and resource commands:

@@ -6,93 +6,78 @@ product
 
 ## Purpose
 
-SAI helps researchers turn code and data into useful scientific results. The
-interface must show what is happening, what needs attention and what can be
-used next without asking people to reconstruct scheduler or account internals.
-A person should recognize their own work and a useful next action on opening it.
-Passing API or layout tests is not evidence that this product is understandable
-or worth using.
+SAI helps researchers use shared computing resources. Terminal users already
+work in a shell with Slurm, Linux tools, scripts and editors. The SAI client
+adds authorized information those tools do not have, without making users move
+their work into another application.
 
-The current terminal interaction has been rejected and is being replaced. The
-[workbench rebuild](docs/workbench-rebuild.md) defines the replacement. Its goal
-covers complete work, not another job inspection utility or a collection of
-independently correct screens. The existing deployed version remains a
-technical baseline until the replacement is verified; it is not the design to
-polish or preserve.
+The full terminal workbench is rejected. A unified backend means consistent
+facts and permissions, not the same features or screens in every client. The
+[terminal scope decision](docs/terminal-scope.md) replaces the full-workbench
+brief. The deployed interface remains a technical baseline pending removal of
+its broad navigation; it is not an accepted product or a design to polish.
 
-## People and situations
+## Terminal value
 
-Researchers return to ongoing work, investigate a failure, compare results and
-start the next calculation. Some use Pilot, some use scripts and many use both.
-They may be checking a remote terminal briefly between other research work.
-They should not need to learn the platform's object model to get their results.
+The useful questions are specific to SAI:
 
-Project owners additionally need the work and spending they may oversee.
-Operators have a separately authorized hardware and fault view. Those roles
-change the available facts and actions, not the everyday product vocabulary.
+- Which account and project am I using here, and is its site access effective?
+- What funds or project budget may I use, and what is already committed?
+- What does this computation cost, using SAI's prices and billing authority?
+- Is an access issue, expiring entitlement or relevant notice affecting my work,
+  and where can I resolve it?
 
-## Product responsibilities
+Start with the existing `sai status` summary and explicit cost commands. A
+short answer that returns to the shell is often the whole interaction. Do not
+turn these questions into an account-management application. An interactive
+selector is justified only where choosing an authorized name removes repeated
+lookup or technical input. No full-screen home is required by this product.
 
-Pilot's native workbench owns the interactive Web computation experience and
-retains its full Agent, shell, file, code and workflow capabilities. The TUI is
-a terminal entry to the same work and evidence. Portal owns membership, site
-access, business policy and final billing. Identity owns authentication.
-Native site systems supply dynamic execution and hardware facts.
+Queue inspection, submission, logs, files and native statistics remain part of
+the user's normal tools. Existing API commands can serve remote reads, scripts
+and Agent integrations without acquiring a corresponding TUI page.
 
-There is one permission and fact owner for each domain. Clients do not copy
-business rules, price jobs, create another task history or infer file access
-from a job number. Sharing contracts does not require all traffic to pass
-through a single central proxy. The user chooses the site.
+## Responsibilities
 
-## Required everyday experience
+Pilot owns its native Web computation experience, Agent, sessions and job
+plugin. Portal owns membership, site access, business policy and final billing.
+Identity owns authentication. Site systems supply dynamic native facts through
+authorized site readers. The user chooses the compute site.
 
-- Open into useful work, using established context and authorized discovery.
-  Request a human choice only when it changes a meaningful decision.
-- Select work by its recognizable name and situation. Internal IDs, scheduler
-  state codes, partition strings and source timestamps are secondary evidence.
-- Keep progress, relevant logs, available results and costs within that work.
-  Looking at a result must not require a model message or a renewed paid window.
-- Prefer choices based on known facts over blank text fields. Optional search
-  is useful; requiring users to find and paste platform identifiers is not.
-- Present the action appropriate to the current situation. Do not display every
-  possible action as an equally prominent permanent toolbar.
-- Preserve context when returning, refreshing or changing device size. An
-  unavailable source or lost permission needs a specific recovery path.
-- Show real outputs and real observations. Do not invent scientific progress,
-  successful execution, utilization or an association between unrelated facts.
+The CLI stays read-only and consumes those owners' contracts. It does not add
+native-command fallbacks, a scheduler, account policy or a pricing engine.
+Reducing the TUI does not remove shared APIs needed by WebUI, Pilot or Agent.
+Those consumers do not depend on a terminal workbench being available.
 
-## Interaction and visual direction
+## Interaction and appearance
 
-Follow the existing SAI identity: calm surfaces, restrained teal focus, readable
-contrast and status conveyed with words. Name, state and next action lead;
-operational identifiers and diagnostic provenance are disclosed when needed.
-Keep ordinary workflows complete with arrow keys and Enter, with discoverable
-advanced commands. The user does not have to memorize shortcut letters.
+Give the answer first: a named context, a relevant value or problem, and a useful
+next action. Preserve the shell, scrollback and current work. Known context and
+authorized choices replace requests to type platform IDs. Viewing another
+account does not change the shell's submission account, directory or payer.
 
-Codex CLI, Claude Code and OpenCode are references for continuous work, focused
-interaction and progressive disclosure. They are not permission to fork their
-Agent engines or turn read-only work into mandatory chat.
+Use terminal-native surfaces, restrained SAI color, clear spacing and readable
+amounts. Normal information stays quiet; color accompanies words. Full-width
+frames, permanent toolbars, technical provenance and unrelated modules must not
+compete with the answer. See [the terminal design](DESIGN.md).
 
-The [terminal design](DESIGN.md) specifies the new interaction. Web styling
-remains governed by Portal's existing visual system. No competing brand system
-or decorative dashboard is introduced here.
+Codex CLI, Claude Code and OpenCode inform focused interaction and progressive
+disclosure. Their complete Agent interfaces are not a template for this client.
 
 ## Acceptance
 
-A first-time researcher must be able to recognize the current site and work,
-open an item, understand its state, find an available result and return without
-being taught platform terms or entering technical identifiers. An experienced
-user must still reach detailed evidence efficiently. Both audiences matter.
+For each interaction, identify the missing native capability and compare it
+with the existing one-shot CLI. The user should obtain a useful SAI answer and
+return to work without learning a navigation system or copying internal IDs.
+If interaction adds no value, keep the command and omit the screen.
 
-Check actual flows in Chinese and English at narrow and wide terminal sizes,
-including empty work, failed reads, revoked access, unfinished runs and results
-that cannot be previewed. Headless tests, real backend reads, physical-terminal
-behavior and the user's assessment are separate evidence. If the user cannot
-understand or has no interest in the result, the product goal is still open.
+Check Chinese/English, narrow/wide terminals, permission loss and unavailable
+sources. Unknown funds are not zero; funds alone cannot prove submission is
+allowed. Tests and deployment establish technical behavior, not user interest.
 
 ## Digital twin
 
-Hardware views bind real tasks and executions to registered assets and measured
-observations under role-based access. TUI, Web and Agent consume the same
-structured facts. Parameterized 3D comes from an asset inventory; it does not
-own topology or invent utilization. See [the design](docs/digital-twin-design.md).
+WebUI's role-filtered hardware view and Agent-readable facts remain in scope.
+Real task allocations, registered assets and measured telemetry are separate
+facts. Parameterized 3D comes from an asset inventory after data is trustworthy.
+It does not require a terminal hardware tree. See [the design](docs/digital-twin-design.md).

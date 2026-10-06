@@ -4,6 +4,12 @@
 stable, machine-readable interface to Portal-authorized, site-scoped compute
 data while keeping authorization decisions out of login-node shell wrappers.
 
+Terminal users keep using Slurm and Linux for their normal work. SAI adds its
+own account/access information, funds, budget and cost facts. Start with
+`sai status --format table` (or the compact `--format tui` panel) and explicit
+cost queries; a full terminal workbench is not the product target. See
+[terminal scope](docs/terminal-scope.md).
+
 The first implementation milestone is intentionally read-only:
 
 - `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
@@ -61,37 +67,13 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-The optional `sai tui` opens **My work** at the configured site. Choose a work
-name with the arrow keys and Enter. Completed work opens its results; failed
-work opens its error log. Files can be read or saved without opening a model
-window. Escape returns to the same work or file page. No account ID, job number
-or partition text is required for this flow. If login is needed, the workbench
-offers the existing browser-approved device login directly.
-
-The home reads your native activity and your recorded computations across
-currently readable accounts. `sai runs recent` exposes the same recorded-work
-page as JSON. An explicitly selected account remains narrow; legacy scheduler
-account selectors do not silently become an all-account history read. Matching native activity and recorded history now share one work item through
-a scoped correlation key. A job number alone never establishes that link.
-
-**Start work** opens Pilot's native entry with the selected site. Pilot owns
-working directories, sessions, Agent actions and computation preparation. This
-navigation requires its paired server entry to be deployed; no model prompt or
-computation is sent by the CLI. Resource comparison, storage, account messages
-and named account selection are available through More or Ctrl+P.
-
-Allocation, registered location, statistics and costs remain explicit reads
-within the selected work. Running estimates and final charges keep their
-independent server authority. Location records expire at their actual deadline;
-registered rack positions do not prove physical GPU identity or utilization.
-File permissions remain independent of metadata and billing access.
-
-Install with `pip install '.[tui]'` and run `sai tui` in an interactive terminal.
-The [replacement workbench](docs/terminal-workbench.md) was selected on the
-shared runtime on 2026-10-06, with bounded ordinary-user and SSH/PTY read checks. The [rebuild brief](docs/workbench-rebuild.md)
-records remaining paired native deployment, Pilot continuation and actual user
-acceptance. Local tests or screenshots do not establish that product acceptance.
-Managed login still shows its compact summary and returns to the shell.
+The optional `sai tui` still opens the deployed full workbench in this version.
+That product direction has been rejected; the [implementation record](docs/terminal-workbench.md)
+describes its current behavior, not an experience recommended for expansion.
+The [scope decision](docs/terminal-scope.md) defines its reduction. This
+documentation change does not replace the installed runtime. The compact
+`sai status --format tui` panel is separate and returns to the shell; install
+its optional presentation dependencies with `pip install '.[tui]'`.
 
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
@@ -135,9 +117,10 @@ login-node package have been deployed.
 - [Login summary contract and design](docs/login-summary-design.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
-- [Terminal workbench](docs/terminal-workbench.md)
+- [Terminal scope and feature disposition](docs/terminal-scope.md)
+- [Deployed terminal implementation record](docs/terminal-workbench.md)
 - [Product principles](PRODUCT.md)
-- [Unified TUI, WebUI, and Agent workbench (candidate design)](docs/unified-workbench.md)
+- [Shared WebUI, terminal, and Agent semantics](docs/unified-workbench.md)
 - [Hardware digital twin and 3D view (candidate design)](docs/digital-twin-design.md)
 - [Repository guidelines](AGENTS.md)
 

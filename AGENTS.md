@@ -49,6 +49,18 @@
 
 ## Current Implementation Facts
 
+### Terminal product boundary
+
+- Terminal users keep Slurm/Linux as their normal tools. SAI supplements their
+  work with business context, access, funds/budget and cost information.
+- The deployed full workbench below is rejected as a product direction. Follow
+  `docs/terminal-scope.md`; shared APIs do not require matching TUI pages.
+- Prefer the existing compact `sai status` and explicit commands. Add interaction
+  only when it removes a necessary lookup or technical input. Do not rebuild
+  Portal, Pilot, a queue browser or a file manager in the terminal.
+
+### Implemented surface
+
 - Python 3.11+ is required.
 - The batch CLI has no third-party runtime dependency.
 - The implemented surface includes `sai jobs list`, `sai jobs show`,
