@@ -174,8 +174,8 @@ The first client supports these scopes:
 The terminal opens the actor's work at the explicit site. Native self activity
 and recorded Run history are separate bounded observations. The new actor-owned
 `compute.my-runs/v1` operation joins existing Runs to the readable-workspace
-relation and supplies authorized names in one SQL page, without project fanout,
-a new task store or a native probe. Each later detail/file/cost read reauthorizes.
+relation and supplies authorized names in one SQL page, without project fanout or a new task store. The gateway can resolve only the
+visible current SLUIDs to their native database indexes, in one bounded batch. Each later detail/file/cost read reauthorizes.
 An explicit workspace narrows both sources; a legacy scheduler account without
 a workspace stays queue-only. Business and native account IDs remain distinct.
 

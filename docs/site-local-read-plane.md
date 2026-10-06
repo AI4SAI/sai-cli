@@ -3,8 +3,9 @@
 The workbench replacement adds central actor-owned Run discovery while retaining
 this site's native read paths. Native job rows optionally include a scoped
 `run_link` and canonical Run reference parsed from the existing marker. The
-original native read and signed filter are unchanged; no extra native request
-or authorization store is added. The matching Center/gateway rollout is pending. It does not route every refresh through a new
+original queue read and signed filter remain. Missing DBIndex is resolved only
+by one exact current-SLUID batch after the visible-page filter; this is not a
+history fallback or another authorization store. The matching Center/gateway rollout is pending. It does not route every refresh through a new
 central aggregator or create client project fanout. The replacement UI is a
 source candidate; historical deployment receipts below refer to their recorded
 versions and do not establish acceptance of the new workbench.

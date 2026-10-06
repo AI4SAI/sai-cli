@@ -18,7 +18,8 @@ reference, and the locked scheduler database index. Control-plane lists join the
 page, verify its ownership, and use the accepted Run's existing fields. There
 is no per-project or per-Run native probe, table, cache, grant or new service.
 
-The site obtains its side from the already authorized native row. It uses the
+The site obtains its side from the already authorized native row and its exact
+execution identity, as described below. It uses the
 same complete tagged-record parser as Run placement: fixed Slurm/parser version,
 clean source header, exact single job, typed native times and execution evidence.
 Ordinary native jobs, arrays, heterogeneous jobs and incomplete correlation
@@ -44,11 +45,22 @@ A Run's own native detail is read through the existing job path and checked
 again against its freshly read metadata before displaying it.
 
 The scheduler database index must already have been bound by the original
-Run reconciler; the site must independently report that exact index from its
-current native row. Missing either side leaves the records unlinked. Copying
-an old comment onto a reused job number produces a different key. Historical
-accounting evidence alone never substitutes for the current native observation.
-No new reconciliation writer or DB field is introduced.
+Run reconciler. Slurm 26.05.1 queue JSON does not provide that index. For the
+already visible, tagged, non-resized native records only, the gateway performs
+one bounded `sacct` lookup by their **SLUIDs**, users and accounts. It requests
+only JobIDRaw, DBIndex, SLUID, OriginalSLUID, User, Account, Cluster and Submit.
+The native job number, exact current SLUID, original SLUID, user, account,
+cluster and UTC submit time must all agree; duplicate conflicting indexes and
+incomplete rows remain unlinked. A number-only history query is forbidden.
+
+The lookup occurs after secondary visibility, state/partition filtering and
+the existing page limit, with at most 500 native records. It supplies only
+identity, never job state or statistics. Source failure leaves the authorized
+native state readable with null correlation; the gateway never falls back to
+history for a failed queue read. Age includes this lookup's time. Resized jobs
+without a directly observed DBIndex remain unlinked, since accounting may lag
+a resize. Copied comments and reused job numbers cannot select a prior SLUID.
+No new reconciliation writer, DB field, grant, cache or history API is added.
 
 This key is correlation for browsing, not authorization or an execution-attempt
 identifier. Requeues can retain the database index; restart/SLUID and hardware
