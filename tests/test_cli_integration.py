@@ -419,15 +419,22 @@ def test_jobs_cost_uses_independent_endpoint_and_allowlisted_json(
     }
 
 
+@pytest.mark.parametrize("terminal", [False, True])
 def test_jobs_cost_table_shows_pending_unavailable_and_stale_snapshot(
     tmp_path: Path,
     running_estimate_payload,
+    monkeypatch,
+    terminal,
 ) -> None:
     payload = deepcopy(running_estimate_payload)
     payload["freshness"]["stale"] = True
     payload["freshness"]["age_seconds"] = payload["freshness"]["ttl_seconds"]
-    stdout = StringIO()
+    class Output(StringIO):
+        def isatty(self):
+            return terminal
+    stdout = Output()
     stderr = StringIO()
+    monkeypatch.setenv("COLUMNS", "40")
 
     with _server(payload) as (base_url, _):
         result = main(
@@ -448,7 +455,10 @@ def test_jobs_cost_table_shows_pending_unavailable_and_stale_snapshot(
 
     assert result == 0
     assert stderr.getvalue() == ""
-    assert "Stale: yes" in stdout.getvalue()
-    assert "PENDING" in stdout.getvalue()
-    assert "UNAVAILABLE" in stdout.getvalue()
-    assert "snapshot-etag" in stdout.getvalue()
+    text = stdout.getvalue()
+    assert "STALE observation" in text and "Not started" in text
+    assert "Unavailable" in text and "pricing unavailable" in text
+    assert "2.00" in text and "1.80" in text
+    assert "snapshot-etag" not in text
+    assert ("Job: 12345" in text) is terminal
+    assert max(map(len, text.splitlines())) <= (40 if terminal else 80)

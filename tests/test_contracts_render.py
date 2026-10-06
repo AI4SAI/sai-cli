@@ -214,22 +214,59 @@ def test_running_estimate_contract_accepts_partial_before_credit_estimate(
     assert result.as_dict()["items"][0]["estimate_status"] == "partial"
 
 
-def test_running_estimate_table_shows_freshness_and_estimate_states(running_estimate_payload) -> None:
+@pytest.mark.parametrize("width", [40, 60, 100])
+def test_running_estimate_table_shows_amounts_scope_freshness_and_missing_states(running_estimate_payload, width) -> None:
     result = RunningEstimateResult.from_payload(
         running_estimate_payload,
         request_id="estimate-table",
     )
 
-    table = render_running_estimate_table(result)
+    table = render_running_estimate_table(result, width=width)
 
-    assert "Timezone: Asia/Shanghai" in table
-    assert "As-of: 2026-08-14T09:02:03+08:00" in table
+    assert "As of: 2026-08-14T09:02:03+08:00" in table
     assert "Observed: 2026-08-14T09:02:00+08:00" in table
     assert "Age: 3s" in table
-    assert "Stale: no" in table
-    assert "ETag: snapshot-etag" in table
-    assert "PENDING" in table
-    assert "UNAVAILABLE" in table
-    assert "Gross est. CNY" in table
-    assert "Before-credit CNY" not in table
-    assert "Gross amounts are running estimates only" in table
+    assert "snapshot-etag" not in table and result.as_dict()["etag"] == "snapshot-etag"
+    assert "For: alice (self)" in table
+    assert "Not started" in table and "Unavailable" in table and "pricing unavailable" in table
+    assert "Standard" in table and "2.00" in table
+    assert "Cash before Credit" in table and "1.80" in table
+    assert "not settled" in table and "same usage" in table
+    assert max(map(len, table.splitlines())) <= width
+
+
+def test_partial_cost_keeps_available_price_and_explains_cash_restriction(running_estimate_payload):
+    data = running_estimate_payload
+    data["items"] = [data["items"][0]]
+    data["count"] = 1
+    data["items"][0].update(estimate_status="partial", cash_before_credit_cny=None,
+                            uncertainty=["cash_price_restricted"])
+    result = RunningEstimateResult.from_payload(data, request_id="restricted")
+    before = result.as_dict()
+    text = render_running_estimate_table(result, width=40)
+    assert "Standard: 2.00" in text and "Cash before Credit: Restricted" in text
+    assert "Partial estimate: cash price" in text and "restricted" in text
+    assert "0.00" not in text and "1.80" not in text
+    assert result.as_dict() == before
+
+
+@pytest.mark.parametrize("amount", ["0.00000001", "9007199254740993.01500000"])
+def test_cost_never_truncates_identity_or_money_to_fit_a_column(running_estimate_payload, amount):
+    data = running_estimate_payload
+    data["items"] = [data["items"][0]]
+    data["count"] = 1
+    reference = "123456789012345678901234567890_1234567890"
+    data["items"][0].update(job_id_raw=reference, gross_cny=amount, cash_before_credit_cny=amount)
+    result = RunningEstimateResult.from_payload(data, request_id="money")
+    for width in (40, 60, 100):
+        text = render_running_estimate_table(result, width=width)
+        assert reference in text and text.count(format_decimal(amount)) == 2
+        assert "..." not in text
+    assert result.as_dict()["items"][0]["gross_cny"] == amount
+
+
+def test_cost_observation_gap_does_not_claim_a_settled_charge(running_estimate_payload):
+    running_estimate_payload["items"][2]["state"] = "SETTLING"
+    result = RunningEstimateResult.from_payload(running_estimate_payload, request_id="gap")
+    text = render_running_estimate_table(result)
+    assert "SETTLING" in text and "settlement is not confirmed" in text

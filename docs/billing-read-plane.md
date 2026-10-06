@@ -78,6 +78,10 @@ Default job responses keep their existing fields. Missing facts or pricing yield
 unavailable amounts and bounded reasons, never zero or a changed job state.
 
 The existing billing APIs and `sai jobs cost` keep `billing.running-estimate/v1`.
+Human cost output presents the existing standard and authorized cash-before-Credit
+prices, with distinct missing/not-started/restricted states. It performs no price
+arithmetic. Source, time and stale evidence stay visible; complete protocol fields
+and exact values remain in JSON. Narrow output expands instead of clipping money.
 Their Center reader consumes `billing.job-observations/v1` from
 `GET /v1/site-read/billing/observations` and uses the same estimate owner.
 The complete read is bounded by 200,000 rows and 16 MiB, whichever comes first;
@@ -129,9 +133,10 @@ does not authorize, read Slurm, calculate money, or hold a broad secret.
 
 Portal presents job state and optional price together; its ledger
 view keeps settled entries and the server-owned exposure summary. The paired
-TUI consumer now offers an explicit selected-job Cost mode over central detail
+former TUI consumer offered an explicit selected-job Cost mode over central detail
 with `include_estimate=true`, requiring both compute and billing scopes. It
-removes the duplicate estimate tab; the batch full-scope contract and Pilot
+removed the duplicate estimate tab; that full-screen consumer has since been
+retired. The batch full-scope contract and Pilot
 tools are unchanged. The paired Center and shared client were installed on
 2026-10-02. Real-user historical Run costs and output reads passed; current-job
 costs still require a nonempty live scope. Existing real-user empty-list,

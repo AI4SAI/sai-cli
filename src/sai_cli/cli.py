@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import time
 from typing import Mapping, Sequence, TextIO
@@ -617,7 +618,8 @@ def main(
         if output_format == "json":
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
-            output.write(render_running_estimate_table(result))
+            width = shutil.get_terminal_size().columns if output.isatty() else 80
+            output.write(render_running_estimate_table(result, width=width))
         elif isinstance(result, SiteJobPlacementResult):
             output.write(render_site_placement(result))
         elif isinstance(result, SiteJobAllocationResult):

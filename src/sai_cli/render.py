@@ -6,6 +6,7 @@ import json
 from typing import Any, Iterable
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, localcontext
+from textwrap import fill
 from zoneinfo import ZoneInfo
 
 from .catalog import ResourceCatalog
@@ -35,14 +36,10 @@ _COLUMNS = (
 )
 
 _RUNNING_ESTIMATE_COLUMNS = (
-    ("job_id", "Job-ID", 20),
-    ("state", "State", 14),
-    ("elapsed", "Elapsed", 14),
-    ("billable", "Billable", 18),
-    ("usage", "Usage", 18),
-    ("gross", "Gross est. CNY", 16),
-    ("estimate", "Estimate", 16),
-    ("uncertainty", "Uncertainty", 36),
+    ("job_id", "Job"),
+    ("state", "State"),
+    ("gross", "Standard"),
+    ("cash", "Cash before Credit"),
 )
 
 
@@ -130,35 +127,15 @@ def _row(item: JobItem) -> dict[str, str]:
     }
 
 
-def _estimate_state(item: RunningEstimateItem) -> str:
-    status = item.values["estimate_status"]
-    if status == "not_started":
-        return "PENDING"
-    if status == "unavailable":
-        return "UNAVAILABLE"
-    return str(status).upper()
-
-
-def _billable(item: RunningEstimateItem) -> str:
-    resources = item.values["resources"]
-    resource_type = resources["resource_type"]
-    resource_count = resources["resource_count"]
-    if resource_type is None or resource_count is None:
-        return "-"
-    return f"{resource_count} {resource_type}"
-
-
 def _running_estimate_row(item: RunningEstimateItem) -> dict[str, str]:
     values = item.values
+    missing = "Not started" if values["estimate_status"] == "not_started" else "Unavailable"
     return {
-        "job_id": _display(values["job_id_raw"] or values["job_key"]),
-        "state": _display(values["state"]),
-        "elapsed": _duration(values["elapsed_seconds"]),
-        "billable": _billable(item),
-        "usage": format_decimal(values["resources"]["usage_quantity"], 4, trim=True) if values["resources"]["usage_quantity"] is not None else "-",
-        "gross": format_decimal(values["gross_cny"]) if values["gross_cny"] is not None else "-",
-        "estimate": _estimate_state(item),
-        "uncertainty": _display(",".join(values["uncertainty"])),
+        "job_id": values["job_id_raw"] or values["job_key"] or "Unknown job",
+        "state": values["state"] or "Unknown",
+        "gross": format_decimal(values["gross_cny"]) if values["gross_cny"] is not None else missing,
+        "cash": (format_decimal(values["cash_before_credit_cny"]) if values["cash_before_credit_cny"] is not None
+                 else "Restricted" if "cash_price_restricted" in values["uncertainty"] else missing),
     }
 
 
@@ -348,40 +325,49 @@ def render_site_placement(result: SiteJobPlacementResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_running_estimate_table(result: RunningEstimateResult) -> str:
+def render_running_estimate_table(result: RunningEstimateResult, *, width: int = 80) -> str:
+    """Show price facts without clipping money or treating missing estimates as zero."""
+    width = max(20, width)
     rows = [_running_estimate_row(item) for item in result.items]
-    widths: list[int] = []
-    for key, heading, maximum in _RUNNING_ESTIMATE_COLUMNS:
-        widest = max([len(heading), *(len(row[key]) for row in rows)], default=len(heading))
-        widths.append(min(widest, maximum))
-
-    stale = "yes" if result.freshness.stale else "no"
-    lines = [
-        (
-            f"Site: {result.site_id}  Cluster: {result.cluster_id}  Scope: {result.scope}  "
-            f"Timezone: {result.site_timezone}  "
-            f"As-of: {_site_time(result.as_of, timezone_name=result.site_timezone)}  Final: false"
-        ),
-        (
-            f"Observed: {_site_time(result.freshness.observed_at, timezone_name=result.site_timezone)}  "
-            f"Age: {result.freshness.age_seconds}s  "
-            f"Stale: {stale}  Source: {result.freshness.source}  ETag: {result.etag}"
-        ),
-        _line((heading for _, heading, _ in _RUNNING_ESTIMATE_COLUMNS), widths),
-        _line(("-" * width for width in widths), widths),
-    ]
+    widths = [max(len(heading), *(len(row[key]) for row in rows)) if rows else len(heading)
+              for key, heading in _RUNNING_ESTIMATE_COLUMNS]
+    tabular = sum(widths) + 2 * (len(widths) - 1) <= width
+    scope = result.scope.replace("_", " ")
+    subject = result.slurm_user if result.scope == "self" else result.slurm_account
+    lines = ["Running estimates (CNY; not settled)",
+             fill(f"Site: {result.site_id} / {result.cluster_id}", width),
+             fill(f"For: {subject or 'Unknown'} ({scope})", width)]
+    if result.freshness.stale:
+        lines.append(fill(f"STALE observation: {result.freshness.age_seconds}s old. Refresh before relying on these estimates.", width))
+    lines.append("")
     if rows:
-        for row in rows:
-            lines.append(
-                _line(
-                    (
-                        _truncate(row[key], maximum)
-                        for key, _, maximum in _RUNNING_ESTIMATE_COLUMNS
-                    ),
-                    widths,
-                )
-            )
+        if tabular:
+            lines.append(_line((heading for _, heading in _RUNNING_ESTIMATE_COLUMNS), widths))
+        for row, item in zip(rows, result.items, strict=True):
+            if tabular:
+                cells = (row[key].rjust(size) if key in {"gross", "cash"} else row[key]
+                         for (key, _), size in zip(_RUNNING_ESTIMATE_COLUMNS, widths, strict=True))
+                lines.append(_line(cells, widths))
+            else:
+                lines.extend(f"{heading}: {row[key]}" for key, heading in _RUNNING_ESTIMATE_COLUMNS)
+            uncertainty = [code for code in item.values["uncertainty"]
+                           if not (code == "job_not_started" and item.values["estimate_status"] == "not_started")]
+            if uncertainty:
+                label = "Partial estimate" if item.values["estimate_status"] == "partial" else "Details"
+                reasons = "; ".join(code.replace("_", " ") for code in uncertainty)
+                lines.append(fill(f"{label}: {reasons}", width, initial_indent="  ", subsequent_indent="  "))
+            if row["state"] in {"SETTLING", "TERMINAL_GAP"}:
+                lines.append(fill("Observation gap; settlement is not confirmed.", width,
+                                  initial_indent="  ", subsequent_indent="  "))
+            if not tabular:
+                lines.append("")
     else:
-        lines.append("(no running jobs)")
-    lines.append("Gross amounts are running estimates only; final charges may differ.")
+        lines.append("No running estimates in this scope.")
+    if lines[-1] == "":
+        lines.pop()
+    if any(item.values["gross_cny"] is not None for item in result.items):
+        lines.extend(("", fill("Standard and cash price the same usage; final charges may differ.", width)))
+    lines.extend(("", fill(f"As of: {_site_time(result.as_of, timezone_name=result.site_timezone)}", width),
+                  fill(f"Observed: {_site_time(result.freshness.observed_at, timezone_name=result.site_timezone)}", width),
+                  fill(f"Source: {result.freshness.source} | Age: {result.freshness.age_seconds}s", width)))
     return "\n".join(lines) + "\n"

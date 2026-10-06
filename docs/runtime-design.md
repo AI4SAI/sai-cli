@@ -335,11 +335,21 @@ JSON output contains only the stable job visibility or running-estimate fields d
 [portal-api-contract.md](portal-api-contract.md). Unknown response fields are
 ignored after validation instead of being copied to stdout.
 
-Running-estimate table output always shows `final=false`, `as_of`, observation
-time, age, stale state, and ETag. Times use the response's required site/Slurm
+Running-estimate table output leads with the authorized scope, job and prices.
+It labels the amounts as unsettled, distinguishes standard price from cash
+before Credit, and prints unknown/not-started/restricted states instead of zero.
+It never adds the two prices or combines them with settled charges. It shows
+`as_of`, observation time, source and age, with a prominent stale warning.
+ETag, exact quantities and other protocol details remain in unchanged JSON.
+Times use the response's required site/Slurm
 IANA timezone and show an explicit offset, never the center or terminal local
 timezone. A pending job has no zero-cost claim; an
 unavailable estimate has no guessed amount. Both remain explicit row states.
+
+The cost table fits the terminal where possible and expands into labeled rows
+when the columns do not fit. Identifiers, monetary values and uncertainty
+reasons are never clipped; very long values can wrap in the terminal. Redirected
+output uses a deterministic 80-column layout with no optional UI dependency.
 
 Table mode keeps the established SAI meanings:
 
