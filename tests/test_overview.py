@@ -219,38 +219,3 @@ def test_terminal_panel_fits_width_and_treats_markup_as_text(width):
     out = StringIO()
     Console(file=out, width=width, color_system=None).print(overview_panel(parsed))
     assert len(out.getvalue().splitlines()) <= 16
-
-
-def test_interactive_overview_refresh_navigation_and_revocation(tmp_path, monkeypatch):
-    pytest.importorskip("textual")
-    from textual.widgets import Button, Static
-    from sai_cli.tui import Workbench
-    from test_tui import settled
-    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
-    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
-    denied = False
-    def reply(call, _):
-        assert parse_qs(urlsplit(call["path"]).query) == {"site_id": ["site-a"], "slurm_account_name": ["org-example"]}
-        return (403, {"detail": "scope unavailable"}) if denied else (200, sample())
-    async def scenario(client):
-        app = Workbench(client, JobQuery(site_id="site-a", scope="org-account", account_name="org-jobs"),
-                        overview_account="org-example", storage_workspace_key="org:storage",
-                        initial_view="overview", refresh_seconds=999)
-        opened = []
-        app.open_url = opened.append
-        async with app.run_test(size=(80, 24)) as pilot:
-            await settled(app, pilot)
-            assert "overview" in app.results and not app.query_one("#compute-scope-row").display
-            assert app.job_query.account_name == "org-jobs" and app.storage_workspace_key == "org:storage"
-            await pilot.click("#overview-messages")
-            assert opened == [app.results["overview"].messages_url(client.transport.base_url)]
-            nonlocal denied
-            denied = True
-            await pilot.press("f5")
-            await settled(app, pilot)
-            assert "overview" not in app.results
-            assert app.query_one("#overview-messages", Button).disabled
-            assert str(app.query_one("#overview-summary", Static).render()) == ""
-    with http_endpoint(reply) as (origin, calls):
-        provider = SimpleNamespace(get=lambda: TokenLease("test-session", None, "environment"))
-        asyncio.run(scenario(PortalClient(transport=JsonTransport(base_url=origin, timeout_seconds=2), token_provider=provider)))

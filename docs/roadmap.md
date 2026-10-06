@@ -16,15 +16,27 @@ migration and native plugin work. New personal/organization task acceptance and
 the complete product workflow remain open; this prerequisite does not activate
 the new domain contract.
 
-The terminal implementation consolidates Compute into one read scope,
-list and inspection context, with Current queue and Records and results purposes.
-It extends existing native READ requests with a canonical workspace selector;
-grants and response DTOs stay unchanged. Self/legacy native-account scopes remain
-queue-only until an account is explicitly selected for records. The full-account
-producer and compatible Pilot consumer are deployed, and the new TUI was
-[selected after ordinary-user three-kind acceptance](site-local-read-plane.md#unified-compute-delivery-gate)
-on 2026-10-06. Native plugin discovery, replacement deep links and retirement
-of duplicate Portal compute pages remain part of the wider product migration.
+## Current product replacement
+
+The previously deployed terminal was rejected as difficult and uninteresting.
+Its technical read acceptance remains evidence, not product approval. The
+[whole-workbench replacement](workbench-rebuild.md) is a source
+candidate with a paired actor-owned work-discovery contract. It has not been
+deployed. The existing native readers and authorization/billing owners remain.
+
+- [x] Default work discovery without a required account/job/partition form
+- [x] Standalone work-to-results shell and actual CLI entry; old shell removed
+- [x] Direct result reading/saving, contextual tools and in-workbench device login
+- [x] Local paired producer/client reads and rendered navigation checks
+- [ ] Trusted current native execution association for a unified work list
+- [ ] Pilot-native resource and result continuation, retiring old console links
+- [ ] Paired deployment including Pilot's independent browser entry
+- [ ] First-time and returning-user workflow acceptance in real terminals/Web
+
+Detailed historical checkmarks below describe the stated read capabilities and
+release evidence; they do not restore the rejected layout as the target. The
+replacement's local test, package, deployment and user-acceptance boundaries
+remain separately recorded.
 
 ## Basic job reads: deployed, acceptance still open
 
@@ -204,7 +216,7 @@ behind validation of asset, allocation, and telemetry facts. Both documents
 are candidate designs, not completed implementation milestones.
 
 - [x] Optional TUI dependency group and interactive `sai tui` entry
-- [x] Five-view navigation and published partition/QOS metadata; resource
+- [x] Contextual published partition/QOS metadata and comparison; resource
   eligibility and admission remain separate from catalog presentation
 - [x] Explicit resource candidate, independent two-item comparison and shared
   console-to-Pilot preparation intent without requiring an existing job;
@@ -272,40 +284,17 @@ are candidate designs, not completed implementation milestones.
 - [x] Bounded empty/error states, paged managed tasks and scope directories
 - [x] Headless resource/job/estimate interactions, HTTP and delayed-response isolation tests
 
-The first [terminal workbench](terminal-workbench.md) supports two-partition
-comparison, filtered job list/detail, allocation inspection, and independently
-authorized non-final costs within the selected job. Allocation shows the response's nodes, CPU/memory, freshness
-and restart count with explicit allocated/not-allocated/unavailable states.
-It does not provide measured utilization or physical GPU placement. The separate
-registration action joins operator-recorded rack/U locations to the same
-response's allocation; a scheduler name does not prove current physical identity.
-Web navigation rechecks the exact job and workspace and carries the prior
-observation as comparison evidence; it does not launch or renew a Pilot task.
-Scope changes discard stale requests; network cancellation remains bounded by
-the HTTP timeout. Cost inspection has one job observation, not a second paged
-list. Managed Tasks have server keyset pages and an exact Web detail link.
-Selected output continuation through the console to the original Pilot Session
-is deployed; user confirmation covers conversation and file-reference visibility.
-Direct text inspection and task navigation are now deployed, with ordinary-user
-CLI/native-file readback and public static checks. Authenticated production-browser
-acceptance, useful follow-up analysis and the complete computation remain open;
-complete download is deployed with bounded ordinary-user CLI verification, not full browser acceptance;
-the handoff is an auxiliary action, not the result page's primary outcome.
-Explicit final-cost association and the
-[`compute.run-stats/v1` endpoints/helper](../contracts/managed-run-stats/v1/README.md)
-are implemented in paired source. The statistics path uses bounded owner-UID
-native reads; it does not provide GPU or whole-node utilization. Its site role is now installed and a real ordinary-user no-sample
-application chain passed. Positive running statistics and complete Web/Pilot
-acceptance remain open.
-Estimate-to-final replacement and full resource eligibility views remain
-unfinished. Native storage shows authorized quota subjects, not an organization
-pool aggregate. The TUI discards late results and bounds HTTP calls; this is not
-a claim of interruptible network requests or stale-while-revalidate behavior.
+The replacement [terminal workbench](terminal-workbench.md) reuses these read
+capabilities in one work-to-results journey. The old task-page-to-Pilot handoff
+and resource preparation URL remain compatibility consumers pending native
+Pilot replacement, not accepted user workflows. Estimate-to-final association,
+full resource eligibility, measured GPU utilization and real asset publication
+remain unfinished. Native storage reads authorized physical quota subjects,
+not an inferred organization pool aggregate.
 
-Acceptance boundary: local HTTP/rendered checks and the separately recorded
-[bounded SSH/PTY runs](ssh-terminal-acceptance.md) with synthetic facts. These
-do not prove production authentication, physical placement, telemetry, terminal
-font diversity or unbounded long-session stability.
+Acceptance boundary: local HTTP/rendered checks. Prior production reads and
+[bounded SSH/PTY runs](ssh-terminal-acceptance.md) do not validate the replacement
+layout, terminal font diversity or the user's interest in the product.
 
 ## Milestone 0.4: site-local capability transport
 

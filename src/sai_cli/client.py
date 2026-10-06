@@ -17,7 +17,7 @@ from .job_web_context import JobWebContext
 from .artifact_content import ManagedRunArtifactContent, ARTIFACT, content_cursor
 from .artifact_download import ArtifactDownloadGrant, download_artifact
 from .managed_runs import (
-    ManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, ManagedRunWorkspaces,
+    ManagedRunList, MyManagedRunList, ManagedRunDetail, ManagedRunLogs, ManagedRunArtifacts, ManagedRunWorkspaces,
     clean_run_ref, clean_tasks_workspace,
 )
 from .run_cost import ManagedRunCost
@@ -451,6 +451,17 @@ class PortalClient:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, limit=limit, cursor=cursor)
         return ManagedRunList.from_payload(response.payload, workspace_key=workspace_key, site_id=site_id,
                                           limit=limit, cursor=cursor, request_id=response.request_id)
+
+    def list_my_managed_runs(self, *, site_id: str, limit: int = 50,
+                             cursor: str | None = None) -> MyManagedRunList:
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("run limit must be between 1 and 100")
+        if cursor is not None:
+            clean_run_ref(cursor)
+        response = self._central_get("/v1/compute/cli/my-runs", query={"site_id": site, "limit": limit, "cursor": cursor})
+        return MyManagedRunList.from_payload(response.payload, site_id=site, limit=limit,
+                                             cursor=cursor, request_id=response.request_id)
 
     def managed_run(self, run_ref: str, *, workspace_key: str, site_id: str) -> ManagedRunDetail:
         response = self._managed_read(workspace_key=workspace_key, site_id=site_id, run_ref=run_ref)

@@ -62,7 +62,7 @@ def task_file_panel(result: ManagedRunLogs | ManagedRunArtifacts | ManagedRunArt
     page = t("last_page" if data["complete"] else "more_pages")
     if isinstance(result, ManagedRunArtifactContent):
         text = (terminal_log(data["content"]) or t("content_empty")) if data["status"] == "available" else t("content_" + data["status"])
-        return Group(Text(terminal_log(data["relative_path"]), style="bold", overflow="ellipsis", no_wrap=True), Text(text),
+        return Group(Text(terminal_log(data["relative_path"]), style="bold", overflow="fold"), Text(text),
                      Text(t("content_end" if data["complete"] else "content_more") if data["status"] == "available" else ""))
     if isinstance(result, ManagedRunLogs):
         if not data["available"]:

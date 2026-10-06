@@ -1,507 +1,106 @@
 # Terminal workbench
 
-Status: implemented read-only client. Source tests cover interaction and HTTP;
-deployment coverage and real-user acceptance are recorded separately.
-
-Install the optional extra and use the existing connection configuration:
+Status: replacement source candidate, not deployed or user-accepted. This
+replaces the former Overview-first, tabbed terminal. The full product and
+remaining work are in [the rebuild brief](workbench-rebuild.md).
 
 ```bash
 python3 -m pip install '.[tui]'
 sai tui
 sai tui --language en-US
-sai tui --workspace-key project:example
-sai tui --site site-a --scope project-account --account project-example
 ```
 
-An interactive terminal is required. Scripts should continue using the JSON
-commands. Managed login-node connection settings retain their existing owner
-and override restrictions. Installing the extra locally does not deploy a
-shared login-node package or gateway.
-
-## A useful first workflow
-
-The workbench starts with Overview: identity, authorized funds and unread
-messages. Compute has one applied read scope and two purposes, Current queue
-and Records and results. Storage and the login/default billing identity remain
-independent.
-
-1. Resources is the site's published catalog. It has no account, job state or
-   partition filters. Press Enter to select a compute candidate and read its
-   title, summary, use cases, hardware, QOS and published price. Press C or
-   Compare to add or remove that candidate from a comparison of at most two
-   resources. Candidate selection and comparison remain separate. Narrow
-   terminals show compared resources in sequence; wide terminals use columns.
-   Unknown facts remain unknown. Published capacity is not idle capacity, and
-   neither admission nor a concrete job quote is established here.
-2. Prepare in Pilot (W) opens the same-origin console resource preparation page
-   with only the site and selected partition reference. The browser chooses the
-   project and checks authority and a concrete plan. This works before a user
-   has any job history and makes no extra CLI API request. Storage offerings
-   cannot be selected as compute partitions. Refresh, errors and tab changes
-   clear the candidate and Web link; inspecting a candidate pauses catalog
-   polling. Copy link remains explicit for terminals without a local browser.
-3. Use View jobs to open Compute's Current queue in the same applied scope,
-   narrowed to the selected partition. Choose a named account through Read scope;
-   partition and state filters are applied explicitly. The scope header remains
-   visible in Resources and Compute.
-4. Press Enter on a job or choose Details for its separately authorized
-   detail. You can also enter a known Job ID and choose Find job, including a
-   job outside the bounded list or its filters. The exact read keeps the current
-   account scope; list-only partition and state filters stay on the list.
-   Escape in the input clears it and returns focus to the queue. An unavailable
-   or denied job clears earlier results without changing the selected scope.
-   Allocation instead requests one allocation snapshot from the
-   explicitly configured site gateway. Escape returns to the list. Ordinary
-   detail uses native site-read mode when configured and the existing Portal
-   transport otherwise. Allocation requires native configuration and capability
-   mode; missing configuration displays an error. Neither path falls back.
-5. Choose Cost for the selected job to read its current state and running
-   estimate together. Portal checks billing access separately and prices this
-   exact native observation. F5 replaces the snapshot; Escape returns to Current queue.
-   The list's state and partition filters do not hide a selected job that has
-   changed state. Amounts remain non-final, with source time and uncertainty.
-   The separate estimate tab is removed; batch `sai jobs cost` retains its
-   complete authorized financial snapshot for scripts.
-
-Allocation inspection takes job identity, scheduler states, restart count,
-observation time/freshness and node CPU/memory rows from one response. It never
-combines an earlier job detail with a newer node list. `allocated`,
-`not_allocated` and `unavailable` remain distinct; unknown memory remains unknown.
-Array tasks retain their complete identity, including task zero (`12345_0`),
-for both detail and allocation requests. The v2 response includes bounded node
-GRES entries when native evidence can be bound to the node: resource name/type,
-allocated quantity and optional Slurm-local indices. Shared quantities retain
-their own units. Missing evidence stays unknown; these values do not establish
-physical GPU placement, MIG parent identity, measured utilization, racks or topology.
-
-After an allocation read, Recorded location explicitly requests the independent
-`jobs.placement` operation. `sai jobs placement JOB_ID` exposes the same bounded
-read outside the TUI. The site must opt in to publishing approved operator
-registrations; allocation permission alone does not grant location access.
-The response includes the complete allocation used for its node association,
-plus inventory revision, validity and each node's recorded, unmapped or expired
-registration. A successful read replaces allocation and registration together.
-Operator-supplied asset/incarnation references and rack U positions do not prove
-that the current machine still matches that registration.
-
-Location inspection does not poll. Refresh removes old registrations before
-reading again; a source failure leaves the independent allocation readable but
-does not restore old locations. Permission loss clears protected results.
-Registration validity has its own deadline cleanup, independent of the polling
-interval, and expiration sends no additional request. This is a local consumer
-implementation; it does not establish a published inventory or deployed gateway.
-
-Storage rows in Resources are published products only, not quota usage or
-file access. The separate Storage tab chooses an authorized scope by name from
-a bounded directory, then reads the explicitly selected stored or native source.
-Highlighting an option does not apply it; Enter confirms the choice. Directory
-pages do not automatically select their first item. Compute never selects
-that storage scope. `sai storage workspaces` exposes the same names and keys for
-scripts. `sai tui --storage-workspace-key org:example` first resolves that exact
-authorized name, without scanning the directory or inventing an option.
-Changing scope clears old data immediately; every quota read reauthorizes.
-`sai.storage.read` is required. State, effective versus target quotas, nullable
-usage and observation time remain distinct; a negative remaining value means
-the observed usage exceeds the effective quota. Native mode instead shows exact
-byte/inode counters from authorized physical quota subjects. Native zero limits
-mean unlimited; rows are not a whole organization pool total. It requires the
-configured site gateway and never falls back to stored data. Changing source
-clears old results immediately and discards late responses from the previous
-source, using the same serialized reader.
-
-The workbench does not add placeholders for unavailable native result preview,
-settled billing or hardware telemetry features.
-
-## Interaction and data behavior
-
-- F5 or Refresh requests an update. F6 pauses/resumes automatic refresh only
-  where automatic reads are supported;
-  Ctrl+Q exits. Tab and arrow keys use standard Textual focus/navigation.
-- The active view refreshes every ten seconds; inactive views do not poll.
-  Job Cost inspection stays manual to preserve its exact observation. F5
-  replaces the whole job and estimate; it does not resume polling.
-- Inspecting an allocation also pauses automatic refresh. F5 or Refresh clears
-  the old allocation immediately and requests a complete replacement snapshot;
-  inspection remains paused. Changing job, detail/allocation mode, applied scope
-  or tab, or pressing Escape, discards the allocation and any late response.
-- One background reader serializes client calls, including credential refresh.
-  Repeated requests coalesce into the latest requested view/context. Changing
-  scope clears old data and invalidates in-flight results. Network calls are
-  still bounded by the existing HTTP timeout, not physically aborted.
-- Authentication failure clears all cached display data and pauses polling.
-  A permission or source error clears only the affected view; fee access does
-  not imply job access or vice versa. Errors use the client-safe diagnostic.
-  Failed views wait for manual refresh or re-entry rather than polling the
-  same error indefinitely.
-- Jobs retain the requested server limit and show truncation where the DTO
-  supplies it. A selected job's estimate is not an account total. The batch
-  `jobs cost` command retains the independent complete-scope billing contract.
-- Backend text is rendered literally; Rich markup or terminal controls cannot
-  become instructions to the display. Ordinary catalog prose may wrap.
-- Narrow/short windows use compact controls; details scroll vertically and
-  tables can scroll horizontally. Comparison remains a table of the same
-  validated facts, not a new product or pricing model.
-
-All four views share three layouts: browse for lists and scope discovery,
-inspect for a selected object, and summary for Overview and Storage. Inspection
-keeps the current object above the evidence. At 40 or 60 columns, or below 28
-rows, the list and filters give way to the evidence; at 100 columns with enough
-height, a compact list stays available. Escape affects only the current view.
-For Resources it returns to the catalog without another read and preserves the
-separate comparison choices.
-
-Layout does not decide freshness. Ordinary job and managed-task details retain
-automatic reads. Resource inspection, selected estimates, allocation/location
-snapshots, project discovery and task logs/files remain manual. Those modes
-offer Refresh without Pause/Resume; F6 cannot discard a selected output or imply
-that polling has resumed. Footer, visible controls and command palette use the
-same contextual actions, with short footer labels and searchable command titles,
-through Textual's public interfaces.
-Unavailable estimates explain that no amount is available. Failed reads keep a
-bounded explanation and retry action visible after protected data is cleared.
-
-## Managed tasks and output pages
-
-Cost is an explicit mode of the selected task, with its own current billing
-permission. It presents one final-cost observation and does not poll. Standard
-usage, cash, Credit equivalent/points, reserved coverage and price adjustment
-come from Portal's shared validator and formatter. Hidden funding components
-are omitted; pending/unavailable/non-chargeable responses carry no invented
-amounts. A cost-only denial leaves task metadata readable, while Run-scope
-revocation and authentication failure keep the existing protected-data cleanup.
-W opens the exact Run's Cost tab without putting amounts in the URL.
-
-Compute's Current queue and Records and results use the same explicit read
-scope. Choose a readable personal, organization or project account by its
-authorized name and kind. Choices are bounded pages; the scope Next action
-reads the next directory page. Selecting an account applies its read scope to
-both purposes, independently of Storage and future computation funding.
-Moving the highlight does not change the current scope. Scripts can discover
-the same labels and exact keys with `sai runs workspaces --site site-a`.
-The explicit `--workspace-key` option (`--tasks-workspace-key` is its legacy alias) first resolves the exact authorized
-name through the same directory, without scanning pages or creating a fake
-account choice. Every task read rechecks current access.
-
-The default Self selection reads the caller's current native jobs across
-accounts. Records and results then asks for a named account; it does not issue
-an all-account history query or silently choose one. Existing `--account` and
-`--account-id` invocations retain their native queue scope. They cannot select
-managed history by guessing a business ID. A denied or unavailable source
-clears its observations while keeping the chosen scope visible for retry.
-
-There is one list and one current object. Switching purpose returns to a list;
-it does not identify a Run from a matching scheduler number. The queue retains
-SSH jobs and the server's member-visibility rules; managed records show the
-caller's own accepted computations. Native jobs without a Run do not acquire
-file access or settled cost through this interface. Existing Web links remain
-bound to their current consumer until the Pilot owner migrates that contract.
-
-The task list includes accepted managed runs that have left the live queue.
-Enter opens the recorded status and its source time. It does not query Slurm or
-turn an uncertain submission into success. In a narrow window the selected
-task's evidence uses the main area; Escape rereads the preceding list page and
-restores the selected row. File pages remain explicitly loaded and bounded.
-
-Stdout, Stderr and Files are explicit reads under the task's current file
-permissions. They replace a single bounded page; Next follows the returned
-cursor and Start returns to the first page. Logs and file pages do not auto-poll,
-and changing the read scope clears earlier protected data. A denied directory does
-not hide still-authorized task metadata. Output filenames describe current files
-under the declared roots, not a sealed result version. Text outputs can be read
-inside the task; native Pilot file tools remain a separate consumer.
-
-Checking cost, statistics or another top-level view preserves where the user was
-reading in the same task. Returning restores the chosen file, page and scroll
-position after a fresh authorized read. Only navigation and the existing bounded
-file-selection metadata are retained, not file content, fees or download grants.
-Changing scope/task or losing access clears the related navigation. Missing or
-changed files stop restoration; binary files remain selected for Save even when
-their content cannot be previewed as text.
-
-Shared source `4c81f2734ed650630b412c098687f19fa5dc90a3` was published on
-2026-10-04 through the existing single shared runtime. An ordinary user's existing
-Identity session exercised the explicit candidate and selected runtime against
-real APIs, retaining a complete output after cost/statistics/catalog navigation
-at 40, 60 and 100 columns. Final cost was settled; statistics were unavailable.
-This used a headless Textual driver on a login host, not physical terminal or
-browser acceptance. Dependencies and protected configuration were unchanged;
-the previous runtime and atomic rollback remain available.
-
-Files uses a keyboard-selectable list. Full relative paths wrap without
-shortening; byte size and modification time remain separate. Arrow keys browse,
-and Enter opens the highlighted text file in the task's content view.
-Ctrl+Up/Down scrolls within long entries without changing the selected file.
-Highlighting makes no request; Enter requests the current authorized content.
-Changing the read scope or run clears selection, navigation and links. Changing
-evidence mode clears displayed file data and links, while retaining the same
-task's reading position for a fresh read on return.
-
-After loading a task's details, Open Web (W or the command palette) opens that
-exact managed run in the console's read-only task page. With an opened file,
-it additionally selects Files and carries that file's existing `artifact_ref`
-and the current page's request cursor. The initial cursor is omitted when the
-request omitted it; `next_cursor` is never used for the current selection.
-Paths, sizes, contents and credentials never enter the URL. Without an opened
-file, the existing run-only link remains available. Links use the configured
-Portal origin. The browser authenticates and authorizes the read again, including
-separate file permission checks. It can open a historical run without reading
-the first list page, an active scheduler account or a Pilot runtime.
-The browser reads the referenced page and finds the file by reference. If the
-page changed and the file is absent, it asks for a refresh instead of selecting
-another file. Enter reads the selected text output in the same task, up to 64 KiB
-at a time. Next reads the version-bound next section; Escape restores the file list
-and its current page. File changes require a fresh read. The terminal does not
-create a Pilot session or send an Agent message.
-
-## Continue a recorded result in Pilot
-
-Files can also be carried into the existing SAI Pilot flow. The console link
-keeps only the exact run reference, selected artifact reference and the request
-cursor for the bounded page. The console rechecks the run, current file READ
-permission and the selected page before opening the original Session. It never
-places a path or file content in the URL. The task page's explicit Open in Pilot
-action opens history directly; no second confirmation, runtime start or renewal
-is required. This simplified Web flow and the direct text view were deployed
-together on 2026-10-03; their real-user acceptance scopes are recorded below.
-
-Pilot receives a same-tab reference containing the run and optional
-artifact. It rechecks the selected native Session and current file before
-opening the native file viewer or inserting an editable evidence prompt. It
-does not submit a message automatically. A missing file, changed page, lost
-permission, mismatched Session or stale response leaves the task reference
-visible and gives the user a refresh or return action.
-
-This continuation reuses the existing Portal Run readback and Pilot native file
-viewer. It does not create a result archive, new task engine, second file
-browser, implicit runtime start or hidden renewal. Agent `run.get`, `run.logs`,
-`artifact.list` and `artifact.read` use the same current project READ owner as the console;
-submission, cancellation and confirmation retain their separate execution
-authority. Native Pilot tool registration is a separate delivery.
-
-The shared visible link and Copy link action also work over SSH without a local
-desktop browser. Refreshing, changing project or losing task access clears the
-link; typing in a text input never triggers W. Neither navigation nor copying
-starts a computation, changes the default identity or extends a runtime window.
-
-## Continue in the console
-
-After a successful job detail or allocation read, Open Web asks Portal to
-resolve that exact observed job to its current authorized workspace. It does
-not infer a project from an account name or the Overview's default identity.
-The same reader handles this request; changing context discards a late link.
-Known submission/restart changes ask for a fresh terminal snapshot first.
-
-The fixed same-origin console link opens that job directly, including array
-task zero and jobs outside the first list page. The browser authenticates again
-and reads a complete current allocation. Older observation evidence is retained
-only for an explicit changed/unknown notice, never as permanent execution ID.
-If self job read is still allowed but the destination workspace is denied, the
-terminal keeps the original observation and shows the navigation refusal.
-
-Keyboard actions share the visible controls: A opens allocation, W prepares
-the Web link, and Ctrl+P lists available actions through Textual's native command
-palette. Text inputs and selectors retain their own keys. The three compact
-controls remain visible at 40 columns. A short clickable link and explicit Copy
-link action work when an SSH host has no desktop browser; copying uses the
-terminal's clipboard support and never runs automatically.
-
-## Interaction references
-
-The [terminal design rules](../DESIGN.md) specify context, language, selection,
-information hierarchy and visual verification. The CLI defaults to Chinese;
-`--language en-US` selects English. Protocol keys and user-provided names are
-unchanged. Bilingual navigation, paginated project discovery, confirmation
-separate from highlight, narrow-window task details and return-to-list selection
-are implemented. The shared layout applies the existing teal theme, evidence
-hierarchy and contextual actions across all four views. Local rendered review
-covers both languages and narrow/short windows. A bounded real SSH run now
-covers task evidence, resizing, colour/monochrome modes and disconnect cleanup.
-Physical terminal fonts, clipboard behaviour, network diversity and longer
-production sessions still require comprehensive acceptance.
-
-Reviewed on 2026-09-23:
-
-- [Codex footer source](https://github.com/openai/codex/blob/b7add4df3d95e2d41249e54d3c3a1bd14680848a/codex-rs/tui/src/bottom_pane/footer.rs)
-  adjusts hints to available width and editing/running context.
-- [Claude Code interactive-mode documentation](https://code.claude.com/docs/en/interactive-mode)
-  distinguishes editing, dialog and running-task keyboard behavior. This is
-  documentation evidence, not a claim to have inspected its implementation.
-- [OpenCode keybindings](https://opencode.ai/docs/keybinds/) document command
-  discovery and explicit key combinations that avoid editing conflicts.
-- [Textual selection source](https://github.com/Textualize/textual/blob/v8.2.8/src/textual/widgets/_option_list.py)
-  distinguishes highlighted options from explicit selection; its native
-  controls and command palette are the implementation building blocks here.
-
-These references inform specific interactions: contextual footer hints,
-editing-safe keys, discoverable actions and explicit object selection. They do
-not establish reuse of Codex, Claude Code or OpenCode application source or their
-Agent systems. SAI implements the interactions with Textual and its existing
-read client. These references do not establish complete product acceptance.
-
-## Validation and remaining work
-
-Tasks can explicitly read node registrations through Location. The action uses
-the existing allocation/placement evidence panel and shared expiry timer; the
-six task-mode controls stay compact. Full paths and source evidence remain
-scrollable at 40 columns. Registration expiry discards locations and keeps only
-that response's allocation; it cannot restore old statistics or a different Run.
-The Web continuation remains on the Run page, with a current server binding on
-every location read. Ordinary job navigation retains its separate purpose.
-
-Statistics is an explicit task mode, alongside history, logs, files and cost.
-It uses the same scoped reader and a separate manual observation. The six mode
-buttons stay visible as a 3×2 grid below 60 columns and one row otherwise. Step
-CPU/RSS facts precede provenance in short windows; null metrics stay unknown,
-CPU time never gets a percent sign, and the query window is not native sample
-time. This keeps the existing teal theme, bilingual labels and keyboard rules.
-
-Headless tests exercise the real HTTP client through resource comparison,
-partition selection, detail/allocation requests and independently denied estimates.
-Allocation tests use separate local Portal and gateway HTTP origins, array tasks
-including zero, snapshot replacement, denied reads and missing configuration.
-Delayed-result tests exercise scope replacement, old permission failures and
-request coalescing, including job/mode/tab changes during allocation reads.
-Cost checks bind the attached full array identity, subject and exact submission/
-start times to its parent row. Small-window checks cover the
-layout and accessible control positions; local synthetic screenshots are not
-real infrastructure acceptance.
-
-A local Linux PTY check uses real terminal input and window-size signals at
-100×32, 60×18 and 40×24. Resizing remains responsive during a deliberately delayed
-local HTTP read; Ctrl+Q restores terminal modes and exits the alternate screen.
-This does not verify a remote SSH connection, emulator/font diversity,
-reconnection or a long-running production session.
-
-The later [SSH acceptance](ssh-terminal-acceptance.md) used a formal runtime on
-one login host with synthetic HTTP facts. A 14-minute Chinese run and separate
-English checks passed real VT interaction, three sizes, expiry/denial recovery,
-in-flight resize, normal terminal restoration and disconnect cleanup. It did
-not switch the shared entrypoint or validate production authentication. RSS
-growth and the remaining terminal/font/long-duration boundaries are recorded
-there rather than hidden behind an overall product-readiness claim.
-
-Registered-location checks cover scope binding, exact node correspondence,
-unknown/expired records and independent failure cleanup. The Web consumer uses
-the same contract in the existing allocation dialog and may mark only disclosed
-U segments on generic node models. It does not show a whole cabinet's occupancy
-or infer that undisplayed positions are empty. Synthetic inventory and local
-HTTP/browser tests do not verify a current physical machine or location.
-
-The full [unified workbench](unified-workbench.md) still needs richer resource
-eligibility, estimate-to-final replacement and hardware telemetry. Explicit
-Run cost now uses verified final-fact association and independent financial
-visibility; this is not deployed billing acceptance. Managed task history,
-logs and output listings reuse the existing Run/readback contracts; selected
-outputs can continue through the console into their original Pilot Session.
-Local continuation checks do not establish deployed or real-site acceptance.
-Native storage quota is implemented locally;
-site installation, service-UID permissions and real Lustre behavior still require
-acceptance. The privileged storage write adapter is not used by this UI or
-packaged with the read gateway. Keep 3D after truthful data.
-
-## Named-scope acceptance
-
-Recorded 2026-10-01 for consumer `9114179a9d149bf08c77ac72acd80e7379a1f5bd`.
-The full local CLI suite passed 891 tests. Named storage selection, exact task
-preselection, duplicate labels, current scope, delayed reads and permission
-clearing were exercised over actual local HTTP. Chinese and English renders
-were reviewed at 40×18, 60×24 and 100×32; effective, used and remaining values
-are visible in the short viewport. Native zero limits display Unlimited while
-zero usage remains zero; JSON retains the original exact counters.
-
-The installed wheel also completed directory pages, exact lookups, a quota
-summary and task-list reads against an actual local Portal TCP server with
-signed Identity credentials, HTTP JWKS and SQLite. Revoking membership then
-refused both exact lookups. Read windows caused no database writes. This does
-not establish production deployment, MariaDB, native Lustre access or broader
-SSH coverage; the earlier bounded SSH record identifies its own tested runtime.
-
-## Selected-job cost acceptance
-
-The paired central detail producer is pinned in the API contract. Local checks
-cover direct native Jobs followed by central Cost for the same array task,
-running-to-suspended observations, restricted cash, unavailable prices, tiny
-positive amounts, manual refresh and Web continuation. Late reads after a
-mode/scope/tab change cannot restore old costs; fee-only denial preserves job
-access, while ordinary revocation clears protected observations.
-
-The CLI suite passed 908 tests; three packaging checks initially skipped for a
-missing local build backend subsequently passed within the eight-test packaging
-file. Installed-wheel HTTP checks passed 30 tests. Chinese/English interaction
-and 40/60/100-column geometry passed. English SVG renders were reviewed; Rich's
-SVG exporter compresses CJK text using character length instead of cell width,
-so those exported images do not establish native Chinese font acceptance.
-These are local checks. The subsequent paired installation completed on
-2026-10-02: Center release `792950722ff4`, shared client `f08834e7bd91`.
-An ordinary user's existing completed Run passed detail, stdout, output-file
-and final-cost reads. A headless Textual driver on the login host used the
-installed client and real production APIs to select that Run, read its cost,
-logs and files, confirm an output and construct the same-output Web link.
-Selection survived a narrow resize. It submitted no job and opened no browser.
-Current live jobs were empty, so positive running-cost/detail acceptance and
-actual browser/Pilot continuation remain separate.
-
-## Task text and navigation delivery
-
-On 2026-10-03 the paired site reader, central read API, console static assets and
-shared CLI/TUI were installed. The console keeps Jobs and Tasks inspection in
-their workspace, preserves the object/view and list context across navigation,
-and removes the second confirmation before opening original Pilot history.
-Text inspection remains in the task and does not depend on Pilot availability.
-
-An ordinary user with an existing managed Identity login read an existing task's
-10-byte UTF-8 output through the candidate and again through the stable shared
-`sai runs read` entrypoint. The deployed console's 173 public static files matched
-the tested build. These are production API/native-file and static-publication
-checks, not authenticated production-browser or complete-workflow acceptance.
-The local paired-browser test exercised cold login, content, return navigation
-and one explicit history open using real handlers and synthetic external sources.
-
-Full output download, native Pilot tool registration, positive running telemetry
-and the complete resource-to-result journey remain open. A bounded text section
-is not a complete file-transfer feature or scientific-result validation.
-
-## Save the selected output
-
-The selected file content view offers S / Save file, including binary files that
-cannot be previewed as text. Enter the destination once; the suggested basename
-is relative to the terminal process directory. Over SSH this saves on the login
-host, not on the computer running the browser. Existing destinations are never
-overwritten. No file browser or second confirmation is introduced.
-
-The workbench uses the same `runs download` client in its serialized background
-read path. Escape cancels; quitting or changing context also cancels and waits
-for the bounded request and temporary-file cleanup. A late completion cannot be
-shown for a different task. Input editing retains ordinary letter keys.
-
-This is a paired candidate; see the [download contract](../contracts/managed-run-download/v1/README.md).
-Local native/HTTP, binary transfer and 40-column rendering checks do not establish
-production file retrieval or a complete scientific workflow.
-
-## Complete output delivery
-
-The paired Web/CLI/TUI download was deployed on 2026-10-03. An ordinary user
-retrieved the same existing 10-byte artifact through the candidate and stable
-shared CLI; the version, content hash, user ownership and 0600 mode matched.
-An existing destination was refused without changing its contents. This proves
-that bounded production file path, not large-file or authenticated browser
-acceptance. Local Chromium covered a 20 MiB native attachment.
-
-Task inspection and retrieval remain independent of Pilot. The next product
-acceptance concerns the continuous task workflow and retained navigation context,
-not another reference handoff. Full browser, native Agent tool and hardware
-acceptance remain open. Operational evidence stays outside this repository.
-
-## Preparation without a relay page
-
-The existing resource-preparation URL now renders the existing Pilot entry. A
-project-scoped link shows its current project and workspace choices together;
-an unscoped terminal link asks for the project on that same page. There is no
-separate Continue page. Resource/site selection remains explicit, and entering,
-refreshing or choosing a project does not open, start or renew a runtime.
-
-This paired Web change was deployed on 2026-10-03 and leaves terminal URLs and backend contracts intact.
-Published specifications are available on demand while the resource, price and
-necessary choices stay visible. Server-owned file-workspace bootstrap and original
-Session handoff remain unchanged. Public static and service readback passed. Real-user workflow acceptance
-remains separate from source and local browser verification.
+Use the existing protected connection configuration. The site remains explicit;
+the interface never changes compute site automatically. An interactive terminal
+is required; JSON commands remain the scripting interface.
+
+## Work to results
+
+The opening screen shows your current native activity and recent recorded work.
+Select a name with arrows and Enter. Completed work opens its files; failed work
+opens its error log. Running work shows its state and available observations.
+No account identifier, job number or partition text is required. When credentials
+are missing, Sign in opens the existing device authorization flow inside the
+terminal, with browser approval and cancel/retry.
+
+Select a file to read its supported text preview. Save uses the existing
+version-bound binary download and an explicit destination on the terminal host.
+Existing files are never overwritten. Cancellation drains the transfer and
+removes its private partial file. Reading or saving does not send a model prompt.
+Escape returns to the same file page or work selection. Next/previous page
+choices are visible in lists; content pages also have contextual navigation.
+
+Start work opens Pilot's native browser entry with the chosen site and any
+explicitly applied workspace. Pilot owns working directories, sessions,
+computation preparation and Agent execution. Browser authorization remains
+independent of the terminal's Identity token. This route is a paired delivery
+dependency, not a second Portal computation page.
+
+More and Ctrl+P expose actions appropriate to the current work: logs, results,
+costs, statistics, allocation, registered location and detailed evidence.
+Resource comparison, storage usage, account messages and named account choices
+are secondary tools. There is no permanent seven-button mode bar or ID form.
+Advanced numeric diagnostics remain available through `sai jobs show`.
+
+## Existing authority, clearer interaction
+
+Default recorded history uses `compute.my-runs/v1`: actor-bound, site-bound,
+paginated and joined once to currently readable workspaces. The terminal never
+fans out across projects. `sai runs recent` exposes this page as JSON.
+An explicit `--workspace-key` instead narrows native and recorded reads to the
+same account. A legacy native-account selector stays queue-only until a named
+workspace is chosen. Storage and the login summary retain their own scopes.
+
+Native activity and Run history remain separate observations. They are not
+merged using a job number; native-only work cannot acquire managed files or
+final charges. Trusted list-level execution association is still required for
+the complete unified product. Source failure is visible, not an empty work list.
+
+The existing file authority checks Run READ and the frozen directory separately.
+Each preview rechecks the selected file page before content. Costs use the
+existing billing owner, never a client price calculation. Native statistics
+retain their observation limits. Location is an operator registration, not
+proof of physical GPU identity or measured utilization.
+
+One asynchronous reader serializes immutable request contexts and coalesces
+refreshes. Navigation invalidates late responses. Home and ordinary state views
+may update automatically; files, logs, costs, resources, allocation and location
+remain manual observations. F5 replaces the current read. Pause/Resume appears
+only where automatic updates exist. Refresh does not move keyboard focus.
+
+Authentication loss clears protected content and offers login. Independent
+file, cost or storage denial clears the corresponding evidence without erasing
+still-authorized work. Returning rereads with current authority, then restores
+position. Expired location registrations are removed by their earliest validity
+deadline, without another network request or a polling timer.
+
+## Migration and verification
+
+The old `tui.py`, tab state and layout-only tests are removed. No alias or
+subclass keeps the rejected interface alive. The shared presenters, safe result
+saver and transport/permission contracts remain the authoritative implementations.
+
+| Previous behavior | Replacement verification |
+| --- | --- |
+| Tab/filter/ID forms | Default CLI entry opens named work with no text fields |
+| Separate queue and task pages | Work list retains honest source sections; no number-only join |
+| File/log/cost detours | Real local HTTP journey restores file, cursor and context |
+| Late responses and revocation | Delayed reads cannot restore old work; separate authority failures remain separate |
+| Allocation/location expiry | Exact-deadline cases preserve the same allocation without another read |
+| Binary save and cancellation | Existing range/grant protocol, no-overwrite publication and cancellation cleanup |
+| Resource comparison and messages | Contextual choices preserve selection and independent account authority |
+| Evidence formatting | Kept unit/unknown/path/decimal and language presenter checks |
+
+The legacy resource preparation URL and Run console deep links remain explicit
+secondary consumers until native Pilot accepts those exact references. Their
+removal condition is a paired native replacement preserving resource/file
+context and read authority. They are not the default Start work path or evidence
+of an accepted end-to-end experience. Native job-to-console navigation is no
+longer a workbench action; its existing protocol code is separate from this UI.
+
+Local tests use bounded HTTP fixtures and actual Textual rendering at 40, 60 and
+100 columns in Chinese/English. A local Portal/CLI pair verifies work discovery
+and subsequent detail reads. These checks do not establish deployed producer
+availability, physical-terminal behavior, real user comprehension or interest.
+3D remains behind truthful task/allocation/asset/telemetry facts; see
+[the digital-twin design](digital-twin-design.md).

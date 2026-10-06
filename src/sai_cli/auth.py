@@ -265,8 +265,12 @@ class TokenProvider:
             margin_seconds=0,
         )
 
-    def clear_pending_device_code(self) -> None:
+    def clear_pending_device_code(self, *, device_code: str | None = None) -> None:
         with self._credential_lock():
+            if device_code is not None:
+                pending = self.pending_device_code()
+                if pending is None or pending[0] != device_code:
+                    return
             self.credential_cache.delete(self._device_pending_key())
 
     def clear_device_credentials(self) -> None:

@@ -67,8 +67,9 @@ JobCandidate. Native input receives a reference only; existing script validation
 server pricing, immutable proposal and user confirmation remain authoritative.
 
 Managed-run reads reuse Portal's existing ComputeRun records and readback
-services. The CLI supplies an explicit personal/org/project account scope and site,
-and reads only its own runs. Current ownership or membership/site and CLI read admission are independent of
+services. The CLI supplies a site and reads only its own runs. Single-workspace reads
+require an explicit personal/org/project account; the actor-owned recent-work
+reader discovers currently readable account labels in one bounded page. Current ownership or membership/site and CLI read admission are independent of
 submission, payer activation and Pilot Session grants. State is a persisted
 execution receipt, not a refreshed Slurm queue observation. Metadata includes no
 final billing projection. An independent per-Run cost read requires billing
@@ -170,15 +171,19 @@ The first client supports these scopes:
 | `org-account` | Jobs charged to an organization account the actor may view | One workspace key, account name or account ID |
 | `project-account` | Jobs charged to a project account the actor may view | One workspace key, account name or account ID |
 
-The terminal Compute area keeps one read scope across its Current queue and
-Records and results purposes. Both accept the same canonical workspace key;
-Portal's existing job-visibility owner resolves its native account and then
-applies current READ policy. Business owner IDs and native account IDs are not
-interchangeable. A scope selection changes no directory, payer or execution.
-Self and legacy native-account selectors remain queue-only until the user
-explicitly chooses a business scope. No cross-account managed query is invented.
-Native and Run records are not joined by job number or made into a second task
-database; each selected object retains its source, freshness and permitted actions.
+The terminal opens the actor's work at the explicit site. Native self activity
+and recorded Run history are separate bounded observations. The new actor-owned
+`compute.my-runs/v1` operation joins existing Runs to the readable-workspace
+relation and supplies authorized names in one SQL page, without project fanout,
+a new task store or a native probe. Each later detail/file/cost read reauthorizes.
+An explicit workspace narrows both sources; a legacy scheduler account without
+a workspace stays queue-only. Business and native account IDs remain distinct.
+
+Native and Run records are not joined by job number. Trusted list-level current
+execution association remains required before they can be shown as one item.
+A native-only job does not gain managed files or final charges by appearing in
+the same work surface. Pilot owns native Web work and sessions; the terminal's
+Start work only navigates to its existing browser entry at the chosen site.
 
 There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
 `--account` mode. Administrative fleet views belong to a separate management
@@ -221,7 +226,7 @@ ledger is not a substitute for the live queue, and a running-cost estimate is
 not a final charge. The CLI receives the estimate from Portal and never reads
 pricing data or computes a price locally.
 
-The TUI presents a selected job's running estimate within Jobs. It requests one
+The TUI presents a selected job's running estimate within that work. It requests one
 central detail observation with optional pricing and independent billing
 authority, rather than joining an estimate list to native jobs. Ordinary site
 job reads and the batch complete-scope `jobs cost` contract remain unchanged.

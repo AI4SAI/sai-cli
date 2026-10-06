@@ -147,6 +147,32 @@ scripts, quantities and prices still require the existing `job_validate`,
 Paired resource-preparation producer:
 `ba29be229d6d9bf970d6dbfcaba035e8dae7c209`.
 
+## My work discovery
+
+`GET /v1/compute/cli/my-runs` and browser `GET /v1/account/compute/my-runs`
+return `compute.my-runs/v1`. They accept only `site_id`, `limit` (1–100,
+default 50) and `cursor`. The authenticated actor is fixed server-side. One
+query joins that actor's recorded Runs to currently readable workspaces at the
+selected site, including the same redacted names as workspace discovery.
+
+Rows reuse existing Run fields and add `workspace_key`, `workspace_label` and
+nullable `organization_label`. Ordering is accepted time descending, then Run
+reference descending. A cursor must remain in the current authorized set;
+revoked and unrelated anchors fail. No new native query, table, grant or
+per-workspace loop is introduced. CLI admission still requires shell access
+`enabled`; the browser retains its existing `agent_only` read policy.
+
+See [schema and example](../contracts/managed-my-runs/v1/README.md). The paired
+producer is `d585187f0` and the CLI replacement is not deployed. Native queue observations,
+file access and final costs keep their existing authority; this page does not
+prove an association between a current native job and a Run.
+
+Start work uses the separately owned browser navigation route
+`/v1/account/pilot/entry?site_id=...`, optionally with an explicitly applied
+workspace key. This is an explicit browser action, not a CLI-authorized API
+call. No Identity Bearer or model prompt is placed in the URL. The native entry
+producer is merged separately; its paired rollout is required before delivery.
+
 ## Managed runs and declared outputs
 
 `GET /v1/compute/cli/workspaces` discovers currently readable task projects at

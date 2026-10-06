@@ -15,6 +15,8 @@ The first implementation milestone is intentionally read-only:
   are never replaced. A failed or interrupted transfer removes its temporary
   file; retry starts from the beginning. This download contract requires paired
   Center and site deployment.
+- `sai runs recent` reads your recorded work across currently readable accounts
+  at the selected site, with bounded history pages and authorized names.
 - `sai runs workspaces` discovers currently readable personal, organization and
   project task scopes by name.
   `sai storage workspaces` discovers readable storage scopes at the selected site.
@@ -59,79 +61,37 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-The optional `sai tui` workbench has one Compute area with Current queue and
-Records and results views. They share the selected account scope, list and
-inspection layout while retaining their existing native and managed readers.
-It starts with the default-identity Overview. Managed login
-shows the summary panel and returns to Shell; the full workbench opens manually.
-Existing login help, rules, quota/resource status and notes remain available
-automatically, with directory selection before quota reads.
-View allocation requires the configured site gateway and shows one response's
-job, nodes, freshness and restart count. Automatic
-refresh pauses during inspection; F5 replaces the whole snapshot. This is allocated
-CPU/memory data, not measured utilization or physical location.
-Open in Web resolves the selected job's workspace through Portal and provides a
-link to that job in the console, including terminals without a local browser.
-The compact link has an explicit Copy link action; A/W and the native Ctrl+P
-command palette expose the same allocation and Web actions without taking text
-from filter inputs.
-The browser checks access again and reads a current snapshot. A changed known
-submission time or restart count requires a TUI refresh before navigation.
-Storage has an independent scope selected by its authorized name and explicit
-stored/native source selection. Names do not imply a native source is available.
-Install with `pip install '.[tui]'` and run `sai tui` from
-an interactive terminal. See [the terminal workbench](docs/terminal-workbench.md).
+The optional `sai tui` opens **My work** at the configured site. Choose a work
+name with the arrow keys and Enter. Completed work opens its results; failed
+work opens its error log. Files can be read or saved without opening a model
+window. Escape returns to the same work or file page. No account ID, job number
+or partition text is required for this flow. If login is needed, the workbench
+offers the existing browser-approved device login directly.
 
-Resources keeps an explicit candidate separate from the two-item comparison.
-Enter selects a partition; C compares it; Prepare in Pilot (W) opens the shared
-console preparation page. Users without job history can select a project and
-Session there before inserting an editable resource preference into Pilot.
-Published specifications do not imply idle capacity, admission or a job quote.
+The home reads your native activity and your recorded computations across
+currently readable accounts. `sai runs recent` exposes the same recorded-work
+page as JSON. An explicitly selected account remains narrow; legacy scheduler
+account selectors do not silently become an all-account history read. Native
+activity and recorded history are separate observations, not joined by job number.
 
-Choose a named compute scope once for both queue and task records. The default
-self queue still shows your native jobs across accounts; records require an
-explicit account choice in the same selector. Selecting a resource's queue keeps
-this scope and narrows only the partition. Find job opens a known job number in
-the same scope, including array tasks outside the displayed queue. Records and results finds your accepted
-managed runs after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
-Stderr and Files read one bounded page only when requested. Reading does not
-start Pilot, renew its model window, submit work or grant file access.
+**Start work** opens Pilot's native entry with the selected site. Pilot owns
+working directories, sessions, Agent actions and computation preparation. This
+navigation requires its paired server entry to be deployed; no model prompt or
+computation is sent by the CLI. Resource comparison, storage, account messages
+and named account selection are available through More or Ctrl+P.
 
-In Files, Enter opens the selected text file and W opens the same output page in the console.
-The console can explicitly continue into the original Pilot Session for native
-preview or an editable analysis request, with fresh permissions at each step.
+Allocation, registered location, statistics and costs remain explicit reads
+within the selected work. Running estimates and final charges keep their
+independent server authority. Location records expire at their actual deadline;
+registered rack positions do not prove physical GPU identity or utilization.
+File permissions remain independent of metadata and billing access.
 
-Tasks also has an explicit Cost mode. It shows standard usage, cash, Credit and
-coverage only when authorized, using the shared final-cost contract. F5 replaces
-the observation; W opens the same task's Cost tab in the console. A cost-only
-refusal preserves readable task metadata. Cancellation never implies zero cost.
-Human views group numbers and normally show two amount decimals and four usage
-decimals. Tiny nonzero values retain their necessary precision; signed adjustments
-stay signed. JSON keeps the exact server strings for scripts and reconciliation.
-
-Tasks also has a manual Statistics mode. F5 replaces its observation and W opens
-the same Run's Statistics tab in the console. Each step retains its node coverage,
-query window and execution evidence. The native sample time is unknown. The six
-task-mode buttons use two rows in narrow windows.
-
-The task's Location action reuses the existing allocation/registration view.
-It is a manual observation with F5 and a `view=placement` Web continuation.
-Expired registrations are removed while the same allocation snapshot stays
-visible. Site-disabled location reads preserve task metadata. These records
-remain operator registrations, not verified physical GPU identity or telemetry.
-
-The four top-level views share browse, inspection and summary layouts. Selected evidence
-gets the main area in narrow or short terminals, with the current object above
-it. Escape returns within the current view. F6 works only for views that can
-automatically refresh; logs, files, allocations, locations, resources and
-selected estimates remain explicit snapshots. See [the design rules](DESIGN.md)
-for the information hierarchy and local versus real-terminal acceptance.
-
-Jobs has an explicit Cost action for the selected job. It reads that job's
-current state and standard-price estimate together through Portal, retaining
-independent billing permission. F5 replaces the whole observation; this mode
-does not poll. There is no separate TUI estimate list. The batch `jobs cost`
-command keeps its complete authorized financial snapshot for scripts.
+Install with `pip install '.[tui]'` and run `sai tui` in an interactive terminal.
+The [replacement workbench](docs/terminal-workbench.md) is a source candidate;
+it has not replaced the previously deployed interface. The [rebuild brief](docs/workbench-rebuild.md)
+records remaining native association, Pilot continuation and actual user
+acceptance. Local tests or screenshots do not establish that product acceptance.
+Managed login still shows its compact summary and returns to the shell.
 
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway

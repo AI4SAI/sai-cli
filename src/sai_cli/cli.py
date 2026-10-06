@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_connection_arguments(overview, suppress_defaults=True)
     overview.add_argument("--account", help="authorized account applied by the login context")
     overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
-    tui = commands.add_parser("tui", help="open the optional resource and job workbench")
+    tui = commands.add_parser("tui", help="open your work and results in the terminal")
     _add_connection_arguments(tui, suppress_defaults=True)
     _add_job_scope_arguments(tui, task_scope_alias=True)
     tui.add_argument("--partition", help="partition narrowing filter")
@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
         ("workspaces", "list account scopes where you may read your managed computations"),
+        ("recent", "read your recorded computations across readable accounts at this site"),
         ("list", "list your managed computations, including completed runs"),
         ("show", "show the recorded state of one managed computation"),
         ("cost", "read the independently authorized final cost of one managed computation"),
@@ -72,13 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         run_parser = run_commands.add_parser(command, help=description)
         _add_connection_arguments(run_parser, suppress_defaults=True)
-        run_parser.add_argument("--workspace-key", required=command != "workspaces", help="authorized read scope: personal:<id>, org:<id>, or project:<id>")
-        if command not in {"list", "workspaces"}:
+        if command != "recent":
+            run_parser.add_argument("--workspace-key", required=command != "workspaces", help="authorized read scope: personal:<id>, org:<id>, or project:<id>")
+        if command not in {"list", "workspaces", "recent"}:
             run_parser.add_argument("run_ref", help="managed run reference returned by runs list")
-        if command in {"workspaces", "list", "files"}:
+        if command in {"workspaces", "list", "recent", "files"}:
             run_parser.add_argument("--limit", type=int, default=100 if command == "files" else 50,
                                     help="maximum rows in one page (1-100)")
-        if command in {"workspaces", "list", "logs", "files", "read"}:
+        if command in {"workspaces", "list", "recent", "logs", "files", "read"}:
             run_parser.add_argument("--cursor", help="next cursor returned by the previous page")
         if command in {"read", "download"}:
             run_parser.add_argument("--artifact-ref", required=True, help="file reference returned by runs files")
@@ -560,6 +562,8 @@ def main(
             if args.runs_command == "workspaces":
                 result = client.list_run_workspaces(site_id=settings.site_id, limit=args.limit,
                                                    cursor=args.cursor, workspace_key=args.workspace_key)
+            elif args.runs_command == "recent":
+                result = client.list_my_managed_runs(site_id=settings.site_id, limit=args.limit, cursor=args.cursor)
             elif args.runs_command == "list":
                 result = client.list_managed_runs(**scope, limit=args.limit, cursor=args.cursor)
             elif args.runs_command == "show":
@@ -598,7 +602,7 @@ def main(
 
         if args.command == "tui":
             try:
-                from .tui import Workbench
+                from .workbench import Workbench
             except ModuleNotFoundError as exc:
                 if exc.name not in {"textual", "rich"}:
                     raise
@@ -607,7 +611,7 @@ def main(
                 raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
             workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
             Workbench(client, query, storage_workspace_key=workspace,
-                      overview_account=login_account, initial_view="overview", language=args.language).run()
+                      overview_account=login_account, language=args.language).run()
             return 0
 
         if args.command == "jobs" and args.jobs_command == "list":

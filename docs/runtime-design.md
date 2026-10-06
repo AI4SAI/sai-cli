@@ -70,61 +70,34 @@ There is no source fallback. The TUI Storage selector uses the same two client
 methods and clears old-source results immediately. Native deployment requires
 a reviewed readable filesystem anchor; local code does not enable it.
 
-`sai tui` starts with the default-identity Overview and is an optional interactive
-consumer of these same read methods.
-On managed login nodes, `sai status` and Overview retain the applied login Account;
-an explicit `status --account` overrides it, while job and storage scopes remain independent.
-It keeps the configured site/cluster fixed, lets users explicitly apply job
-scope and narrowing filters, compares published partitions, and shows job
-detail, allocation snapshots and independent running estimates. View allocation
-uses one response for the job, node CPU/memory, freshness and restart count,
-without merging a previous detail response. Inspection pauses automatic refresh;
-F5 clears and replaces the full snapshot. Changing object, mode, applied scope
-or tab, or pressing Escape, clears the allocation and discards late responses.
-Array-task identity includes task zero for both detail and allocation. Allocation
-states remain explicit; utilization and physical location are not inferred.
-The queue's Job ID input opens the existing exact-detail reader in the current
-scope, even when that job is outside the bounded list. TUI inspection omits
-list-only partition/state filters and retains them on return to the queue.
-New object selection clears previous observations before the request starts.
-Its dependencies are an optional
-extra; JSON batch commands do not import or require them. Interaction and
-verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
+`sai tui` starts at My work. It reads native self activity and the actor-owned
+`compute.my-runs/v1` page without asking for an account selector. An explicit
+workspace instead narrows both readers to that account; a legacy scheduler
+account without a workspace reads only that queue. The managed login account
+still belongs to the independent account summary. It is not an implicit filter
+or a way to infer compute/file authority.
 
-The terminal derives browse, inspect and summary presentation from its existing
-view and selection. This does not add a request, data cache or permission model.
-All object inspections share one responsive evidence area and a current-object
-heading. Back acts only on the current view. Polling eligibility is independent
-of layout: ordinary job/task details can refresh automatically, while allocation,
-location, resource, estimate and task-file/log snapshots require explicit reads.
-Only eligible views enable F6 and expose Pause/Resume in the command palette.
+Select names with arrows and Enter. Completed work opens results; failed work
+opens its error log. Other evidence, account selection, resource comparison and
+storage are contextual actions in More or Ctrl+P. Page choices are visible in
+lists; Escape restores the prior work/file position. Exact numeric diagnostics
+remain available through `sai jobs show`, without a permanent terminal ID form.
+The old tabbed shell and letter-shortcut toolbars have been removed.
 
-Open in Web appears after successful job detail or allocation inspection. Its
-one-time action uses the same serialized reader to call Identity-only
-`GET /v1/slurm/cli/jobs/{job_id}/web-context`; it sends no site capability.
-Portal resolves the actual job account's workspace, including a self-scope job
-running under an organization or project account. The CLI validates the
-`jobs.web-context/v1` mapping and constructs a fixed Jobs link on its configured
-Portal origin. Neither the default Overview identity nor account naming supplies
-the workspace. The action does not start Pilot or alter the applied job scope.
+One reader serializes immutable request contexts and discards late responses.
+Home and ordinary status views may refresh; logs, files, costs, resource,
+allocation and location observations are manual. F5 replaces the current
+observation. Pause/Resume is available only for automatic views. Registration
+expiry uses the earliest inventory/registration deadline and no network polling.
+401 clears the work and offers device login. Independent file, cost or storage
+refusals clear only those observations; normal browsing does not enlarge scope.
 
-The link carries the inspected snapshot's observation time, nullable submission
-time and nullable restart count as comparison evidence. If both sides know a
-submission time or restart count and it has changed, the TUI keeps its snapshot
-and asks for a refresh instead of navigating. Job IDs and these timestamps do not
-prove permanent execution identity. The browser reauthorizes and reads current
-data, independently of the displayed list limit.
-
-The short link remains visible and clickable when the terminal has no local
-browser; Copy link explicitly sends the complete URL to the terminal clipboard.
-Nothing is copied automatically. Compact buttons remain visible at forty columns.
-A opens allocation and W prepares the Web link outside editable controls; the
-same context-sensitive actions appear in Textual's native Ctrl+P command palette.
-Refresh, scope/object changes and denied reads clear the link. Duplicate clicks
-coalesce; late responses after a revision change cannot open a browser, and polling
-never requests navigation. A `job_navigation_workspace_denied` response preserves
-the authorized self snapshot while explaining that its workspace cannot be opened;
-other authorization failures retain the existing view-clearing rules.
+Start work opens the existing browser endpoint `/v1/account/pilot/entry` with
+`site_id` and an explicitly applied `workspace_key`, if any. It sends no Bearer,
+path, prompt or request to execute computation. The endpoint owns browser auth,
+current access and native Pilot entry. Its rollout is a pairing requirement.
+See [terminal-workbench.md](terminal-workbench.md) for the remaining continuation
+and native association boundaries. No client scheduler or Pilot runtime is added.
 
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`,
 `jobs show` and `storage native-quota`. `jobs allocation JOB_ID` also requires
@@ -138,10 +111,11 @@ Resource preparation has no new CLI request or write command. The current
 validated catalog supplies exactly one candidate, and `preparation_url` creates
 `/portal/#/portal/resources/prepare?site_id=...&partition_ref=...` at the protected
 Portal origin. It carries neither account guesses, resource quantities, prices,
-paths nor prompts. Resources hides Jobs filters, uses Enter for candidate
-selection and C for a separate bounded comparison. Refresh, errors and tab
-changes clear candidate/link; inspecting a resource pauses polling. View jobs
-uses the explicit candidate, independent of comparison order.
+paths nor prompts. Enter selects a candidate; More offers comparison of at most
+two resources. Returning to the catalog preserves those choices without a
+request. Refresh or leaving resources clears candidate/link/comparison. This
+legacy browser preparation consumer still needs native Pilot replacement; it
+is optional and is not the default Start work path.
 
 The gateway receives only a short-lived `X-SAI-Capability`; the Identity Bearer
 stays at Portal. Results use the explicit `jobs/v1` envelope, including subject,
@@ -161,7 +135,7 @@ list command's scope and narrowing options, validates the independent
 `billing.running-estimate/v1` DTO, and renders it without local caching,
 scheduler access, or price calculation.
 
-TUI Jobs instead has a Cost mode for its selected job. The existing serialized
+The terminal instead has a Cost action for its selected job. The existing serialized
 reader calls the central detail route with `include_estimate=true`; the response
 contains one native observation and its Portal-authorized estimate. The exact
 job capability still needs compute authority, with an additional billing scope
@@ -192,19 +166,19 @@ account/site READ selectors. `compute.run-placement/v1` wraps one verified
 native execution and the existing `jobs.placement/v1` result. The terminal
 reuses its placement parser, display and expiry timer. Expiry removes location
 records, retaining only the allocation from that same response. F5 is explicit;
-W opens the exact Run with `view=placement`, without carrying metrics or native
-identifiers. Site opt-out affects this view; revoked task READ clears Tasks.
+The browser action opens the exact Run with `view=placement`, without carrying metrics or native
+identifiers. Site opt-out affects this view; revoked task READ clears the selected work.
 
 `runs stats RUN_REF` uses compute READ and the same account/site selectors.
 The serialized TUI reader keeps a separate manual statistics snapshot: F5 replaces
-it, and scope/Run/mode changes discard late responses. W adds `view=stats` to the
+it, and scope/Run/mode changes discard late responses. The browser action adds `view=stats` to the
 same Run's console URL, without metrics or file selectors. Source failure clears
-statistics; Run READ denial clears Tasks and authentication failure clears all
+statistics; Run READ denial clears the selected work and authentication failure clears all
 protected views. See [the statistics contract](../contracts/managed-run-stats/v1/README.md).
 
 `runs cost RUN_REF` is an explicit, independently authorized final-cost read,
 requiring `sai.billing.read`. The TUI Cost mode reads one observation manually.
-Task-scope revocation clears Tasks; a cost-only refusal clears the amount view
+Task-scope revocation clears the selected work; a cost-only refusal clears the amount view
 while task metadata remains usable. Its Web continuation adds only `view=cost`
 to the exact Run link. File-selection parameters and cost mode are mutually
 exclusive. See [the shared cost contract](../contracts/managed-run-cost/v1/README.md).
@@ -220,24 +194,18 @@ Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
 JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
-The Compute area in `sai tui` uses one authorized account-name selection or explicit
-`--workspace-key` for both Current queue and Records and results.
-`--tasks-workspace-key` is an alias for that same scope, not independent state.
-Explicit preselection resolves its name through an exact
-`runs workspaces --workspace-key` read, without scanning the directory or
-inventing a choice. Storage and Overview's default billing identity remain
-independent. Self/native-account-only scopes keep their queue meaning; opening
-records requires an explicit named account selection, never an automatic switch.
-The existing worker serializes all reads. Run metadata may refresh; log and
-output pages are explicit, one-page observations. Next/Start replace the page;
-they do not append an unbounded log. Changing read scope, mode or tab invalidates
-late responses. File-read denial clears only the file observation; task-scope
-denial clears Tasks, and authentication failure clears all protected views.
-Within the same task, changing mode or visiting another tab preserves the last
-reading position. Returning rereads the original file, log or evidence through
-the same authorized client, then restores its page and scroll position. It does
-not reuse a saved body or Web link. Project/task changes and permission loss
-clear the corresponding navigation; missing or changed files stop restoration.
+`runs recent` requires only a site, limit and cursor. Its `compute.my-runs/v1`
+rows include authorized workspace labels and exact keys for subsequent reads.
+The server fixes the actor and joins currently readable workspaces once; the
+client does not enumerate projects. A revoked cursor requires a fresh page.
+
+In the terminal, an explicit workspace is resolved by exact authorized name.
+`--tasks-workspace-key` remains a parser alias for `--workspace-key`, not another
+scope. Storage and the login summary remain independent. Result/log pages are
+bounded observations. Returning rereads through the same authorized client,
+then restores the page and scroll position; it does not restore a saved body or
+Web link. Changed files or lost authority stop restoration. Final costs, native
+statistics and locations retain their own request and permission boundaries.
 
 ### Scheduler jobs
 

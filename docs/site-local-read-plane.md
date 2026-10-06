@@ -1,5 +1,11 @@
 # Site-Local Interactive Read Plane
 
+The workbench replacement adds central actor-owned Run discovery while retaining
+this site's native read paths. It does not route every refresh through a new
+central aggregator or create client project fanout. The replacement UI is a
+source candidate; historical deployment receipts below refer to their recorded
+versions and do not establish acceptance of the new workbench.
+
 ## Unified compute delivery gate
 
 The canonical workspace selector first reached Center in `4f343e3f5`. The

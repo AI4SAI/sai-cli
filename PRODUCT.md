@@ -4,87 +4,95 @@
 
 product
 
-## Users
+## Purpose
 
-SAI scientific-computing users work from terminals, the SAI console, and hosted
-Agents. Researchers need to choose resources, understand running work, inspect
-results and costs, and continue the same task across these entry points.
-Project owners review their authorized work and budgets. Operators have a
-separately authorized view of hardware, networks and failures.
+SAI helps researchers turn code and data into useful scientific results. The
+interface must show what is happening, what needs attention and what can be
+used next without asking people to reconstruct scheduler or account internals.
+A person should recognize their own work and a useful next action on opening it.
+Passing API or layout tests is not evidence that this product is understandable
+or worth using.
 
-## Product Purpose
+The current terminal interaction has been rejected and is being replaced. The
+[workbench rebuild](docs/workbench-rebuild.md) defines the replacement. Its goal
+covers complete work, not another job inspection utility or a collection of
+independently correct screens. The existing deployed version remains a
+technical baseline until the replacement is verified; it is not the design to
+polish or preserve.
 
-Researchers come to complete scientific work, resume it, diagnose failures and
-obtain results. Resource selection, execution, files and costs are supporting
-capabilities, not a mandatory sequence of pages. The same researcher may use
-Pilot, native scripts or terminals for different work. Pilot's existing compute
-plugin is the interactive Web workbench; the console owns account and financial
-management rather than a parallel daily compute workflow.
-Account/project context changes the authorized scope, not where users look for
-their computations. Job and managed-Run records must not become competing product
-menus, and a runtime pool must not be presented as a scientific task or workspace.
+## People and situations
 
-The implemented product is a read-only compute CLI with an optional terminal
-workbench for resource comparison, job allocation and operator-recorded
-locations, managed task history, logs, output listings, storage quota and
-running estimates. Authorized job
-context can continue into the console and its existing Pilot flow.
-The terminal design rules live in [DESIGN.md](DESIGN.md); language, context
-selection and evidence layout are part of the task workflow, not a separate
-decorative layer.
-Result inspection and retrieval are core workbench outcomes. Returning to a
-Pilot conversation with a file reference is an optional aid to further work;
-it does not establish that the user can inspect, obtain or interpret the result.
-Bounded task-output text reading is implemented in paired source for Web, TUI
-and JSON. Paired inspection and complete output download are deployed, with bounded ordinary-user
-CLI verification. The authenticated browser journey and useful follow-up analysis
-leave the broader product acceptance open.
-It shares Portal-owned read contracts with WebUI and SAI Pilot. The broader
-workbench design, including hardware telemetry and result navigation, is described in
-[the unified workbench design](docs/unified-workbench.md); the design is not an
-implementation or deployment claim.
+Researchers return to ongoing work, investigate a failure, compare results and
+start the next calculation. Some use Pilot, some use scripts and many use both.
+They may be checking a remote terminal briefly between other research work.
+They should not need to learn the platform's object model to get their results.
 
-Bilingual navigation, readable compute/storage discovery and narrow task inspection
-are implemented. Four top-level views share browse, inspect and summary layouts;
-Compute uses one scope and selected object across queue and records/results purposes.
-Contextual actions follow the terminal visual rules in DESIGN.md.
-[Bounded SSH acceptance](docs/ssh-terminal-acceptance.md) covers a 14-minute
-synthetic workflow on one login host, resize and disconnect cleanup. Broader
-terminal/font coverage, longer resource profiling and production backend
-acceptance remain open. Interaction references inform selection, keyboard and
-action discovery; they do not imply reuse of another product's application or
-Agent source. Keep the task journey ahead of a broad redesign.
+Project owners additionally need the work and spending they may oversee.
+Operators have a separately authorized hardware and fault view. Those roles
+change the available facts and actions, not the everyday product vocabulary.
 
-## Brand Personality
+## Product responsibilities
 
-Precise, calm, capable. Follow the SAI console's product language and existing
-visual system; do not define a competing WebUI theme in this repository.
+Pilot's native workbench owns the interactive Web computation experience and
+retains its full Agent, shell, file, code and workflow capabilities. The TUI is
+a terminal entry to the same work and evidence. Portal owns membership, site
+access, business policy and final billing. Identity owns authentication.
+Native site systems supply dynamic execution and hardware facts.
 
-## Anti-references
+There is one permission and fact owner for each domain. Clients do not copy
+business rules, price jobs, create another task history or infer file access
+from a job number. Sharing contracts does not require all traffic to pass
+through a single central proxy. The user chooses the site.
 
-- A terminal job table presented as a complete workbench.
-- Decorative hardware scenes with invented utilization or placement.
-- Independent business rules or task histories for each client.
-- A restricted chatbot replacing the full SAI Pilot Agent experience.
-- Portal pages owning a second Pilot Session/Pool workflow instead of a thin
-  integration with the native workbench and its SAI plugin.
-- Rebuilding the compute plugin as a second Portal job/task workbench.
-- Internal protocol terms, raw errors or credentials in ordinary user flows.
+## Required everyday experience
 
-## Design Principles
+- Open into useful work, using established context and authorized discovery.
+  Request a human choice only when it changes a meaningful decision.
+- Select work by its recognizable name and situation. Internal IDs, scheduler
+  state codes, partition strings and source timestamps are secondary evidence.
+- Keep progress, relevant logs, available results and costs within that work.
+  Looking at a result must not require a model message or a renewed paid window.
+- Prefer choices based on known facts over blank text fields. Optional search
+  is useful; requiring users to find and paste platform identifiers is not.
+- Present the action appropriate to the current situation. Do not display every
+  possible action as an equally prominent permanent toolbar.
+- Preserve context when returning, refreshing or changing device size. An
+  unavailable source or lost permission needs a specific recovery path.
+- Show real outputs and real observations. Do not invent scientific progress,
+  successful execution, utilization or an association between unrelated facts.
 
-- Keep workspace, site, billing identity and file access explicit and distinct.
-- Show resource choice, execution, evidence and results as one task journey.
-- Reuse authoritative services; render the same facts appropriately per client.
-- Let Agents read typed data directly with the caller's actual permissions.
-- Keep allocation, measured utilization, predictions and final charges distinct.
-- Keep operator registrations distinct from proof of the current machine;
-  disclose only authorized job-node locations, never infer empty cabinet space.
-- Preserve full Agent capability inside the authorized execution boundary.
+## Interaction and visual direction
 
-## Accessibility & Inclusion
+Follow the existing SAI identity: calm surfaces, restrained teal focus, readable
+contrast and status conveyed with words. Name, state and next action lead;
+operational identifiers and diagnostic provenance are disclosed when needed.
+Keep ordinary workflows complete with arrow keys and Enter, with discoverable
+advanced commands. The user does not have to memorize shortcut letters.
 
-Provide complete keyboard navigation, readable contrast, non-color status cues,
-Chinese and English catalogs, terminal resize handling and reduced motion.
-The Web target is WCAG 2.2 AA. Hardware information must remain usable through
-semantic tables and trees without a 3D renderer.
+Codex CLI, Claude Code and OpenCode are references for continuous work, focused
+interaction and progressive disclosure. They are not permission to fork their
+Agent engines or turn read-only work into mandatory chat.
+
+The [terminal design](DESIGN.md) specifies the new interaction. Web styling
+remains governed by Portal's existing visual system. No competing brand system
+or decorative dashboard is introduced here.
+
+## Acceptance
+
+A first-time researcher must be able to recognize the current site and work,
+open an item, understand its state, find an available result and return without
+being taught platform terms or entering technical identifiers. An experienced
+user must still reach detailed evidence efficiently. Both audiences matter.
+
+Check actual flows in Chinese and English at narrow and wide terminal sizes,
+including empty work, failed reads, revoked access, unfinished runs and results
+that cannot be previewed. Headless tests, real backend reads, physical-terminal
+behavior and the user's assessment are separate evidence. If the user cannot
+understand or has no interest in the result, the product goal is still open.
+
+## Digital twin
+
+Hardware views bind real tasks and executions to registered assets and measured
+observations under role-based access. TUI, Web and Agent consume the same
+structured facts. Parameterized 3D comes from an asset inventory; it does not
+own topology or invent utilization. See [the design](docs/digital-twin-design.md).

@@ -170,6 +170,42 @@ class ManagedRunList(ManagedReadResult):
 
 
 @dataclass(frozen=True)
+class MyManagedRunList(ManagedReadResult):
+    """The actor's recorded work across currently readable accounts at one site."""
+
+    @classmethod
+    def from_payload(cls, payload: object, *, site_id: str, limit: int,
+                     cursor: str | None, request_id: str) -> MyManagedRunList:
+        data = _object(payload, request_id)
+        if (data.get("schema_version") != "compute.my-runs/v1" or data.get("site_id") != site_id
+                or data.get("source") != "portal_run_receipts"
+                or not isinstance(site_id, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", site_id) is None):
+            raise ContractError(request_id=request_id)
+        items = data.get("items")
+        if type(limit) is not int or not 1 <= limit <= 100 or not isinstance(items, list) or len(items) > limit:
+            raise ContractError(request_id=request_id)
+        rows = []
+        for item in items:
+            row = _run(item, request_id)
+            try:
+                workspace = clean_tasks_workspace(item.get("workspace_key"))
+            except ConfigError as exc:
+                raise ContractError(request_id=request_id) from exc
+            rows.append({**row, "workspace_key": workspace,
+                         "workspace_label": _text(item, "workspace_label", request_id, maximum=256),
+                         "organization_label": _text(item, "organization_label", request_id, maximum=256, nullable=True)})
+        following = _token(data, "next_cursor", request_id, nullable=True)
+        more = _boolean(data, "has_more", request_id)
+        if (len({row["run_ref"] for row in rows}) != len(rows) or any(row["run_ref"] == cursor for row in rows)
+                or more != (following is not None)
+                or (more and (not rows or following != rows[-1]["run_ref"] or following == cursor))):
+            raise ContractError(request_id=request_id)
+        return cls({"schema_version": "compute.my-runs/v1", "site_id": site_id,
+                    "source": "portal_run_receipts", "queried_at": _time(data, "queried_at", request_id),
+                    "items": rows, "next_cursor": following, "has_more": more})
+
+
+@dataclass(frozen=True)
 class ManagedRunDetail(ManagedReadResult):
     def web_url(self, base_url: str, *, artifact_page: ManagedRunArtifacts | None = None,
                 artifact_ref: str | None = None, cost: bool = False, stats: bool = False, placement: bool = False) -> str:
@@ -289,6 +325,12 @@ def _relative_filename(value: object, request_id: str) -> str:
 
 def render_managed_runs(result: ManagedReadResult) -> str:
     data = result.values
+    if isinstance(result, MyManagedRunList):
+        lines = [f"My recorded computations · Site: {data['site_id']} · queried {data['queried_at']}"]
+        lines.extend(f"{row['workspace_label']} · {terminal_log(row['title']) if row['title'] is not None else 'Untitled'}"
+                     f" · {row['status']} · {row['run_ref']}" for row in data["items"])
+        lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
+        return "\n".join(lines) + "\n"
     if isinstance(result, ManagedRunWorkspaces):
         lines = [f"Readable task scopes · Site: {data['site_id']} · queried {data['queried_at']}"]
         lines.extend(f"{row['workspace_key']}  {row['label']}" + (
