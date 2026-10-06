@@ -17,7 +17,7 @@ from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import ActiveBinding, Binding
 from textual.command import CommandPalette
 from textual.containers import Grid, Horizontal, VerticalScroll
-from textual.events import Resize
+from textual.events import Key, Resize
 from textual.screen import Screen
 from textual.theme import Theme, ThemeProvider
 from textual.timer import Timer
@@ -25,7 +25,7 @@ from textual.widgets import Button, DataTable, Footer, Input, OptionList, Select
 from textual.widgets.option_list import Option
 
 from .catalog import ResourceCatalog
-from .client import JobQuery, PortalClient, clean_states
+from .client import JobQuery, PortalClient, clean_states, clean_token
 from .contracts import JobCostResult, JobResult
 from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, NotFoundError, SaiCliError
 from .job_web_context import JobWebContext
@@ -304,6 +304,9 @@ class Workbench(App, inherit_bindings=False):
                     yield Input(self.job_query.partition or "", placeholder=t("partition"), id="partition")
                     yield Input(",".join(self.job_query.states), placeholder=t("states_input"), id="states")
                     yield Button(t("apply"), id="apply", variant="primary")
+                with Horizontal(classes="controls", id="job-lookup-controls"):
+                    yield Input(placeholder=t("job_id_input"), id="job-id")
+                    yield Button(t("find_job"), id="find-job")
                 yield Static("", id="compute-hint", classes="hint", markup=False)
                 notice = Static("", id="compute-notice", classes="view-notice", markup=False)
                 notice.display = False
@@ -448,6 +451,11 @@ class Workbench(App, inherit_bindings=False):
         self.default_screen.set_class(self.size.width < 60, "narrow-evidence")
         self.default_screen.set_class(compute and not records, "native-compute")
         self.query_one("#job-filter-controls").display = compute and not records and not inspection and not self._choosing_scope
+        jobs = self.results.get("jobs")
+        more_jobs = isinstance(jobs, SiteJobResult) and jobs.has_more
+        lookup = self.query_one("#job-lookup-controls")
+        lookup.display = compute and not records and not inspection and not self._choosing_scope
+        self.query_one("#find-job", Button).disabled = busy
         self.query_one("#compute-purpose").display = compute and not inspection
         self.query_one("#compute-scope-row").display = compute and not inspection
         self.query_one("#scope-pages").display = compute and not inspection and (self._choosing_scope or bool(self.task_projects and (self.task_projects.values["has_more"] or self.project_cursor)))
@@ -482,6 +490,8 @@ class Workbench(App, inherit_bindings=False):
                                else "records_choose_scope" if records else "projects_choose"))
         elif records and isinstance(self.results.get("tasks"), ManagedRunList) and not self.results["tasks"].values["items"]:
             hint.update(self.t("task_empty"))
+        elif more_jobs and not records:
+            hint.update(self.t("queue_more"))
         else:
             hint.update(self.t("records_coverage" if records else "queue_coverage"))
         self.query_one("#compute-evidence-actions").display = compute and (inspection or self._can_inspect_job())
@@ -559,6 +569,7 @@ class Workbench(App, inherit_bindings=False):
             self.job_mode = "detail"
             self.compute_mode = mode
             self._choosing_scope = False
+            self.query_one("#job-id", Input).value = ""
             self._configure_compute_table()
         if self.view != "compute":
             self.query_one("#views", TabbedContent).active = "compute"
@@ -937,6 +948,7 @@ class Workbench(App, inherit_bindings=False):
         self._clear("tasks")
         self._clear("jobs")
         self.selection = None
+        self.query_one("#job-id", Input).value = ""
         self._task_list_cursor = self._task_list_row = None
         self._task_list_scroll = 0.0
         self._choosing_scope = self._scope_discovery = True
@@ -962,6 +974,7 @@ class Workbench(App, inherit_bindings=False):
         self._clear("tasks")
         self._clear("jobs")
         self.selection = None
+        self.query_one("#job-id", Input).value = ""
         self.job_mode = "detail"
         self.job_query = query.validated()
         self.scope_label = labels.get(key)
@@ -1297,13 +1310,14 @@ class Workbench(App, inherit_bindings=False):
                 return self.client.storage_native_quota(workspace_key=workspace, site_id=query.site_id)
             return self.client.storage_quota_summary(workspace_key=workspace, site_id=query.site_id)
         if selected:
+            detail_query = replace(query, partition=None, states=())
             if job_mode == "cost":
-                return self.client.job_cost(selected, replace(query, partition=None, states=()))
+                return self.client.job_cost(selected, detail_query)
             if job_mode == "placement":
-                return self.client.job_placement(selected, replace(query, partition=None))
+                return self.client.job_placement(selected, detail_query)
             if job_mode == "allocation":
-                return self.client.job_allocation(selected, replace(query, partition=None))
-            return self.client.show_job(selected, replace(query, partition=None))
+                return self.client.job_allocation(selected, detail_query)
+            return self.client.show_job(selected, detail_query)
         return self.client.list_jobs(query)
 
     def _clear(self, view: str) -> None:
@@ -1341,6 +1355,7 @@ class Workbench(App, inherit_bindings=False):
             self.query_one("#details", Static).update("")
 
     def _read_error(self, view: str, error: SaiCliError, *, scope_lookup: bool = False) -> None:
+        job_missing = view == "jobs" and self.selected_job is not None and isinstance(error, NotFoundError)
         if view == "tasks":
             self._task_restore_scroll = None
         self._failed_views[view] = self.t("read_failed")
@@ -1410,6 +1425,7 @@ class Workbench(App, inherit_bindings=False):
             for name in ("resources", "jobs", "storage", "overview", "tasks"):
                 self._clear(name)
             self.selection = None
+            self.query_one("#job-id", Input).value = ""
             self.job_mode = "detail"
             self._revision += 1
             self._pending = False
@@ -1434,6 +1450,7 @@ class Workbench(App, inherit_bindings=False):
         self._update_storage_actions()
         message = ("session_expired" if isinstance(error, AuthenticationError) else
                    "access_denied" if isinstance(error, ForbiddenError) else
+                   "job_not_found" if job_missing else
                    "configuration_needed" if isinstance(error, ConfigError) else "read_failed")
         self._failed_views[view] = self.t(message)
         self.query_one("#status", Static).update(self.t(message))
@@ -1693,6 +1710,7 @@ class Workbench(App, inherit_bindings=False):
             return False
         self.job_query = query
         self.selection = None
+        self.query_one("#job-id", Input).value = ""
         self.job_mode = "detail"
         self._clear_job_cost()
         self._revision += 1
@@ -1752,6 +1770,8 @@ class Workbench(App, inherit_bindings=False):
             self._read_storage_workspaces(self.storage_workspaces.values["next_cursor"])
         elif event.button.id == "apply":
             self._apply()
+        elif event.button.id == "find-job":
+            self._find_job()
         elif event.button.id == "refresh":
             self.action_refresh()
         elif event.button.id == "prepare-resource":
@@ -1784,16 +1804,39 @@ class Workbench(App, inherit_bindings=False):
         if isinstance(self.results.get("jobs"), SiteJobAllocationResult):
             self._clear("jobs")
 
-    def _inspect_job(self, mode: str, *, row_key: str | None = None) -> None:
+    def _find_job(self) -> None:
+        if self.read_view != "jobs" or not self.query_one("#job-lookup-controls").display or self._reading or self._pending:
+            return
+        field = self.query_one("#job-id", Input)
+        try:
+            job_id = clean_token(field.value, field="job ID", required=True, maximum=64)
+        except ConfigError:
+            self.query_one("#status", Static).update(self.t("job_id_invalid"))
+            return
+        field.value = job_id or ""
+        self._clear("jobs")
+        self._inspect_job("detail", job_id=job_id)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "job-id":
+            self._find_job()
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "escape" and isinstance(self.focused, Input) and self.focused.id == "job-id":
+            self.focused.value = ""
+            self.query_one("#compute-table", DataTable).focus()
+            event.stop()
+
+    def _inspect_job(self, mode: str, *, row_key: str | None = None, job_id: str | None = None) -> None:
         result = self.results.get("jobs")
-        selected = self.selected_job
-        if isinstance(result, (JobResult, SiteJobResult)):
+        selected = job_id or self.selected_job
+        if job_id is None and isinstance(result, (JobResult, SiteJobResult)):
             table = self.query_one("#compute-table", DataTable)
             if row_key is None and table.row_count:
                 row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
             if row_key is not None:
                 selected = result.items[int(row_key)].canonical_id
-        elif isinstance(result, SiteJobAllocationResult):
+        elif job_id is None and isinstance(result, SiteJobAllocationResult):
             selected = result.job.canonical_id
         if selected is None:
             self.query_one("#status", Static).update(self.t("select_job"))
@@ -1914,6 +1957,7 @@ class Workbench(App, inherit_bindings=False):
             self._clear_job_cost()
             self._discard_allocation()
             self.selection = None
+            self.query_one("#job-id", Input).value = ""
             self.job_mode = "detail"
             self._revision += 1
             self.query_one("#details", Static).update("")

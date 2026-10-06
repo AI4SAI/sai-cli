@@ -153,6 +153,116 @@ def test_http_allocation_uses_exact_array_id_and_refreshes_one_complete_snapshot
     assert [call["path"] for call in reads if "/jobs/" in call["path"] and not call["path"].endswith("/allocation")] == ["/v1/site-read/jobs/12345_0"]
 
 
+@pytest.mark.parametrize("language,truncated", [("zh-CN", True), ("en-US", False)])
+def test_exact_job_lookup_keeps_scope_without_list_filters(tmp_path, job_payload, site_allocation_payload, monkeypatch, language, truncated):
+    from test_managed_workspaces import sample as workspace_sample
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    visible = {**job_payload["items"][0], "slurm_account": "org-example", "state": "PD"}
+    hidden = {**visible, "job_id": "67890", "array_task_id": "0", "state": "R", "partition": "other"}
+    failure, block = 0, False
+    started, release = threading.Event(), threading.Event()
+
+    def central_reply(call, count):
+        if call["method"] == "POST":
+            return issuer(call, count)
+        value = workspace_sample()
+        value["items"] = [{"workspace_key": "org:example", "label": "Research", "organization_label": None}]
+        return 200, value
+
+    def gateway_reply(call, _):
+        detail = call["path"].endswith("/jobs/67890_0")
+        if detail and block:
+            started.set()
+            assert release.wait(5)
+        if detail and failure:
+            return failure, {"detail": {"code": "site_read_job_not_found" if failure == 404 else "site_read_not_authorized"}}
+        return 200, {
+            "schema_version": "jobs/v1", "site_id": "site-a", "cluster_id": "cluster-a",
+            "scope_type": "org_account", "subject": {"slurm_user": None, "slurm_account": "org-example"},
+            "freshness": {**site_allocation_payload["freshness"], "source": "scontrol" if detail else "squeue"},
+            "etag": "b" * 64, "has_more": truncated and not detail,
+            "items": [hidden if detail else visible],
+        }
+
+    async def scenario(client):
+        nonlocal block, failure
+        query = JobQuery(site_id="site-a", cluster_id="cluster-a", scope="org-account", workspace_key="org:example",
+                         partition="gpu-standard", states=("PD",), limit=1)
+        app = Workbench(client, query, initial_view="compute", refresh_seconds=999, language=language)
+        async with app.run_test(size=(100, 24)) as pilot:
+            await settled(app, pilot)
+            lookup, field = app.query_one("#job-lookup-controls"), app.query_one("#job-id", Input)
+            table = app.query_one("#compute-table", DataTable)
+            assert lookup.display and table.row_count == 1
+            assert (app.t("queue_more") in str(app.query_one("#compute-hint", Static).render())) == truncated
+            for width in (100, 60, 40):
+                await pilot.resize_terminal(width, 24); await pilot.pause(.1)
+                assert lookup.display and lookup.region.right <= width and field.region.width >= 8
+                app.save_screenshot(str(tmp_path / f"lookup-{language}-{width}.svg"))
+            field.value = "bad id"; field.focus()
+            await pilot.press("enter")
+            assert app.selected_job is None and app.t("job_id_invalid") in str(app.query_one("#status", Static).render())
+            await pilot.press("escape")
+            assert field.value == "" and app.focused is table
+            await pilot.resize_terminal(100, 32)
+            block = True
+            field.value = "67890_0"; field.focus()
+            try:
+                await pilot.press("enter")
+                for _ in range(80):
+                    if started.is_set(): break
+                    await pilot.pause(.02)
+                assert started.is_set() and app.selected_job == "67890_0"
+                assert "jobs" not in app.results and table.row_count == 0
+                assert not app._can_inspect_job() and "open_web" not in app._presentation().actions
+            finally:
+                release.set()
+            await settled(app, pilot)
+            assert app.results["jobs"].items[0].canonical_id == "67890_0" and not lookup.display
+            assert app.job_query == query and "open_web" in app._presentation().actions
+            await pilot.press("escape"); await settled(app, pilot)
+            assert app.selected_job is None and lookup.display and field.value == "" and table.row_count == 1
+            started.clear(); release.clear()
+            field.value = "67890_0"; field.focus()
+            try:
+                await pilot.press("enter")
+                for _ in range(80):
+                    if started.is_set(): break
+                    await pilot.pause(.02)
+                assert started.is_set()
+                await pilot.press("escape")
+                assert app.selected_job is None
+            finally:
+                release.set()
+            await settled(app, pilot)
+            assert app.results["jobs"].items[0].canonical_id == "12345" and app._web_url is None
+            block = False
+            for failure in (404, 403, 401):
+                field.value = "67890_0"; field.focus()
+                await pilot.press("enter"); await settled(app, pilot)
+                assert "jobs" not in app.results and app.selected_job is None and app._web_url is None
+                assert app.job_query == query and lookup.display
+                assert field.value == ("" if failure == 401 else "67890_0")
+                if failure == 404:
+                    assert app.t("job_not_found") in str(app.query_one("#compute-notice", Static).render())
+
+    with http_endpoint(central_reply) as (portal, issued), http_endpoint(gateway_reply) as (gateway, reads):
+        settings = replace(_settings(tmp_path), base_url=portal, site_read_base_url=gateway)
+        transport = JsonTransport(base_url=portal, timeout_seconds=2)
+        client = PortalClient(transport=transport,
+            token_provider=TokenProvider(settings=settings, transport=transport, environ={"SAI_TOKEN": "identity-session-token"}),
+            capability_provider=CapabilityProvider(settings=settings, portal_transport=transport),
+            site_transport=JsonTransport(base_url=gateway, timeout_seconds=2))
+        asyncio.run(scenario(client))
+    grants = [call["body"] for call in issued if call["method"] == "POST"]
+    assert all(grant["scope_type"] == "org_account" and grant["workspace_key"] == "org:example" for grant in grants)
+    details = [grant for grant in grants if grant["operation"] == "jobs.detail"]
+    assert details and all(grant["job_id"] == "67890_0" and grant["partition"] is None and grant["states"] == [] for grant in details)
+    assert all(grant["partition"] == "gpu-standard" and grant["states"] == ["PD"] for grant in grants if grant["operation"] == "jobs.list")
+    assert {call["path"] for call in reads if "/jobs/" in call["path"]} == {"/v1/site-read/jobs/67890_0"}
+
+
 def test_allocation_missing_native_configuration_shows_existing_error_without_extra_request(tmp_path, job_payload, monkeypatch):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")

@@ -45,7 +45,12 @@ independent.
    partition and state filters are applied explicitly. The scope header remains
    visible in Resources and Compute.
 4. Press Enter on a job or choose Details for its separately authorized
-   detail. Allocation instead requests one allocation snapshot from the
+   detail. You can also enter a known Job ID and choose Find job, including a
+   job outside the bounded list or its filters. The exact read keeps the current
+   account scope; list-only partition and state filters stay on the list.
+   Escape in the input clears it and returns focus to the queue. An unavailable
+   or denied job clears earlier results without changing the selected scope.
+   Allocation instead requests one allocation snapshot from the
    explicitly configured site gateway. Escape returns to the list. Ordinary
    detail uses native site-read mode when configured and the existing Portal
    transport otherwise. Allocation requires native configuration and capability

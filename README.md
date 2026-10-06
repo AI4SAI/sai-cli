@@ -91,7 +91,8 @@ Published specifications do not imply idle capacity, admission or a job quote.
 Choose a named compute scope once for both queue and task records. The default
 self queue still shows your native jobs across accounts; records require an
 explicit account choice in the same selector. Selecting a resource's queue keeps
-this scope and narrows only the partition. Records and results finds your accepted
+this scope and narrows only the partition. Find job opens a known job number in
+the same scope, including array tasks outside the displayed queue. Records and results finds your accepted
 managed runs after they leave the live scheduler queue. Enter opens a recorded state; Stdout,
 Stderr and Files read one bounded page only when requested. Reading does not
 start Pilot, renew its model window, submit work or grant file access.

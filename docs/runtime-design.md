@@ -83,6 +83,10 @@ F5 clears and replaces the full snapshot. Changing object, mode, applied scope
 or tab, or pressing Escape, clears the allocation and discards late responses.
 Array-task identity includes task zero for both detail and allocation. Allocation
 states remain explicit; utilization and physical location are not inferred.
+The queue's Job ID input opens the existing exact-detail reader in the current
+scope, even when that job is outside the bounded list. TUI inspection omits
+list-only partition/state filters and retains them on return to the queue.
+New object selection clears previous observations before the request starts.
 Its dependencies are an optional
 extra; JSON batch commands do not import or require them. Interaction and
 verification boundaries are in [terminal-workbench.md](terminal-workbench.md).
