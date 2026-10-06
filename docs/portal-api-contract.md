@@ -164,7 +164,8 @@ per-workspace loop is introduced. CLI admission still requires shell access
 `enabled`; the browser retains its existing `agent_only` read policy.
 
 See [schema and example](../contracts/managed-my-runs/v1/README.md). The paired
-producer is `d585187f0` and the CLI replacement is not deployed. Native queue observations,
+initial producer is `d585187f0`; the deployed paired Center/read-gateway/CLI
+versions and bounded acceptance are recorded in [the read-plane delivery](site-local-read-plane.md#replacement-workbench-delivery). Native queue observations,
 file access and final costs keep their existing authority; the optional
 `run_link` pairs only unique, current native evidence under the
 [shared correlation rules](../contracts/managed-run-link/v1/README.md).

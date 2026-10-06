@@ -87,8 +87,8 @@ registered rack positions do not prove physical GPU identity or utilization.
 File permissions remain independent of metadata and billing access.
 
 Install with `pip install '.[tui]'` and run `sai tui` in an interactive terminal.
-The [replacement workbench](docs/terminal-workbench.md) is a source candidate;
-it has not replaced the previously deployed interface. The [rebuild brief](docs/workbench-rebuild.md)
+The [replacement workbench](docs/terminal-workbench.md) was selected on the
+shared runtime on 2026-10-06, with bounded ordinary-user and SSH/PTY read checks. The [rebuild brief](docs/workbench-rebuild.md)
 records remaining paired native deployment, Pilot continuation and actual user
 acceptance. Local tests or screenshots do not establish that product acceptance.
 Managed login still shows its compact summary and returns to the shell.

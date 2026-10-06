@@ -1,8 +1,9 @@
 # Terminal workbench
 
-Status: replacement source candidate, not deployed or user-accepted. This
-replaces the former Overview-first, tabbed terminal. The full product and
-remaining work are in [the rebuild brief](workbench-rebuild.md).
+Status: deployed on the shared CLI on 2026-10-06, with bounded ordinary-user
+reading and SSH/PTY checks. Complete product and human usability acceptance
+remain open. This replaces the former Overview-first, tabbed terminal. The
+remaining work is in [the rebuild brief](workbench-rebuild.md).
 
 ```bash
 python3 -m pip install '.[tui]'
@@ -55,7 +56,8 @@ Native activity and Run history remain separate observations. Matching current
 records share one work item through the [scoped correlation](../contracts/managed-run-link/v1/README.md),
 with native state and recorded metadata kept distinct. There is no number-only merge; native-only work cannot acquire managed files or
 final charges. Bounded exact reference batches retrieve visible long-running work beyond the
-recent-history page. Matching Center and gateway deployment remains required.
+recent-history page. Matching Center and gateway readers were deployed in the same window; positive
+association of a real running managed computation still needs a sample.
 The key does not replace exact file, billing or hardware authority. Source failure is visible, not an empty work list.
 
 The existing file authority checks Run READ and the frozen directory separately.
@@ -100,9 +102,17 @@ context and read authority. They are not the default Start work path or evidence
 of an accepted end-to-end experience. Native job-to-console navigation is no
 longer a workbench action; its existing protocol code is separate from this UI.
 
-Local tests use bounded HTTP fixtures and actual Textual rendering at 40, 60 and
+Source tests use bounded HTTP fixtures and actual Textual rendering at 40, 60 and
 100 columns in Chinese/English. A local Portal/CLI pair verifies work discovery
-and subsequent detail reads. These checks do not establish deployed producer
-availability, physical-terminal behavior, real user comprehension or interest.
+and subsequent detail reads. The deployed selected CLI was separately exercised with an existing ordinary
+user session: named work, text result, settled cost and return to the same file
+at 40/60/100 columns; named personal/org/project scopes; nonempty organization
+and project native lists, detail and allocation. An actual SSH/PTY invocation
+of `sai tui` read the existing output with Enter and exited normally. No new
+compute job, model request or device approval was created. These checks do not
+establish browser continuity, diverse physical-terminal behavior, comprehension
+or interest. No tagged running managed sample was present. The exact-SLUID
+identity adapter was separately tested on two existing native jobs under the
+actual service UID; its in-memory tag was synthetic, not a managed-run canary.
 3D remains behind truthful task/allocation/asset/telemetry facts; see
 [the digital-twin design](digital-twin-design.md).

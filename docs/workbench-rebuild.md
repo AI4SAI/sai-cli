@@ -1,7 +1,7 @@
 # Workbench rebuild
 
-Status: replacement design and implementation brief, not an accepted or deployed
-product. This replaces the old terminal's scope-first forms, parallel queue/run
+Status: replacement implementation deployed with bounded ordinary-user/PTY
+checks; the complete product is not accepted. This replaces the old terminal's scope-first forms, parallel queue/run
 navigation and permanent technical toolbars.
 
 ## What the researcher gets
@@ -47,7 +47,7 @@ and a default billing account is not a universal read filter.
 The target home covers the caller's work at the explicitly selected site.
 The candidate now provides native self queue observations and an actor-owned
 Run page across currently readable workspaces. The paired read is locally
-verified and not yet deployed. The terminal does not walk projects. This closes
+verified and deployed; a real tagged running sample remains unverified. The terminal does not walk projects. This closes
 work discovery in source, not native Job/Run association or product acceptance.
 
 The minimal shared addition is an actor-bound, site-bound, paginated Run read

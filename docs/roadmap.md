@@ -20,18 +20,20 @@ the new domain contract.
 
 The previously deployed terminal was rejected as difficult and uninteresting.
 Its technical read acceptance remains evidence, not product approval. The
-[whole-workbench replacement](workbench-rebuild.md) is a source
-candidate with a paired actor-owned work-discovery contract. It has not been
-deployed. The existing native readers and authorization/billing owners remain.
+[whole-workbench replacement](workbench-rebuild.md) is deployed with the paired actor-owned work-discovery contract. Existing
+ordinary-user result/cost/context and actual SSH/PTY reads passed; whole-product
+acceptance remains open. The existing native readers and authorization/billing owners remain.
 
 - [x] Default work discovery without a required account/job/partition form
 - [x] Standalone work-to-results shell and actual CLI entry; old shell removed
 - [x] Direct result reading/saving, contextual tools and in-workbench device login
 - [x] Local paired producer/client reads and rendered navigation checks
 - [x] Scoped current native/Run correlation and bounded exact discovery in source
-- [ ] Paired native gateway/Center correlation deployment and real-work acceptance
+- [x] Paired native gateway/Center correlation delivery and actual native identity bridge
+- [ ] Positive current managed-Run correlation and full scientific-work acceptance
 - [ ] Pilot-native resource and result continuation, retiring old console links
-- [ ] Paired deployment including Pilot's independent browser entry
+- [x] Shared replacement CLI and paired Center/site readers selected; Pilot's
+  independent browser entry is available through its existing owner
 - [ ] First-time and returning-user workflow acceptance in real terminals/Web
 
 Detailed historical checkmarks below describe the stated read capabilities and

@@ -5,10 +5,11 @@ this site's native read paths. Native job rows optionally include a scoped
 `run_link` and canonical Run reference parsed from the existing marker. The
 original queue read and signed filter remain. Missing DBIndex is resolved only
 by one exact current-SLUID batch after the visible-page filter; this is not a
-history fallback or another authorization store. The matching Center/gateway rollout is pending. It does not route every refresh through a new
-central aggregator or create client project fanout. The replacement UI is a
-source candidate; historical deployment receipts below refer to their recorded
-versions and do not establish acceptance of the new workbench.
+history fallback or another authorization store. The matching Center/gateway rollout completed on 2026-10-06, with remaining
+positive managed-running association acceptance recorded below. It does not route every refresh through a new
+central aggregator or create client project fanout. The replacement UI was selected on 2026-10-06; bounded ordinary-user and
+SSH/PTY result reading passed. Historical receipts below retain their own
+versions and do not establish whole-product acceptance.
 
 ## Unified compute delivery gate
 
@@ -658,3 +659,26 @@ service/timer states were preserved, and temporary staging/sessions were removed
 There was no live suspended-job sample, new computation, model request or browser
 journey acceptance. This data correction does not establish completion of the
 Pilot-native compute plugin or the estimate-to-final workflow.
+
+## Replacement workbench delivery
+
+On 2026-10-06 the shared CLI selected source `f62956ff6921`, paired with Center
+`64806718031b` and dedicated read gateway `12001fdd79fb`. Each role used a full
+merged main source and its original packaging, with prior software retained for
+rollback. Private configuration, verifier inputs, dependency runtime selections,
+service enablement and the independent site executor remained unchanged.
+
+The native preflight found no DBIndex in queue JSON. The source correction uses
+one exact current-SLUID identity batch after the authorized visible-page filter,
+not a broad accounting read. Two real native samples validated that adapter as
+the service UID. There was no tagged running managed sample, so the test did not
+establish a positive live Job/Run association.
+
+An existing ordinary user's selected runtime read recorded work, the same text
+result and final cost, restored file position, and discovered all three account
+kinds at 40/60/100 columns. Organization/project native lists were nonempty;
+selected detail and allocation reads passed. Actual SSH/PTY Enter navigation
+read that output and exited successfully. Public console and independent Pilot
+entry responded normally. No new job, model call, user credential or browser
+Session was created. User comprehension, native Pilot resource/result continuity
+and the complete scientific workflow remain open.
