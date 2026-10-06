@@ -117,6 +117,7 @@ def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, m
                 assert json.loads(out.getvalue())["inbox"]["unread_count"] == 4
             else:
                 assert "未读消息  4 条" in out.getvalue()
+                assert "sai tui" not in out.getvalue()
     assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
 
 
@@ -153,7 +154,8 @@ def test_status_retains_managed_login_account_and_explicit_override(tmp_path, mo
 @pytest.mark.parametrize("http_status,missing_rich,expected_exit", [
     (200, False, 0), (403, False, 4), (200, True, 2), (403, True, 4),
 ])
-def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monkeypatch, http_status, missing_rich, expected_exit):
+@pytest.mark.parametrize("command", [["status", "--format", "tui"], ["tui"]])
+def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monkeypatch, http_status, missing_rich, expected_exit, command):
     pytest.importorskip("rich")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
@@ -189,7 +191,7 @@ def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monke
     monkeypatch.setattr(builtins, "__import__", import_module)
     with http_endpoint(reply) as (origin, calls):
         out, err = StringIO(), StringIO()
-        rc = main(["status", "--format", "tui", "--site", "site-a", "--base-url", origin],
+        rc = main([*command, "--site", "site-a", "--base-url", origin],
                   environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)}, stdout=out, stderr=err)
     assert rc == expected_exit and len(calls) == 1
     assert len(workers) == 1 and workers[0] is not caller and not workers[0].is_alive()

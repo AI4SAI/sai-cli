@@ -1,57 +1,57 @@
+"""The terminal entry answers one SAI question without opening a workbench."""
 from io import StringIO
-import importlib.util
-import json
+import builtins
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from sai_cli.cli import build_parser, main
+from test_overview import sample
+from test_site_transport import http_endpoint
 
 
-@pytest.mark.parametrize("args", [
-    ["--site", "site-a", "tui", "--scope", "org-account", "--account", "org-example"],
-    ["tui", "--site", "site-a", "--scope", "org-account", "--account", "org-example"],
+@pytest.mark.parametrize("prefix", [True, False])
+@pytest.mark.parametrize("language,label", [("zh-CN", "组织共享"), ("en-US", "Shared")])
+def test_tui_reads_one_summary_and_returns_without_input(tmp_path, monkeypatch, prefix, language, label):
+    pytest.importorskip("rich")
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    monkeypatch.setattr(builtins, "input", lambda *a: pytest.fail("summary must not prompt"))
+    def reply(call, _):
+        parsed = urlsplit(call["path"])
+        assert parsed.path == "/v1/account/cli/overview"
+        assert parse_qs(parsed.query) == {"site_id": ["site-a"]}
+        return 200, sample()
+    with http_endpoint(reply) as (origin, calls):
+        options = ["--site", "site-a", "--base-url", origin]
+        command = ["tui", "--language", language]
+        out, err = StringIO(), StringIO()
+        rc = main(options + command if prefix else command + options,
+                  environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)},
+                  stdout=out, stderr=err)
+    assert rc == 0 and not err.getvalue(), err.getvalue()
+    assert len(calls) == 1 and calls[0]["method"] == "GET"
+    assert label in out.getvalue() and "1,280.50" in out.getvalue()
+    assert "20,000" in out.getvalue() and "sai tui" not in out.getvalue()
+    assert "\x1b" not in out.getvalue()
+
+
+@pytest.mark.parametrize("arguments", [
+    ["--scope", "project-account"], ["--workspace-key", "project:example"],
+    ["--tasks-workspace-key", "project:example"], ["--partition", "gpu-standard"],
+    ["--storage-workspace-key", "org:example"], ["--limit", "100"], ["--states", "R"],
 ])
-def test_tui_connection_options_keep_documented_order(args):
-    parsed = build_parser().parse_args(args)
-    assert parsed.site == "site-a" and parsed.account == "org-example"
+def test_removed_workbench_selectors_are_rejected(arguments):
+    with pytest.raises(SystemExit) as rejected:
+        build_parser().parse_args(["tui", *arguments])
+    assert rejected.value.code == 2
 
 
-def test_tui_entry_fails_cleanly_for_missing_extra_or_non_terminal(tmp_path):
-    output, errors = StringIO(), StringIO()
-    code = main(["tui", "--site", "site-a", "--base-url", "https://portal.example.org"],
-                environ={"XDG_CONFIG_HOME": str(tmp_path)}, stdout=output, stderr=errors)
-    assert code == 2 and output.getvalue() == ""
-    error = json.loads(errors.getvalue())["error"]
-    expected = "interactive terminal" if importlib.util.find_spec("textual") else "sai-cli[tui]"
-    assert expected in error["message"]
-
-
-def test_actual_tui_command_opens_work_without_scope_input(tmp_path, job_payload, monkeypatch):
-    pytest.importorskip("textual")
-    import asyncio
-    import sys
-    from textual.widgets import Input
-    from sai_cli.workbench import Workbench
-    from test_site_transport import http_endpoint
-    from test_workbench_flow import ResearchHTTP, settled
-
-    class Terminal(StringIO):
-        def isatty(self):
-            return True
-
-    async def inspect(app):
-        async with app.run_test(size=(60, 24)) as pilot:
-            await settled(app, pilot)
-            assert app.mode == "home" and len(app.home_items) == 3
-            assert len(app.query(Input)) == 0
-            assert app.job_query.workspace_key is None
-
-    monkeypatch.setattr(sys, "stdin", Terminal())
-    monkeypatch.setattr(Workbench, "run", lambda app: asyncio.run(inspect(app)))
-    output, errors = Terminal(), StringIO()
-    with http_endpoint(ResearchHTTP(job_payload)) as (origin, calls):
-        code = main(["tui", "--site", "site-a", "--base-url", origin],
-            environ={"XDG_CONFIG_HOME": str(tmp_path), "SAI_TOKEN": "fixture-token"},
-            stdout=output, stderr=errors)
-    assert code == 0 and not errors.getvalue()
-    assert len(calls) == 2
+def test_tui_without_credentials_does_not_start_device_authorization(tmp_path):
+    with http_endpoint(lambda *_: pytest.fail("summary must not start login")) as (origin, calls):
+        out, err = StringIO(), StringIO()
+        rc = main(["tui", "--site", "site-a", "--base-url", origin],
+                  environ={"XDG_CONFIG_HOME": str(tmp_path), "SAI_CREDENTIAL_CACHE": str(tmp_path / "empty")},
+                  stdout=out, stderr=err)
+    assert rc == 3 and out.getvalue() == ""
+    assert "sai auth login" in err.getvalue() and not calls

@@ -5,8 +5,11 @@ information. It does not reproduce Portal or Pilot. This supersedes the
 work-to-results rebuild brief and any requirement for TUI/Web feature parity.
 
 The full workbench was deployed on 2026-10-06 and then rejected on product
-grounds. Its read/PTY checks remain technical evidence only. This decision does
-not claim that the deployed code has already been removed or replaced.
+grounds. Its read/PTY checks remain technical evidence only. Source now removes
+that shell: `sai tui` is a presentation entry to the existing `sai status` read,
+with no additional read model, polling, keyboard state or automatic navigation.
+It prints the summary and returns. Shared-runtime replacement is a separate
+delivery; source checks do not establish the installed version or human interest.
 
 ## Primary need
 

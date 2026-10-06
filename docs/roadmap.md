@@ -26,8 +26,11 @@ do not require matching TUI screens.
 
 - [x] Correct product scope, presentation rules and cross-interface requirements
 - [x] Classify current features against native tools and existing batch commands
-- [ ] Retire the broad workbench navigation and private view machinery
-- [ ] Verify the compact status/cost experience and remove unused UI code
+- [x] Retire the broad workbench navigation and private view machinery in source;
+  `sai tui` reuses the existing account summary and returns to Shell
+- [x] Verify compact summary, batch contracts and UI removal locally: 917 tests
+  passed; package build and public-surface checks passed. This is not
+  installed-runtime or human-usability acceptance
 - [ ] Deliver the reduced runtime through the existing shared publication
 
 The existing `sai status` summary is the starting point. Named interaction is
@@ -147,7 +150,8 @@ access issues. It adds to the existing login help, rules, quota/resource status
 and notes, and reuses the existing account overview and permissions.
 
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
-- [x] `sai status` JSON/plain/Rich panel and Textual Overview, with one shared login fragment
+- [x] `sai status` JSON/plain/Rich summary and `sai tui` presentation entry,
+  with one shared login fragment and no Textual dependency
 - [ ] Live login latency, privacy, cleanup and user-comprehension validation
 
 Implementation and target deployment coverage are tracked separately; live
@@ -168,13 +172,13 @@ expose funds or messages; the overview uses the normal CLI read authority.
   (paired contract/local HTTP checks and a separate bounded native candidate
   probe; physical assets, utilization and attempt identity remain separate)
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
-- [x] Independent `jobs placement` and TUI registration view, sharing the
+- [x] Independent `jobs placement`, sharing the
   operator-recorded `jobs.placement/v1` projection with WebUI and Pilot;
   site opt-in, asset review/publication and live acceptance remain separate
 - [x] `sai resources catalog` against the shared published site catalog DTO
-- [x] `sai storage quota-summary` and independent TUI Storage view over Portal
+- [x] `sai storage quota-summary` over Portal
   observations; new storage scope registration is a separate deployment gate
-- [x] Explicit `storage native-quota` and TUI source selection over authorized
+- [x] Explicit `storage native-quota` over authorized
   on-demand Lustre project quota subjects; native service-UID acceptance pending
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
@@ -213,7 +217,7 @@ production registration, deployed keys or a successful real-user read.
 The former optional-TUI feature checklist is retired. It rewarded reproducing
 resource preparation, queues, files, storage, messages and Pilot navigation in
 one terminal application. [Terminal scope](terminal-scope.md) determines what
-remains; [the deployed record](terminal-workbench.md) preserves current behavior
+remains; [the prior deployment record](terminal-workbench.md) preserves its behavior
 and technical evidence without turning them back into requirements.
 
 Shared capabilities already implemented include authorized Run discovery,
@@ -271,8 +275,8 @@ audit delivery/failure acceptance remain open.
 
 The job path stays on-demand. Cache reuse or coalescing should be considered
 only when measured load or latency justifies it; a shared collector is not a
-required launch dependency. The TUI serializes and coalesces its own reads, but
-that does not establish general client/process-wide renewal single-flight.
+required launch dependency. The compact terminal summary performs one bounded
+account read and does not poll native sources.
 Interactive reads remain separate from billing exposure/settlement writers;
 they do not require a new telemetry batch service.
 

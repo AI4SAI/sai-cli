@@ -1,5 +1,10 @@
 # Site-Local Interactive Read Plane
 
+The shared read capabilities below remain independent of presentation. Source
+now retires the full-screen terminal workbench under [terminal scope](terminal-scope.md);
+`sai tui` reads only the compact central account overview. Earlier TUI deployment
+records below retain their historical evidence boundary.
+
 The workbench replacement adds central actor-owned Run discovery while retaining
 this site's native read paths. Native job rows optionally include a scoped
 `run_link` and canonical Run reference parsed from the existing marker. The

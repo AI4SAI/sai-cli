@@ -13,8 +13,7 @@ cost queries; a full terminal workbench is not the product target. See
 The first implementation milestone is intentionally read-only:
 
 - `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
-  reads one bounded UTF-8 output section. TUI Enter opens the selected file in
-  the task; Escape returns to its file page. Current file permission is checked
+  reads one bounded UTF-8 output section. Current file permission is checked
   independently; no Pilot session or model window is needed.
 - `sai runs download RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example --output result.bin`
   saves the complete authorized file, including binary contents. Existing paths
@@ -27,7 +26,7 @@ The first implementation milestone is intentionally read-only:
   project task scopes by name.
   `sai storage workspaces` discovers readable storage scopes at the selected site.
   Both accept `--workspace-key` for an exact authorized name lookup.
-  `sai tui --language zh-CN` uses Chinese navigation; `en-US` selects English.
+  These directories remain batch reads, separate from the account summary.
 - `sai status --format tui` shows a compact login identity, funds and unread-message
   panel, then returns to the shell. JSON remains the default for scripts.
 - `sai jobs list` lists jobs in an authorized personal, organization, or
@@ -67,13 +66,18 @@ The first implementation milestone is intentionally read-only:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-The optional `sai tui` still opens the deployed full workbench in this version.
-That product direction has been rejected; the [implementation record](docs/terminal-workbench.md)
-describes its current behavior, not an experience recommended for expansion.
-The [scope decision](docs/terminal-scope.md) defines its reduction. This
-documentation change does not replace the installed runtime. The compact
-`sai status --format tui` panel is separate and returns to the shell; install
-its optional presentation dependencies with `pip install '.[tui]'`.
+`sai tui` shows the same compact account summary as `sai status --format tui`,
+then returns to the shell. It needs no account ID or interactive setup and uses
+the applied login account when available. `--account` explicitly changes only
+the account being viewed. `--language zh-CN` (default) or `--language en-US`
+selects presentation; JSON fields remain unchanged.
+
+Install optional formatting with `pip install '.[tui]'`. Only Rich and its
+dependencies are needed. The full-screen workbench, its task/file/resource
+navigation and Textual dependency have been removed from source. Old workbench
+scope, workspace, partition, state, limit and storage options are rejected;
+use the corresponding batch command for those reads. See
+[terminal scope](docs/terminal-scope.md) for the rationale and deployment boundary.
 
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
@@ -118,7 +122,7 @@ login-node package have been deployed.
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)
 - [Terminal scope and feature disposition](docs/terminal-scope.md)
-- [Deployed terminal implementation record](docs/terminal-workbench.md)
+- [Previous terminal deployment record](docs/terminal-workbench.md)
 - [Product principles](PRODUCT.md)
 - [Shared WebUI, terminal, and Agent semantics](docs/unified-workbench.md)
 - [Hardware digital twin and 3D view (candidate design)](docs/digital-twin-design.md)
@@ -218,8 +222,8 @@ Connection options are accepted before or after the leaf command, so both
 `--workspace-key` selects the business account scope; Portal resolves its native
 compute account. It cannot be combined with `--account` or `--account-id`.
 An omitted `--scope` follows the workspace kind; an explicit conflicting scope
-is rejected. In TUI, the earlier `--tasks-workspace-key` spelling is an alias
-for this same computation scope, with no separate task selection.
+is rejected. These are job command selectors; the compact summary does not
+accept job or storage scope options.
 
 The default jobs transport retains the Portal response contract. Opting into
 the direct gateway selects the versioned `jobs/v1` response with an exact

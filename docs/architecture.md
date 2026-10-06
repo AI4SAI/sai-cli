@@ -11,9 +11,8 @@ table. It is not an authorization engine and it is not a second scheduler.
 
 Terminal users continue using native Slurm/Linux tools. The SAI presentation
 adds business context, access and cost information through the existing owners.
-The broad TUI described below is an implementation baseline being reduced under
-[terminal scope](terminal-scope.md), not a requirement for interface parity.
-Shared read APIs remain useful independently of that interface.
+[Terminal scope](terminal-scope.md) replaces the broad workbench with a concise
+account summary. Shared read APIs remain useful independently of the interface.
 
 The architecture separates three responsibilities:
 
@@ -37,7 +36,7 @@ basic release's remaining real-user acceptance.
 Registered job location is an independent `jobs.placement` read, disabled until
 the site explicitly approves its disclosure. The site joins one native
 allocation to a signed, operator-published inventory and returns only that job's
-nodes. CLI/TUI, WebUI and Pilot consume `jobs.placement/v1`; no client queries
+nodes. Batch CLI, WebUI and Pilot consume `jobs.placement/v1`; no client queries
 inventory files or infers current hardware identity from a node name. Static
 registration, live allocation, measured utilization and final cost remain
 separate facts. See [the contract](../contracts/job-placement/v1/README.md).
@@ -64,13 +63,10 @@ user -> sai-cli -> SAI Identity device authorization and refresh
 Published resource-catalog reads end at Portal's stored product projection;
 they do not invoke the site reader.
 
-Resources therefore has only a site context; job account/state filters do not
-apply to this catalog. An explicitly selected compute partition can continue to
-the console through a fixed site/partition link. The console re-reads that
-catalog entry and uses the existing compute-project, directory and Pilot Session
-admission flow. The terminal neither infers a submission project nor creates a
-JobCandidate. Native input receives a reference only; existing script validation,
-server pricing, immutable proposal and user confirmation remain authoritative.
+The resource catalogue has only a site context; job account/state filters do not
+apply. It is a batch read of published specifications and prices. Computation
+preparation belongs to Pilot, using the existing validation, pricing, proposal
+and confirmation owners. The CLI does not maintain a resource workflow.
 
 Managed-run reads reuse Portal's existing ComputeRun records and readback
 services. The CLI supplies a site and reads only its own runs. Single-workspace reads
@@ -86,7 +82,7 @@ guesses a scheduler-ID-to-Run relationship.
 An explicit per-Run statistics read uses the same current actor/account/site
 READ owner. Portal derives native identity and correlation; the existing site-run
 helper permanently drops to the site's NSS user before fixed Slurm commands.
-TUI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
+Batch CLI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
 existing owner-UID execution path, not a privilege fallback for the read gateway.
 No client executes Slurm or reconstructs whole-job utilization from step metrics.
 
@@ -177,20 +173,23 @@ The first client supports these scopes:
 | `org-account` | Jobs charged to an organization account the actor may view | One workspace key, account name or account ID |
 | `project-account` | Jobs charged to a project account the actor may view | One workspace key, account name or account ID |
 
-The terminal opens the actor's work at the explicit site. Native self activity
-and recorded Run history are separate bounded observations. The new actor-owned
-`compute.my-runs/v1` operation joins existing Runs to the readable-workspace
-relation and supplies authorized names in one SQL page, without project fanout or a new task store. The gateway can resolve only the
-visible current SLUIDs to their native database indexes, in one bounded batch. Each later detail/file/cost read reauthorizes.
-An explicit workspace narrows both sources; a legacy scheduler account without
-a workspace stays queue-only. Business and native account IDs remain distinct.
+Native self activity and recorded Run history are separate bounded reads.
+The actor-owned `compute.my-runs/v1` operation joins existing Runs to the
+readable-workspace relation and supplies authorized names in one SQL page,
+without project fanout or a new task store. The gateway can resolve only visible
+current SLUIDs to native database indexes in one bounded batch. Each later
+detail/file/cost read reauthorizes. Business and native account IDs stay distinct.
 
-Native and Run records are not joined by job number. The additive [correlation contract](../contracts/managed-run-link/v1/README.md)
-groups a uniquely matched, current observation with its recorded work. It does
-not establish immutable accounting identity or authorization.
-A native-only job does not gain managed files or final charges by appearing in
-the same work surface. Pilot owns native Web work and sessions; the terminal's
-Start work only navigates to its existing browser entry at the chosen site.
+The additive [correlation contract](../contracts/managed-run-link/v1/README.md)
+remains in the shared models for consumers that need it. It does not establish
+immutable accounting identity or authorization; a job number alone never links
+records. The retired terminal's local grouping and work-state machinery are
+removed. Pilot owns native Web work and sessions.
+
+The compact summary instead reads the existing account overview. It uses the
+applied login account or normal server-resolved overview context, independently
+of job filters and file authority. `--account` changes the view, not submission
+context. It makes no native job/history reads to populate a home screen.
 
 There is no normal-user `all`, `ops-all`, raw `--user`, or unrestricted raw
 `--account` mode. Administrative fleet views belong to a separate management
@@ -226,17 +225,16 @@ The client treats these states differently:
 | Source unavailable | Return a bounded unavailable error |
 | Contract invalid | Return a contract error; do not print the raw response |
 | Authorization denied | Return a permission error; do not retry with a broader scope |
-| Capability expired in the future local path | Stop live reads; a TUI may display clearly marked stale data |
+| Capability expired | Stop protected reads and follow the existing bounded renewal policy |
 
 Historical accounting and final billing are separate products. A settled
 ledger is not a substitute for the live queue, and a running-cost estimate is
 not a final charge. The CLI receives the estimate from Portal and never reads
 pricing data or computes a price locally.
 
-The TUI presents a selected job's running estimate within that work. It requests one
-central detail observation with optional pricing and independent billing
-authority, rather than joining an estimate list to native jobs. Ordinary site
-job reads and the batch complete-scope `jobs cost` contract remain unchanged.
+Running estimates remain an explicit batch read. The account summary uses its
+own server-authorized exposure facts; it never sums a truncated job list.
+A failure in either source must not fall back to a broader read.
 
 ## Security invariants
 
@@ -262,14 +260,15 @@ job reads and the batch complete-scope `jobs cost` contract remain unchanged.
 ## Package boundaries
 
 The batch CLI has no third-party runtime dependency. It uses Python 3.11+
-standard-library HTTP, JSON, TOML, and filesystem primitives. The Textual
-workbench ships as an optional `tui` extra with a lazy command import; its
-dependencies do not enter control-plane or site-gateway service runtimes.
+standard-library HTTP, JSON, TOML and filesystem primitives. The optional
+`tui` extra now contains Rich, shared by the compact summary and login
+presentation. Textual, full-screen navigation, result dialogs and their private
+view state are removed. Optional formatting does not enter control-plane or
+site-gateway packages.
 
-Workbench layout and contextual actions are derived from the selected view and
-object. The presentation has no independent task state, authorization or cache;
-the same serialized reader and validated DTOs remain authoritative. Textual's
-public binding and command-palette interfaces own keyboard dispatch.
+`sai tui` selects the same handler as `sai status --format tui`; there is no
+second overview model or client. The existing bounded read and credentials
+remain authoritative. Plain and JSON output remain independent of Rich.
 
 The implementation is organized around explicit boundaries:
 
@@ -328,7 +327,7 @@ execution boundary. See [software module access](software-access.md).
 
 The existing managed file authority resolves a selected output reference from
 one current list page, checks Run READ and independent applied directory READ,
-and uses the existing site reader as the Run owner. CLI, TUI, Web and the internal
+and uses the existing site reader as the Run owner. CLI, Web and the internal
 Agent read API share `compute.run-artifact-content/v1`. No new file service,
 authorization store, archive or native CLI fallback is introduced. File-version
 byte cursors prevent combining sections after file changes; UI text rendering

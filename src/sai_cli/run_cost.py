@@ -5,7 +5,7 @@ import re
 from .errors import ContractError
 from .managed_runs import ManagedReadResult, _boolean, _context, _object, _text, _time, _token
 from .render import format_decimal
-from .tui_messages import Messages
+from .messages import Messages
 
 
 AMOUNT_FIELDS = ("gross_amount", "cash_amount", "sai_credit_cny_equivalent_amount", "sai_credit_amount",

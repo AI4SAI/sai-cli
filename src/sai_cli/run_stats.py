@@ -5,7 +5,7 @@ import re
 
 from .errors import ContractError
 from .managed_runs import ManagedReadResult, _context, _integer, _object, _text, _time, _token
-from .tui_messages import Messages
+from .messages import Messages
 
 
 _INTEGER_MAX = 9007199254740991

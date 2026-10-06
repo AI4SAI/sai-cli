@@ -1,4 +1,4 @@
-"""Compact terminal presentation, shared by login panels and the workbench."""
+"""Compact SAI account information that leaves the shell available."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from .overview import AccountOverview
 from .render import format_decimal
-from .tui_messages import Messages
+from .messages import Messages
 
 
 def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, language: str = "zh-CN") -> list[tuple[str, str, str]]:
@@ -65,23 +65,22 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, lan
     return rows
 
 
-def render_overview(overview: AccountOverview, *, work_dir: str | None = None) -> str:
+def render_overview(overview: AccountOverview, *, work_dir: str | None = None, language: str = "zh-CN") -> str:
     data = overview.values
     lines = [f"SAI · {data['site_id']} · {data['user_name']}"]
-    lines += [f"{label}  {value}" for label, value, _ in overview_rows(overview, work_dir=work_dir)]
-    return "\n".join([*lines, "查看详细信息：sai tui", f"数据时间：{data['observed_at']}"]) + "\n"
+    lines += [f"{label}  {value}" for label, value, _ in overview_rows(overview, work_dir=work_dir, language=language)]
+    return "\n".join([*lines, f"{Messages(language)('snapshot')}: {data['observed_at']}"]) + "\n"
 
 
 def overview_panel(overview: AccountOverview, *, work_dir: str | None = None, base_url: str | None = None, language: str = "zh-CN"):
     # Optional UI dependencies stay outside JSON and plain-text command paths.
-    from rich import box
-    from rich.panel import Panel
+    from rich.console import Group
     from rich.table import Table
     from rich.text import Text
 
     data = overview.values
     t = Messages(language)
-    grid = Table.grid(padding=(0, 2), expand=True)
+    grid = Table.grid(padding=(0, 2))
     if language == "zh-CN":
         grid.add_column(width=8, overflow="fold")
         grid.add_column(ratio=1, overflow="fold")
@@ -97,11 +96,8 @@ def overview_panel(overview: AccountOverview, *, work_dir: str | None = None, ba
         compact = kind in {"path", "message"}
         grid.add_row(Text(label, style="cyan" if kind != "warning" else "bold yellow"),
                      Text(value, style=styles.get(kind, ""), no_wrap=compact, overflow="ellipsis" if compact else "fold"))
-    navigation = Text("sai tui", style="cyan")
-    if base_url:
-        navigation.append(" · " + t("message_center"), style=f"link {overview.messages_url(base_url)}")
-    grid.add_row(Text(""), navigation)
+    if base_url and data["inbox"] is not None and data["inbox"]["unread_count"]:
+        grid.add_row(Text(""), Text(t("message_center"), style=f"link {overview.messages_url(base_url)}"))
     stamp = datetime.fromisoformat(data["observed_at"].replace("Z", "+00:00")).astimezone().strftime("%m-%d %H:%M")
-    return Panel(grid, title=Text(f"SAI  /  {data['site_id']}  /  {data['user_name']}", style="bold cyan"),
-                 subtitle=Text(f"{t('login_snapshot')} · {stamp}"), title_align="left",
-                 subtitle_align="right", border_style="cyan", box=box.ROUNDED, padding=(0, 1))
+    return Group(Text(f"SAI · {data['site_id']} · {data['user_name']}", style="bold cyan"),
+                 grid, Text(f"{t('snapshot')} · {stamp}"))

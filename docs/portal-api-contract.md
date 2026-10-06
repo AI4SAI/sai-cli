@@ -102,7 +102,7 @@ current policy checks, and never falls back to a site-agent reader.
 
 ## Job workspace navigation
 
-The TUI's explicit Open Web action calls Identity-only
+The retained client navigation contract calls Identity-only
 `GET /v1/slurm/cli/jobs/{job_id}/web-context` with the original site, cluster,
 scope and exact account selector plus `source_preference=live`. It sends the
 Portal Bearer only, with no capability or direct-site request from the client.
@@ -128,9 +128,8 @@ or ambiguous ownership; it never triggers a default-workspace fallback.
 
 ## Resource preparation navigation
 
-The published catalog contract is unchanged. TUI `Prepare in Pilot` sends no
-additional request; it opens the fixed console resource-preparation route with
-only a canonical site and an exact selected partition. The console reads current
+The published catalog contract is unchanged. The former TUI preparation action
+and its URL helper are removed. The separately owned Web preparation flow reads current
 catalog data, then asks the user to choose a currently eligible project through
 the existing workspace topology. It does not use task READ discovery as submit
 authority, select a project implicitly or derive an account from the partition.
@@ -384,11 +383,11 @@ the option is true. Missing billing scope returns `job_cost_read_denied` without
 a native read; ordinary job reads remain available. This does not add an option
 to the CLI list route, change a grant, or put prices in the site gateway.
 
-TUI Cost uses this central detail request even when ordinary jobs use a direct
-site origin. It reads the selected job with an exact new grant, without the
+The retained detail-cost client uses this central request even when ordinary
+jobs use a direct site origin. It reads one job with an exact new grant, without the
 list's state/partition filters, and validates the attached item against its
 parent job. Job state changes therefore remain visible. The whole observation
-is replaced on manual refresh; neither another list nor a local price join is
+is returned as one response; neither another list nor a local price join is
 used. Unsupported producers fail explicitly, with no fallback to a broad read.
 The paired Center and shared-client installation completed on 2026-10-02.
 Ordinary-user historical task reads passed through the installed client;

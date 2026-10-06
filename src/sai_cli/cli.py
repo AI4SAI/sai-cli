@@ -45,17 +45,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_connection_arguments(parser)
 
     commands = parser.add_subparsers(dest="command", required=True)
-    overview = commands.add_parser("status", help="show the login identity, funds and unread messages")
-    _add_connection_arguments(overview, suppress_defaults=True)
-    overview.add_argument("--account", help="authorized account applied by the login context")
-    overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
-    tui = commands.add_parser("tui", help="open your work and results in the terminal")
-    _add_connection_arguments(tui, suppress_defaults=True)
-    _add_job_scope_arguments(tui, task_scope_alias=True)
-    tui.add_argument("--partition", help="partition narrowing filter")
-    tui.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
-    tui.add_argument("--storage-workspace-key", help="independent storage workspace (personal:<id>, org:<id>, project:<id>)")
-    tui.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="workbench display language (default: zh-CN)")
+    for name, description in (
+        ("status", "show SAI account, funds and access information"),
+        ("tui", "show a compact SAI summary and return to the shell"),
+    ):
+        overview = commands.add_parser(name, help=description, description=description)
+        _add_connection_arguments(overview, suppress_defaults=True)
+        overview.add_argument("--account", help="authorized account to view (does not change your submission account)")
+        overview.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="summary language (default: zh-CN)")
+        if name == "status":
+            overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
+        else:
+            overview.set_defaults(command="status", format="tui")
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
@@ -197,7 +198,7 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
     )
 
 
-def _add_job_scope_arguments(parser: argparse.ArgumentParser, *, task_scope_alias: bool = False) -> None:
+def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--scope",
         choices=("self", "personal-account", "org-account", "project-account"),
@@ -206,8 +207,7 @@ def _add_job_scope_arguments(parser: argparse.ArgumentParser, *, task_scope_alia
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--account", help="Portal compute account name")
     selector.add_argument("--account-id", help="Portal compute account ID")
-    workspace_flags = ("--workspace-key", "--tasks-workspace-key") if task_scope_alias else ("--workspace-key",)
-    selector.add_argument(*workspace_flags, help="compute read scope: personal:<id>, org:<id>, or project:<id>")
+    selector.add_argument("--workspace-key", help="compute read scope: personal:<id>, org:<id>, or project:<id>")
     parser.add_argument("--states", help="comma-separated state narrowing filter")
 
 
@@ -525,13 +525,14 @@ def main(
                     loading = worker.submit(_load_overview_console)
                     result = client.account_overview(settings.site_id, account=account)
                     console = loading.result()
-                console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url))
+                console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url,
+                                                        language=args.language))
                 return 0
             result = client.account_overview(settings.site_id, account=account)
             if output_format == "json":
                 output.write(render_json(result.as_dict()))
             else:
-                output.write(render_overview(result, work_dir=os.getcwd()))
+                output.write(render_overview(result, work_dir=os.getcwd(), language=args.language))
             return 0
         if args.command == "resources":
             if args.cluster is not None:
@@ -599,20 +600,6 @@ def main(
             output.write(render_json(result.as_dict()) if output_format == "json" else render(result))
             return 0
         query = _job_query(args, settings=settings)
-
-        if args.command == "tui":
-            try:
-                from .workbench import Workbench
-            except ModuleNotFoundError as exc:
-                if exc.name not in {"textual", "rich"}:
-                    raise
-                raise ConfigError("TUI dependencies are unavailable; install sai-cli[tui].") from None
-            if not sys.stdin.isatty() or not output.isatty():
-                raise ConfigError("sai tui requires an interactive terminal; use JSON commands for scripts.")
-            workspace = clean_workspace_key(args.storage_workspace_key) if args.storage_workspace_key else None
-            Workbench(client, query, storage_workspace_key=workspace,
-                      overview_account=login_account, language=args.language).run()
-            return 0
 
         if args.command == "jobs" and args.jobs_command == "list":
             result = client.list_jobs(query)

@@ -100,18 +100,17 @@ def test_file_denial_is_a_bounded_error_without_partial_results(tmp_path):
     assert error["code"] == "run_file_read_denied" and "provider-secret" not in errors.getvalue()
 
 
-@pytest.mark.parametrize("option", ["--workspace-key", "--tasks-workspace-key"])
-def test_tui_uses_one_explicit_compute_scope(option):
+def test_jobs_use_one_explicit_compute_scope():
     from types import SimpleNamespace
     from sai_cli.cli import _job_query
     from sai_cli.errors import ConfigError
 
     settings = SimpleNamespace(site_id="site-a", cluster_id=None)
-    args = build_parser().parse_args(["--site", "site-a", "tui", option, "project:project-example"])
+    args = build_parser().parse_args(["--site", "site-a", "jobs", "list", "--workspace-key", "project:project-example"])
     query = _job_query(args, settings=settings).validated()
     assert query.scope == "project-account" and query.workspace_key == "project:project-example"
     assert query.account_id is None and query.account_name is None
-    args = build_parser().parse_args(["tui", "--scope", "self", option, "project:project-example"])
+    args = build_parser().parse_args(["jobs", "list", "--scope", "self", "--workspace-key", "project:project-example"])
     with pytest.raises(ConfigError, match="self scope"):
         _job_query(args, settings=settings).validated()
 

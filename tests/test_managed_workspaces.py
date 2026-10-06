@@ -176,6 +176,6 @@ def test_directory_scope_rules_apply_to_both_cursor_and_exact_key(tmp_path, fami
             assert code == 2 and stdout.getvalue() == "" and server.requests == []
 
 
-def test_workbench_language_is_explicit_and_batch_json_unchanged():
+def test_summary_language_is_explicit_and_batch_json_unchanged():
     assert build_parser().parse_args(["tui"]).language == "zh-CN"
     assert build_parser().parse_args(["tui", "--language", "en-US"]).language == "en-US"

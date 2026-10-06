@@ -53,7 +53,7 @@
 
 - Terminal users keep Slurm/Linux as their normal tools. SAI supplements their
   work with business context, access, funds/budget and cost information.
-- The deployed full workbench below is rejected as a product direction. Follow
+- The full workbench has been removed from source. Follow
   `docs/terminal-scope.md`; shared APIs do not require matching TUI pages.
 - Prefer the existing compact `sai status` and explicit commands. Add interaction
   only when it removes a necessary lookup or technical input. Do not rebuild
@@ -68,7 +68,8 @@
   non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`
   for published specifications and prices (not live capacity or eligibility).
   `sai status` reads the authorized account overview (funds and unread messages);
-  its inline panel returns to Shell, while `sai tui` opens the full workbench.
+  `sai tui` uses the same compact presentation and returns to Shell. Rich is
+  optional; the Textual workbench and its private navigation are removed.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
 - Development compatibility can call Portal `GET /v1/slurm/jobs`, detail, and
@@ -76,25 +77,12 @@
   an opaque site-read capability and calls the server-bound
   `/v1/slurm/cli/*` or `/v1/billing/cli/*` routes. A direct site-local gateway
   transport is available for job list/detail/allocation when explicitly configured.
-  The optional TUI reuses catalog/jobs/estimate clients and exposes separate job
-  detail and allocation actions. Allocation displays one response's job, nodes,
-  CPU/memory, freshness and restart count; it pauses automatic refresh and F5
-  clears and replaces the whole snapshot. Array-task identity preserves task zero.
-  The v2 allocation DTO adds bounded GRES name/type/quantity and optional native
-  Slurm indices from the same observation. These are not physical GPU/CUDA
-  identities or utilization; shared quantities retain their own resource units.
-  Open in Web uses an Identity-only central job web-context read and Portal's
-  authoritative workspace mapping. It carries the inspected observation to a
-  same-origin Jobs link, retains a visible link for remote terminals, and never
-  infers the workspace from an account name or the default Overview identity.
-  The complete URL is copied only by an explicit Copy link action. A/W shortcuts
-  and the native command palette reuse the same context-sensitive actions;
-  ordinary filter input keeps its typing behavior.
-  A known submission/restart change requires refreshing the TUI before navigation;
-  links and pending navigation clear on context changes or authorization failure.
-  Managed results and resource preferences can continue through the console
-  into an explicitly selected Pilot Session. Live resource capacity, measured
-  utilization and verified physical/GPU placement remain roadmap items.
+  Allocation displays one response's job, nodes, CPU/memory, freshness and restart
+  count. Array-task identity preserves task zero. The v2 allocation DTO adds
+  bounded GRES name/type/quantity and optional native Slurm indices from the
+  same observation. These are not physical GPU/CUDA identities or utilization;
+  shared quantities retain their own resource units. Live resource capacity,
+  measured utilization and verified physical/GPU placement remain roadmap items.
   Running estimates come only from the server DTO; the CLI does not price jobs.
 - `site/slurm/job_submit.lua` is a controller deployment artifact, not a CLI
   command or wheel module. It consumes only a validated controller-local
@@ -127,18 +115,18 @@
   `sai.storage.read`. It exposes allowlisted stored observations and current/target
   quotas. It never queries native storage, scans paths, changes quotas or charges.
 - `storage native-quota` uses an independent `storage.quota.read` capability and
-  the trusted site origin for on-demand Lustre project-quota subjects. The TUI
-  chooses stored/native sources explicitly. Native rows are not organization
+  the trusted site origin for on-demand Lustre project-quota subjects. The
+  two batch commands choose their sources explicitly. Native rows are not organization
   pool totals; gateway deployment and actual service-UID access remain separate.
-- `runs list/show/logs/files` and TUI Tasks use independent Identity-only
+- `runs list/show/logs/files` use independent Identity-only
   owner/project/site reads of existing ComputeRuns. Recorded state is not live
   scheduler state or final billing. Current file READ is checked separately;
   logs and declared output metadata reuse the bounded dedicated interactive-read
   adapter. This adds no Run writer, submission permission or Pilot activation.
-- `runs workspaces` and the TUI project picker use `compute.workspaces/v1`,
+- `runs workspaces` uses `compute.workspaces/v1`,
   a bounded current-authorization page of task projects. Labels are display
   text; exact workspace keys are selectors. Discovery does not grant file,
-  submission, billing or other workspace access. CLI TUI language selection
+  submission, billing or other workspace access. Summary language selection
   changes fixed presentation copy only; JSON contracts stay stable.
 - Log text and output-relative names are explicit fields of this separately
   authorized contract. JSON escapes terminal controls without losing decoded
@@ -311,8 +299,8 @@ editing either side. Do not copy private collaboration logs into this repo.
 - Start with the user-visible invariant and one authoritative owner.
 - A new login summary must preserve useful existing information until an
   equivalent default presentation exists; manual lookup alone is not equivalent.
-- Keep the applied login identity consistent across the directory, summary and
-  workbench overview. Job scopes and storage workspaces remain independent.
+- Keep the applied login identity consistent across the directory and summary.
+  Job scopes and storage workspaces remain independent.
 - Keep scripts to a few clear operations using existing tools. Do not hide
   complexity in long lines, nested helpers or custom deployment frameworks.
 - Every check needs a real business or protocol reason; preserve valid native

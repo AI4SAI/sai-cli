@@ -14,8 +14,9 @@ their work into another application.
 The full terminal workbench is rejected. A unified backend means consistent
 facts and permissions, not the same features or screens in every client. The
 [terminal scope decision](docs/terminal-scope.md) replaces the full-workbench
-brief. The deployed interface remains a technical baseline pending removal of
-its broad navigation; it is not an accepted product or a design to polish.
+brief. Source now replaces the full-screen shell with the existing compact
+account summary. Installed-runtime and human-usability acceptance remain
+separate from this source change.
 
 ## Terminal value
 

@@ -4,7 +4,7 @@ import re
 
 from .errors import ConfigError, ContractError
 from .managed_runs import ManagedReadResult, _file_context, _integer, _boolean, _relative_filename, _token, terminal_log
-from .tui_messages import Messages
+from .messages import Messages
 
 
 ARTIFACT = re.compile(r"artifact-[0-9a-f]{40}")

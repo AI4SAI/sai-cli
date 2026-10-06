@@ -1,10 +1,10 @@
-# Deployed terminal workbench record
+# Previous terminal workbench record
 
 Status: deployed on the shared CLI on 2026-10-06, then rejected as a product
 direction. Bounded ordinary-user reading and SSH/PTY checks remain technical
-evidence. This file records the still-installed behavior, not a design target
-or a feature backlog. [Terminal scope](terminal-scope.md) replaces the rebuild
-brief and requires retiring this broad workbench.
+evidence. This file records that prior deployment, not the current source,
+a design target or a feature backlog. Source now removes this interface;
+[terminal scope](terminal-scope.md) documents the compact replacement.
 
 ```bash
 python3 -m pip install '.[tui]'
