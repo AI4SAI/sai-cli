@@ -305,8 +305,29 @@ The [native quota DTO](../contracts/storage-native-quota/v1/README.md) separates
 subject observations from business pool totals and stored delivery state. A
 failed, partial or inaccurate native query returns an error, never old data.
 Commands have a deadline and a captured-output limit; the runner still has no
-streaming memory ceiling. Protected binding configuration and service-UID access
-must be verified on the real site before enabling this optional operation.
+streaming memory ceiling.
+
+On 2026-10-07, the installed reader ran under the actual service UID against
+Lustre 2.17.54 in a temporary systemd namespace. The native adapter validated a
+read-only mountpoint and read one existing project quota with no Linux
+capabilities, while the original home/organization paths remained inaccessible.
+The temporary unit and anchor were removed; the formal reader and executor
+processes stayed unchanged. This used an operator-created synthetic grant and
+does not establish user capability issuance or an enabled production route.
+
+The exact HTTPS quota GET route was subsequently published from Portal source
+`86b18b4e9`, retaining verified upstream TLS and capability-only forwarding.
+Unauthenticated GET returns `401/site_read_capability_required`, POST returns
+405, and undeclared subpaths stay 404. Other ingress configuration and static
+release digests were unchanged. This is a routing check, not a quota data read.
+
+Formal activation still needs controlled mount/namespace bindings and an
+explicitly consented storage-read session. Current
+managed configuration requests compute/billing only; an existing user's storage
+request was rejected for missing scope. Identity discovery advertises storage
+scope, which does not grant it to that session. Device caches are scope-bound;
+permission expansion must preserve basic read sessions rather than changing
+their default scope or silently widening existing grants.
 
 ## Native observations and running estimates
 

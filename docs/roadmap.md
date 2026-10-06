@@ -185,7 +185,10 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] `sai storage quota-summary` over Portal
   observations; new storage scope registration is a separate deployment gate
 - [x] Explicit `storage native-quota` over authorized
-  on-demand Lustre project quota subjects; native service-UID acceptance pending
+  on-demand Lustre project quota subjects; the actual service UID and temporary
+  read-only mount namespace passed a native-adapter preflight on 2026-10-07.
+  The exact HTTPS route subsequently passed public authentication/method checks;
+  real user authorization and controlled bindings remain open
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -239,7 +242,9 @@ Relevant acceptance that remains outside this terminal reduction:
 - Real asset publication, verified physical-device mapping and telemetry.
 - Estimate-to-final association under the existing execution/billing owners.
 - Pilot-native discovery, resource/result continuation and browser usability.
-- Native storage service-UID access; physical quota subjects are not funding pools.
+- Native storage user scope consent and controlled bindings; the service UID's
+  native-adapter and exact HTTPS route preflights passed. Physical quota subjects
+  are not funding pools, and synthetic grants are not issuer acceptance.
 
 Complete text/binary output delivery has bounded ordinary-user evidence,
 including a selected-runtime result, exact file readback and no-overwrite
