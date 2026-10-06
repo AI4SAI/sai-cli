@@ -179,8 +179,9 @@ a new task store or a native probe. Each later detail/file/cost read reauthorize
 An explicit workspace narrows both sources; a legacy scheduler account without
 a workspace stays queue-only. Business and native account IDs remain distinct.
 
-Native and Run records are not joined by job number. Trusted list-level current
-execution association remains required before they can be shown as one item.
+Native and Run records are not joined by job number. The additive [correlation contract](../contracts/managed-run-link/v1/README.md)
+groups a uniquely matched, current observation with its recorded work. It does
+not establish immutable accounting identity or authorization.
 A native-only job does not gain managed files or final charges by appearing in
 the same work surface. Pilot owns native Web work and sessions; the terminal's
 Start work only navigates to its existing browser entry at the chosen site.

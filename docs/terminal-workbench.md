@@ -51,10 +51,12 @@ An explicit `--workspace-key` instead narrows native and recorded reads to the
 same account. A legacy native-account selector stays queue-only until a named
 workspace is chosen. Storage and the login summary retain their own scopes.
 
-Native activity and Run history remain separate observations. They are not
-merged using a job number; native-only work cannot acquire managed files or
-final charges. Trusted list-level execution association is still required for
-the complete unified product. Source failure is visible, not an empty work list.
+Native activity and Run history remain separate observations. Matching current
+records share one work item through the [scoped correlation](../contracts/managed-run-link/v1/README.md),
+with native state and recorded metadata kept distinct. There is no number-only merge; native-only work cannot acquire managed files or
+final charges. Bounded exact reference batches retrieve visible long-running work beyond the
+recent-history page. Matching Center and gateway deployment remains required.
+The key does not replace exact file, billing or hardware authority. Source failure is visible, not an empty work list.
 
 The existing file authority checks Run READ and the frozen directory separately.
 Each preview rechecks the selected file page before content. Costs use the

@@ -150,8 +150,9 @@ Paired resource-preparation producer:
 ## My work discovery
 
 `GET /v1/compute/cli/my-runs` and browser `GET /v1/account/compute/my-runs`
-return `compute.my-runs/v1`. They accept only `site_id`, `limit` (1–100,
-default 50) and `cursor`. The authenticated actor is fixed server-side. One
+return `compute.my-runs/v1`. Normal history accepts `site_id`, `limit` (1–100,
+default 50) and `cursor`. A bounded exact `run_refs` filter may narrow the same
+read to canonical Run UUIDs, with optional workspace narrowing and no cursor. The authenticated actor is fixed server-side. One
 query joins that actor's recorded Runs to currently readable workspaces at the
 selected site, including the same redacted names as workspace discovery.
 
@@ -164,8 +165,10 @@ per-workspace loop is introduced. CLI admission still requires shell access
 
 See [schema and example](../contracts/managed-my-runs/v1/README.md). The paired
 producer is `d585187f0` and the CLI replacement is not deployed. Native queue observations,
-file access and final costs keep their existing authority; this page does not
-prove an association between a current native job and a Run.
+file access and final costs keep their existing authority; the optional
+`run_link` pairs only unique, current native evidence under the
+[shared correlation rules](../contracts/managed-run-link/v1/README.md).
+It is not an immutable incarnation or authorization proof.
 
 Start work uses the separately owned browser navigation route
 `/v1/account/pilot/entry?site_id=...`, optionally with an explicitly applied

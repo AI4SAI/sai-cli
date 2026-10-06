@@ -383,10 +383,19 @@ class JobItem:
                 values[key] = _nullable_int(payload, key, request_id=request_id)
             else:
                 raise AssertionError(f"unclassified job field: {key}")
+        if "run_link" in payload:
+            values["run_link"] = _nullable_sha256_text(payload, "run_link", request_id=request_id)
+        if "run_ref" in payload:
+            value = _nullable_nonempty_text(payload, "run_ref", request_id=request_id)
+            if value is not None and (values.get("run_link") is None or re.fullmatch(
+                    r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", value) is None):
+                raise ContractError(request_id=request_id)
+            values["run_ref"] = value
         return cls(values=values)
 
     def as_dict(self) -> dict[str, str | int | None]:
-        return {key: self.values[key] for key in JOB_ITEM_FIELDS}
+        fields = (*JOB_ITEM_FIELDS, *(key for key in ("run_link", "run_ref") if key in self.values))
+        return {key: self.values[key] for key in fields}
 
 
 @dataclass(frozen=True)

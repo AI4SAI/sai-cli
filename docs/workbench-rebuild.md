@@ -62,8 +62,11 @@ and completeness. History pagination and a live queue are not one frozen
 snapshot. A current Job and a Run can be treated as one work item only when the
 existing execution-binding authority supplies sufficient evidence. Number-only
 joins, guessed account mappings and per-Run native probes over an entire list
-are not an acceptable substitute. Full list association is an implementation
-requirement, not a reason to silently discard one source.
+are not an acceptable substitute. The candidate now groups unique current evidence with the
+[shared correlation contract](../contracts/managed-run-link/v1/README.md),
+including bounded exact discovery outside recent history. Paired deployment
+and real-work acceptance remain open; permanent accounting identity and file
+access remain independent.
 
 Pure native work does not have managed output permissions merely because it
 appears beside a Run. Missing logs, declared results or final-cost attribution

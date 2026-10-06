@@ -8,7 +8,7 @@ import re
 from typing import Any
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
-from .contracts import _required_text, _timestamp_text
+from .contracts import _required_text, _timestamp_text, _nullable_sha256_text
 from .errors import ConfigError, ContractError
 from .workspace_page import parse_workspace_page
 
@@ -97,6 +97,8 @@ def _receipt_context(payload: object, schema: str, workspace_key: str, site_id: 
 def _run(payload: object, request_id: str) -> dict:
     data = _object(payload, request_id)
     result = {"run_ref": _token(data, "run_ref", request_id), "cluster_id": _text(data, "cluster_id", request_id, maximum=64)}
+    if "run_link" in data:
+        result["run_link"] = _nullable_sha256_text(data, "run_link", request_id=request_id)
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:+-]*", result["cluster_id"]) is None:
         raise ContractError(request_id=request_id)
     if "title" not in data:

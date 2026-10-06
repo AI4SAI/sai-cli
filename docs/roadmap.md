@@ -28,7 +28,8 @@ deployed. The existing native readers and authorization/billing owners remain.
 - [x] Standalone work-to-results shell and actual CLI entry; old shell removed
 - [x] Direct result reading/saving, contextual tools and in-workbench device login
 - [x] Local paired producer/client reads and rendered navigation checks
-- [ ] Trusted current native execution association for a unified work list
+- [x] Scoped current native/Run correlation and bounded exact discovery in source
+- [ ] Paired native gateway/Center correlation deployment and real-work acceptance
 - [ ] Pilot-native resource and result continuation, retiring old console links
 - [ ] Paired deployment including Pilot's independent browser entry
 - [ ] First-time and returning-user workflow acceptance in real terminals/Web

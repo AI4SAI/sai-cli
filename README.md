@@ -71,8 +71,8 @@ offers the existing browser-approved device login directly.
 The home reads your native activity and your recorded computations across
 currently readable accounts. `sai runs recent` exposes the same recorded-work
 page as JSON. An explicitly selected account remains narrow; legacy scheduler
-account selectors do not silently become an all-account history read. Native
-activity and recorded history are separate observations, not joined by job number.
+account selectors do not silently become an all-account history read. Matching native activity and recorded history now share one work item through
+a scoped correlation key. A job number alone never establishes that link.
 
 **Start work** opens Pilot's native entry with the selected site. Pilot owns
 working directories, sessions, Agent actions and computation preparation. This
@@ -89,7 +89,7 @@ File permissions remain independent of metadata and billing access.
 Install with `pip install '.[tui]'` and run `sai tui` in an interactive terminal.
 The [replacement workbench](docs/terminal-workbench.md) is a source candidate;
 it has not replaced the previously deployed interface. The [rebuild brief](docs/workbench-rebuild.md)
-records remaining native association, Pilot continuation and actual user
+records remaining paired native deployment, Pilot continuation and actual user
 acceptance. Local tests or screenshots do not establish that product acceptance.
 Managed login still shows its compact summary and returns to the shell.
 

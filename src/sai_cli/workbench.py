@@ -24,7 +24,7 @@ from textual.widgets.option_list import Option
 from .artifact_content import ManagedRunArtifactContent
 from .catalog import ResourceCatalog
 from .client import JobQuery, PortalClient
-from .contracts import JobCostResult, JobResult
+from .contracts import JobCostResult, JobResult, short_job_state
 from .errors import AuthenticationError, ContractError, ForbiddenError, NotFoundError, SaiCliError
 from .managed_runs import (
     ManagedRunArtifacts, ManagedRunDetail, ManagedRunList, ManagedRunLogs,
@@ -33,7 +33,9 @@ from .managed_runs import (
 from .native_quota import NativeQuotaResult
 from .overview import AccountOverview
 from .overview_view import overview_panel
+from .render import _duration
 from .run_cost import ManagedRunCost, cost_lines
+from .run_activity import RunActivity, matching_job
 from .run_placement import ManagedRunPlacement
 from .run_stats import ManagedRunStats, stats_lines
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -217,6 +219,8 @@ class Workbench(App, inherit_bindings=False):
     def _tick(self) -> None:
         if self.mode == "home" and isinstance(self.result, dict) and any(isinstance(value, SaiCliError) for value in self.result.values()):
             return
+        if isinstance(self.result, RunActivity) and self.result.error is not None and not isinstance(self.result.error, NotFoundError):
+            return
         if (not self.paused and not self._reading and not self._pending and not self._error
                 and self._save_screen is None and self._login_screen is None and self.mode in {"home", "run", "native"}):
             self.action_refresh()
@@ -307,6 +311,23 @@ class Workbench(App, inherit_bindings=False):
                     raise
                 except SaiCliError as error:
                     results[source] = error
+            live, recent = results["live"], results["recent"]
+            if isinstance(live, SiteJobResult) and isinstance(recent, (MyManagedRunList, ManagedRunList)):
+                known = {row["run_ref"] for row in recent.values["items"]}
+                references = sorted({row.values["run_ref"] for row in live.items if row.values.get("run_ref")
+                                     and row.values["run_ref"] not in known})
+                records = []
+                try:
+                    for start in range(0, len(references), 100):
+                        page = self.client.list_my_managed_runs(site_id=request.query.site_id, limit=100,
+                            run_refs=tuple(references[start:start + 100]), workspace_key=request.query.workspace_key)
+                        records.extend(page.values["items"])
+                except AuthenticationError:
+                    raise
+                except SaiCliError as error:
+                    results["link_error"] = error
+                else:
+                    results["linked_records"] = records
             return results
         if mode == "catalog":
             return self.client.resource_catalog(request.query.site_id)
@@ -334,7 +355,17 @@ class Workbench(App, inherit_bindings=False):
             return reader(work.reference, query)
         scope = dict(workspace_key=work.workspace, site_id=request.query.site_id)
         if mode in {"run", "evidence"}:
-            return self.client.managed_run(work.reference, **scope)
+            detail = self.client.managed_run(work.reference, **scope)
+            if (mode == "evidence" or detail.values["run"]["status"] in {"completed", "failed", "canceled"}
+                    or not detail.values["run"].get("run_link") or self.client.site_transport is None):
+                return detail
+            try:
+                native = self.client.show_job(detail.values["run"]["scheduler_ref"], replace(request.query, partition=None, states=()))
+            except AuthenticationError:
+                raise
+            except SaiCliError as error:
+                return RunActivity(detail, error=error)
+            return RunActivity(detail, native=native)
         if mode in {"stdout", "stderr"}:
             return self.client.managed_run_logs(work.reference, **scope, stream=mode, cursor=request.cursor, max_bytes=65536)
         if mode == "files":
@@ -363,14 +394,15 @@ class Workbench(App, inherit_bindings=False):
         self.result = result
         if self.mode == "home":
             self._home_rows(result)
-        elif isinstance(result, ManagedRunDetail):
-            self.detail = result
+        elif isinstance(result, (ManagedRunDetail, RunActivity)):
+            self.detail = result.detail if isinstance(result, RunActivity) else result
             if self.mode == "run":
-                status = result.values["run"]["status"]
-                if status == "completed":
+                status = result.state if isinstance(result, RunActivity) else result.values["run"]["status"]
+                self.selected = replace(self.selected, state=status)
+                if short_job_state(status) in {"CD", "completed"}:
                     self._navigate("files", restore=True)
                     return
-                if status in {"failed", "needs_attention"}:
+                if short_job_state(status) in {"F", "NF", "OOM", "TO", "failed", "needs_attention"}:
                     self._navigate("stderr", restore=True)
                     return
         elif self.mode == "content" and isinstance(result, tuple):
@@ -412,8 +444,21 @@ class Workbench(App, inherit_bindings=False):
 
     def _home_rows(self, result: dict[str, object]) -> None:
         listing = self.query_one("#work-list", OptionList)
+        recent, live = result["recent"], result["live"]
+        associations: dict[str, list[dict]] = {}
+        extras = result.get("linked_records", [])
+        if isinstance(recent, (MyManagedRunList, ManagedRunList)) and isinstance(live, SiteJobResult):
+            for row in [*recent.values["items"], *extras]:
+                job = matching_job(row, live, site_id=self.job_query.site_id)
+                if job is not None:
+                    associations.setdefault(job.canonical_id, []).append(row)
+        linked = {key: rows[0] for key, rows in associations.items() if len(rows) == 1}
+        linked_refs = {row["run_ref"] for row in linked.values()}
         for source in ("live", "recent"):
             data = result[source]
+            if source == "recent" and isinstance(data, (MyManagedRunList, ManagedRunList)) and data.values["items"] and all(
+                    row["run_ref"] in linked_refs for row in data.values["items"]):
+                continue
             heading = self.t("scoped_live" if source == "live" and self.job_query.scope != "self" else source)
             listing.add_option(Option(Text(heading, style="bold #64d8d0"), disabled=True, id="heading-" + source))
             if isinstance(data, SaiCliError):
@@ -425,25 +470,39 @@ class Workbench(App, inherit_bindings=False):
             if source == "live":
                 rows = data.items
                 for item in rows:
-                    key = "native:" + item.canonical_id
-                    self.home_items[key] = Work("native", item.canonical_id, item.values["name"] or self.t("untitled"), state=item.values["state"])
-                    listing.add_option(Option(work_row(item.values["name"], item.values["state"], "", self.t), id=key))
+                    if item.canonical_id in linked:
+                        work = replace(self._recorded_work(linked[item.canonical_id], result.get("scope", {})), state=item.values["state"])
+                        key = "run:" + work.reference
+                        if self.home_highlight == "native:" + item.canonical_id:
+                            self.home_highlight = key
+                    else:
+                        key = "native:" + item.canonical_id
+                        work = Work("native", item.canonical_id, item.values["name"] or self.t("untitled"), state=item.values["state"])
+                    self.home_items[key] = work
+                    listing.add_option(Option(work_row(work.title, work.state, work.label, self.t), id=key))
                 if isinstance(data, SiteJobResult) and data.has_more:
                     listing.add_option(Option(self.t("more_live"), disabled=True))
             else:
                 rows = data.values["items"]
                 for row in rows:
-                    scope = result.get("scope", {})
-                    label = row.get("workspace_label", scope.get("label", ""))
-                    organization = row.get("organization_label", scope.get("organization_label"))
-                    label = label + (" · " + organization if organization else "")
-                    workspace = row.get("workspace_key", self.job_query.workspace_key)
+                    if row["run_ref"] in linked_refs:
+                        continue
+                    work = self._recorded_work(row, result.get("scope", {}))
                     key = "run:" + row["run_ref"]
-                    self.home_items[key] = Work("run", row["run_ref"], row["title"] or self.t("untitled"), workspace, label, row["status"])
-                    listing.add_option(Option(work_row(row["title"], row["status"], label, self.t), id=key))
+                    self.home_items[key] = work
+                    listing.add_option(Option(work_row(work.title, work.state, work.label, self.t), id=key))
             if not rows:
                 listing.add_option(Option(self.t("no_" + source), disabled=True))
         self._restore_highlight(listing, self.home_highlight)
+        if "link_error" in result:
+            listing.add_option(Option(self.t("linked_failed"), disabled=True))
+
+    def _recorded_work(self, row: dict, scope: dict) -> Work:
+        label = row.get("workspace_label", scope.get("label", ""))
+        organization = row.get("organization_label", scope.get("organization_label"))
+        label += " · " + organization if organization else ""
+        return Work("run", row["run_ref"], row["title"] or self.t("untitled"),
+            row.get("workspace_key", self.job_query.workspace_key), label, row["status"])
 
     @staticmethod
     def _restore_highlight(options: OptionList, identifier: str | None) -> None:
@@ -510,7 +569,7 @@ class Workbench(App, inherit_bindings=False):
                 label = self.job_query.account_name or ""
         context = self.job_query.site_id + (" · " + label if label else "")
         if isinstance(self.detail, ManagedRunDetail) and self.selected and self.mode not in {"home", "catalog", "resource", "overview", "storage_choices", "storage", "storage_native", "workspaces"}:
-            context += " · " + natural_state(self.detail.values["run"]["status"], self.t)
+            context += " · " + natural_state(self.selected.state, self.t)
         self.query_one("#work-context", Static).update(Text(context, overflow="fold"))
         self.query_one("#work-status", Static).update(self._error or (self.t("loading") if busy else
             self.t("placement_expired") if self._placement_expired else
@@ -551,6 +610,16 @@ class Workbench(App, inherit_bindings=False):
             if self.mode == "evidence":
                 return task_detail_panel(result, self.language)
             return Text(self.t("run_hint") + "\n\n" + self.t("updated", time=short_time(result.values["run"]["last_observed_at"])) )
+        if isinstance(result, RunActivity):
+            job = result.job
+            if job is None:
+                message = self.t("live_failed" if result.error and not isinstance(result.error, NotFoundError) else "recorded_state")
+                return Text(message + "\n\n" + self.t("run_hint") + "\n" + self.t("updated", time=short_time(result.detail.values["run"]["last_observed_at"])))
+            pending = short_job_state(result.state) == "PD"
+            duration = job.values["run_wait_seconds" if pending else "elapsed_seconds"]
+            return Text(self.t("wait_duration" if pending else "run_duration", duration=_duration(duration)) +
+                "\n\n" + self.t("run_hint") + "\n" +
+                self.t("updated", time=short_time(result.native.freshness.observed_at)))
         if isinstance(result, (ManagedRunLogs, ManagedRunArtifactContent)):
             return task_file_panel(result, self.language)
         if isinstance(result, ManagedRunArtifacts):
@@ -603,8 +672,9 @@ class Workbench(App, inherit_bindings=False):
                 return self.t("workspaces"), self.result is not None
             if self.home_items:
                 work = self.home_items.get(self._highlight(self.query_one("#work-list", OptionList)))
-                action = "results" if work and work.kind == "run" and work.state == "completed" else "logs" if (
-                    work and work.kind == "run" and work.state in {"failed", "needs_attention"}) else "view_status"
+                state = short_job_state(work.state) if work else None
+                action = "results" if work and work.kind == "run" and state in {"CD", "completed"} else "logs" if (
+                    work and work.kind == "run" and state in {"F", "NF", "OOM", "TO", "failed", "needs_attention"}) else "view_status"
                 return self.t(action), work is not None
             return self.t("start"), self.result is not None
         if self.mode in {"files", "storage_choices", "catalog", "workspaces"}:

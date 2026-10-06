@@ -194,7 +194,10 @@ Logs accept `--stream stdout|stderr`, `--cursor` and `--max-bytes` (1–65536).
 JSON remains the default; table mode displays log control bytes as escaped text.
 JSON also escapes terminal control ranges while preserving decoded content.
 
-`runs recent` requires only a site, limit and cursor. Its `compute.my-runs/v1`
+`runs recent` uses a site, limit and cursor. The client can also narrow the same
+reader to up to 100 exact Run references from visible native records; the server
+repeats actor/site and optional workspace checks. This closes old-running-work
+discovery without per-Run native reads or history scanning. Its `compute.my-runs/v1`
 rows include authorized workspace labels and exact keys for subsequent reads.
 The server fixes the actor and joins currently readable workspaces once; the
 client does not enumerate projects. A revoked cursor requires a fresh page.

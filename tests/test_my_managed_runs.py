@@ -89,3 +89,31 @@ def test_recent_never_accepts_an_actor_or_unbounded_request(tmp_path, arguments)
         else:
             code = main(args, environ=_env(tmp_path), stdout=stdout, stderr=stderr)
     assert code == 2 and stdout.getvalue() == '' and not server.requests
+
+
+@pytest.mark.parametrize('fault', [None, 'wrong_reference', 'wrong_workspace', 'truncated'])
+def test_exact_work_lookup_repeats_the_reference_and_workspace_boundary(fault):
+    from types import SimpleNamespace
+    from sai_cli.auth import TokenLease
+    from sai_cli.client import PortalClient
+    from sai_cli.transport import JsonTransport
+
+    reference = '12345678-abcd-4321-abcd-123456789012'
+    value = sample()
+    value['items'][0]['run_ref'] = reference
+    if fault == 'wrong_reference': value['items'][0]['run_ref'] = 'another-run'
+    elif fault == 'wrong_workspace': value['items'][0]['workspace_key'] = 'org:other'
+    elif fault == 'truncated': value.update(has_more=True, next_cursor=reference)
+    with _server(value) as (origin, server):
+        client = PortalClient(transport=JsonTransport(base_url=origin, timeout_seconds=3),
+            token_provider=SimpleNamespace(get=lambda: TokenLease('test-bearer-token', None, 'environment')))
+        def read():
+            return client.list_my_managed_runs(site_id='site-a', run_refs=(reference,),
+                workspace_key='project:project-example', limit=100)
+        if fault:
+            with pytest.raises(ContractError): read()
+        else:
+            assert read().values['items'][0]['run_ref'] == reference
+    assert len(server.requests) == 1
+    assert server.requests[0]['query'] == {'site_id': ['site-a'], 'limit': ['100'],
+        'run_refs': [reference], 'workspace_key': ['project:project-example']}
