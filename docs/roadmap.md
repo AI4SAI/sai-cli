@@ -187,8 +187,8 @@ expose funds or messages; the overview uses the normal CLI read authority.
 - [x] Explicit `storage native-quota` over authorized
   on-demand Lustre project quota subjects; the actual service UID and temporary
   read-only mount namespace passed a native-adapter preflight on 2026-10-07.
-  The exact HTTPS route subsequently passed public authentication/method checks;
-  real user authorization and controlled bindings remain open
+  The exact HTTPS route and formal control-plane mount bindings are deployed;
+  ordinary-user authorization, quota read and audit acceptance remain open
 - [x] Stable JSON and deterministic table rendering
 - [x] Scope/filter validation and no normal-user all scope
 - [x] Bounded error mapping and response redaction
@@ -242,9 +242,10 @@ Relevant acceptance that remains outside this terminal reduction:
 - Real asset publication, verified physical-device mapping and telemetry.
 - Estimate-to-final association under the existing execution/billing owners.
 - Pilot-native discovery, resource/result continuation and browser usability.
-- Native storage user scope consent and controlled bindings; the service UID's
-  native-adapter and exact HTTPS route preflights passed. Physical quota subjects
-  are not funding pools, and synthetic grants are not issuer acceptance.
+- Native storage user scope consent, issuer-to-gateway quota read and audit;
+  formal bindings, the service UID's read-only native path and exact HTTPS route
+  are deployed. Physical quota subjects are not funding pools, and operator
+  grants are not ordinary-user acceptance.
 
 Complete text/binary output delivery has bounded ordinary-user evidence,
 including a selected-runtime result, exact file readback and no-overwrite

@@ -321,8 +321,19 @@ Unauthenticated GET returns `401/site_read_capability_required`, POST returns
 405, and undeclared subpaths stay 404. Other ingress configuration and static
 release digests were unchanged. This is a routing check, not a quota data read.
 
-Formal activation still needs controlled mount/namespace bindings and an
-explicitly consented storage-read session. Current
+The formal service was then configured with two control-plane mount references
+sharing one native filesystem and one read-only quota anchor. A bounded read-only
+control-plane lookup supplied the references; source verification used the actual
+service namespace. The mapping, one environment path and a systemd read-only bind
+were installed, and only the reader restarted. Its runtime, trust inputs,
+enablement and independent executor were preserved. The native reader passed in
+the formal namespace under its unprivileged UID; an ordinary user's basic job
+read succeeded before and after the restart. Temporary probes were removed and
+operator sessions closed. Protected configuration backups and rollback remain.
+These native probes still used operator-created grants, not user authorization.
+
+Ordinary-user acceptance still needs an explicitly consented storage-read
+session and an issuer-to-gateway read with matching audit evidence. Current
 managed configuration requests compute/billing only; an existing user's storage
 request was rejected for missing scope. Identity discovery advertises storage
 scope, which does not grant it to that session. Device caches are scope-bound;
