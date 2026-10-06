@@ -1,7 +1,8 @@
 # SAI Billing / Interactive Read Plane
 
 Status: unified native observations and Portal presentation deployed; bounded
-ordinary-user list/estimate reads passed. Complete task acceptance remains open.
+ordinary-user list/estimate reads passed, including a nonempty organization
+scope on 2026-10-07. Complete task acceptance remains open.
 
 This is the cross-product boundary for `sai-cli`, `sai-pilot`, Portal, and site
 runtime. Native job facts come from the capability gateway; Portal remains the
@@ -99,7 +100,7 @@ authoritative binding proves their relationship. See the
 The site runtime reuses its canonical Slurm queue/detail adapter. This client
 repository owns no native reader and no gateway server. The independent gateway
 must be packaged as a low-privilege role separate from the existing
-write-capable site-agent package and must exclude `sacct`, enforcement,
+write-capable site-agent package and must exclude broad accounting scans, enforcement,
 provisioning, quota mutation, identity administration, and sudo.
 
 ## Cache, audit, and failure rules
@@ -132,13 +133,26 @@ does not authorize, read Slurm, calculate money, or hold a broad secret.
    history before/after and do not submit a job to manufacture a sample.
 
 Portal presents job state and optional price together; its ledger
-view keeps settled entries and the server-owned exposure summary. The paired
-former TUI consumer offered an explicit selected-job Cost mode over central detail
+view keeps settled entries and the server-owned exposure summary. The former
+TUI consumer offered an explicit selected-job Cost mode over central detail
 with `include_estimate=true`, requiring both compute and billing scopes. It
 removed the duplicate estimate tab; that full-screen consumer has since been
 retired. The batch full-scope contract and Pilot
 tools are unchanged. The paired Center and shared client were installed on
-2026-10-02. Real-user historical Run costs and output reads passed; current-job
-costs still require a nonempty live scope. Existing real-user empty-list,
+2026-10-02. Real-user historical Run costs and output reads passed. Existing real-user empty-list,
 issuance/journal and lease-expiry acceptance does not prove positive
 detail/allocation, explicit revocation or the complete task journey.
+
+On 2026-10-07, source `e9e1f1c55e49` was selected on the shared CLI after a
+candidate read in an ordinary user's authorized organization scope. Both
+priced and not-started records were returned through the formal native-backed
+estimate route before and after selection. Actual SSH/PTY cost output at 40
+columns returned successfully, and the compact account summary still returned
+to the shell. The backend, configuration and billing authority were unchanged;
+the previous shared runtime remains available for rollback.
+
+Local verification covered 924 tests, the package build, installed-wheel fake
+HTTP reads with unchanged JSON, monetary visibility, full identifiers/amounts,
+missing prices, stale observations and narrow rendering. The live sample proves
+positive authorized estimate consumption, not independent pricing correctness,
+estimate-to-settlement association or human usability acceptance.

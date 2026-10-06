@@ -113,6 +113,10 @@ pricing at Center and requires no site price bundle.
   same-observation optional Portal estimates and complete billing/v1 gateway reads;
   later TUI selected-job Cost integration was paired into production on 2026-10-02,
   with positive current-job cost acceptance still separate.
+- [x] Positive full-scope running estimates in an authorized organization,
+  including priced and not-started records, before/candidate/selected reads on
+  2026-10-07. The compact cost presentation passed real SSH/PTY at 40 columns;
+  this does not prove detail-cost or estimate-to-settlement association
 
 The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 preserves explicit user site choice and permits independent or shared ingress.
