@@ -3,8 +3,8 @@
 Status: deployed on the shared CLI on 2026-10-06, then rejected as a product
 direction. Bounded ordinary-user reading and SSH/PTY checks remain technical
 evidence. This file records that prior deployment, not the current source,
-a design target or a feature backlog. Source now removes this interface;
-[terminal scope](terminal-scope.md) documents the compact replacement.
+a design target or a feature backlog. The compact replacement was selected
+on 2026-10-07; [terminal scope](terminal-scope.md) records its delivery boundary.
 
 ```bash
 python3 -m pip install '.[tui]'

@@ -4,7 +4,9 @@ Status: read-only commands frozen
 
 The terminal presentation follows [terminal scope](terminal-scope.md).
 `sai tui` and `sai status --format tui` share one compact read and return to the
-shell. This is implemented in source; deployment is recorded separately.
+shell. The shared replacement was selected on 2026-10-07; bounded ordinary-user
+and SSH/PTY evidence is recorded in the scope decision, separately from human
+usability acceptance.
 
 ## Command surface
 

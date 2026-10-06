@@ -8,8 +8,13 @@ The full workbench was deployed on 2026-10-06 and then rejected on product
 grounds. Its read/PTY checks remain technical evidence only. Source now removes
 that shell: `sai tui` is a presentation entry to the existing `sai status` read,
 with no additional read model, polling, keyboard state or automatic navigation.
-It prints the summary and returns. Shared-runtime replacement is a separate
-delivery; source checks do not establish the installed version or human interest.
+It prints the summary and returns. Shared source `bdb847a62d79` was selected on
+2026-10-07 after an ordinary-user candidate read. The selected runtime passed
+Chinese/English reads at 40/60/100 columns and an actual SSH/PTY `sai tui` call
+that returned to the shell with exit 0. Its 574 runtime files and permissions
+were verified; connection configuration stayed unchanged and the prior release
+was retained for rollback. No Center, Identity, Pilot or gateway update was
+needed. These are agent-operated technical checks, not human product acceptance.
 
 ## Primary need
 
@@ -58,6 +63,10 @@ Do not wrap native commands inside the SAI client as a replacement backend.
    used outside the workbench, and their meaningful tests.
 4. Verify the retained question-to-answer interactions and shared command
    compatibility, then publish through the existing shared-runtime procedure.
+   This delivery passed 917 local tests, package checks and installed-wheel
+   fake HTTP summary/status/cost reads. Existing ordinary-user account/funds
+   reads passed before, on the candidate and after selection. Native/cost self
+   lists were empty; they do not establish positive per-job cost acceptance.
    Code landing, installed runtime and human usability remain separate claims.
 
 No new backend service, account store, scheduler wrapper, token type or Portal

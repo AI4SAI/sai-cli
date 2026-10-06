@@ -31,7 +31,9 @@ do not require matching TUI screens.
 - [x] Verify compact summary, batch contracts and UI removal locally: 917 tests
   passed; package build and public-surface checks passed. This is not
   installed-runtime or human-usability acceptance
-- [ ] Deliver the reduced runtime through the existing shared publication
+- [x] Deliver the reduced runtime through the existing shared publication;
+  ordinary-user before/candidate/selected summary reads and direct SSH/PTY
+  `sai tui` passed on 2026-10-07. No user-comprehension or interest claim
 
 The existing `sai status` summary is the starting point. Named interaction is
 appropriate only when it removes necessary lookup or technical input. No new
