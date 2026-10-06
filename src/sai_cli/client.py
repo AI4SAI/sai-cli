@@ -110,7 +110,7 @@ class JobQuery:
         if isinstance(self.limit, bool) or not isinstance(self.limit, int) or not 1 <= self.limit <= 500:
             raise ConfigError("limit must be between 1 and 500")
         if detail and self.partition:
-            raise ConfigError("jobs show does not accept a partition filter")
+            raise ConfigError("a single-job read does not accept a partition filter")
         return JobQuery(
             site_id=site_id,
             scope=self.scope,

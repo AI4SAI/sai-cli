@@ -771,6 +771,11 @@ class JobCostResult:
         )
         return cls(observation, estimate, freshness)
 
+    def as_dict(self) -> dict[str, Any]:
+        payload = self.observation.as_dict()
+        payload["items"][0]["running_estimate"] = self.estimate.as_dict()
+        return payload
+
 
 @dataclass(frozen=True)
 class RunningEstimateResult:

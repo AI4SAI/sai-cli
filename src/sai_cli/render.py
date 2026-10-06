@@ -10,7 +10,7 @@ from textwrap import fill
 from zoneinfo import ZoneInfo
 
 from .catalog import ResourceCatalog
-from .contracts import AccountStatus, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
+from .contracts import AccountStatus, JobCostResult, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary
@@ -325,25 +325,34 @@ def render_site_placement(result: SiteJobPlacementResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_running_estimate_table(result: RunningEstimateResult, *, width: int = 80) -> str:
+def render_running_estimate_table(result: RunningEstimateResult | JobCostResult, *, width: int = 80) -> str:
     """Show price facts without clipping money or treating missing estimates as zero."""
+    if isinstance(result, JobCostResult):
+        context, items = result.observation, (result.estimate,)
+        # Job-detail timestamps are UTC; this contract has no site timezone.
+        timezone_name, title = "UTC", "Job estimate"
+    else:
+        context, items = result, result.items
+        timezone_name, title = result.site_timezone, "Running estimates"
     width = max(20, width)
-    rows = [_running_estimate_row(item) for item in result.items]
+    rows = [_running_estimate_row(item) for item in items]
     widths = [max(len(heading), *(len(row[key]) for row in rows)) if rows else len(heading)
               for key, heading in _RUNNING_ESTIMATE_COLUMNS]
     tabular = sum(widths) + 2 * (len(widths) - 1) <= width
-    scope = result.scope.replace("_", " ")
-    subject = result.slurm_user if result.scope == "self" else result.slurm_account
-    lines = ["Running estimates (CNY; not settled)",
-             fill(f"Site: {result.site_id} / {result.cluster_id}", width),
-             fill(f"For: {subject or 'Unknown'} ({scope})", width)]
+    scope = context.scope.replace("_", " ")
+    subject = context.slurm_user if context.scope == "self" else context.slurm_account
+    context_line = (f"Slurm Account: {result.estimate.values['slurm_account'] or 'Unknown'}"
+                    if isinstance(result, JobCostResult) else f"For: {subject or 'Unknown'} ({scope})")
+    lines = [f"{title} (CNY; not settled)",
+             fill(f"Site: {context.site_id} / {context.cluster_id}", width),
+             fill(context_line, width)]
     if result.freshness.stale:
         lines.append(fill(f"STALE observation: {result.freshness.age_seconds}s old. Refresh before relying on these estimates.", width))
     lines.append("")
     if rows:
         if tabular:
             lines.append(_line((heading for _, heading in _RUNNING_ESTIMATE_COLUMNS), widths))
-        for row, item in zip(rows, result.items, strict=True):
+        for row, item in zip(rows, items, strict=True):
             if tabular:
                 cells = (row[key].rjust(size) if key in {"gross", "cash"} else row[key]
                          for (key, _), size in zip(_RUNNING_ESTIMATE_COLUMNS, widths, strict=True))
@@ -365,9 +374,11 @@ def render_running_estimate_table(result: RunningEstimateResult, *, width: int =
         lines.append("No running estimates in this scope.")
     if lines[-1] == "":
         lines.pop()
-    if any(item.values["gross_cny"] is not None for item in result.items):
+    if any(item.values["gross_cny"] is not None for item in items):
         lines.extend(("", fill("Standard and cash price the same usage; final charges may differ.", width)))
-    lines.extend(("", fill(f"As of: {_site_time(result.as_of, timezone_name=result.site_timezone)}", width),
-                  fill(f"Observed: {_site_time(result.freshness.observed_at, timezone_name=result.site_timezone)}", width),
+    lines.append("")
+    if isinstance(result, RunningEstimateResult):
+        lines.append(fill(f"As of: {_site_time(result.as_of, timezone_name=timezone_name)}", width))
+    lines.extend((fill(f"Observed: {_site_time(result.freshness.observed_at, timezone_name=timezone_name)}", width),
                   fill(f"Source: {result.freshness.source} | Age: {result.freshness.age_seconds}s", width)))
     return "\n".join(lines) + "\n"

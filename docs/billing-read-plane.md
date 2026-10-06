@@ -137,7 +137,8 @@ view keeps settled entries and the server-owned exposure summary. The former
 TUI consumer offered an explicit selected-job Cost mode over central detail
 with `include_estimate=true`, requiring both compute and billing scopes. It
 removed the duplicate estimate tab; that full-screen consumer has since been
-retired. The batch full-scope contract and Pilot
+retired. `sai jobs cost JOB_ID` now consumes that same detail-price contract;
+the batch full-scope contract and Pilot
 tools are unchanged. The paired Center and shared client were installed on
 2026-10-02. Real-user historical Run costs and output reads passed. Existing real-user empty-list,
 issuance/journal and lease-expiry acceptance does not prove positive

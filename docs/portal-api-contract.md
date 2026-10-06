@@ -383,12 +383,17 @@ the option is true. Missing billing scope returns `job_cost_read_denied` without
 a native read; ordinary job reads remain available. This does not add an option
 to the CLI list route, change a grant, or put prices in the site gateway.
 
-The retained detail-cost client uses this central request even when ordinary
-jobs use a direct site origin. It reads one job with an exact new grant, without the
-list's state/partition filters, and validates the attached item against its
-parent job. Job state changes therefore remain visible. The whole observation
+`sai jobs cost JOB_ID` uses this existing central detail-cost request even when ordinary
+jobs use a direct site origin. It reads one job with an exact grant, without
+list pagination or a partition filter. Explicit state filters only narrow the
+read; without one, state changes remain visible. The attached item is validated
+against its parent job. The whole observation
 is returned as one response; neither another list nor a local price join is
 used. Unsupported producers fail explicitly, with no fallback to a broad read.
+The command keeps the allowlisted job envelope and its attached
+`running_estimate` in JSON. The detail contract has UTC timestamps and no site
+timezone field; its human output therefore uses UTC rather than guessing a site
+or local timezone. Omitting the ID preserves the full-scope cost contract.
 The paired Center and shared-client installation completed on 2026-10-02.
 Ordinary-user historical task reads passed through the installed client;
 positive current-job cost acceptance remains separate because the live scope

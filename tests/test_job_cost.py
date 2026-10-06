@@ -1,4 +1,6 @@
 from copy import deepcopy
+from io import StringIO
+import json
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
@@ -7,10 +9,12 @@ import pytest
 from sai_cli.auth import TokenLease
 from sai_cli.capability import CapabilityLease
 from sai_cli.client import JobQuery, PortalClient
+from sai_cli.cli import main
 from sai_cli.contracts import JobCostResult, JobResult
 from sai_cli.errors import ContractError, ForbiddenError
 from sai_cli.transport import JsonTransport
-from test_site_transport import http_endpoint
+from sai_cli.render import render_running_estimate_table
+from test_site_transport import http_endpoint, issuer
 
 
 def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cost_payload):
@@ -23,6 +27,7 @@ def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cos
     assert result.observation.items[0].values["state"] == "S"
     assert result.estimate.values["gross_cny"] == "2.00000000"
     assert result.estimate.values["slurm_job_db_index"] == 2**60
+    assert result.as_dict()["items"][0]["running_estimate"]["slurm_job_db_index"] == 2**60
     assert "running_estimate" not in JobResult.from_payload(job_cost_payload, request_id="test").as_dict()["items"][0]
 
 
@@ -64,6 +69,9 @@ def test_cost_keeps_cash_restriction_and_drops_sensitive_additions(job_cost_payl
     assert result.estimate.values["gross_cny"] == "2.00000000"
     assert result.estimate.values["cash_before_credit_cny"] is None
     assert "private" not in repr(result)
+    assert "private" not in json.dumps(result.as_dict())
+    rendered = render_running_estimate_table(result, width=40)
+    assert "Restricted" in rendered and "2.00" in rendered
 
 
 def test_cost_uses_central_exact_detail_with_independent_scope_denial(job_cost_payload, monkeypatch):
@@ -116,3 +124,54 @@ def test_cost_uses_central_exact_detail_with_independent_scope_denial(job_cost_p
     assert requests[0]["limit"] is None and requests[0]["partition"] is None
     assert "include_estimate" not in requests[0]
     assert not native_calls
+
+
+def test_exact_cost_rejects_a_list_only_partition_before_any_request(tmp_path):
+    with http_endpoint(lambda *_: pytest.fail("invalid filter must not read")) as (origin, calls):
+        out, err = StringIO(), StringIO()
+        rc = main(["jobs", "cost", "12345", "--partition", "gpu-standard", "--site", "site-a", "--base-url", origin],
+                  environ={"XDG_CONFIG_HOME": str(tmp_path)}, stdout=out, stderr=err)
+    assert rc == 2 and not out.getvalue() and not calls
+    assert "single-job" in err.getvalue()
+
+
+@pytest.mark.parametrize("prefix", [True, False])
+@pytest.mark.parametrize("output_format", ["json", "table"])
+def test_cost_command_reads_exact_array_job_and_preserves_billing_denial(tmp_path, monkeypatch, job_cost_payload, prefix, output_format):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    job_cost_payload["items"][0]["array_task_id"] = "0"
+    job_cost_payload["items"][0]["running_estimate"]["job_id_raw"] = "12345_0"
+    denied = False
+    def reply(call, count):
+        if call["method"] == "POST":
+            assert call["body"]["operation"] == "jobs.detail" and call["body"]["job_id"] == "12345_0"
+            return issuer(call, count)
+        parsed = urlsplit(call["path"])
+        assert parsed.path == "/v1/slurm/cli/jobs/12345_0"
+        assert parse_qs(parsed.query)["include_estimate"] == ["true"]
+        if denied:
+            return 403, {"detail": {"code": "job_cost_read_denied", "message": "No billing scope"}}
+        return 200, job_cost_payload
+    with http_endpoint(reply) as (origin, calls), http_endpoint(lambda *_: pytest.fail("cost must stay central")) as (site, native_calls):
+        config = tmp_path / "profile.toml"
+        config.write_text(f'[profiles.default]\nbase_url="{origin}"\nsite_id="site-a"\ncluster_id="cluster-a"\nsite_read_base_url="{site}"\nrequire_site_capability=true\ncache_path="{tmp_path / "cache" / "tokens.json"}"\n')
+        config.chmod(0o600)
+        command = ["jobs", "cost", "12345_0", "--format", output_format]
+        connection = ["--config", str(config)]
+        args = connection + command if prefix else command + connection
+        out, err = StringIO(), StringIO()
+        env = {"SAI_TOKEN": "identity-session-token"}
+        assert main(args, environ=env, stdout=out, stderr=err) == 0 and not err.getvalue(), err.getvalue()
+        if output_format == "json":
+            estimate = json.loads(out.getvalue())["items"][0]["running_estimate"]
+            assert estimate["gross_cny"] == "2.00000000" and estimate["final"] is False
+        else:
+            assert "12345_0" in out.getvalue() and "2.00" in out.getvalue()
+            assert "not settled" in out.getvalue() and "+00:00" in out.getvalue()
+            assert "Slurm Account: personal-alice" in out.getvalue()
+        assert len(calls) == 2
+        denied = True
+        out, err = StringIO(), StringIO()
+        assert main(args, environ=env, stdout=out, stderr=err) == 4 and not out.getvalue()
+        assert "job_cost_read_denied" in err.getvalue() and len(calls) == 3 and not native_calls

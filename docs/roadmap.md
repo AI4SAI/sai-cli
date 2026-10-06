@@ -182,6 +182,8 @@ expose funds or messages; the overview uses the normal CLI read authority.
   (paired contract/local HTTP checks and a separate bounded native candidate
   probe; physical assets, utilization and attempt identity remain separate)
 - [x] `sai jobs cost` against the independent Portal running-estimate DTO
+- [x] Optional job ID reuses the existing exact priced-detail request, with
+  independent billing permission and same-observation validation
 - [x] Independent `jobs placement`, sharing the
   operator-recorded `jobs.placement/v1` projection with WebUI and Pilot;
   site opt-in, asset review/publication and live acceptance remain separate

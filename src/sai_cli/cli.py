@@ -116,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         _add_format_argument(detail_parser)
 
     cost_parser = job_commands.add_parser("cost", help="show non-final running job cost estimates")
+    cost_parser.add_argument("job_id", nargs="?", help="current job ID; omit to read the authorized scope")
     _add_connection_arguments(cost_parser, suppress_defaults=True)
     _add_job_scope_arguments(cost_parser)
     cost_parser.add_argument("--partition", help="partition narrowing filter")
@@ -617,7 +618,8 @@ def main(
         elif args.command == "jobs" and args.jobs_command == "placement":
             result = client.job_placement(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "cost":
-            result = client.running_estimates(query)
+            result = (client.job_cost(args.job_id, query) if args.job_id is not None
+                      else client.running_estimates(query))
         else:
             raise ContractError("the selected command is not implemented")
 

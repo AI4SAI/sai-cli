@@ -31,6 +31,7 @@ sai jobs show 12345 --site site-a --scope project-account \
 sai jobs allocation 12345_0 --site site-a --cluster cluster-a
 sai jobs placement 12345_0 --site site-a --cluster cluster-a
 sai jobs cost --site site-a
+sai jobs cost 12345 --site site-a --format table
 sai jobs cost --site site-a --scope project-account \
   --account project-example --states R,PD --partition gpu-standard
 sai resources catalog --site site-a --format table
@@ -342,12 +343,15 @@ JSON output contains only the stable job visibility or running-estimate fields d
 ignored after validation instead of being copied to stdout.
 
 Running-estimate table output leads with the authorized scope, job and prices.
+With a job ID, the existing priced-detail response is used instead of a list.
+JSON retains the normalized job envelope with `items[0].running_estimate`;
+its timestamps remain UTC, which the human view labels with `+00:00`.
 It labels the amounts as unsettled, distinguishes standard price from cash
 before Credit, and prints unknown/not-started/restricted states instead of zero.
 It never adds the two prices or combines them with settled charges. It shows
 `as_of`, observation time, source and age, with a prominent stale warning.
 ETag, exact quantities and other protocol details remain in unchanged JSON.
-Times use the response's required site/Slurm
+Full-scope list times use the response's required site/Slurm
 IANA timezone and show an explicit offset, never the center or terminal local
 timezone. A pending job has no zero-cost claim; an
 unavailable estimate has no guessed amount. Both remain explicit row states.
