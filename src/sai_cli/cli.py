@@ -41,11 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sai",
         description="Read-only command-line client for SAI compute services",
+        epilog="With no command, show the SAI account summary (JSON when redirected).",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     _add_connection_arguments(parser)
 
-    commands = parser.add_subparsers(dest="command", required=True)
+    commands = parser.add_subparsers(dest="command")
     for name, description in (
         ("status", "show SAI account, funds and access information"),
         ("tui", "show a compact SAI summary and return to the shell"),
@@ -476,6 +477,11 @@ def main(
     output = sys.stdout if stdout is None else stdout
     errors = sys.stderr if stderr is None else stderr
     args = build_parser().parse_args(list(argv) if argv is not None else None)
+    if args.command is None:
+        args.command = "status"
+        args.format = "table" if output.isatty() else "json"
+        args.account = None
+        args.language = "zh-CN"
     output_format = getattr(args, "format", "json")
     env = os.environ if environ is None else environ
 

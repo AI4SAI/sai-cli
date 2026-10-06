@@ -28,6 +28,9 @@ do not require matching TUI screens.
 - [x] Classify current features against native tools and existing batch commands
 - [x] Retire the broad workbench navigation and private view machinery in source;
   `sai tui` reuses the existing account summary and returns to Shell
+- [x] No-subcommand entry reuses that same read: terminal text or redirected JSON,
+  with no extra UI dependency, native query or automatic login. Local HTTP and
+  installed-wheel pipe/PTY checks passed; shared-runtime delivery is separate.
 - [x] Verify compact summary, batch contracts and UI removal locally: 917 tests
   passed; package build and public-surface checks passed. This is not
   installed-runtime or human-usability acceptance

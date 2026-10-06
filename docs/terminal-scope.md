@@ -30,6 +30,10 @@ trip through the SAI gateway. That gateway serves authorized remote readers;
 testing it with the batch CLI does not make it the normal local workflow.
 SAI-specific account, budget and monetary facts keep their control-plane owner.
 
+Plain `sai` reads the existing account summary and returns to the shell. It uses
+plain text for a terminal and JSON for redirected output, with no optional UI
+dependency or automatic login. Explicit `sai status` keeps its JSON default.
+
 The existing `sai status` and explicit cost commands already answer parts of
 this need. Start there. A short status panel returning to the shell is a useful
 outcome in itself. Interactive choice earns its place only when it removes a

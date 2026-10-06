@@ -13,6 +13,8 @@ Terminal users continue using native Slurm/Linux tools. The SAI presentation
 adds business context, access and cost information through the existing owners.
 [Terminal scope](terminal-scope.md) replaces the broad workbench with a concise
 account summary. Shared read APIs remain useful independently of the interface.
+The no-subcommand entry selects that same summary handler; terminal detection
+changes only plain-text versus JSON presentation, not the data source or authority.
 
 The architecture separates three responsibilities:
 

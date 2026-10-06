@@ -3,6 +3,11 @@
 Status: read-only commands frozen
 
 The terminal presentation follows [terminal scope](terminal-scope.md).
+With no subcommand, `sai` uses the same central account read: plain text when
+stdout is a terminal, JSON when redirected. It returns without prompting and
+needs no optional UI package. This changes presentation only; it adds no native
+query, site grant or automatic device login. Explicit commands keep their format
+defaults and existing argument-order contract.
 `sai tui` and `sai status --format tui` share one compact read and return to the
 shell. The shared replacement was selected on 2026-10-07; bounded ordinary-user
 and SSH/PTY evidence is recorded in the scope decision, separately from human
@@ -13,6 +18,7 @@ usability acceptance.
 The current release exposes read-only job and resource commands:
 
 ```bash
+sai
 sai status --site site-a --format tui
 sai status --site site-a --format json
 sai jobs list --site site-a

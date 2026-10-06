@@ -121,12 +121,13 @@ def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, m
     assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
 
 
-@pytest.mark.parametrize("managed,explicit,expected", [
-    (True, None, "org-applied"),
-    (True, "org-example", "org-example"),
-    (False, None, None),
+@pytest.mark.parametrize("managed,explicit,expected,command", [
+    (True, None, "org-applied", ["status"]),
+    (True, "org-example", "org-example", ["status"]),
+    (False, None, None, ["status"]),
+    (True, None, "org-applied", []),
 ])
-def test_status_retains_managed_login_account_and_explicit_override(tmp_path, monkeypatch, managed, explicit, expected):
+def test_status_retains_managed_login_account_and_explicit_override(tmp_path, monkeypatch, managed, explicit, expected, command):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     def reply(call, _):
@@ -141,7 +142,7 @@ def test_status_retains_managed_login_account_and_explicit_override(tmp_path, mo
         config.chmod(0o644)
         monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
         monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
-        args = ["status", *(["--account", explicit] if explicit else [])]
+        args = [*command, *(["--account", explicit] if explicit else [])]
         out, err = StringIO(), StringIO()
         rc = main(args, environ={"SAI_TOKEN": "test-bearer", "SAI_CONFIG": str(config),
                   "SAI_MANAGED_LOGIN_NODE": "1" if managed else "0", "_SAI_LOGIN_ACCOUNT": "org-applied"},

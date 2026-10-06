@@ -5,8 +5,9 @@ stable, machine-readable interface to Portal-authorized, site-scoped compute
 data while keeping authorization decisions out of login-node shell wrappers.
 
 Terminal users keep using Slurm and Linux for their normal work. SAI adds its
-own account/access information, funds, budget and cost facts. Start with
-`sai status --format table` (or the compact `--format tui` panel) and explicit
+own account/access information, funds, budget and cost facts. Start with `sai`
+for a brief account summary, then return to work. Redirecting `sai` produces
+JSON; explicit commands such as `sai status` keep their JSON default. Use explicit
 cost queries; a full terminal workbench is not the product target. See
 [terminal scope](docs/terminal-scope.md).
 
@@ -29,6 +30,8 @@ The first implementation milestone is intentionally read-only:
   These directories remain batch reads, separate from the account summary.
 - `sai status --format tui` shows a compact login identity, funds and unread-message
   panel, then returns to the shell. JSON remains the default for scripts.
+  Plain `sai` reuses that account read, showing plain text in a terminal and JSON
+  in a pipe or file. It requires no optional formatting dependency.
 - `sai jobs list` lists jobs in an authorized personal, organization, or
   project scope.
 - `sai jobs show` returns one authorized job.
@@ -59,7 +62,7 @@ The first implementation milestone is intentionally read-only:
   effective/target quotas and timestamped stored usage, without filesystem access.
 - `sai storage native-quota --workspace-key project:example` reads authorized
   Lustre project quota subjects on demand through the configured site gateway.
-- JSON is the default output. A compact table is available for interactive use.
+- Explicit commands default to JSON. A compact table is available for interactive use.
 - The client never sends raw Slurm user filters and does not expose an all-user
   scope.
 - `sai auth login` uses a browser-approved device flow once; later commands
@@ -205,6 +208,9 @@ site_id = "site-a"
 ## Use
 
 ```bash
+sai
+sai jobs cost --format table
+sai status --format json
 sai jobs list
 sai jobs list --scope project-account --account project-example
 sai jobs list --workspace-key project:example
