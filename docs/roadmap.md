@@ -116,11 +116,15 @@ pricing at Center and requires no site price bundle.
 - [x] Pair and publish the [unified job-observation implementation](billing-read-plane.md):
   same-observation optional Portal estimates and complete billing/v1 gateway reads;
   later TUI selected-job Cost integration was paired into production on 2026-10-02,
-  with positive current-job cost acceptance still separate.
+  with the retired UI's evidence kept separate from the batch consumer below.
 - [x] Positive full-scope running estimates in an authorized organization,
   including priced and not-started records, before/candidate/selected reads on
   2026-10-07. The compact cost presentation passed real SSH/PTY at 40 columns;
   this does not prove detail-cost or estimate-to-settlement association
+- [x] Positive single-job estimate through `sai jobs cost JOB_ID`, shared source
+  `5bfe8f74c690` (2026-10-07). An ordinary user's existing running job retained
+  its exact execution identity in candidate and selected JSON/40-column PTY
+  reads. Final settlement and independent price verification remain separate.
 
 The [multi-site topology decision](site-local-read-plane.md#explicit-site-selection-and-ingress-topology)
 preserves explicit user site choice and permits independent or shared ingress.

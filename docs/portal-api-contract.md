@@ -395,9 +395,13 @@ The command keeps the allowlisted job envelope and its attached
 timezone field; its human output therefore uses UTC rather than guessing a site
 or local timezone. Omitting the ID preserves the full-scope cost contract.
 The paired Center and shared-client installation completed on 2026-10-02.
-Ordinary-user historical task reads passed through the installed client;
-positive current-job cost acceptance remains separate because the live scope
-was empty. Local compatibility checks do not replace that positive read.
+Ordinary-user historical task reads passed through that installed client.
+On 2026-10-07, shared source `5bfe8f74c690` added the batch entry and passed a
+positive current-job read under an ordinary user's authorized organization
+scope. Candidate and selected JSON/table reads matched the original job,
+account and execution times; the exact native source was `scontrol`. The backend
+and shared connection configuration were unchanged. This proves consumption of
+one non-final estimate, not independent pricing or final settlement correctness.
 
 Paired CLI detail-cost producer: `905f6601026eccea8051e7db0b29e407c2386852`.
 

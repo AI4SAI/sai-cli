@@ -152,6 +152,17 @@ columns returned successfully, and the compact account summary still returned
 to the shell. The backend, configuration and billing authority were unchanged;
 the previous shared runtime remains available for rollback.
 
+The single-job batch entry was subsequently selected from `5bfe8f74c690`.
+An ordinary user read one naturally present, positively priced job through the
+existing central detail endpoint. Candidate and selected JSON and 40-column PTY
+reads preserved its account and execution timestamps, with `scontrol` as the
+source. The stable command entry also returned the non-final amount. Local
+validation passed 933 tests and 42 installed-wheel HTTP/consumer checks; both
+574-file runtime inventories and permissions matched. Shared configuration and
+credentials were preserved, all test staging and connections were cleared, and
+the previous runtime plus conditional rollback were retained. No new workload,
+pricing rule, billing write, backend package or site reader was introduced.
+
 Local verification covered 924 tests, the package build, installed-wheel fake
 HTTP reads with unchanged JSON, monetary visibility, full identifiers/amounts,
 missing prices, stale observations and narrow rendering. The live sample proves
