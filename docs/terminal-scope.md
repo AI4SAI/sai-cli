@@ -16,6 +16,11 @@ The inspected shared login profile maps `sqm` through `squeue` to `stat_job`,
 queries its native quota. This is implementation evidence, not a universal
 business definition of those scopes.
 
+The legacy `sqa`/`ja` mapping can select a Unix group name that is not the applied
+Slurm account. The shared alias migration binds those names to the existing
+`_SAI_LOGIN_ACCOUNT` context, also used by the login directory/summary. It does
+not repurpose Unix group variables or reinterpret an explicit CLI `-A` value.
+
 The first integration is `sai jobs local`, with thin versioned `stat_job` and
 `stat_job_all` wrappers in the shared package. It replaces shell interpolation
 and positional table parsing with Slurm's JSON and the shared job presenter.

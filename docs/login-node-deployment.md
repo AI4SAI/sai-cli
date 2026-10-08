@@ -101,5 +101,16 @@ package, mount or login-profile change is needed. Normal subsequent releases
 follow `cli/current`. A rollback to a release predating these wrappers must
 restore the saved legacy entries as part of the same bounded rollback.
 
+The legacy `sqa`/`ja` aliases also need the one-time
+[`native_job_aliases.patch`](../site/shell/native_job_aliases.patch) migration.
+They select `_SAI_LOGIN_ACCOUNT`, already resolved by the native login-context
+hook, rather than the unrelated Unix `GROUP_NAME`. Keep the Unix group variable
+for its existing consumers. Missing applied context is a clear error, never an
+all-job query or a guessed account. Apply the patch to a checksum-verified copy
+of the shared profile, check shell syntax, canary it, then replace that one
+profile atomically on the publisher. Keep its complete rollback copy. New login
+shells load the new aliases; existing shells retain their definitions until
+reloaded. Restore the profile before a paired CLI rollback that checks its hash.
+
 Remove obsolete runtime copies, temporary install trees and superseded wrappers
 after their consumers have migrated. Keep release evidence outside this repo.

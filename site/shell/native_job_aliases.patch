@@ -1,0 +1,7 @@
+--- a/bash.profile
++++ b/bash.profile
+@@ -21,2 +21,2 @@
+-alias ja='stat_job -A ${GROUP_NAME}'
+-alias sqa='stat_job -A ${GROUP_NAME}'
++alias ja='stat_job -A "${_SAI_LOGIN_ACCOUNT:?No applied Slurm account; use stat_job -A ACCOUNT}"'
++alias sqa='stat_job -A "${_SAI_LOGIN_ACCOUNT:?No applied Slurm account; use stat_job -A ACCOUNT}"'
