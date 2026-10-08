@@ -10,14 +10,12 @@ these focused command interactions.
 ## Human workflow
 
 Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.
-The inspected shared login profile maps `sqm` through `squeue` to `stat_job`,
-`sqa` to `stat_job -A` with its existing group context, `gpu` to `stat_gpu` and
-`cpu` to `stat_cpu`. The quota function resolves a path's Lustre project ID and
-queries its native quota. This is implementation evidence, not a universal
-business definition of those scopes.
+The shared login profile maps `sqm` through `squeue` to `stat_job`, and `sqa`/`ja`
+to `stat_job -A` with the applied Slurm account. `gpu`/`cpu` still use their
+existing native helpers; quota resolves a path's Lustre project ID and reads
+that project's native quota. These are native scopes, not business ownership.
 
-The legacy `sqa`/`ja` mapping can select a Unix group name that is not the applied
-Slurm account. The shared alias migration binds those names to the existing
+The shared alias migration replaced the unrelated Unix group selector with the
 `_SAI_LOGIN_ACCOUNT` context, also used by the login directory/summary. It does
 not repurpose Unix group variables or reinterpret an explicit CLI `-A` value.
 
@@ -26,6 +24,34 @@ The first integration is `sai jobs local`, with thin versioned `stat_job` and
 and positional table parsing with Slurm's JSON and the shared job presenter.
 See the [native contract](../contracts/native-jobs/v1/README.md). Source support
 does not by itself switch installed aliases or prove login/compute latency.
+
+## Local job delivery
+
+On 2026-10-09, CLI source `7c7e4a9b5a2e` and the shared alias migration
+`92fa9fcf61be` were deployed once through the existing shared publication.
+The selected 578-file runtime passed content/permission checks; the existing
+connection configuration stayed unchanged. Both old job scripts now delegate
+to the same versioned implementation. New shells load the corrected account
+aliases; already-open shells retain their definitions until reloaded.
+
+An ordinary user on one login and one compute node read their empty queue and
+a separately selected native-visible running-account sample. IDs/scopes matched
+native Slurm; tables, JSON, both packaged wrappers and actual SSH-shell aliases
+passed. The login had no Identity device session, while native reads succeeded.
+This does not establish a new authenticated Portal session or an owned running
+job. Slurm 26.05.1/data parser v0.0.45 and Python 3.12.3 were exercised.
+
+Five bounded samples gave median CLI times of 86/98 ms on the two nodes, versus
+44/42 ms for the legacy helper. Removing unrelated remote startup dependencies
+reduced the first candidate's 172/182 ms. These are observations, not a fleet
+performance guarantee. The source passed 970 tests; the installed runtime passed
+80 HTTP/native/auth/cost checks. The shell migration also passed its focused
+context tests. Prior runtime, exact helper/profile backups and paired rollback
+were retained; rollback was not exercised. Temporary canaries and the unselected
+candidate were removed. GPU/CPU/quota integration and Agent management remain
+separate unfinished work.
+
+## Local execution
 
 Integrate those operations with SAI command entrypoints using the existing
 helpers or a single shared replacement. Preserve valid flags, self/account

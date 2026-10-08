@@ -17,11 +17,13 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [x] Reconcile product/architecture and inspect the actual shared alias/helper
   chain; this is design and read-only inspection, not local-provider delivery
 - [x] Implement `sai jobs local` and versioned `stat_job`/`stat_job_all` wrappers
-  over one native Slurm JSON reader; shared activation is a separate check
+  over one native Slurm JSON reader; shared activation completed on 2026-10-09
+- [x] Bind `sqa`/`ja` to the applied native Slurm account and verify new login
+  shells; keep the Unix group namespace separate
 - [ ] Integrate `gpu`/`cpu` scheduler queries and native quota with shared local
   implementations, preserving familiar alias behavior
-- [ ] Verify native human/JSON reads on login and compute nodes without Portal
-  connectivity or credentials; measure local query count and added latency
+- [x] Verify local job human/JSON reads without a Portal device session on a
+  login node and one compute node; record native call count and sampled latency
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and
@@ -29,9 +31,9 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [ ] Verify a real permitted management round trip, concurrency/retry behavior
   and denied action, then broaden domain coverage through those same owners
 
-Local job reads are now in source alongside the HTTP read commands. Shared
-helper activation and live latency are recorded separately; the other native
-helpers and Agent management above remain unfinished.
+Local job reads and shared helper migration are deployed. The
+[bounded delivery record](terminal-scope.md#local-job-delivery) distinguishes
+that evidence from the remaining native helpers and Agent management.
 
 The three-kind managed-read migration preserves personal, organization and
 project account selection independently of files and future computation funding.

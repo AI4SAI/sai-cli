@@ -84,8 +84,10 @@ retry. CLI/API checks do not establish human usability or complete deployment.
 
 The client implements central business summaries and costs, authorized remote
 reads, and the explicit local job query. The shared package contains thin
-`stat_job`/`stat_job_all` entries for the latter; activation and ordinary-user
-live evidence are separate from source support. GPU/CPU/quota helper integration,
+`stat_job`/`stat_job_all` entries for the latter. Shared publication and account
+alias migration passed ordinary-user checks on a login and a compute node;
+see the [delivery record](docs/terminal-scope.md#local-job-delivery).
+GPU/CPU/quota helper integration,
 general Portal management and full portable Agent management acceptance remain
 unfinished. See [the runtime plan](docs/runtime-design.md)
 and [roadmap](docs/roadmap.md). Current read-only scope is an implementation

@@ -20,8 +20,8 @@ cost queries; a full terminal workbench is not the product target. See
 
 For a local Slurm query, use `sai jobs local --format table`, or
 `sai jobs local -A research --format table`. JSON is the default for agents and
-scripts. Existing shared `stat_job`/`stat_job_all` can migrate to the versioned
-wrappers for this same implementation; their alias names stay unchanged.
+scripts. Shared `stat_job`/`stat_job_all` now use this same implementation;
+`sqa`/`ja` select the applied Slurm account in new login shells.
 See the [native command contract](contracts/native-jobs/v1/README.md) for exact
 filter semantics and the [shared rollout](docs/login-node-deployment.md).
 
