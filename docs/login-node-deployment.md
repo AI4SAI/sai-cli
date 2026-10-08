@@ -1,5 +1,11 @@
 # Shared CLI deployment
 
+This is the cluster installation role, not the only supported product target.
+User devices and dedicated isolated user VMs install the same CLI independently
+with per-user configuration/credentials. They do not require this NFS tree or a
+Pilot runtime. Local native integration and Portal management remain planned;
+the currently delivered HTTP client and its shared installation are described below.
+
 The release has one immutable shared runtime archive. The small integration
 Debian package is only for an existing package-owned login-node entrypoint;
 compute nodes do not install it. `scripts/build_login_node_deb.py` builds both from
@@ -24,7 +30,7 @@ It is not a new per-command mount. Each node supplies Python 3.11 or later.
 .venv/bin/python scripts/build_login_node_deb.py --output-dir dist/deb
 ```
 
-For the login panel and complete workbench, add `--with-tui`. The publisher
+For the optional formatted login panel, add `--with-tui`. The publisher
 bundles the hash-pinned pure-Python wheels from `packaging/login-node/tui-requirements.txt`
 into that one shared release and records each wheel digest in the manifest.
 JSON/plain-text users retain the dependency-free base package; consumers never

@@ -1,29 +1,73 @@
 # sai-cli Architecture
 
-Status: implementation baseline
+Status: current HTTP-read baseline and 2026-10-09 human/Agent target correction
 
 ## Purpose
 
-`sai-cli` is a thin client for SAI control-plane APIs and explicitly configured
-site-local read gateways. Its job is to translate explicit user intent into a
-bounded request, validate the response contract, and render JSON or a human
-table. It is not an authorization engine and it is not a second scheduler.
+`sai-cli` translates human or Agent intent into a native local query or an
+authorized SAI API operation, then renders a human answer or structured result.
+It runs on cluster nodes, user devices and dedicated isolated SAI user VMs.
+The current implementation provides HTTP reads. Local native integration and
+Portal management are targets, not delivered capabilities. It owns neither
+business authorization nor scheduler decisions.
 
-Terminal users continue using native Slurm/Linux tools. The SAI presentation
-adds business context, access and cost information through the existing owners.
-[Terminal scope](terminal-scope.md) replaces the broad workbench with a concise
-account summary. Shared read APIs remain useful independently of the interface.
-The no-subcommand entry selects that same summary handler; terminal detection
+Terminal queries integrate familiar Slurm/Linux helpers and SSH aliases;
+account, access, budget and cost facts come from their existing business owners.
+[Command scope](terminal-scope.md) retires the broad workbench without removing
+local query convenience or authorized Agent management from the product.
+The current no-subcommand entry selects the existing account summary handler; terminal detection
 changes only plain-text versus JSON presentation, not the data source or authority.
 
-The architecture separates three responsibilities:
+The architecture keeps the following responsibilities separate:
 
 | Owner | Responsibility | Explicitly does not own |
 | --- | --- | --- |
 | `sai-identity` | Account identity, credentials, MFA, sessions, consent, OIDC/OAuth subjects, and shared profile | Portal workspace/membership/site/billing policy or scheduler facts |
 | Portal control plane | Workspace/membership, site access, compute-account ownership, policy version, authorization, and final billing facts | Identity credentials and high-frequency scheduler reads at every remote site |
 | Site-local read plane | Verify a narrow capability, further restrict filters, read native site facts, cache briefly, and buffer audit records | Membership or billing policy decisions |
-| `sai-cli` | Parse commands, complete a browser-approved device login when needed, renew short-lived credentials, call an authorized endpoint, validate DTOs, and render output | Raw scheduler access, broad fallback reads, or privilege expansion |
+| Local native query adapter | Reuse shared helpers and native Slurm/Linux/Lustre under the caller's Unix identity; normalize an observation once | Portal membership, pricing, privilege escalation or a second scheduler |
+| `sai-cli` | Common operation semantics, user authorization for remote operations, local/API routing, validated inputs/results and human/JSON presentation | Business databases, independent policy, pricing arithmetic or Agent orchestration |
+
+## Local queries and portable Agent management
+
+```text
+human aliases / commands ----+
+user-controlled agent ------+--> common CLI operation
+                                | local native observation
+                                +--> existing native helpers / Slurm / Lustre
+                                | business query or management
+                                +--> Portal domain API --> existing writer/task
+                                | remote native observation
+                                +--> selected site's authorized read gateway
+```
+
+Local queries execute as the current user using native clients. They do not
+bootstrap through Portal, load financial context first, or require a central
+token. The existing shared `stat_job`, `stat_gpu`, `stat_cpu` and quota helpers
+are the integration starting point. Extract/reuse a single implementation
+where machine-readable output needs it; do not parse a rendered table, launch
+an interactive login shell or install a daemon for every query.
+
+Execution source is selected before the request from operation intent, explicit
+site selection and installed configuration. A local read may expose different
+native visibility from a Portal-scoped read; report that scope instead of
+equating the two. A remote denial cannot silently fall back to a local read.
+Native cluster visibility grants no Portal management, file or financial right.
+
+Personal devices and user VMs use the same CLI and user/delegated Identity flow.
+An isolated VM does not imply Slurm credentials, a filesystem mount or extra
+rights. Agent operation discovery, JSON and noninteractive invocation do not
+require Pilot Session/Pool activation. Existing CLI shell-enabled read policy
+is a current API constraint, not the general authorization policy for all future
+Portal management. Pair the proper user/delegated API boundary with each domain
+service; do not remove shell checks from current contracts to emulate support.
+
+For writes, Portal remains the single domain writer. Reuse supported action
+validation, idempotency/concurrency checks, approval rules and durable site tasks.
+Return their existing identifiers and accepted/executed/failed outcomes; allow
+the caller to inspect completion without creating a second workflow engine.
+An available browser route is not automatically an OAuth Agent endpoint.
+Local source availability and remote management do not depend on 3D deployment.
 
 ## Current and target paths
 
@@ -66,9 +110,10 @@ Published resource-catalog reads end at Portal's stored product projection;
 they do not invoke the site reader.
 
 The resource catalogue has only a site context; job account/state filters do not
-apply. It is a batch read of published specifications and prices. Computation
-preparation belongs to Pilot, using the existing validation, pricing, proposal
-and confirmation owners. The CLI does not maintain a resource workflow.
+apply. It is a batch read of published specifications and prices. Pilot owns
+the Web computation-preparation experience. CLI/Agent management must integrate
+with the existing validation, pricing, proposal and confirmation services
+without embedding that UI or maintaining another resource workflow.
 
 Managed-run reads reuse Portal's existing ComputeRun records and readback
 services. The CLI supplies a site and reads only its own runs. Single-workspace reads
@@ -86,7 +131,9 @@ READ owner. Portal derives native identity and correlation; the existing site-ru
 helper permanently drops to the site's NSS user before fixed Slurm commands.
 Batch CLI, WebUI and Pilot consume one `compute.run-stats/v1` DTO. This is a separate
 existing owner-UID execution path, not a privilege fallback for the read gateway.
-No client executes Slurm or reconstructs whole-job utilization from step metrics.
+This remote Run client does not execute Slurm. A separate local native query
+must not masquerade as that authorized Run observation. Neither path
+reconstructs whole-job utilization from step metrics.
 
 Run placement follows the existing capability gateway, without a new native
 helper. Portal derives exact Run/user/account/job/correlation constraints after
@@ -132,14 +179,14 @@ it into the Portal envelope: the signed grant has no membership role to invent.
 The existing Portal JSON contract remains the default. The transport code is
 locally tested; service deployment and live-site validation are separate gates.
 
-For an interactive login-node user, the bootstrap is a one-time OAuth/OIDC
+For current remote API reads, the bootstrap is a one-time OAuth/OIDC
 Device Authorization Grant at `sai-identity`: the browser authenticates and
 approves the device, while the CLI keeps only a rotating, revocable refresh
 credential. A short-lived Portal-bound access token is renewed automatically;
 Portal still enforces its audience/scope and CLI read policy. SSH session
 reconnects therefore do not require another login.
 
-## Trust model
+## Current remote-read trust model
 
 1. SAI Identity authenticates the user and issues a token for the Portal
    resource. Portal then resolves a user-facing scope into an exact scheduler
@@ -231,8 +278,8 @@ The client treats these states differently:
 
 Historical accounting and final billing are separate products. A settled
 ledger is not a substitute for the live queue, and a running-cost estimate is
-not a final charge. The CLI receives the estimate from Portal and never reads
-pricing data or computes a price locally.
+not a final charge. The CLI receives the estimate from Portal; displaying the
+published price catalog does not make it a local pricing engine.
 
 Running estimates remain an explicit batch read. The account summary uses its
 own server-authorized exposure facts; it never sums a truncated job list.
@@ -285,14 +332,16 @@ sai_cli.render       JSON and table presentation
 sai_cli.cli          command parsing and exit-code policy
 ```
 
-The future site-local transport must implement the same client-facing
-interface instead of adding authorization or scheduler parsing to command
-handlers.
+Local native adapters and remote API clients keep command handlers thin.
+Parsing and normalization belong to the corresponding source adapter;
+authority remains with the native system or the API's domain owner.
 
 The gateway server is a separate low-privilege site-runtime role that reuses
 the existing site Slurm read adapter and normalized DTO. It is not packaged in
 the CLI wheel. This repository owns the client transport and shared protocol
-fixtures; it must not grow a duplicate native `squeue` reader.
+fixtures. Local CLI integration should reuse existing native helper/parser
+logic where applicable, without importing the gateway service, its credentials
+or a second copy of the same reader into the client.
 
 ## Controller Submission Policy Artifact
 

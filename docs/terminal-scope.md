@@ -1,110 +1,90 @@
-# Terminal scope
+# Human and Agent command scope
 
-Decision: the terminal complements native Slurm/Linux work with SAI-specific
-information. It does not reproduce Portal or Pilot. This supersedes the
-work-to-results rebuild brief and any requirement for TUI/Web feature parity.
+Decision: 2026-10-09, clarified by the user. `sai-cli` is shared by people and
+agents. Cluster users need fast queries integrated with their SSH aliases;
+remote agents need broader authorized query and management capabilities through
+Portal. The former summary-and-cost-only interpretation is superseded.
+The overloaded full-screen workbench remains retired; it is not the model for
+these focused command interactions.
 
-The full workbench was deployed on 2026-10-06 and then rejected on product
-grounds. Its read/PTY checks remain technical evidence only. Source now removes
-that shell: `sai tui` is a presentation entry to the existing `sai status` read,
-with no additional read model, polling, keyboard state or automatic navigation.
-It prints the summary and returns. Shared source `bdb847a62d79` was selected on
-2026-10-07 after an ordinary-user candidate read. The selected runtime passed
-Chinese/English reads at 40/60/100 columns and an actual SSH/PTY `sai tui` call
-that returned to the shell with exit 0. Its 574 runtime files and permissions
-were verified; connection configuration stayed unchanged and the prior release
-was retained for rollback. No Center, Identity, Pilot or gateway update was
-needed. These are agent-operated technical checks, not human product acceptance.
+## Human workflow
 
-## Primary need
+Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.
+The inspected shared login profile maps `sqm` through `squeue` to `stat_job`,
+`sqa` to `stat_job -A` with its existing group context, `gpu` to `stat_gpu` and
+`cpu` to `stat_cpu`. The quota function resolves a path's Lustre project ID and
+queries its native quota. This is implementation evidence, not a universal
+business definition of those scopes.
 
-A researcher working in the shell needs to understand the SAI conditions around
-their work: applied account/project, site access, usable funds or budget, cost,
-and issues requiring attention. Slurm knows scheduler state; Linux knows files
-and process permissions. Neither owns SAI membership, Credit, commercial prices,
-project budget or final charges.
+Integrate those operations with SAI command entrypoints using the existing
+helpers or a single shared replacement. Preserve valid flags, self/account
+selection, useful presentation and return-to-shell behavior. Establish the
+actual alias behavior before redirecting it. Do not parse a human table back
+into JSON or source the whole interactive login profile for each query.
 
-When the current Unix/Slurm identity can already read a local fact, use the
-native command directly. A queue, file or native quota lookup does not need a
-trip through the SAI gateway. That gateway serves authorized remote readers;
-testing it with the batch CLI does not make it the normal local workflow.
-SAI-specific account, budget and monetary facts keep their control-plane owner.
+Slurm client calls on a login/compute node stay in the site's native path;
+Lustre quota uses the filesystem available to that user. Local observations
+must not depend on obtaining a Portal capability, checking a central account
+summary or reaching a public endpoint first. A cost inquiry still goes to the
+business price owner. Local native permission and Portal business permission
+are separate, even when the displayed account names happen to match.
 
-Plain `sai` reads the existing account summary and returns to the shell. It uses
-plain text for a terminal and JSON for redirected output, with no optional UI
-dependency or automatic login. Explicit `sai status` keeps its JSON default.
-Source `3468ea841490` was selected in the shared runtime on 2026-10-07 after
-928 local tests, package checks and installed-wheel HTTP/pipe/PTY validation.
-An ordinary user's before, candidate and selected reads retained the same
-authorized context. Bare terminal output, redirected JSON and explicit-status
-JSON passed against the installed entrypoint, including a 40-column PTY and a
-literal `sai` invocation. All 574 runtime files and permissions matched the
-artifact; shared configuration and normal login were preserved. Operator staging
-and sessions were removed, and the previous runtime remains available for
-rollback. This verifies technical behavior, not human product acceptance.
+## Agent workflow
 
-The existing `sai status` and explicit cost commands already answer parts of
-this need. Start there. A short status panel returning to the shell is a useful
-outcome in itself. Interactive choice earns its place only when it removes a
-necessary manual lookup; a general-purpose terminal application does not.
+An agent on a user's computer or isolated SAI user VM invokes the same CLI
+operations through explicit arguments and JSON. It can query resources,
+accounts, organizations/projects, tasks, costs and operations, then manage the
+user's authorized Portal resources. Expose concrete existing business actions,
+not an unrestricted HTTP/SQL/shell proxy or a mirror of the Portal page tree.
+The surface can be broad without requiring a full-screen human navigation tree.
 
-## Feature disposition
+Use normal Identity user/delegated authorization and Portal's existing service
+owners. Model choice, chat sessions and Agent orchestration belong to the
+caller. CLI operation must not require Pilot Session, Pool or model-budget
+activation. Hosted agents use per-user credentials, not VM-root authority or
+shared platform keys. Greater command coverage does not mean greater rights.
 
-| Existing workbench area | Native or existing alternative | Product decision |
+## Shared operations, appropriate sources
+
+| Need | Cluster-local path | Remote device or VM path |
 | --- | --- | --- |
-| Queue, allocation, native statistics | `squeue`, `scontrol`, `sacct`, `sstat` | Remove the general TUI browser. Keep authorized APIs and batch consumers. |
-| Logs, files, previews and local saves | `tail`, `less`, editors, native file/transfer tools | Remove the TUI file/log workflow. Preserve managed remote-output contracts and explicit commands where native access is unavailable. |
-| Recorded work and task history | Pilot's job plugin and existing `sai runs` commands | Remove the full-work home; do not make Pilot history a prerequisite for terminal use. |
-| Applied identity, funds/budget and access issues | Existing `sai status`; native tools lack the business facts | Keep a short read-only summary; use actual server admission facts and bounded notices. |
-| Running estimates and settled costs | Existing `sai jobs cost` and `sai runs cost` | Keep explicit, readable cost inquiry. No duplicate queue, new pricing logic or assumed estimate-to-charge join. |
-| Project/account selection | Existing authorized discovery, where its scope matches the read | Offer named selection only for a necessary SAI inquiry. Viewing does not switch the shell account or funding. |
-| Resource catalogue and comparison | `sinfo` for native availability; `sai resources catalog` for published SAI specifications/prices | Keep explicit catalogue output. Remove the terminal preparation/comparison workflow and mandatory Pilot navigation. |
-| Storage | Native quota for filesystem facts; existing SAI quota commands for business observations | Remove the generic storage section. Expose a relevant confirmed limit in a summary only when its exact scope is known. |
-| Messages/account administration | Bounded `sai status` notices; Portal for management | Keep short relevant notices and a precise destination, not a terminal inbox or management app. |
-| Hardware placement/digital twin | Web hardware view and structured Agent/API reads | No required TUI resource tree, topology or 3D counterpart. |
-| Start work / Continue in Pilot | Pilot's own entry and native job plugin | Remove the terminal's workflow orchestration. Any retained link must solve a specific user need. |
+| Job queue/detail, GPU/CPU scheduler state | Existing native readers under the current identity | Authorized site reader where native access is unavailable |
+| Native quota of an accessible directory | Existing Lustre/native helper, no directory scan | Authorized quota subjects through the site gateway; no assumed local path mapping |
+| SAI account context, membership, budget, costs and messages | Portal domain API | Same Portal domain API |
+| User-authorized Portal management | Portal mutation API and existing operation/task receipt | Same contract, independently of Pilot |
 
-These are UI decisions, not a declaration that every listed native command is
-available from every host or has identical authorization. Existing machine
-contracts, remote reads and independent file/billing permissions remain intact.
-Do not wrap native commands inside the SAI client as a replacement backend.
+Bind source selection to the chosen operation/site and installed configuration.
+Do not probe unrelated sites, silently broaden a native filter or fall back
+from a remote denial to local credentials. Local and remote facts retain source,
+observation time, effective scope and unsupported-field semantics. Do not label
+scheduler allocation as physical utilization or native quota as purchased budget.
 
-## Delivery order
+## Migration and acceptance
 
-1. Correct the product brief, design, shared-interface requirements and roadmap.
-   Keep deployed behavior visibly separate from the accepted direction.
-2. Retire the general workbench navigation and its private view machinery.
-   Reuse the compact status presentation and explicit commands; do not replace
-   the shell with a smaller dashboard. Any retained interactive choice needs
-   an exact authoritative source and a benefit over the existing command.
-3. Delete unreferenced UI code and layout-only tests after checking actual
-   consumers. Preserve client contracts, safe file transfer, shared presenters
-   used outside the workbench, and their meaningful tests.
-4. Verify the retained question-to-answer interactions and shared command
-   compatibility, then publish through the existing shared-runtime procedure.
-   This delivery passed 917 local tests, package checks and installed-wheel
-   fake HTTP summary/status/cost reads. Existing ordinary-user account/funds
-   reads passed before, on the candidate and after selection. Native/cost self
-   lists were empty; they do not establish positive per-job cost acceptance.
-   Code landing, installed runtime and human usability remain separate claims.
+1. Reuse the observed SSH helpers for local query integration. Preserve the
+   existing aliases while establishing one command/adapter implementation;
+   retire replaced helper logic after its actual consumers migrate.
+2. Keep existing HTTP read commands stable during that change. A new default
+   local path requires explicit documentation and compatibility tests; do not
+   silently reinterpret a previously remote authorized command.
+3. Map Portal query/management operations to their canonical services and
+   normal user scopes. Start with an existing settings workflow such as default
+   account preferences, including its current site-sync receipt. Browser-only
+   routes may need a paired authorization adapter; do not borrow browser cookies.
+4. Validate a meaningful query and management round trip from a user device and
+   dedicated VM. Reuse idempotency, version/concurrency checks, approvals and
+   asynchronous states where the business action requires them. Reads never
+   trigger new device login, payments, resource activation or other mutations.
+5. Preserve one shared cluster publication, ordinary-user tests, native low
+   latency and independently reported local/API/production acceptance.
 
-No new backend service, account store, scheduler wrapper, token type or Portal
-screen is needed for this correction. Shared read improvements may continue for
-their real Web/Agent consumers. Pilot's native UI and runtime stay with its owner.
+## Delivered baseline
 
-## Acceptance
-
-A terminal feature must state what the native tools lack and why the existing
-CLI is insufficient. If only the first is true, ship a command or concise output.
-If both are true, use the smallest interaction that removes the extra work.
-
-Verify the current context, financial visibility, unknown/unavailable values,
-language and narrow/monochrome rendering. Check that the user can return to the
-shell immediately and is never forced to browse jobs, files or Pilot to learn
-their SAI status. Do not infer job funding, submission permission or directory
-ownership from whichever summary happens to be visible.
-
-The wider product still shares permissions and facts. Pilot owns the Web
-computing workflow; Portal owns its business domains. Role-based digital twins
-and asset-generated parametric 3D remain documented in
-[the hardware design](digital-twin-design.md), after trustworthy data.
+The existing `sai` summary, `sai status` and `sai jobs cost JOB_ID` remain valid
+parts. The shared runtime uses compact human presentation and stable JSON.
+The former Textual workbench is removed. Ordinary-user summary, one exact-job
+estimate and a separate remote personal quota/audit read have bounded delivery
+evidence in [roadmap](roadmap.md), [billing](billing-read-plane.md) and
+[site reads](site-local-read-plane.md). They do not prove the newly clarified
+local integration or Agent management. Neither requires waiting for 3D assets
+or the Pilot native UI release.

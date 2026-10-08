@@ -1,16 +1,24 @@
 # Terminal companion design
 
-The user is already working in an SSH shell, often beside an editor or a native
-command. SAI should answer a small platform-specific question and let that work
-continue. [Terminal scope](docs/terminal-scope.md) owns feature selection; this
-file governs the presentation of the retained interactions.
+People use SAI beside their existing SSH aliases, editor and native commands.
+Agents invoke the same client from user devices and dedicated isolated VMs.
+Keep local queries quick, business operations clear and machine results stable.
+[Command scope](docs/terminal-scope.md) owns the operation boundary; this file
+governs human presentation, not a restriction on Agent management coverage.
 
 ## One answer at a time
 
-The existing login/status summary is the starting point: applied identity,
+The existing login/status summary is a useful starting point: applied identity,
 authorized funds or budget, relevant access problems and short notices.
-It prints once and returns to the shell. It does not open a full-screen work
-list or require a round trip through Portal or Pilot.
+It prints once and returns to the shell, without opening another application
+or a full-screen work list. Its business facts come from Portal; local native
+queries remain independent of that summary request.
+
+Local job, GPU/CPU and quota queries should preserve the useful density and
+defaults of the existing SSH helpers. Reuse the same observation for human and
+JSON output. Avoid mandatory text entry, command catalogues or page navigation
+before a common query. Agent calls use explicit inputs and never wait for TUI
+interaction; they report the domain's required confirmation or operation state.
 
 Cost is an explicit inquiry. Show the account/site and whether the amount is a
 running estimate or a settled charge. Use the existing command and server

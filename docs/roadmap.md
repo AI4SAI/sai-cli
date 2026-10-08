@@ -7,6 +7,29 @@ Portal repository.
 Checkmarks cover the implementation or evidence stated on that line. They do
 not imply production activation or completion of a paired rollout.
 
+## Current priority: shared human and Agent CLI
+
+The 2026-10-09 user clarification supersedes the earlier summary/cost-only
+interpretation. Local SSH-style query convenience and authorized Portal
+management are both part of the product. The retired full-screen workbench
+does not return. Pilot delivery and hardware assets do not block this work.
+
+- [x] Reconcile product/architecture and inspect the actual shared alias/helper
+  chain; this is design and read-only inspection, not local-provider delivery
+- [ ] Integrate `sqm`/`sqa` job queries, `gpu`/`cpu` scheduler queries and native
+  quota with a shared local implementation, preserving familiar alias behavior
+- [ ] Verify native human/JSON reads on login and compute nodes without Portal
+  connectivity or credentials; measure local query count and added latency
+- [ ] Provide stable operation discovery and noninteractive Agent use on a user
+  device and dedicated isolated VM, with explicit local/remote prerequisites
+- [ ] Pair normal user/delegated authorization with existing Portal query and
+  management services; begin with an existing preferences action and its receipt
+- [ ] Verify a real permitted management round trip, concurrency/retry behavior
+  and denied action, then broaden domain coverage through those same owners
+
+The current package remains HTTP-read-only. Native helpers already exist in the
+shared SSH environment; integration and Agent management above are not shipped.
+
 The three-kind managed-read migration preserves personal, organization and
 project account selection independently of files and future computation funding.
 The [gateway and shared CLI prerequisite](site-local-read-plane.md#three-kind-reader-prerequisite)
@@ -21,7 +44,8 @@ the new domain contract.
 The full terminal workbench deployed on 2026-10-06 has been rejected. The
 [terminal scope decision](terminal-scope.md) replaces the complete-workflow
 brief: native Slurm/Linux remain the normal tools; SAI supplies concise
-business context, access, funds/budget and costs. Shared Web/Agent contracts
+business context, access, funds/budget and costs. The 2026-10-09 scope also
+includes native local query integration and Agent management. Shared Web/Agent contracts
 do not require matching TUI screens.
 
 - [x] Correct product scope, presentation rules and cross-interface requirements

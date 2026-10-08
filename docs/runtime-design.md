@@ -1,6 +1,37 @@
 # Runtime Design
 
-Status: read-only commands frozen
+Status: deployed HTTP reads; local query integration and Portal management planned
+
+## Target execution model
+
+The 2026-10-09 product clarification makes this a human-and-Agent client.
+Integrate the existing SSH aliases and native helpers for low-latency queries on
+login/compute nodes. Those native operations use the current UID and site;
+configuration for a Portal URL, an OAuth token or a site capability must not be
+a prerequisite for their execution. Local observations and human/JSON output
+share a native source; they do not scrape one another's presentation.
+
+Account, organization/project, budget, policy and management operations use
+Portal domain APIs in all deployment environments. Agents on user devices or
+dedicated isolated VMs use the same typed operations and per-user authorization,
+without Pilot activation. Remote site observations retain narrow capabilities.
+The current parser/provider constructs the HTTP client for its commands;
+local dispatch must be selected before those HTTP prerequisites are resolved.
+
+Preserve the existing explicit HTTP read contracts during migration. The first
+local slice will reuse the observed job/GPU/CPU/quota helper behavior and select
+the local source deliberately; names and flags are not implemented by this design
+text. Existing remote errors must not cause a silent source or authority change.
+
+The first management vertical should use an existing account preference action:
+discover allowed choices, request a change through the canonical preference
+writer, and observe its site-sync result. Check its real OAuth/user authorization
+and retry/concurrency contract before exposing it to Agents. Prefer existing
+operation receipts; do not add a generic write proxy, task database or approval
+framework. JSON operation discovery must distinguish implemented reads, native
+prerequisites and management operations rather than advertise planned commands.
+
+## Current implementation
 
 The terminal presentation follows [terminal scope](terminal-scope.md).
 With no subcommand, `sai` uses the same central account read: plain text when
@@ -396,11 +427,13 @@ not alter the server strings retained in JSON or calculate a new price.
 In JSON mode, errors are emitted as a small JSON object on stderr. In table
 mode they are emitted as one plain diagnostic line.
 
-## Legacy wrapper migration
+## Existing helper and alias integration
 
-Site-specific legacy commands may later become package-managed wrappers around
-the canonical CLI. A wrapper may translate an old command name and select table
-format, but it must not query the scheduler directly or implement authorization.
+Existing native helpers and aliases are the starting point for local queries.
+Reuse their implementation, or migrate it once into a shared native adapter.
+After a helper is replaced, its wrapper only translates the familiar name and
+flags and selects human output; do not retain two competing query engines.
+Native queries keep the caller's Unix authority, without wrapper-owned policy.
 
 The rollout sequence is: inventory and checksum, stage the new package, canary
 through an explicit path, atomically switch package-managed wrappers, validate,

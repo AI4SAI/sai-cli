@@ -6,79 +6,91 @@ product
 
 ## Purpose
 
-SAI helps researchers use shared computing resources. Terminal users already
-work in a shell with Slurm, Linux tools, scripts and editors. The SAI client
-adds authorized information those tools do not have, without making users move
-their work into another application.
+`sai-cli` is the shared SAI interface for people, scripts and user-controlled
+agents. It connects two everyday needs: fast cluster queries integrated with
+SSH habits, and authorized queries and management of the SAI control plane.
+It runs on SAI login/compute nodes, a user's own device, or a dedicated isolated
+SAI VM. Pilot is one consumer, not a requirement for another agent to use SAI.
 
-The full terminal workbench is rejected. A unified backend means consistent
-facts and permissions, not the same features or screens in every client. The
-[terminal scope decision](docs/terminal-scope.md) replaces the full-workbench
-brief. Source now replaces the full-screen shell with the existing compact
-account summary. Installed-runtime and human-usability acceptance remain
-separate from this source change.
+The 2026-10-09 user clarification supersedes the earlier summary-and-cost-only
+interpretation. Retiring an overloaded full-screen workbench does not remove
+local query integration or Agent management from the product. The existing
+summary and cost commands remain useful delivered parts, not the entire scope.
 
-## Terminal value
+## People and agents
 
-The useful questions are specific to SAI:
+| Consumer | Primary use | Interaction |
+| --- | --- | --- |
+| Person on a login/compute node | Queries like `sqm`, `sqa`, `gpu`, `cpu` and `quota`, plus account, budget and cost information | Familiar aliases and short commands, useful defaults, compact tables and optional focused interaction |
+| Agent or script on any supported host | Query SAI and manage the user's authorized Portal resources | Stable structured results, discoverable operations, bounded errors and verifiable mutation outcomes |
 
-- Which account and project am I using here, and is its site access effective?
-- What funds or project budget may I use, and what is already committed?
-- What does this computation cost, using SAI's prices and billing authority?
-- Is an access issue, expiring entitlement or relevant notice affecting my work,
-  and where can I resolve it?
+These are presentation choices over common operations. An agent may expose a
+broader command surface, but gains no authority beyond its user and the user's
+explicit delegation. A person can use the same management commands. The CLI
+contains no model loop, chat store or separate Agent runtime.
 
-Start with the existing `sai status` summary and explicit cost commands. A
-short answer that returns to the shell is often the whole interaction. Do not
-turn these questions into an account-management application. An interactive
-selector is justified only where choosing an authorized name removes repeated
-lookup or technical input. No full-screen home is required by this product.
+## Execution and authority
 
-Queue inspection, submission, logs, files and native statistics remain part of
-the user's normal tools. Existing API commands can serve remote reads, scripts
-and Agent integrations without acquiring a corresponding TUI page.
+Local Slurm/Linux/Lustre observations should execute under the current Unix
+identity, on the selected local site, without a Portal login or gateway round
+trip. Integrate the existing shared helpers and aliases; reuse or migrate their
+implementation once instead of maintaining competing native readers. Local
+means a local client of the site's native systems, not a full cluster scan or
+remote SSH to every compute node.
 
-## Responsibilities
+Membership, account ownership, budgets, commercial prices, approvals and final
+charges belong to Portal. Query and management commands call the corresponding
+business APIs. Remote native reads use the selected site's authorized gateway.
+Both local and remote observations identify their source and scope; native
+visibility is not proof of Portal membership, billing permission or asset truth.
+A failed remote read must not silently retry with different local authority.
 
-Pilot owns its native Web computation experience, Agent, sessions and job
-plugin. Portal owns membership, site access, business policy and final billing.
-Identity owns authentication. Site systems supply dynamic native facts through
-authorized site readers. The user chooses the compute site.
+Portal management reuses its existing domain services, role checks, operation
+records and task-first site effects. The CLI requests an action and reports its
+actual outcome; it never writes business databases, uses a site-admin secret,
+or treats an accepted asynchronous task as complete. Existing approval rules
+apply to their operations, without a second generic approval system in the CLI.
 
-The CLI stays read-only and consumes those owners' contracts. It does not add
-native-command fallbacks, a scheduler, account policy or a pricing engine.
-Reducing the TUI does not remove shared APIs needed by WebUI, Pilot or Agent.
-Those consumers do not depend on a terminal workbench being available.
+## Deployment
 
-## Interaction and appearance
+- Login/compute nodes consume one shared `/opt/sai` publication and the existing
+  shell integration. Native queries stay local and do not require per-node
+  services or per-command mounts.
+- A user's device installs the client independently and obtains that user's
+  Identity authorization for Portal and remote reads. It needs neither a
+  shared NFS mount nor an active Pilot session.
+- A dedicated user VM uses the same client and per-user credentials. Network
+  proximity or VM isolation grants no extra scope. Local adapters are available
+  only where the native environment and user identity are actually provided.
 
-Give the answer first: a named context, a relevant value or problem, and a useful
-next action. Preserve the shell, scrollback and current work. Known context and
-authorized choices replace requests to type platform IDs. Viewing another
-account does not change the shell's submission account, directory or payer.
+## Experience and acceptance
 
-Use terminal-native surfaces, restrained SAI color, clear spacing and readable
-amounts. Normal information stays quiet; color accompanies words. Full-width
-frames, permanent toolbars, technical provenance and unrelated modules must not
-compete with the answer. See [the terminal design](DESIGN.md).
+Preserve the shell, familiar aliases, scriptability and fast repeated queries.
+Use authorized names and existing login context to avoid repeated technical-ID
+entry. Querying another account does not change the submission account, working
+directory or payer; management changes are explicit separate operations.
 
-Codex CLI, Claude Code and OpenCode inform focused interaction and progressive
-disclosure. Their complete Agent interfaces are not a template for this client.
+Verify native query counts and latency on login and compute nodes, including
+operation without Portal connectivity or OAuth credentials. Verify that human
+and JSON output describe the same observation. GPU allocation and scheduler
+capacity must remain distinct from measured utilization.
 
-## Acceptance
+Verify Agent queries and one complete management action on both a user device
+and a dedicated VM through normal user authority: accepted intent, execution,
+receipt, errors and readback. A request must not become a repeated mutation on
+retry. CLI/API checks do not establish human usability or complete deployment.
 
-For each interaction, identify the missing native capability and compare it
-with the existing one-shot CLI. The user should obtain a useful SAI answer and
-return to work without learning a navigation system or copying internal IDs.
-If interaction adds no value, keep the command and omit the screen.
+## Current delivery
 
-Check Chinese/English, narrow/wide terminals, permission loss and unavailable
-sources. Unknown funds are not zero; funds alone cannot prove submission is
-allowed. Tests and deployment establish technical behavior, not user interest.
+The installed client currently implements central business summaries and costs,
+plus authorized remote job, resource, storage and result reads. Existing SSH
+aliases already query native systems separately. Their integrated local CLI
+provider, general Portal management commands and the full portable Agent
+management acceptance are not delivered yet. See [the runtime plan](docs/runtime-design.md)
+and [roadmap](docs/roadmap.md). Current read-only scope is an implementation
+milestone, not a permanent product restriction.
 
-## Digital twin
-
-WebUI's role-filtered hardware view and Agent-readable facts remain in scope.
-Real task allocations, registered assets and measured telemetry are separate
-facts. Parameterized 3D comes from an asset inventory after data is trustworthy.
-It does not require a terminal hardware tree. See [the design](docs/digital-twin-design.md).
+WebUI/Pilot product modules and the role-based hardware digital twin remain
+with their existing owners. [Hardware design](docs/digital-twin-design.md) records
+asset-based parametric 3D and Agent-readable facts; 3D is not a prerequisite for
+local queries or user-authorized Portal management.

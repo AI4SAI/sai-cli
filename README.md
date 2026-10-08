@@ -1,17 +1,24 @@
 # sai-cli
 
-`sai-cli` is the command-line client for SAI compute services. It provides a
-stable, machine-readable interface to Portal-authorized, site-scoped compute
-data while keeping authorization decisions out of login-node shell wrappers.
+`sai-cli` is the shared SAI command-line interface for humans, scripts and
+user-controlled agents. Its target covers fast cluster-local queries integrated
+with existing SSH aliases, and authorized Portal queries and management from
+user devices or dedicated isolated SAI user VMs.
 
-Terminal users keep using Slurm and Linux for their normal work. SAI adds its
-own account/access information, funds, budget and cost facts. Start with `sai`
+Local query integration will reuse the `sqm`, `sqa`, `gpu`, `cpu` and `quota`
+helpers under the current Unix identity, with no central login or gateway hop.
+Business queries and management use Portal's existing authority. The deployed
+CLI currently implements HTTP reads; integrated local providers and Portal
+mutation commands remain planned. See [the product scope](PRODUCT.md).
+
+The existing account/access information, funds, budget and cost commands remain
+available. Start with `sai`
 for a brief account summary, then return to work. Redirecting `sai` produces
 JSON; explicit commands such as `sai status` keep their JSON default. Use explicit
 cost queries; a full terminal workbench is not the product target. See
 [terminal scope](docs/terminal-scope.md).
 
-The first implementation milestone is intentionally read-only:
+The implemented remote API surface is currently read-only:
 
 - `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
   reads one bounded UTF-8 output section. Current file permission is checked
@@ -83,6 +90,10 @@ scope, workspace, partition, state, limit and storage options are rejected;
 use the corresponding batch command for those reads. See
 [terminal scope](docs/terminal-scope.md) for the rationale and deployment boundary.
 
+Portal management, including its applicable task/approval semantics, is a
+product requirement that is not implemented by the current read-only client.
+It must work for user-controlled agents without depending on a Pilot Session
+or model runtime. Agent command coverage does not expand the user's permissions.
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
 through a protected `site_read_base_url` profile setting; deployment is separate.
@@ -171,7 +182,8 @@ export SAI_TOKEN='<short-lived-identity-token>'
 export SAI_REQUIRE_SITE_CAPABILITY=1
 ```
 
-All installations use SAI Identity authentication. `SAI_TOKEN` is process-local
+All current HTTP commands use SAI Identity authentication. Planned native local
+queries use the existing Unix/native authority independently. `SAI_TOKEN` is process-local
 and is never cached; it does not belong in a shell profile or TOML file.
 Legacy HMAC exchange and its bearer cache are retired. `SAI_API_USERNAME`,
 `SAI_API_KEY_ID`, `SAI_API_SHARED_SECRET`, and TOML `username`/`key_id` settings

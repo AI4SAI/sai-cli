@@ -35,15 +35,16 @@
 - `sai-identity` owns account identity, credentials, MFA, sessions, consent,
   OIDC/OAuth subjects, and shared profile. Portal owns membership, account
   ownership, site access, policy, authorization, and final billing facts.
-- A future site-local read gateway may verify a narrow signed capability,
+- The site-local read gateway may verify a narrow signed capability,
   further restrict filters, read native facts, cache briefly, and buffer audit
   records. It must not become an authorization or write service.
-- `sai-cli` parses explicit user intent, obtains short-lived credentials (via
-  the SAI Identity OIDC Device Authorization Grant in managed mode), calls an
-  authorized endpoint, validates an allowlisted DTO, and renders output.
-  It must not query Slurm, storage, identity databases/administrative APIs, or
-  broad site-agent endpoints directly; the registered OIDC protocol endpoint is
-  the sole identity interaction.
+- `sai-cli` is shared by humans and agents. Local native queries integrate
+  existing Slurm/Linux/Lustre helpers under the caller's actual Unix authority;
+  Portal queries and management use normal Identity authorization and canonical
+  business APIs. Local reads must not require a gateway round trip or OAuth login.
+  Do not query identity/business databases, use broad site-agent administrative
+  credentials, or treat local visibility as Portal business authorization.
+  Identity interaction uses registered OIDC/OAuth protocol endpoints.
 - Read permission never implies submit, cancel, hold, requeue, QOS mutation,
   quota mutation, wallet, or ledger permission.
 
@@ -51,13 +52,17 @@
 
 ### Terminal product boundary
 
-- Terminal users keep Slurm/Linux as their normal tools. SAI supplements their
-  work with business context, access, funds/budget and cost information.
+- Humans need local low-latency queries integrated with `sqa`, `sqm`, `gpu`,
+  `cpu` and `quota`, plus SAI business information. Agents need broader authorized
+  Portal queries and management from user devices or dedicated isolated user VMs.
+- The 2026-10-09 user clarification supersedes summary/cost-only and permanent
+  read-only restrictions. Follow `PRODUCT.md` and `docs/terminal-scope.md`.
 - The full workbench has been removed from source. Follow
   `docs/terminal-scope.md`; shared APIs do not require matching TUI pages.
 - Prefer the existing compact `sai status` and explicit commands. Add interaction
   only when it removes a necessary lookup or technical input. Do not rebuild
-  Portal, Pilot, a queue browser or a file manager in the terminal.
+  Portal or Pilot as a full-screen terminal application. Focused query interaction
+  and scriptable Portal management are part of the product.
 
 ### Implemented surface
 
@@ -160,16 +165,20 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ### Durable Mutation Semantics
 
-- The current CLI is read-only. Any future write command requires a separate
-  architecture review; adding an HTTP verb to the client is not sufficient.
+- The implemented CLI is currently read-only; authorized Portal management is
+  part of the target. Map each write to the existing domain service, user scope,
+  concurrency/idempotency and receipt contract before implementation. Adding an
+  HTTP verb or borrowing a browser/admin credential is not that integration.
 - Site-affecting mutations are task-first. The center records an idempotent
   intent, the site executes it, and center final facts advance only from the
   receipt for the exact object incarnation. A stale receipt must not mutate a
   replacement object.
-- Future write commands need explicit idempotency keys, accepted/executed/
-  failed states, retry semantics, audit records, and readback. Never present a
-  queued or uncertain operation as successful.
-- Do not add synchronous SSH fallbacks, direct native command fallbacks, broad
+- Future write commands reuse the domain's concurrency, retry and audit
+  contracts. Non-idempotent actions require idempotency keys; asynchronous
+  operations distinguish accepted/executed/failed states and support readback.
+  Never present a queued or uncertain operation as successful.
+- Keep deliberate local native reads separate from remote APIs. Do not add
+  synchronous SSH fallbacks, privilege-changing native fallbacks, broad
   exception fallbacks, or client-side fake success when a durable path fails.
 
 ### Identity, Workspace, Site, And Billing Dimensions
@@ -271,9 +280,10 @@ editing either side. Do not copy private collaboration logs into this repo.
   raw scheduler data, wallet, and ledger fields never pass through to output.
 - Reject control characters and invalid types before rendering. Table output
   must not permit terminal escape injection.
-- All authorization and filter validation is repeated server-side. Client
-  validation improves ergonomics and reduces accidental calls; it is not a
-  security boundary.
+- Remote authorization and filter validation is repeated server-side; local
+  native access is enforced by the OS and native system under the caller's UID.
+  Client validation improves ergonomics and reduces accidental calls; it is
+  not a security boundary.
 
 ## CLI And Contract Discipline
 

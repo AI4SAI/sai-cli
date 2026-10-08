@@ -17,6 +17,14 @@ consumes. The control plane remains the source of truth for authorization and
 may evolve independently, so contract changes require compatibility tests in
 both repositories.
 
+This is the implemented remote-read contract, not the entire CLI product scope.
+Planned local native queries use the caller's Unix/native authority independently.
+Planned Portal management must pair normal user/delegated authorization with
+the existing domain writers and their concurrency, retry and operation-result
+contracts. Existing read scopes and capabilities remain read-only; this document
+does not register management routes or grant write access. See
+[command scope](terminal-scope.md).
+
 ## Authentication
 
 User endpoints require a short-lived access token whose issuer and audience are

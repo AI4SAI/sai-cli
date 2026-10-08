@@ -2,6 +2,12 @@
 
 状态：Identity-only 认证已配对发布；剩余生产验收见 [roadmap](roadmap.md)
 
+2026-10-09 范围澄清：本文描述远程 API 凭据。本地 Slurm/Linux/Lustre 查询使用
+当前 Unix 用户的原生权限，不因整合进 CLI 就需要浏览器登录。用户设备或专有隔离
+VM 上的 Agent 使用本人/委托 OAuth 授权调用 Portal，不依赖 Pilot 会话。
+业务管理的写 scope 和各领域 API 配对尚未交付；现有 compute/billing/storage
+只读 scope 不能据此增权，当前 CLI shell-enabled 规则也不是所有业务操作的通用前提。
+
 ## 用户体验
 
 登录节点不要求用户在每次 SSH 会话中输入密码、复制 Bearer 或设置环境

@@ -5,11 +5,13 @@ now retires the full-screen terminal workbench under [terminal scope](terminal-s
 `sai tui` reads only the compact central account overview. Earlier TUI deployment
 records below retain their historical evidence boundary.
 
-Local users keep native Slurm/Linux reads wherever their current identity can
-already obtain the fact. This API plane serves clients that need authorized
-remote access, including Web and remote Agent consumers. It is not a mandatory
-hop for local queue, file or quota commands. The batch CLI can exercise that
-remote contract; it does not replace local tools or add a second native adapter.
+The 2026-10-09 product clarification includes local native queries within the
+shared human/Agent CLI, integrated with existing SSH helpers and aliases.
+Reuse one native implementation under the current Unix identity; local queue,
+node and quota reads need no gateway hop or Portal OAuth credential. This
+document describes the separately authorized remote read plane, still needed
+by Web and remote Agent consumers. Local integration is planned, not delivered
+by the gateway. Portal management uses business APIs, not this read gateway.
 
 The workbench replacement adds central actor-owned Run discovery while retaining
 this site's native read paths. Native job rows optionally include a scoped
@@ -153,7 +155,8 @@ sampling is added only for a named feature with a bounded retention policy.
 | Portal issuer | identity/membership/site policy, scope resolution, signing, epoch, audit of issuance | interactive Slurm reads |
 | Site-read gateway | signature verification, filter narrowing, native reads, short cache, audit buffer | membership/RBAC, wallet/ledger, provisioning, scheduler writes |
 | Native adapter | bounded `squeue` and `scontrol show job` reads | user authorization |
-| `sai-cli`/`sai-pilot` | explicit intent, capability renewal, transport, allowlist validation, rendering | keys, policy, Slurm, pricing arithmetic |
+| Remote `sai-cli`/`sai-pilot` consumer | explicit intent, capability renewal, transport, allowlist validation, rendering | signing keys, policy or pricing arithmetic |
+| Planned local CLI provider | integrate existing native helpers with human/JSON presentation under the current UID | Portal authority, elevated privileges or a new scheduler |
 
 The gateway is a separate low-privilege runtime role. It is not the existing
 write-capable site-agent process, and it is not packaged in the CLI wheel.
