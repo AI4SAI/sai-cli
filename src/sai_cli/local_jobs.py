@@ -5,47 +5,17 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import math
 import os
 import re
 from typing import Any, Mapping
 
 from .contracts import JobItem, short_job_state
-from .errors import ConfigError, ContractError, UnavailableError
+from .errors import ConfigError, ContractError
 from .native_process import read_native_json
+from .native_values import (invalid_native as _invalid, native_number as _number,
+                            native_text as _text, local_options, native_environment,
+                            native_header, native_user)
 from .render import job_table_lines
-
-
-def _invalid() -> ContractError:
-    return ContractError("Slurm returned invalid job data", code="native_response_invalid")
-
-
-def _text(value: object, *, required: bool = False) -> str | None:
-    if value is None and not required:
-        return None
-    if not isinstance(value, str) or len(value) > 4096 or (required and not value):
-        raise _invalid()
-    try:
-        value.encode("utf-8")
-    except UnicodeError as exc:
-        raise _invalid() from exc
-    # Job names are data, including control characters accepted by Slurm.
-    return "".join(f"\\x{ord(char):02x}" if ord(char) < 32 or 127 <= ord(char) <= 159 else char
-                   for char in value)
-
-
-def _number(value: object) -> int | None:
-    if isinstance(value, dict):
-        if type(value.get("set")) is not bool or type(value.get("infinite")) is not bool:
-            raise _invalid()
-        if not value["set"] or value["infinite"]:
-            return None
-        value = value.get("number")
-    if value is None:
-        return None
-    if type(value) is not int or not 0 <= value < 2**63:
-        raise _invalid()
-    return value
 
 
 def _timestamp(value: int | None) -> str | None:
@@ -149,20 +119,10 @@ class LocalJobs:
 
 
 def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> LocalJobs:
-    try:
-        import pwd
-    except ImportError as exc:
-        raise UnavailableError("local Slurm queries require a Unix native environment",
-                               code="native_client_unavailable") from exc
-    for name in ("config", "profile", "base_url", "site", "cluster", "cache", "no_cache", "allow_insecure_http"):
-        if getattr(args, name, None) not in (None, False):
-            raise ConfigError(f"jobs local uses this host's native Slurm context, not --{name.replace('_', '-')}")
-    timeout = args.timeout if args.timeout is not None else 10.0
-    if not math.isfinite(timeout) or not 0 < timeout <= 120:
-        raise ConfigError("--timeout must be greater than zero and at most 120 seconds")
+    timeout = local_options(args, command="jobs local")
     if args.limit is not None and not 1 <= args.limit <= 100000:
         raise ConfigError("--limit must be between 1 and 100000")
-    actor = pwd.getpwuid(os.geteuid()).pw_name
+    actor = native_user()
     filters = {key: getattr(args, key) for key in ("users", "accounts", "partition", "qos", "states")}
     for value in filters.values():
         if value is not None and (not value.strip() or len(value) > 4096
@@ -177,17 +137,11 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
     argv = ["squeue", "--json", "--local"]
     options = {"users": "user", "accounts": "account", "partition": "partition", "qos": "qos", "states": "states"}
     argv.extend(f"--{options[key]}={value}" for key, value in filters.items() if value is not None)
-    native_env = {key: value for key, value in environ.items() if not key.startswith(("SQUEUE_", "SAI_", "_SAI_"))}
+    native_env = native_environment(environ, filter_prefix="SQUEUE_")
     payload = read_native_json(argv, environ=native_env, timeout=timeout)
-    if not isinstance(payload.get("errors"), list) or not isinstance(payload.get("warnings"), list):
+    cluster, warning_count = native_header(payload)
+    if not isinstance(payload.get("jobs"), list):
         raise _invalid()
-    if payload["errors"]:
-        raise UnavailableError("Slurm reported a query error", code="native_query_failed")
-    meta = payload.get("meta")
-    slurm = meta.get("slurm") if isinstance(meta, dict) else None
-    if not isinstance(slurm, dict) or not isinstance(payload.get("jobs"), list):
-        raise _invalid()
-    cluster = _text(slurm.get("cluster"), required=True)
     observed_at = datetime.now(timezone.utc).replace(microsecond=0)
     items = tuple(_item(job, observed=int(observed_at.timestamp())) for job in payload["jobs"])
     # One display order for JSON and humans, matching the familiar state groups.
@@ -199,7 +153,7 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
         items = items[:args.limit]
     return LocalJobs(cluster=cluster, actor=actor, uid=os.geteuid(), filters=filters,
                      observed_at=observed_at.isoformat().replace("+00:00", "Z"), items=items,
-                     has_more=has_more, warning_count=len(payload["warnings"]))
+                     has_more=has_more, warning_count=warning_count)
 
 
 def render_local_jobs(result: LocalJobs) -> str:

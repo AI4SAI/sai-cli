@@ -73,6 +73,10 @@
   Portal scope; `contracts/native-jobs/v1/README.md` owns its filter/JSON contract.
   Shared `stat_job` and `stat_job_all` wrappers use that same implementation.
   Their deployment is a separate one-time shared-entry migration.
+- `sai resources local` shares the native process/value boundary and uses one
+  per-node `sinfo` JSON response for GPU/CPU/memory and partition metadata.
+  Resource helpers keep native permission, omit site-specific whitelists and
+  distinguish configured/effective, allocated, blocked and reported quantities.
 - The implemented surface includes `sai jobs list`, `sai jobs show`,
   `sai jobs allocation`, and the
   non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`

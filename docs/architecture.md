@@ -7,7 +7,7 @@ Status: current HTTP-read baseline and 2026-10-09 human/Agent target correction
 `sai-cli` translates human or Agent intent into a native local query or an
 authorized SAI API operation, then renders a human answer or structured result.
 It runs on cluster nodes, user devices and dedicated isolated SAI user VMs.
-The current implementation provides HTTP reads and explicit local job queries.
+The current implementation provides HTTP reads and explicit local job/resource queries.
 Other native query integration and Portal management remain targets. It owns neither
 business authorization nor scheduler decisions.
 
@@ -45,8 +45,9 @@ Local queries execute as the current user using native clients. They do not
 bootstrap through Portal, load financial context first, or require a central
 token. The shared native helpers are the integration starting point. `sai jobs
 local` and the packaged `stat_job`/`stat_job_all` wrappers now share one Slurm JSON
-reader and the existing job presenter. Other helpers retain their current
-implementation until deliberately migrated. Extract/reuse a single implementation
+reader and the existing job presenter. Resource helpers now have a common
+`resources local` implementation over one per-node `sinfo` response; their shared
+activation is a separate migration. Extract/reuse a single implementation
 where machine-readable output needs it; do not parse a rendered table, launch
 an interactive login shell or install a daemon for every query.
 

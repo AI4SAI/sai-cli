@@ -20,7 +20,7 @@ def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout
         process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, env=dict(environ), bufsize=0)
     except FileNotFoundError as exc:
-        raise UnavailableError("Slurm's squeue client is not installed or is not on PATH",
+        raise UnavailableError("the native Slurm client is not installed or is not on PATH",
                                code="native_client_unavailable") from exc
     except OSError as exc:
         raise UnavailableError("the native client could not be started", code="native_query_failed") from exc

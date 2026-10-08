@@ -16,6 +16,8 @@ node packages never write files into the shared filesystem.
 /opt/sai/cli/releases/<version>/bin/sai
 /opt/sai/cli/releases/<version>/bin/stat_job
 /opt/sai/cli/releases/<version>/bin/stat_job_all
+/opt/sai/cli/releases/<version>/bin/stat_gpu
+/opt/sai/cli/releases/<version>/bin/stat_cpu
 /opt/sai/cli/releases/<version>/site-packages/
 /opt/sai/cli/current -> releases/<version>
 /opt/sai/bin/sai -> ../cli/current/bin/sai
@@ -46,7 +48,7 @@ archive ownership and permissions are deterministic; the manifest records the
 full Git SHA, source/wheel/runtime digests and node-package digest.
 
 The runtime tar contains only `cli/releases/<version>` with the client and its
-managed entrypoint and thin native-job wrappers. The node package contains `/usr/bin/sai`, a generic example
+managed entrypoint and thin native job/resource wrappers. The node package contains `/usr/bin/sai`, a generic example
 and its manifest under `/usr/share/sai-cli`. It contains no runtime code, token,
 key, site agent, scheduler reader or Portal ORM. Never run a package installer on
 multiple nodes against the same shared runtime files.
@@ -114,3 +116,11 @@ reloaded. Restore the profile before a paired CLI rollback that checks its hash.
 
 Remove obsolete runtime copies, temporary install trees and superseded wrappers
 after their consumers have migrated. Keep release evidence outside this repo.
+
+GPU/CPU helpers follow the same shared-entry migration: checksum and retain the
+existing scripts, canary the explicit `bin/stat_gpu`/`bin/stat_cpu` wrappers,
+then link the two shared entries to `cli/current/bin`. Preserve positional
+partition selection. Default output becomes a compact partition overview;
+selecting a partition or `--details` shows node observations. This changes neither
+the `gpu`/`cpu` aliases nor their native permission boundary. Rollback to a version
+without these wrappers restores their saved scripts before changing `cli/current`.

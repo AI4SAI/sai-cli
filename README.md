@@ -7,8 +7,9 @@ user devices or dedicated isolated SAI user VMs.
 
 Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
-`sai jobs local` implements the first slice; GPU/CPU/quota integration and Portal
-management remain planned. Business operations retain Portal's authority.
+`sai jobs local` and `sai resources local` implement native job and resource
+queries; native quota integration and Portal management remain planned.
+Business operations retain Portal's authority.
 See [the product scope](PRODUCT.md).
 
 The existing account/access information, funds, budget and cost commands remain
@@ -24,6 +25,12 @@ scripts. Shared `stat_job`/`stat_job_all` now use this same implementation;
 `sqa`/`ja` select the applied Slurm account in new login shells.
 See the [native command contract](contracts/native-jobs/v1/README.md) for exact
 filter semantics and the [shared rollout](docs/login-node-deployment.md).
+
+For local capacity, `sai resources local --kind gpu --format table` shows a
+partition overview. Add a partition name or `--details` for node observations.
+The shared package provides `stat_gpu`/`stat_cpu` wrappers for existing aliases.
+See [native resources](contracts/native-resources/v1/README.md) for the distinction
+between allocations, blocked capacity, node reports and actual utilization.
 
 The implemented remote API surface is currently read-only:
 
@@ -105,7 +112,7 @@ Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
 through a protected `site_read_base_url` profile setting; deployment is separate.
 Running estimates are read from the
-independent Portal billing DTO; the CLI has no pricing engine or Slurm reader.
+independent Portal billing DTO; native observations do not create a local pricing engine.
 See
 [docs/roadmap.md](docs/roadmap.md) for the exact boundary.
 

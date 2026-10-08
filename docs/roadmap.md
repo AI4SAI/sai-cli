@@ -20,8 +20,10 @@ does not return. Pilot delivery and hardware assets do not block this work.
   over one native Slurm JSON reader; shared activation completed on 2026-10-09
 - [x] Bind `sqa`/`ja` to the applied native Slurm account and verify new login
   shells; keep the Unix group namespace separate
-- [ ] Integrate `gpu`/`cpu` scheduler queries and native quota with shared local
-  implementations, preserving familiar alias behavior
+- [x] Implement `resources local` and GPU/CPU wrappers over one native observation;
+  source support is separate from shared activation and ordinary-user checks
+- [ ] Deliver GPU/CPU shared helper migration and compact resource presentation
+- [ ] Integrate native quota with the existing local filesystem helper
 - [x] Verify local job human/JSON reads without a Portal device session on a
   login node and one compute node; record native call count and sampled latency
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user

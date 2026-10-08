@@ -113,8 +113,18 @@ def build_parser() -> argparse.ArgumentParser:
     cost_parser.add_argument("--partition", help="partition narrowing filter")
     _add_format_argument(cost_parser)
 
-    resources = commands.add_parser("resources", help="read published site resource specifications")
+    resources = commands.add_parser("resources", help="query native resources or published specifications")
     resource_commands = resources.add_subparsers(dest="resources_command", required=True)
+    native_resources = resource_commands.add_parser("local", help="query local Slurm GPU/CPU resources without Portal login")
+    native_resources.add_argument("partition_name", nargs="?", help="native partition name")
+    native_resources.add_argument("-p", "--partition", help="native partition narrowing filter")
+    native_resources.add_argument("-n", "--node", help="native node/hostlist narrowing filter")
+    native_resources.add_argument("--kind", choices=("all", "gpu", "cpu"), default="all",
+                                  help="GPU GRES nodes, nodes without GPU GRES, or both")
+    native_resources.add_argument("--details", action="store_true", help="include node details in human output (implicit with a partition)")
+    native_resources.add_argument("--timeout", type=float, default=argparse.SUPPRESS,
+                                  help="native query deadline in seconds (default: 10)")
+    _add_format_argument(native_resources)
     catalog_parser = resource_commands.add_parser("catalog", help="show compute and storage specifications and prices")
     _add_connection_arguments(catalog_parser, suppress_defaults=True)
     _add_format_argument(catalog_parser)
@@ -499,6 +509,14 @@ def main(
     env = os.environ if environ is None else environ
 
     try:
+        if args.command == "resources" and args.resources_command == "local":
+            from .local_resources import read_local_resources, render_local_resources
+            result = read_local_resources(args, environ=env)
+            width = shutil.get_terminal_size().columns if output.isatty() else 80
+            details = args.details or args.partition_name is not None or args.partition is not None
+            output.write(render_json(result.as_dict()) if output_format == "json" else
+                         render_local_resources(result, details=details, width=width))
+            return 0
         if args.command == "jobs" and args.jobs_command == "local":
             from .local_jobs import read_local_jobs, render_local_jobs
             result = read_local_jobs(args, environ=env)
@@ -671,7 +689,11 @@ def main(
             output.write(render_table(result))
         return 0
     except SaiCliError as exc:
-        if (args.command == "auth" and args.auth_command == "status"
+        if (args.command == "status" and output_format in {"table", "tui"}
+                and isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"):
+            errors.write("SAI account information: run sai auth login to sign in.\n" if args.language == "en-US"
+                         else "SAI 账户信息：运行 sai auth login 后可查看。\n")
+        elif (args.command == "auth" and args.auth_command == "status"
                 and output_format == "table" and isinstance(exc, AuthenticationError)
                 and (exc.code == "credentials_unavailable" or exc.request_id is not None)):
             from .contracts import ACCOUNT_VERIFICATION_PATH

@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: HTTP reads and explicit native job queries; further native integration and Portal management planned
+Status: HTTP reads and native job/resource queries; native quota and Portal management planned
 
 ## Target execution model
 
@@ -23,7 +23,10 @@ values and presentation, without loading authentication or remote product client
 Preserve the explicit HTTP read contracts during migration. `sai jobs local`
 implements the existing job-helper filter semantics through Slurm JSON; the
 [native contract](../contracts/native-jobs/v1/README.md) records names, flags,
-units and failure limits. GPU/CPU/quota integration follows separately.
+units and failure limits. `resources local` reuses the same native execution/value
+boundary for one per-node `sinfo` response; its [contract](../contracts/native-resources/v1/README.md)
+separates effective capacities, allocations, blocked resources and reported
+metrics. Native quota integration follows separately.
 Remote errors must not cause a silent source or authority change.
 
 The first management vertical should use an existing account preference action:

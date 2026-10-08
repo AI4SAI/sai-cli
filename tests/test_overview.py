@@ -30,6 +30,24 @@ def sample():
     return json.loads(SAMPLE.read_text())
 
 
+@pytest.mark.parametrize('output_format', ['table', 'tui', 'json'])
+@pytest.mark.parametrize('language', ['zh-CN', 'en-US'])
+def test_missing_optional_account_session_is_a_hint_for_people_not_fake_success(tmp_path, output_format, language):
+    out, err = StringIO(), StringIO()
+    with http_endpoint(lambda *_: pytest.fail('no session must not request an API')) as (origin, calls):
+        code = main(['status', '--format', output_format, '--language', language, '--site', 'site-a', '--base-url', origin],
+                    environ={'XDG_CONFIG_HOME': str(tmp_path/'config'),
+                             'XDG_DATA_HOME': str(tmp_path/'data'), 'XDG_CACHE_HOME': str(tmp_path/'cache')},
+                    stdout=out, stderr=err)
+    assert code == 3 and not out.getvalue() and not calls
+    if output_format == 'json':
+        assert json.loads(err.getvalue())['error']['code'] == 'credentials_unavailable'
+    elif language == 'zh-CN':
+        assert err.getvalue() == 'SAI 账户信息：运行 sai auth login 后可查看。\n'
+    else:
+        assert err.getvalue() == 'SAI account information: run sai auth login to sign in.\n'
+
+
 def test_overview_keeps_money_scope_and_sensitive_field_allowlist():
     value = sample()
     value["token"] = "private-token"
