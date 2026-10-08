@@ -82,11 +82,12 @@ retry. CLI/API checks do not establish human usability or complete deployment.
 
 ## Current delivery
 
-The installed client currently implements central business summaries and costs,
-plus authorized remote job, resource, storage and result reads. Existing SSH
-aliases already query native systems separately. Their integrated local CLI
-provider, general Portal management commands and the full portable Agent
-management acceptance are not delivered yet. See [the runtime plan](docs/runtime-design.md)
+The client implements central business summaries and costs, authorized remote
+reads, and the explicit local job query. The shared package contains thin
+`stat_job`/`stat_job_all` entries for the latter; activation and ordinary-user
+live evidence are separate from source support. GPU/CPU/quota helper integration,
+general Portal management and full portable Agent management acceptance remain
+unfinished. See [the runtime plan](docs/runtime-design.md)
 and [roadmap](docs/roadmap.md). Current read-only scope is an implementation
 milestone, not a permanent product restriction.
 

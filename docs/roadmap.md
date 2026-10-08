@@ -16,8 +16,10 @@ does not return. Pilot delivery and hardware assets do not block this work.
 
 - [x] Reconcile product/architecture and inspect the actual shared alias/helper
   chain; this is design and read-only inspection, not local-provider delivery
-- [ ] Integrate `sqm`/`sqa` job queries, `gpu`/`cpu` scheduler queries and native
-  quota with a shared local implementation, preserving familiar alias behavior
+- [x] Implement `sai jobs local` and versioned `stat_job`/`stat_job_all` wrappers
+  over one native Slurm JSON reader; shared activation is a separate check
+- [ ] Integrate `gpu`/`cpu` scheduler queries and native quota with shared local
+  implementations, preserving familiar alias behavior
 - [ ] Verify native human/JSON reads on login and compute nodes without Portal
   connectivity or credentials; measure local query count and added latency
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
@@ -27,8 +29,9 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [ ] Verify a real permitted management round trip, concurrency/retry behavior
   and denied action, then broaden domain coverage through those same owners
 
-The current package remains HTTP-read-only. Native helpers already exist in the
-shared SSH environment; integration and Agent management above are not shipped.
+Local job reads are now in source alongside the HTTP read commands. Shared
+helper activation and live latency are recorded separately; the other native
+helpers and Agent management above remain unfinished.
 
 The three-kind managed-read migration preserves personal, organization and
 project account selection independently of files and future computation funding.

@@ -10,8 +10,9 @@ shared human/Agent CLI, integrated with existing SSH helpers and aliases.
 Reuse one native implementation under the current Unix identity; local queue,
 node and quota reads need no gateway hop or Portal OAuth credential. This
 document describes the separately authorized remote read plane, still needed
-by Web and remote Agent consumers. Local integration is planned, not delivered
-by the gateway. Portal management uses business APIs, not this read gateway.
+by Web and remote Agent consumers. The local job command now has its own native
+implementation; further helper integration remains planned. Neither is delivered
+by this gateway. Portal management uses business APIs, not this read gateway.
 
 The workbench replacement adds central actor-owned Run discovery while retaining
 this site's native read paths. Native job rows optionally include a scoped

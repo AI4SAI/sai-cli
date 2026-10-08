@@ -92,8 +92,16 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     wrapper = shared / "cli/releases" / manifest["version"] / "bin/sai"
     release = f"/opt/sai/cli/releases/{manifest['version']}/site-packages"
     assert release in wrapper.read_text(encoding="utf-8")
+    native_wrapper = wrapper.with_name("stat_job")
+    assert native_wrapper.read_text() == (
+        f'#!/bin/sh\nset -eu\nexec "/opt/sai/cli/releases/{manifest["version"]}/bin/sai" jobs local --format table "$@"\n'
+    )
+    subprocess.run(["sh", "-n", str(native_wrapper)], check=True)
+    all_wrapper = wrapper.with_name("stat_job_all")
+    assert "jobs local --format table --user '*'" in all_wrapper.read_text()
+    subprocess.run(["sh", "-n", str(all_wrapper)], check=True)
     for path in shared.rglob("*"):
-        expected_mode = 0o755 if path.is_dir() or path == wrapper else 0o644
+        expected_mode = 0o755 if path.is_dir() or path in {wrapper, native_wrapper, all_wrapper} else 0o644
         assert path.stat().st_mode & 0o777 == expected_mode
 
 

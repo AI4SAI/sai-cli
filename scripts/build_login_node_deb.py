@@ -253,6 +253,10 @@ def build(*, output_dir: Path, allow_dirty: bool = False, with_tui: bool = False
         wrapper = (source_dir / "packaging/login-node/sai").read_text(encoding="utf-8")
         wrapper = wrapper.replace("@SAI_CLI_PYTHONPATH@", f"/opt/sai/{release_rel.as_posix()}")
         _write(shared / "cli/releases" / version / "bin/sai", wrapper, mode=0o755)
+        for name, selector in (("stat_job", ""), ("stat_job_all", "--user '*' ")):
+            native_wrapper = (f'#!/bin/sh\nset -eu\nexec "/opt/sai/cli/releases/{version}/bin/sai" '
+                              f'jobs local --format table {selector}"$@"\n')
+            _write(shared / "cli/releases" / version / "bin" / name, native_wrapper, mode=0o755)
         (stage / "usr/bin").mkdir(parents=True)
         (stage / "usr/bin/sai").symlink_to("/opt/sai/bin/sai")
         _write(
@@ -272,7 +276,7 @@ def build(*, output_dir: Path, allow_dirty: bool = False, with_tui: bool = False
                 info.uid = info.gid = 0
                 info.uname = info.gname = "root"
                 info.mtime = timestamp
-                info.mode = 0o755 if path.is_dir() or path.name == "sai" else 0o644
+                info.mode = 0o755 if path.is_dir() or path.name in {"sai", "stat_job", "stat_job_all"} else 0o644
                 if path.is_file():
                     with path.open("rb") as content:
                         archive.addfile(info, content)

@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: deployed HTTP reads; local query integration and Portal management planned
+Status: HTTP reads and explicit native job queries; further native integration and Portal management planned
 
 ## Target execution model
 
@@ -15,13 +15,14 @@ Account, organization/project, budget, policy and management operations use
 Portal domain APIs in all deployment environments. Agents on user devices or
 dedicated isolated VMs use the same typed operations and per-user authorization,
 without Pilot activation. Remote site observations retain narrow capabilities.
-The current parser/provider constructs the HTTP client for its commands;
-local dispatch must be selected before those HTTP prerequisites are resolved.
+Local job dispatch now runs before HTTP/config/auth prerequisites. Remote
+commands retain their existing client and authorization setup.
 
-Preserve the existing explicit HTTP read contracts during migration. The first
-local slice will reuse the observed job/GPU/CPU/quota helper behavior and select
-the local source deliberately; names and flags are not implemented by this design
-text. Existing remote errors must not cause a silent source or authority change.
+Preserve the explicit HTTP read contracts during migration. `sai jobs local`
+implements the existing job-helper filter semantics through Slurm JSON; the
+[native contract](../contracts/native-jobs/v1/README.md) records names, flags,
+units and failure limits. GPU/CPU/quota integration follows separately.
+Remote errors must not cause a silent source or authority change.
 
 The first management vertical should use an existing account preference action:
 discover allowed choices, request a change through the canonical preference
@@ -50,6 +51,8 @@ The current release exposes read-only job and resource commands:
 
 ```bash
 sai
+sai jobs local --format table
+sai jobs local -A research --format json
 sai status --site site-a --format tui
 sai status --site site-a --format json
 sai jobs list --site site-a
@@ -71,7 +74,7 @@ sai resources catalog --site site-a --format table
 `--format json` is the default. `--format table` is intended for a person at a
 terminal. JSON is always written to stdout; diagnostics are written to stderr.
 
-The first release does not implement:
+Remote API commands do not implement:
 
 - job submission, cancellation, hold, requeue, suspend, or QOS changes;
 - normal-user all-site or all-account queries;

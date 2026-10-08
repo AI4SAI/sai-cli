@@ -5,11 +5,11 @@ user-controlled agents. Its target covers fast cluster-local queries integrated
 with existing SSH aliases, and authorized Portal queries and management from
 user devices or dedicated isolated SAI user VMs.
 
-Local query integration will reuse the `sqm`, `sqa`, `gpu`, `cpu` and `quota`
-helpers under the current Unix identity, with no central login or gateway hop.
-Business queries and management use Portal's existing authority. The deployed
-CLI currently implements HTTP reads; integrated local providers and Portal
-mutation commands remain planned. See [the product scope](PRODUCT.md).
+Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
+under the current Unix identity, with no central login or gateway hop.
+`sai jobs local` implements the first slice; GPU/CPU/quota integration and Portal
+management remain planned. Business operations retain Portal's authority.
+See [the product scope](PRODUCT.md).
 
 The existing account/access information, funds, budget and cost commands remain
 available. Start with `sai`
@@ -17,6 +17,13 @@ for a brief account summary, then return to work. Redirecting `sai` produces
 JSON; explicit commands such as `sai status` keep their JSON default. Use explicit
 cost queries; a full terminal workbench is not the product target. See
 [terminal scope](docs/terminal-scope.md).
+
+For a local Slurm query, use `sai jobs local --format table`, or
+`sai jobs local -A research --format table`. JSON is the default for agents and
+scripts. Existing shared `stat_job`/`stat_job_all` can migrate to the versioned
+wrappers for this same implementation; their alias names stay unchanged.
+See the [native command contract](contracts/native-jobs/v1/README.md) for exact
+filter semantics and the [shared rollout](docs/login-node-deployment.md).
 
 The implemented remote API surface is currently read-only:
 

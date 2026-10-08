@@ -40,7 +40,7 @@ from .transport import JsonTransport
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sai",
-        description="Read-only command-line client for SAI compute services",
+        description="SAI command-line interface for people and agents",
         epilog="With no command, show the SAI account summary (JSON when redirected).",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -96,6 +96,12 @@ def build_parser() -> argparse.ArgumentParser:
         _add_format_argument(run_parser)
     jobs = commands.add_parser("jobs", help="read authorized scheduler jobs")
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
+
+    local_parser = job_commands.add_parser("local", help="query this host's Slurm directly, without Portal login")
+    _add_connection_arguments(local_parser, suppress_defaults=True)
+    from .local_jobs import add_local_job_arguments
+    add_local_job_arguments(local_parser)
+    _add_format_argument(local_parser)
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
     _add_connection_arguments(list_parser, suppress_defaults=True)
@@ -487,6 +493,11 @@ def main(
     env = os.environ if environ is None else environ
 
     try:
+        if args.command == "jobs" and args.jobs_command == "local":
+            from .local_jobs import read_local_jobs, render_local_jobs
+            result = read_local_jobs(args, environ=env)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_local_jobs(result))
+            return 0
         settings = resolve_settings(args, env)
         transport = _build_transport(settings)
         oidc_client = _build_oidc_client(settings)

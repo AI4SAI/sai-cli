@@ -16,6 +16,12 @@ The inspected shared login profile maps `sqm` through `squeue` to `stat_job`,
 queries its native quota. This is implementation evidence, not a universal
 business definition of those scopes.
 
+The first integration is `sai jobs local`, with thin versioned `stat_job` and
+`stat_job_all` wrappers in the shared package. It replaces shell interpolation
+and positional table parsing with Slurm's JSON and the shared job presenter.
+See the [native contract](../contracts/native-jobs/v1/README.md). Source support
+does not by itself switch installed aliases or prove login/compute latency.
+
 Integrate those operations with SAI command entrypoints using the existing
 helpers or a single shared replacement. Preserve valid flags, self/account
 selection, useful presentation and return-to-shell behavior. Establish the
@@ -86,5 +92,5 @@ The former Textual workbench is removed. Ordinary-user summary, one exact-job
 estimate and a separate remote personal quota/audit read have bounded delivery
 evidence in [roadmap](roadmap.md), [billing](billing-read-plane.md) and
 [site reads](site-local-read-plane.md). They do not prove the newly clarified
-local integration or Agent management. Neither requires waiting for 3D assets
+remaining local integration or Agent management. Neither requires waiting for 3D assets
 or the Pilot native UI release.

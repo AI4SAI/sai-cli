@@ -42,6 +42,12 @@ _RUNNING_ESTIMATE_COLUMNS = (
     ("cash", "Cash before Credit"),
 )
 
+_JOB_TABLE_NOTES = (
+    "GPU is the GPU count per node.",
+    "MemPerU is host memory per GPU or CPU logical unit.",
+    "Slots may represent requested tasks while pending and allocated CPU slots while running.",
+)
+
 
 def format_decimal(value: str, places: int = 2, *, trim: bool = False) -> str:
     """Format a validated decimal for readers without hiding nonzero small values."""
@@ -216,7 +222,7 @@ def render_native_quota(result: NativeQuotaResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _job_table_lines(items: tuple[JobItem, ...]) -> list[str]:
+def job_table_lines(items: tuple[JobItem, ...], *, notes: tuple[str, ...] = _JOB_TABLE_NOTES) -> list[str]:
     rows = [_row(item) for item in items]
     widths: list[int] = []
     for key, heading, maximum in _COLUMNS:
@@ -237,13 +243,7 @@ def _job_table_lines(items: tuple[JobItem, ...]) -> list[str]:
             )
     else:
         lines.append("(no jobs)")
-    lines.extend(
-        (
-            "GPU is the GPU count per node.",
-            "MemPerU is host memory per GPU or CPU logical unit.",
-            "Slots may represent requested tasks while pending and allocated CPU slots while running.",
-        )
-    )
+    lines.extend(notes)
     return lines
 
 
@@ -253,7 +253,7 @@ def render_table(result: JobResult) -> str:
         f"Scope: {result.scope}  Source: {result.freshness.source}  "
         f"Queried: {result.freshness.queried_at}"
     )
-    return "\n".join([header, *_job_table_lines(result.items)]) + "\n"
+    return "\n".join([header, *job_table_lines(result.items)]) + "\n"
 
 
 def render_site_jobs(result: SiteJobResult) -> str:
@@ -263,7 +263,7 @@ def render_site_jobs(result: SiteJobResult) -> str:
         f"Scope: {result.scope_type}  Source: {freshness.source}",
         f"Observed: {freshness.observed_at}  Age: {freshness.age_seconds}s  "
         f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
-        *_job_table_lines(result.items),
+        *job_table_lines(result.items),
     ]
     return "\n".join(lines) + "\n"
 
