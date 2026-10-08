@@ -87,8 +87,8 @@ reads, and explicit local job/resource queries. The shared package contains thin
 `stat_job`/`stat_job_all` entries for the latter. Shared publication and account
 alias migration passed ordinary-user checks on a login and a compute node;
 see the [delivery record](docs/terminal-scope.md#local-job-delivery).
-GPU/CPU resource integration is in source with its own shared-rollout checks;
-native quota integration,
+GPU/CPU resource helpers also use the shared CLI and have passed ordinary-user
+login/compute checks. Native quota integration,
 general Portal management and full portable Agent management acceptance remain
 unfinished. See [the runtime plan](docs/runtime-design.md)
 and [roadmap](docs/roadmap.md). Current read-only scope is an implementation

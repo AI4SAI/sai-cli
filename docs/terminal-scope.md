@@ -11,8 +11,8 @@ these focused command interactions.
 
 Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.
 The shared login profile maps `sqm` through `squeue` to `stat_job`, and `sqa`/`ja`
-to `stat_job -A` with the applied Slurm account. `gpu`/`cpu` still use their
-existing native helpers; quota resolves a path's Lustre project ID and reads
+to `stat_job -A` with the applied Slurm account. `gpu`/`cpu` use the common native
+resource reader; quota resolves a path's Lustre project ID and reads
 that project's native quota. These are native scopes, not business ownership.
 
 The shared alias migration replaced the unrelated Unix group selector with the
@@ -48,8 +48,37 @@ performance guarantee. The source passed 970 tests; the installed runtime passed
 80 HTTP/native/auth/cost checks. The shell migration also passed its focused
 context tests. Prior runtime, exact helper/profile backups and paired rollback
 were retained; rollback was not exercised. Temporary canaries and the unselected
-candidate were removed. GPU/CPU/quota integration and Agent management remain
-separate unfinished work.
+candidate were removed. Native quota and Agent management remain unfinished.
+
+## Local resource delivery
+
+Source `26f118f7ae77` was published through the same shared runtime on
+2026-10-09. `gpu`/`cpu` retain their names and positional partition selection;
+their old script bodies were replaced by thin versioned wrappers. No node
+package, mount, profile or connection-configuration update was needed.
+
+The default is now a partition overview, with node details on an explicit
+partition or `--details`. Allocated, free and blocked resources remain separate;
+GPU figures are Slurm GRES units rather than measured utilization or attested
+physical cards. CPU/memory capacity excludes native reservations. Host load and
+free-memory reports keep their separate meaning and unknown values. Human
+missing-session output is a short sign-in hint; JSON and authentication failure
+exit codes are unchanged.
+
+The 582-file runtime passed content/permission readback. Source checks passed
+1011 tests and 124 installed-wheel checks. An ordinary user on a login node and
+one compute node matched the native node set and cross-checked effective CPU,
+configured memory and GPU quantities with `scontrol`; both wrapper modes,
+partition selection, summaries/details and actual login aliases passed. Existing
+`sqm`/`sqa` and applied-account context also passed after selection.
+
+Five local-query samples gave median whole-CLI times of 113/124 ms on the two
+nodes; native `sinfo` was about 42/36 ms and the old helpers about 40–44 ms.
+This is a bounded one-site observation, not a fleet latency or human product
+acceptance claim. Old runtime/helper backups and conditional rollback were
+retained, without a rollback exercise. Temporary probes/uploads were removed.
+Neither these checks nor scheduler counts establish actual GPU utilization,
+hardware identity, user job eligibility or new Portal management authority.
 
 ## Local execution
 

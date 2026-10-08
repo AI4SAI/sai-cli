@@ -22,7 +22,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
   shells; keep the Unix group namespace separate
 - [x] Implement `resources local` and GPU/CPU wrappers over one native observation;
   source support is separate from shared activation and ordinary-user checks
-- [ ] Deliver GPU/CPU shared helper migration and compact resource presentation
+- [x] Deliver GPU/CPU shared helper migration and compact resource presentation;
+  ordinary-user login/compute checks completed on 2026-10-09
 - [ ] Integrate native quota with the existing local filesystem helper
 - [x] Verify local job human/JSON reads without a Portal device session on a
   login node and one compute node; record native call count and sampled latency
@@ -33,7 +34,7 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [ ] Verify a real permitted management round trip, concurrency/retry behavior
   and denied action, then broaden domain coverage through those same owners
 
-Local job reads and shared helper migration are deployed. The
+Local job/resource reads and shared helper migrations are deployed. The
 [bounded delivery record](terminal-scope.md#local-job-delivery) distinguishes
 that evidence from the remaining native helpers and Agent management.
 
