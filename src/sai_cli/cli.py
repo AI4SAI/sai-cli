@@ -8,33 +8,18 @@ import os
 import shutil
 import sys
 import time
-from typing import Mapping, Sequence, TextIO
+from typing import TYPE_CHECKING, Mapping, Sequence, TextIO
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from . import __version__
-from .auth import (
-    DeviceAuthorization,
-    OidcClient,
-    TokenProvider,
-)
-from .capability import CapabilityProvider
-from .client import JobQuery, PortalClient, clean_states
-from .config import Settings, resolve_settings
-from .contracts import ACCOUNT_VERIFICATION_PATH
 from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
-from .oidc import OidcPending, OidcSlowDown
-from .overview_view import render_overview
-from .render import (
-    render_account_status, render_json, render_resource_catalog,
-    render_running_estimate_table, render_site_allocation, render_site_jobs,
-    render_storage_quota_summary, render_native_quota,
-    render_table,
-)
-from .site_jobs import SiteJobAllocationResult, SiteJobResult
-from .site_placement import SiteJobPlacementResult
-from .render import render_site_placement
-from .storage_summary import clean_workspace_key, render_storage_workspaces
-from .transport import JsonTransport
+from .render import render_json
+
+if TYPE_CHECKING:
+    from .auth import DeviceAuthorization, OidcClient, TokenProvider
+    from .client import JobQuery
+    from .config import Settings
+    from .transport import JsonTransport
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,8 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     local_parser = job_commands.add_parser("local", help="query this host's Slurm directly, without Portal login")
     local_parser.add_argument("--timeout", type=float, default=argparse.SUPPRESS,
                               help="native query deadline in seconds (default: 10)")
-    from .local_jobs import add_local_job_arguments
-    add_local_job_arguments(local_parser)
+    _add_local_job_arguments(local_parser)
     _add_format_argument(local_parser)
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
@@ -208,6 +192,15 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
     )
 
 
+def _add_local_job_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("-A", "--account", "--accounts", dest="accounts", help="native Slurm account(s), comma-separated")
+    parser.add_argument("-u", "--user", "--users", dest="users", help="native user(s); '*' selects all native-visible users")
+    parser.add_argument("-p", "--partition", help="native partition(s)")
+    parser.add_argument("-q", "--qos", help="native QOS name(s)")
+    parser.add_argument("-t", "--states", "--status", dest="states", help="native states, such as R,PD")
+    parser.add_argument("--limit", type=int, default=None, help="maximum returned rows; JSON reports has_more when limited")
+
+
 def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--scope",
@@ -231,6 +224,7 @@ def _add_format_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def _build_transport(settings: Settings) -> JsonTransport:
+    from .transport import JsonTransport
     return JsonTransport(
         base_url=settings.base_url,
         timeout_seconds=settings.timeout_seconds,
@@ -239,6 +233,8 @@ def _build_transport(settings: Settings) -> JsonTransport:
 
 
 def _build_oidc_client(settings: Settings) -> OidcClient | None:
+    from .auth import OidcClient
+    from .transport import JsonTransport
     issuer = (settings.identity_issuer or "").strip()
     if not issuer:
         return None
@@ -292,6 +288,8 @@ def _poll_device_authorization(
     interval_seconds: int,
     output: TextIO,
 ) -> dict[str, object]:
+    from .oidc import OidcPending, OidcSlowDown
+
     now = int(provider.clock())
     deadline = authorization.expires_at if authorization is not None else now + 600
     interval = max(1, min(30, int(interval_seconds)))
@@ -337,6 +335,9 @@ def _handle_auth_command(
     output: TextIO,
     errors: TextIO,
 ) -> int:
+    from .auth import DeviceAuthorization
+    from .render import render_account_status
+
     output_format = getattr(args, "format", "json")
     if args.auth_command == "login":
         if oidc_client is None:
@@ -393,6 +394,9 @@ def _handle_auth_command(
         return 0
 
     if args.auth_command == "status":
+        from .client import PortalClient
+        from .contracts import ACCOUNT_VERIFICATION_PATH
+
         lease = provider.get()
         if oidc_client is None:
             if output_format == "table":
@@ -442,6 +446,7 @@ def _handle_auth_command(
 
 
 def _job_query(args: argparse.Namespace, *, settings: Settings) -> JobQuery:
+    from .client import JobQuery, clean_states
     from .managed_runs import clean_tasks_workspace
     workspace = clean_tasks_workspace(args.workspace_key) if args.workspace_key is not None else None
     return JobQuery(
@@ -499,6 +504,9 @@ def main(
             result = read_local_jobs(args, environ=env)
             output.write(render_json(result.as_dict()) if output_format == "json" else render_local_jobs(result))
             return 0
+        from .auth import TokenProvider
+        from .config import resolve_settings
+
         settings = resolve_settings(args, env)
         transport = _build_transport(settings)
         oidc_client = _build_oidc_client(settings)
@@ -516,6 +524,10 @@ def main(
                 output=output,
                 errors=errors,
             )
+        from .capability import CapabilityProvider
+        from .client import PortalClient
+        from .transport import JsonTransport
+
         capability_provider = (
             CapabilityProvider(
                 settings=settings,
@@ -535,6 +547,7 @@ def main(
         )
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
         if args.command == "status":
+            from .overview_view import render_overview
             if args.cluster is not None:
                 raise ConfigError("status is site-scoped and does not accept --cluster")
             account = args.account if args.account is not None else login_account
@@ -555,12 +568,15 @@ def main(
                 output.write(render_overview(result, work_dir=os.getcwd(), language=args.language))
             return 0
         if args.command == "resources":
+            from .render import render_resource_catalog
             if args.cluster is not None:
                 raise ConfigError("resources catalog is site-scoped and does not accept --cluster")
             catalog = client.resource_catalog(settings.site_id)
             output.write(render_json(catalog.as_dict()) if output_format == "json" else render_resource_catalog(catalog))
             return 0
         if args.command == "storage":
+            from .render import render_native_quota, render_storage_quota_summary
+            from .storage_summary import render_storage_workspaces
             if args.cluster is not None:
                 raise ConfigError("storage reads are site-scoped and do not accept --cluster")
             if args.storage_command == "workspaces":
@@ -635,6 +651,11 @@ def main(
         else:
             raise ContractError("the selected command is not implemented")
 
+        from .render import (render_running_estimate_table, render_site_allocation,
+                             render_site_jobs, render_site_placement, render_table)
+        from .site_jobs import SiteJobAllocationResult, SiteJobResult
+        from .site_placement import SiteJobPlacementResult
+
         if output_format == "json":
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
@@ -653,6 +674,7 @@ def main(
         if (args.command == "auth" and args.auth_command == "status"
                 and output_format == "table" and isinstance(exc, AuthenticationError)
                 and (exc.code == "credentials_unavailable" or exc.request_id is not None)):
+            from .contracts import ACCOUNT_VERIFICATION_PATH
             errors.write("请运行 sai auth login 完成 CLI 登录。\n"
                          f"身份认证：{urljoin(transport.base_url, ACCOUNT_VERIFICATION_PATH)}\n")
         else:

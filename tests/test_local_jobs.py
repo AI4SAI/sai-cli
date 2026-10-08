@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
 from io import StringIO
 import json
 import os
 from pathlib import Path
 import pwd
+import subprocess
 import sys
 
 import pytest
@@ -80,7 +82,7 @@ def invoke(env, *args):
 def test_local_read_has_no_http_config_or_auth_dependency(native_client, monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("local read reached the remote stack")
-    monkeypatch.setattr("sai_cli.cli.resolve_settings", forbidden)
+    monkeypatch.setattr("sai_cli.config.resolve_settings", forbidden)
     monkeypatch.setattr("sai_cli.cli._build_transport", forbidden)
     monkeypatch.setattr("sai_cli.cli._build_oidc_client", forbidden)
     env, _, _ = native_client
@@ -97,6 +99,23 @@ def test_local_read_has_no_http_config_or_auth_dependency(native_client, monkeyp
     assert not call["sai_token_present"] and not call["squeue_users_present"]
     assert call["slurm_conf"] == "native-slurm.conf"
     assert "private" not in output and "environment" not in output
+
+
+def test_local_startup_does_not_load_remote_auth_transport_or_other_product_modules(native_client):
+    env, _, _ = native_client
+    program = '''
+import io, json, sys
+from sai_cli.cli import main
+output, errors = io.StringIO(), io.StringIO()
+assert main(['jobs', 'local'], stdout=output, stderr=errors) == 0, errors.getvalue()
+assert json.loads(output.getvalue())['authority'] == 'native'
+remote = {'sai_cli.auth', 'sai_cli.config', 'sai_cli.client', 'sai_cli.transport',
+          'sai_cli.overview_view', 'sai_cli.storage_summary', 'sai_cli.site_jobs', 'http.client', 'ssl'}
+assert not remote.intersection(sys.modules), sorted(remote.intersection(sys.modules))
+'''
+    completed = subprocess.run([sys.executable, '-c', program],
+                               env={**os.environ, **env}, capture_output=True, text=True, timeout=5)
+    assert completed.returncode == 0, completed.stderr
 
 
 @pytest.mark.parametrize("arguments,expected", [
@@ -224,6 +243,8 @@ def test_human_and_json_share_projection_without_terminal_control_sequences(nati
     row = json.loads(raw)["items"][0]
     assert row["state"] == "STOPPED" and "\\x1b" in row["name"]
     assert "\x1b" not in table and "STOPPED" in table and "simulation" not in table
+    local_start = datetime.fromisoformat(row['start_time']).astimezone().isoformat(sep=' ', timespec='seconds')
+    assert local_start in table and row['start_time'].endswith('Z')
 
 
 def test_explicit_limit_is_reported_not_a_complete_queue(native_client):

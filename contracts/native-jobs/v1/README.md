@@ -65,7 +65,8 @@ text before either presentation; malformed Unicode is rejected.
 Pending `start_time` is not promoted from a scheduler forecast into an actual
 start; its wait is measured from submission. Running/suspended duration follows
 native start/suspend/previous-active-time fields. Missing or inconsistent timing
-remains unknown. Times are UTC. `slots` preserves the helper's convention of
+remains unknown. JSON times are UTC; human tables use the caller's local time
+with an explicit UTC offset. `slots` preserves the helper's convention of
 pending requested tasks and otherwise CPU slots. `gpus_per_node` is the native
 per-node request, including typed GPU requests; MPS/shards are not physical GPU
 counts. `mem_per_unit` labels CPU, node or GPU request units explicitly.

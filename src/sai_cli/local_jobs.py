@@ -16,15 +16,6 @@ from .native_process import read_native_json
 from .render import job_table_lines
 
 
-def add_local_job_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("-A", "--account", "--accounts", dest="accounts", help="native Slurm account(s), comma-separated")
-    parser.add_argument("-u", "--user", "--users", dest="users", help="native user(s); '*' selects all native-visible users")
-    parser.add_argument("-p", "--partition", help="native partition(s)")
-    parser.add_argument("-q", "--qos", help="native QOS name(s)")
-    parser.add_argument("-t", "--states", "--status", dest="states", help="native states, such as R,PD")
-    parser.add_argument("--limit", type=int, default=None, help="maximum returned rows; JSON reports has_more when limited")
-
-
 def _invalid() -> ContractError:
     return ContractError("Slurm returned invalid job data", code="native_response_invalid")
 
@@ -213,8 +204,8 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
 
 def render_local_jobs(result: LocalJobs) -> str:
     selection = ", ".join(f"{key}={value}" for key, value in result.filters.items() if value is not None)
-    lines = [f"Slurm: {result.cluster} | {selection or 'native-visible jobs'} | Times: UTC",
-             *job_table_lines(result.items, notes=(
+    lines = [f"Slurm: {result.cluster} | {selection or 'native-visible jobs'}",
+             *job_table_lines(result.items, local_time=True, notes=(
                  "GPU is the per-node request; memory retains its native CPU/node/TRES unit. Allocation is not utilization.",
              ))]
     if result.has_more:

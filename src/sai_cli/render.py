@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from textwrap import fill
 from zoneinfo import ZoneInfo
 
-from .catalog import ResourceCatalog
-from .contracts import AccountStatus, JobCostResult, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
-from .site_jobs import SiteJobAllocationResult, SiteJobResult
-from .site_placement import SiteJobPlacementResult
-from .storage_summary import StorageQuotaSummary
-from .native_quota import NativeQuotaResult
+if TYPE_CHECKING:
+    from .catalog import ResourceCatalog
+    from .contracts import AccountStatus, JobCostResult, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
+    from .site_jobs import SiteJobAllocationResult, SiteJobResult
+    from .site_placement import SiteJobPlacementResult
+    from .storage_summary import StorageQuotaSummary
+    from .native_quota import NativeQuotaResult
 
 
 _COLUMNS = (
@@ -112,14 +113,18 @@ def _site_time(value: str, *, timezone_name: str) -> str:
     return instant.astimezone(ZoneInfo(timezone_name)).isoformat(timespec="seconds")
 
 
-def _row(item: JobItem) -> dict[str, str]:
+def _row(item: JobItem, *, local_time: bool = False) -> dict[str, str]:
     values = item.values
+    timestamp = values["start_time"] or values["submit_time"]
+    if timestamp and local_time:
+        timestamp = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).astimezone().isoformat(
+            sep=" ", timespec="seconds")
     return {
         "job_id": _display(values["job_id"]),
         "priority": _display(values["priority"]),
         "name": _display(values["name"]),
         "slurm_user": _display(values["slurm_user"]),
-        "submit_or_start": _display(values["start_time"] or values["submit_time"]),
+        "submit_or_start": _display(timestamp),
         "state": _display(values["state"]),
         "run_wait": _duration(values["run_wait_seconds"]),
         "partition": _display(values["partition"]),
@@ -222,8 +227,9 @@ def render_native_quota(result: NativeQuotaResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def job_table_lines(items: tuple[JobItem, ...], *, notes: tuple[str, ...] = _JOB_TABLE_NOTES) -> list[str]:
-    rows = [_row(item) for item in items]
+def job_table_lines(items: tuple[JobItem, ...], *, notes: tuple[str, ...] = _JOB_TABLE_NOTES,
+                    local_time: bool = False) -> list[str]:
+    rows = [_row(item, local_time=local_time) for item in items]
     widths: list[int] = []
     for key, heading, maximum in _COLUMNS:
         widest = max([len(heading), *(len(row[key]) for row in rows)], default=len(heading))
@@ -327,6 +333,8 @@ def render_site_placement(result: SiteJobPlacementResult) -> str:
 
 def render_running_estimate_table(result: RunningEstimateResult | JobCostResult, *, width: int = 80) -> str:
     """Show price facts without clipping money or treating missing estimates as zero."""
+    from .contracts import JobCostResult, RunningEstimateResult
+
     if isinstance(result, JobCostResult):
         context, items = result.observation, (result.estimate,)
         # Job-detail timestamps are UTC; this contract has no site timezone.

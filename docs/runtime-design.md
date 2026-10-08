@@ -16,7 +16,9 @@ Portal domain APIs in all deployment environments. Agents on user devices or
 dedicated isolated VMs use the same typed operations and per-user authorization,
 without Pilot activation. Remote site observations retain narrow capabilities.
 Local job dispatch now runs before HTTP/config/auth prerequisites. Remote
-commands retain their existing client and authorization setup.
+commands retain their existing client and authorization setup. Module loading
+follows the same boundary: native queries load only their source, shared job
+values and presentation, without loading authentication or remote product clients.
 
 Preserve the explicit HTTP read contracts during migration. `sai jobs local`
 implements the existing job-helper filter semantics through Slurm JSON; the
