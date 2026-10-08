@@ -98,7 +98,8 @@ def build_parser() -> argparse.ArgumentParser:
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
 
     local_parser = job_commands.add_parser("local", help="query this host's Slurm directly, without Portal login")
-    _add_connection_arguments(local_parser, suppress_defaults=True)
+    local_parser.add_argument("--timeout", type=float, default=argparse.SUPPRESS,
+                              help="native query deadline in seconds (default: 10)")
     from .local_jobs import add_local_job_arguments
     add_local_job_arguments(local_parser)
     _add_format_argument(local_parser)

@@ -129,8 +129,8 @@ def test_native_timeout_supported_before_command_and_after_leaf(native_client, o
 
 
 @pytest.mark.parametrize("options", [
-    ["--site", "site-b", "jobs", "local"], ["jobs", "local", "--base-url", "https://example.invalid"],
-    ["jobs", "local", "--profile", "remote"], ["jobs", "local", "--cluster", "cluster-b"],
+    ["--site", "site-b", "jobs", "local"], ["--base-url", "https://example.invalid", "jobs", "local"],
+    ["--profile", "remote", "jobs", "local"], ["--cluster", "cluster-b", "jobs", "local"],
     ["jobs", "local", "--timeout", "nan"], ["jobs", "local", "--timeout", "0"],
     ["jobs", "local", "--limit", "0"], ["jobs", "local", "-u", ""], ["jobs", "local", "-A", "bad\nvalue"],
 ])
