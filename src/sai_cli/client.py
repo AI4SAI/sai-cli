@@ -706,7 +706,7 @@ class PortalClient:
         )
         job = result.observation.items[0]
         if (job.canonical_id != clean_job_id
-                or (request.account_name is not None and job.values["slurm_account"] != request.account_name)
+                or (request.account_name is not None and result.observation.slurm_account != request.account_name)
                 or (request.states and short_job_state(job.values["state"]) not in
                     {short_job_state(state) for state in request.states})):
             raise ContractError("the cost response must contain the requested job", request_id=response.request_id)

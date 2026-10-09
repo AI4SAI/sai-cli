@@ -42,10 +42,11 @@ class JobWebContext:
     observed_at: str
     submit_time: str | None
     restart_count: int | None
+    source_context: dict | None = None
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> JobWebContext:
-        if not isinstance(payload, dict) or payload.get("schema_version") != SCHEMA_VERSION:
+        if not isinstance(payload, dict) or payload.get("schema_version") not in {SCHEMA_VERSION, "jobs.web-context/v2"}:
             raise ContractError(request_id=request_id)
         values = {key: _required_text(payload, key, maximum=128, request_id=request_id) for key in (
             "workspace_key", "site_id", "cluster_id", "scope_type", "slurm_account_id", "job_id",
@@ -56,19 +57,35 @@ class JobWebContext:
                 or _JOB.fullmatch(values["job_id"]) is None):
             raise ContractError(request_id=request_id)
         observed, submitted, restart = _observation(payload, request_id=request_id)
-        return cls(**values, observed_at=observed, submit_time=submitted, restart_count=restart)
+        source = None
+        if payload["schema_version"] == "jobs.web-context/v2":
+            raw = payload.get("source_context")
+            if not isinstance(raw, dict):
+                raise ContractError(request_id=request_id)
+            source = {key: _required_text(raw, key, maximum=128, request_id=request_id)
+                      for key in ("scope_type", "slurm_account_id", "workspace_key")}
+            if (source["scope_type"] != "org_account" or not _TOKEN.fullmatch(source["slurm_account_id"])
+                    or not re.fullmatch(r"org:[A-Za-z0-9][A-Za-z0-9._:-]*", source["workspace_key"])
+                    or values["scope_type"] != "project_account"):
+                raise ContractError(request_id=request_id)
+        return cls(**values, observed_at=observed, submit_time=submitted, restart_count=restart, source_context=source)
 
     def require_request_binding(self, *, site_id: str, cluster_id: str | None, scope: str,
                                 account_id: str | None, job_id: str, request_id: str,
                                 workspace_key: str | None = None) -> None:
+        selected = self.source_context or {"scope_type": self.scope_type, "slurm_account_id": self.slurm_account_id, "workspace_key": self.workspace_key}
         if (self.site_id != site_id or (cluster_id is not None and self.cluster_id != cluster_id)
-                or self.job_id != job_id or (scope != "self" and self.scope_type != scope)
-                or (account_id is not None and self.slurm_account_id != account_id)
-                or (workspace_key is not None and self.workspace_key != workspace_key)):
+                or (self.source_context is not None and scope != "org_account")
+                or self.job_id != job_id or (scope != "self" and selected["scope_type"] != scope)
+                or (account_id is not None and selected["slurm_account_id"] != account_id)
+                or (workspace_key is not None and selected["workspace_key"] != workspace_key)):
             raise ContractError(request_id=request_id)
 
     def as_dict(self) -> dict:
-        return {"schema_version": SCHEMA_VERSION, **asdict(self)}
+        result = asdict(self)
+        if self.source_context is None:
+            result.pop("source_context")
+        return {"schema_version": "jobs.web-context/v2" if self.source_context else SCHEMA_VERSION, **result}
 
     def changed_since(self, *, submit_time: str | None, restart_count: int | None) -> bool:
         if self.submit_time is not None and submit_time is not None:

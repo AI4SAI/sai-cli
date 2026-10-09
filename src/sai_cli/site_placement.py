@@ -105,7 +105,7 @@ class SiteJobPlacementResult:
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobPlacementResult":
         row = _object(payload, request_id)
-        if row.get("schema_version") != "jobs.placement/v1" or row.get("coverage") != "allocated_nodes_only":
+        if row.get("schema_version") != ("jobs.placement/v2" if isinstance(row.get("allocation"), dict) and row["allocation"].get("schema_version") == "jobs.allocation/v3" else "jobs.placement/v1") or row.get("coverage") != "allocated_nodes_only":
             raise ContractError(request_id=request_id)
         allocation = SiteJobAllocationResult.from_payload(row.get("allocation"), request_id=request_id)
         raw_nodes = row.get("nodes")
@@ -174,6 +174,6 @@ class SiteJobPlacementResult:
             raise ContractError("registered locations expired before receipt; read again", request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": "jobs.placement/v1", "allocation": self.allocation.as_dict(),
+        return {"schema_version": "jobs.placement/v2" if self.allocation.subaccounts else "jobs.placement/v1", "allocation": self.allocation.as_dict(),
                 "inventory": None if self.inventory is None else asdict(self.inventory),
                 "coverage": "allocated_nodes_only", "nodes": [asdict(node) for node in self.nodes]}

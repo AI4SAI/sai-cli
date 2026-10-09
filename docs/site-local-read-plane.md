@@ -735,3 +735,12 @@ read that output and exited successfully. Public console and independent Pilot
 entry responded normally. No new job, model call, user credential or browser
 Session was created. User comprehension, native Pilot resource/result continuity
 and the complete scientific workflow remain open.
+
+### Organization scope compatibility
+
+Remote organization reads include Portal-authorized project subjects, each with
+its own user restriction. The versioned grant and DTO changes are described in
+[the shared API contract](portal-api-contract.md#organization-job-scope). Native
+`sqa` remains a separate Unix-authorized read; its hierarchy is not business
+authorization. Deploy gateway and CLI/Pilot readers before the Center issuer;
+exact Run, self, personal and project contracts remain unchanged.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import Any
 
@@ -16,7 +16,7 @@ from .contracts import (
     _required_int,
     _required_text,
     _timestamp_text,
-    _validate_subject,
+    _validate_subject, read_subaccounts, subaccounts_payload, matches_subject,
 )
 from .errors import ContractError
 
@@ -77,6 +77,7 @@ class _SiteJobContext:
     slurm_account: str | None
     freshness: SiteJobFreshness
     etag: str
+    subaccounts: tuple = field(default=(), kw_only=True)
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "_SiteJobContext":
@@ -102,15 +103,13 @@ class _SiteJobContext:
         return cls(
             site, cluster, scope, user, account,
             SiteJobFreshness.from_payload(payload.get("freshness"), request_id=request_id),
-            etag,
+            etag, subaccounts=read_subaccounts(subject, scope=scope, account=account, request_id=request_id),
         )
 
     def read_job(self, payload: object, *, request_id: str) -> JobItem:
         item = JobItem.from_payload(payload, request_id=request_id, text_limits=_JOB_TEXT_LIMITS)
         values = item.values
-        if (self.slurm_user is not None and values["slurm_user"] != self.slurm_user) or (
-            self.slurm_account is not None and values["slurm_account"] != self.slurm_account
-        ):
+        if not matches_subject(values, user=self.slurm_user, account=self.slurm_account, subaccounts=self.subaccounts):
             raise ContractError(request_id=request_id)
         for key in ("slurm_user", "slurm_account", "state"):
             _required_text(values, key, request_id=request_id, maximum=128)
@@ -140,7 +139,8 @@ class _SiteJobContext:
             "site_id": self.site_id,
             "cluster_id": self.cluster_id,
             "scope_type": self.scope_type,
-            "subject": {"slurm_user": self.slurm_user, "slurm_account": self.slurm_account},
+            "subject": {"slurm_user": self.slurm_user, "slurm_account": self.slurm_account,
+                        **({"subaccounts": subaccounts_payload(self.subaccounts)} if self.subaccounts else {})},
             "freshness": self.freshness.as_dict(),
             "etag": self.etag,
         }
@@ -153,7 +153,7 @@ class SiteJobResult(_SiteJobContext):
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobResult":
-        if not isinstance(payload, dict) or payload.get("schema_version") != "jobs/v1":
+        if not isinstance(payload, dict) or payload.get("schema_version") != ("jobs/v2" if isinstance(payload.get("subject"), dict) and payload["subject"].get("subaccounts") else "jobs/v1"):
             raise ContractError(request_id=request_id)
         context = _SiteJobContext.from_payload(payload, request_id=request_id)
         raw_items = payload.get("items")
@@ -183,7 +183,7 @@ class SiteJobResult(_SiteJobContext):
                 raise ContractError(request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": "jobs/v1", **super().as_dict(),
+        return {"schema_version": "jobs/v2" if self.subaccounts else "jobs/v1", **super().as_dict(),
                 "has_more": self.has_more, "items": [item.as_dict() for item in self.items]}
 
 
@@ -262,7 +262,7 @@ class SiteJobAllocationResult(_SiteJobContext):
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobAllocationResult":
-        if not isinstance(payload, dict) or payload.get("schema_version") != "jobs.allocation/v2":
+        if not isinstance(payload, dict) or payload.get("schema_version") != ("jobs.allocation/v3" if isinstance(payload.get("subject"), dict) and payload["subject"].get("subaccounts") else "jobs.allocation/v2"):
             raise ContractError(request_id=request_id)
         context = _SiteJobContext.from_payload(payload, request_id=request_id)
         job = context.read_job(payload.get("job"), request_id=request_id)
@@ -322,7 +322,7 @@ class SiteJobAllocationResult(_SiteJobContext):
             raise ContractError(request_id=context["request_id"])
 
     def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": "jobs.allocation/v2", **super().as_dict(),
+        return {"schema_version": "jobs.allocation/v3" if self.subaccounts else "jobs.allocation/v2", **super().as_dict(),
                 "job": self.job.as_dict(), "restart_count": self.restart_count,
                 "scheduler_states": list(self.scheduler_states),
                 "allocation": {"status": self.allocation_status,

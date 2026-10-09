@@ -38,6 +38,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
   login node and one compute node; record native call count and sampled latency
 - [x] Publish and verify the native `sqa`/`ja` subtree correction with a positive
   organization queue and a leaf-project queue on 2026-10-09
+- [ ] Deliver the paired organization scope contract across Portal, gateway,
+  remote CLI and Pilot, including mixed per-project visibility and revocation
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and

@@ -417,3 +417,12 @@ are checked against the original version and size; renewal cannot select a new
 file. Local output is published atomically without replacing an existing path.
 No transfer state or capability is persisted. This source contract requires a
 paired Center/site release; text preview and full downloads have separate limits.
+
+### Organization scope compatibility
+
+Remote organization reads include Portal-authorized project subjects, each with
+its own user restriction. The versioned grant and DTO changes are described in
+[the shared API contract](portal-api-contract.md#organization-job-scope). Native
+`sqa` remains a separate Unix-authorized read; its hierarchy is not business
+authorization. Deploy gateway and CLI/Pilot readers before the Center issuer;
+exact Run, self, personal and project contracts remain unchanged.

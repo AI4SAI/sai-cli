@@ -22,7 +22,11 @@ cost queries; a full terminal workbench is not the product target. See
 [terminal scope](docs/terminal-scope.md).
 
 For a local Slurm query, use `sai jobs local --format table`, or
-`sai jobs local -A research --format table`. JSON is the default for agents and
+`sai jobs local -A research --format table`. Remote organization job reads include only Portal-authorized child projects,
+preserving each project's member visibility. The paired scope contract migration
+is documented in [the API contract](docs/portal-api-contract.md#organization-job-scope).
+
+JSON is the default for agents and
 scripts. Shared `stat_job`/`stat_job_all` now use this same implementation;
 `sqa`/`ja` select the applied Slurm account and its native child accounts in
 new login shells. Use `-A ACCOUNT --with-subaccounts` for the same explicit

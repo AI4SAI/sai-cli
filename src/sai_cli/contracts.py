@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 import re
 from typing import Any
@@ -426,6 +426,38 @@ class Freshness:
         return {"source": self.source, "queried_at": self.queried_at}
 
 
+def read_subaccounts(payload: dict, *, scope: str, account: str | None, request_id: str) -> tuple:
+    raw = payload.get("subaccounts")
+    if raw is None and "subaccounts" not in payload:
+        return ()
+    if scope != "org_account" or account is None or not isinstance(raw, list) or not 1 <= len(raw) < 64:
+        raise ContractError(request_id=request_id)
+    rows = []
+    for row in raw:
+        if not isinstance(row, dict) or set(row) != {"slurm_user", "slurm_account"}:
+            raise ContractError(request_id=request_id)
+        user = _nullable_nonempty_text(row, "slurm_user", request_id=request_id, maximum=128)
+        child = _required_text(row, "slurm_account", request_id=request_id, maximum=128)
+        if any(value is not None and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}", value) is None
+               for value in (user, child)):
+            raise ContractError(request_id=request_id)
+        rows.append((user, child))
+    names = [row[1] for row in rows]
+    if names != sorted(set(names)) or account in names:
+        raise ContractError(request_id=request_id)
+    return tuple(rows)
+
+
+def subaccounts_payload(rows: tuple) -> list[dict]:
+    return [{"slurm_user": user, "slurm_account": account} for user, account in rows]
+
+
+def matches_subject(values: dict, *, user: str | None, account: str | None, subaccounts: tuple = ()) -> bool:
+    return any((selected_user is None or selected_user == values["slurm_user"])
+               and (selected_account is None or selected_account == values["slurm_account"])
+               for selected_user, selected_account in ((user, account), *subaccounts))
+
+
 @dataclass(frozen=True)
 class JobResult:
     site_id: str
@@ -436,6 +468,8 @@ class JobResult:
     slurm_account: str | None
     items: tuple[JobItem, ...]
     freshness: Freshness
+
+    subaccounts: tuple = field(default=(), kw_only=True)
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "JobResult":
@@ -448,6 +482,7 @@ class JobResult:
         if isinstance(count, bool) or not isinstance(count, int) or count != len(raw_items):
             raise ContractError(request_id=request_id)
         result = cls(
+            subaccounts=read_subaccounts(payload, scope=payload.get("scope"), account=payload.get("slurm_account"), request_id=request_id),
             site_id=_required_text(
                 payload,
                 "site_id",
@@ -494,14 +529,10 @@ class JobResult:
             slurm_account=result.slurm_account,
             request_id=request_id,
         )
+        if result.subaccounts and payload.get("schema_version") != "jobs.portal/v2":
+            raise ContractError(request_id=request_id)
         for item in result.items:
-            if (
-                result.slurm_user is not None
-                and item.values["slurm_user"] != result.slurm_user
-            ) or (
-                result.slurm_account is not None
-                and item.values["slurm_account"] != result.slurm_account
-            ):
+            if not matches_subject(item.values, user=result.slurm_user, account=result.slurm_account, subaccounts=result.subaccounts):
                 raise ContractError(request_id=request_id)
         return result
 
@@ -528,6 +559,7 @@ class JobResult:
             "visibility_role": self.visibility_role,
             "slurm_user": self.slurm_user,
             "slurm_account": self.slurm_account,
+            **({"subaccounts": subaccounts_payload(self.subaccounts), "schema_version": "jobs.portal/v2"} if self.subaccounts else {}),
             "items": [item.as_dict() for item in self.items],
             "count": len(self.items),
             "freshness": self.freshness.as_dict(),
@@ -795,6 +827,8 @@ class RunningEstimateResult:
     items: tuple[RunningEstimateItem, ...]
     final: bool
 
+    subaccounts: tuple = field(default=(), kw_only=True)
+
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "RunningEstimateResult":
         if not isinstance(payload, dict):
@@ -813,13 +847,14 @@ class RunningEstimateResult:
                 expected="billing.running-estimate",
                 request_id=request_id,
             ),
-            version=_literal_text(payload, "version", expected="v1", request_id=request_id),
+            version=_literal_text(payload, "version", expected="v2" if payload.get("subaccounts") else "v1", request_id=request_id),
             schema_version=_literal_text(
                 payload,
                 "schema_version",
-                expected="billing.running-estimate/v1",
+                expected="billing.running-estimate/v2" if payload.get("subaccounts") else "billing.running-estimate/v1",
                 request_id=request_id,
             ),
+            subaccounts=read_subaccounts(payload, scope=payload.get("scope"), account=payload.get("slurm_account"), request_id=request_id),
             site_id=_required_text(
                 payload,
                 "site_id",
@@ -875,14 +910,10 @@ class RunningEstimateResult:
             slurm_account=result.slurm_account,
             request_id=request_id,
         )
+        if result.subaccounts and payload.get("schema_version") != "billing.running-estimate/v2":
+            raise ContractError(request_id=request_id)
         for item in result.items:
-            if (
-                result.slurm_user is not None
-                and item.values["slurm_user"] != result.slurm_user
-            ) or (
-                result.slurm_account is not None
-                and item.values["slurm_account"] != result.slurm_account
-            ):
+            if not matches_subject(item.values, user=result.slurm_user, account=result.slurm_account, subaccounts=result.subaccounts):
                 raise ContractError(request_id=request_id)
         return result
 
@@ -898,6 +929,7 @@ class RunningEstimateResult:
             "visibility_role": self.visibility_role,
             "slurm_user": self.slurm_user,
             "slurm_account": self.slurm_account,
+            **({"subaccounts": subaccounts_payload(self.subaccounts)} if self.subaccounts else {}),
             "as_of": self.as_of,
             "freshness": self.freshness.as_dict(),
             "etag": self.etag,

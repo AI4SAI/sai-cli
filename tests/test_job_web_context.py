@@ -113,3 +113,18 @@ def test_web_context_http_is_identity_only_and_keeps_exact_scope(tmp_path, monke
     assert parse_qs(parsed[2].query)["slurm_account_name"] == ["legacy-project"]
     assert parse_qs(parsed[3].query) == {"site_id": ["site-a"], "scope_type": ["project_account"],
         "workspace_key": ["project:project-example"], "source_preference": ["live"]}
+
+
+def test_org_job_navigation_keeps_source_scope_and_authorized_project_target():
+    from copy import deepcopy
+    from pathlib import Path
+    payload=json.loads((Path(__file__).resolve().parents[1]/'contracts/job-web-context/v1/sample.json').read_text())
+    payload.update(schema_version='jobs.web-context/v2',source_context={
+        'scope_type':'org_account','slurm_account_id':'org-account','workspace_key':'org:example'})
+    result=JobWebContext.from_payload(payload,request_id='navigation')
+    result.require_request_binding(site_id=result.site_id,cluster_id=result.cluster_id,scope='org_account',
+        account_id='org-account',workspace_key='org:example',job_id=result.job_id,request_id='navigation')
+    assert result.as_dict()==payload
+    with pytest.raises(ContractError):
+        result.require_request_binding(site_id=result.site_id,cluster_id=result.cluster_id,scope='org_account',
+            account_id='other',workspace_key='org:example',job_id=result.job_id,request_id='navigation')
