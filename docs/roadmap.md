@@ -51,9 +51,12 @@ does not return. Pilot delivery and hardware assets do not block this work.
   expected saved value, existing idempotency/projection records and explicit
   accepted versus applied results; paired Center/CLI/Identity components are
   now deployed, with ordinary-user reads and read-only write denial verified
-  on 2026-10-10; permitted user writes and newly applied site changes remain open
-- [ ] Verify a real permitted management round trip, concurrency/retry behavior
-  and denied action, then broaden domain coverage through those same owners
+  on 2026-10-10; different-account writes and newly applied site changes remain open
+- [x] Verify ordinary-user consent and permitted same-value management over the
+  installed CLI, exact replay, stale-value rejection and read-only write denial
+  after normal refresh (2026-10-10); the saved default and old receipt stayed equal
+- [ ] Verify a different default and newly applied site receipt, plus full
+  management from a user device or isolated VM, before broadening domain coverage
 
 Local job/resource reads and shared helper migrations are deployed. The
 [bounded delivery record](terminal-scope.md#local-job-delivery) distinguishes

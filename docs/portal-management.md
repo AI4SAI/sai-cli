@@ -1,9 +1,10 @@
 # Portable Portal management
 
 Status: the first management action's Center, shared CLI and optional Identity
-scope are deployed. Ordinary-user reads and rejection of a write using the
-existing read-only session passed on 2026-10-10. Human consent, a permitted write
-and a newly applied site change remain separate acceptance gates.
+scope are deployed. Ordinary-user consent, a permitted same-value write, exact
+replay, stale-value rejection and preservation of the existing read-only session
+passed on 2026-10-10. Changing the selected account and applying a new site
+projection remain separate acceptance gates.
 
 The same CLI serves a person on a cluster and an Agent on a personal device or
 an isolated user VM. Native job, resource and quota queries use the current Unix
