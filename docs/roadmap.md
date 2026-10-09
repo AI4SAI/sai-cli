@@ -128,7 +128,8 @@ the remaining acceptance gates.
 - [ ] Complete the remaining Portal consuming-path acceptance
 - [x] Correlate actual Center issuance with production journal start/finish pairs
   by capability ID digest, subject, operation and limit
-- [ ] Verify audit collection beyond the local journal and production failure handling
+- [ ] Verify external audit collection and failure handling under the approved
+  logging design; local persistent journal evidence is already available
 - [x] Hold one real capability until expiry: the direct read was rejected,
   then normal issuance restored the read without changing server policy
 - [x] Retain gateway package/runtime and configuration rollback materials;
@@ -162,6 +163,13 @@ the remaining acceptance gates.
   removing the policy restored reading with the same access token and capability
   (2026-10-06). Shared services remained running; this was a client network
   partition, not a whole-service shutdown. Runtime restoration is recorded above.
+- [x] Stop and restore the actual shared read service under a bounded maintenance
+  window (2026-10-10). During about six seconds of unavailability, the ordinary
+  installed CLI returned HTTP 504, exit 6 and empty stdout. After restart, the
+  same cached user credentials and capability read successfully in about 1.15
+  seconds; persistent before/after audit pairs retained the same actor and JTI
+  digest. Source, protected inputs and the separate execution gateway stayed
+  unchanged. This is a bounded service-failure check, not a loaded-fleet SLO.
 
 Use the existing [shared release model](login-node-deployment.md) and the
 separately owned gateway role. Asset publication, registered placement, native
