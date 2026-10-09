@@ -33,6 +33,9 @@ does not return. Pilot delivery and hardware assets do not block this work.
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and
   management services; begin with an existing preferences action and its receipt
+- [x] Implement the default-account source contract: independent write scope,
+  expected saved value, existing idempotency/projection records and explicit
+  accepted versus applied results; production delivery remains separate
 - [ ] Verify a real permitted management round trip, concurrency/retry behavior
   and denied action, then broaden domain coverage through those same owners
 

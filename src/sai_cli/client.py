@@ -13,6 +13,7 @@ from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateResult, short_job_state
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
+from .default_account import DefaultAccountChange, DefaultAccountState
 from .job_web_context import JobWebContext
 from .artifact_content import ManagedRunArtifactContent, ARTIFACT, content_cursor
 from .artifact_download import ArtifactDownloadGrant, download_artifact
@@ -432,6 +433,30 @@ class PortalClient:
         response = self._central_get("/v1/account/cli/storage/workspaces", query=query)
         return StorageWorkspaces.from_payload(response.payload, site_id=site, limit=limit,
             cursor=cursor, workspace_key=workspace_key, request_id=response.request_id)
+
+    def account_defaults(self, site_id: str) -> DefaultAccountState:
+        site = clean_token(site_id, field="site", required=True, maximum=64) or ""
+        response = self._central_get("/v1/account/cli/defaults", query={"site_id": site})
+        return DefaultAccountState.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
+    def set_default_account(self, account_id: str | None, *, expected_account_id: str | None,
+                            idempotency_key: str) -> DefaultAccountChange:
+        target = clean_token(account_id, field="account ID", required=account_id is not None, maximum=64)
+        expected = clean_token(expected_account_id, field="expected account ID",
+                               required=expected_account_id is not None, maximum=64)
+        key = clean_token(idempotency_key, field="request ID", required=True) or ""
+        if len(key) < 8:
+            raise ConfigError("request ID must contain 8-128 characters")
+        lease = self.token_provider.get()
+        response = self.transport.request(
+            "PUT", "/v1/account/cli/defaults",
+            headers={"Authorization": f"Bearer {lease.token}", "Idempotency-Key": key},
+            json_body={"account_id": target, "expected_account_id": expected},
+        )
+        return DefaultAccountChange.from_payload(
+            response.payload, account_id=target, expected_account_id=expected,
+            idempotency_key=key, request_id=response.request_id,
+        )
 
     def _managed_read(self, *, workspace_key: str, site_id: str, run_ref: str | None = None,
                       suffix: str = "", **parameters: str | int | None) -> JsonResponse:

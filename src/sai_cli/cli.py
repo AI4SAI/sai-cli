@@ -44,6 +44,17 @@ def build_parser() -> argparse.ArgumentParser:
             overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
         else:
             overview.set_defaults(command="status", format="tui")
+    account = commands.add_parser("account", help="inspect and manage your SAI computing defaults")
+    account_commands = account.add_subparsers(dest="account_command", required=True)
+    defaults = account_commands.add_parser("defaults", help="show allowed accounts and site application receipts")
+    _add_connection_arguments(defaults, suppress_defaults=True)
+    _add_format_argument(defaults)
+    set_default = account_commands.add_parser("set-default", help="change your default account for all active sites")
+    _add_connection_arguments(set_default, suppress_defaults=True)
+    set_default.add_argument("account_id", help="account ID from account defaults, or auto to clear the explicit choice")
+    set_default.add_argument("--if-current", required=True, help="saved account ID last read, or auto when no explicit choice was saved")
+    set_default.add_argument("--request-id", required=True, help="unique request key; reuse it only with exactly the same intent")
+    _add_format_argument(set_default)
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
@@ -535,7 +546,11 @@ def main(
         from .auth import TokenProvider
         from .config import resolve_settings
 
-        settings = resolve_settings(args, env)
+        settings = resolve_settings(
+            args, env,
+            require_site=not (args.command == "auth" or
+                              args.command == "account" and args.account_command == "set-default"),
+        )
         transport = _build_transport(settings)
         oidc_client = _build_oidc_client(settings)
         provider = TokenProvider(
@@ -574,6 +589,22 @@ def main(
             ),
         )
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
+        if args.command == "account":
+            from .default_account import render_default_account
+            if args.cluster is not None:
+                raise ConfigError("account defaults do not accept --cluster")
+            if args.account_command == "defaults":
+                result = client.account_defaults(settings.site_id)
+            else:
+                if args.site is not None:
+                    raise ConfigError("set-default changes the global preference; it does not accept --site")
+                result = client.set_default_account(
+                    None if args.account_id == "auto" else args.account_id,
+                    expected_account_id=None if args.if_current == "auto" else args.if_current,
+                    idempotency_key=args.request_id,
+                )
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_default_account(result))
+            return 0
         if args.command == "status":
             from .overview_view import render_overview
             if args.cluster is not None:

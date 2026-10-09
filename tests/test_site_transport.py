@@ -25,6 +25,8 @@ def http_endpoint(respond):
             call = {"method": self.command, "path": self.path, "body": body,
                     "bearer": self.headers.get("Authorization"),
                     "capability": self.headers.get("X-SAI-Capability")}
+            if self.headers.get("Idempotency-Key") is not None:
+                call["idempotency_key"] = self.headers["Idempotency-Key"]
             calls.append(call)
             status, payload = respond(call, len(calls))
             encoded = json.dumps(payload).encode()
@@ -36,6 +38,7 @@ def http_endpoint(respond):
 
         do_GET = handle_call
         do_POST = handle_call
+        do_PUT = handle_call
 
         def log_message(self, *args):
             pass

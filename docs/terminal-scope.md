@@ -157,10 +157,10 @@ scheduler allocation as physical utilization or native quota as purchased budget
 2. Keep existing HTTP read commands stable during that change. A new default
    local path requires explicit documentation and compatibility tests; do not
    silently reinterpret a previously remote authorized command.
-3. Map Portal query/management operations to their canonical services and
-   normal user scopes. Start with an existing settings workflow such as default
-   account preferences, including its current site-sync receipt. Browser-only
-   routes may need a paired authorization adapter; do not borrow browser cookies.
+3. Continue the [default-account management action](portal-management.md), now
+   implemented in source with normal user scopes, the existing preference writer
+   and site receipts. Pair its release and acceptance before broadening domain
+   coverage. Authentication adapters must not borrow browser cookies.
 4. Validate a meaningful query and management round trip from a user device and
    dedicated VM. Reuse idempotency, version/concurrency checks, approvals and
    asynchronous states where the business action requires them. Reads never

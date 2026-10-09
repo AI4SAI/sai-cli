@@ -90,11 +90,11 @@ see the [delivery record](docs/terminal-scope.md#local-job-delivery).
 GPU/CPU resource helpers also use the shared CLI and have passed ordinary-user
 login/compute checks. Native quota and the thin `quota` function are also
 published and verified against native counters in those two environments.
-General Portal management and full
-portable Agent management acceptance remain
-unfinished. See [the runtime plan](docs/runtime-design.md)
-and [roadmap](docs/roadmap.md). Current read-only scope is an implementation
-milestone, not a permanent product restriction.
+Default-account management is implemented in source through the existing Portal
+writer and site receipts. Paired release, ordinary-user acceptance and broader
+portable Agent management remain unfinished. See
+[the management boundary](docs/portal-management.md),
+[runtime plan](docs/runtime-design.md) and [roadmap](docs/roadmap.md).
 
 WebUI/Pilot product modules and the role-based hardware digital twin remain
 with their existing owners. [Hardware design](docs/digital-twin-design.md) records
