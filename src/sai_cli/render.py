@@ -63,8 +63,8 @@ def format_decimal(value: str, places: int = 2, *, trim: bool = False) -> str:
     return text.rstrip("0").rstrip(".") if trim and "." in text else text
 
 
-def render_json(payload: dict[str, Any]) -> str:
-    encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+def render_json(payload: dict[str, Any], *, ensure_ascii: bool = False) -> str:
+    encoded = json.dumps(payload, ensure_ascii=ensure_ascii, indent=2)
     # JSON already escapes C0; escape the remaining terminal control range too.
     return encoded.translate({value: f"\\u{value:04x}" for value in range(127, 160)}) + "\n"
 

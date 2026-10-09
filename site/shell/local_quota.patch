@@ -1,0 +1,13 @@
+--- a/bash.profile
++++ b/bash.profile
+@@ -38,9 +38,3 @@
+ quota() {
+-    local path="${1:-.}" project_id
+-    read -r project_id _ < <(lfs project -d -- "$path") || return
+-    [[ $project_id =~ ^[1-9][0-9]*$ ]] || {
+-        printf 'No project quota for %s\n' "$path" >&2
+-        return 1
+-    }
+-    lfs quota -ph "$project_id" "$path"
++    /opt/sai/bin/sai storage local-quota --format table -- "${1:-.}"
+ }

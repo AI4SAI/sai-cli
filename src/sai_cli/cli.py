@@ -131,6 +131,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     storage = commands.add_parser("storage", help="read authorized storage observations")
     storage_commands = storage.add_subparsers(dest="storage_command", required=True)
+    local_quota = storage_commands.add_parser("local-quota", help="read this path's native Lustre project quota without Portal login")
+    local_quota.add_argument("path", nargs="?", default=".", help="local file or directory (default: current directory)")
+    local_quota.add_argument("--timeout", type=float, default=argparse.SUPPRESS, help="native read deadline in seconds (default: 10)")
+    _add_format_argument(local_quota)
     for command, help_text in (
         ("workspaces", "list workspaces where you may read storage observations"),
         ("quota-summary", "show sampled storage quota and usage"),
@@ -509,6 +513,12 @@ def main(
     env = os.environ if environ is None else environ
 
     try:
+        if args.command == "storage" and args.storage_command == "local-quota":
+            from .local_quota import read_local_quota, render_local_quota
+            result = read_local_quota(args, environ=env)
+            width = shutil.get_terminal_size().columns if output.isatty() else 80
+            output.write(render_json(result.as_dict(), ensure_ascii=True) if output_format == "json" else render_local_quota(result, width=width))
+            return 0
         if args.command == "resources" and args.resources_command == "local":
             from .local_resources import read_local_resources, render_local_resources
             result = read_local_resources(args, environ=env)

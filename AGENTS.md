@@ -77,6 +77,9 @@
   per-node `sinfo` JSON response for GPU/CPU/memory and partition metadata.
   Resource helpers keep native permission, omit site-specific whitelists and
   distinguish configured/effective, allocated, blocked and reported quantities.
+- `storage local-quota [PATH]` uses native `lfs project` plus selected `lfs quota`
+  fields under the current UID. It does not call the quota gateway or infer a
+  business workspace. Preserve arbitrary paths, exact counters and grace state.
 - The implemented surface includes `sai jobs list`, `sai jobs show`,
   `sai jobs allocation`, and the
   non-final `sai jobs cost` running-estimate view, plus `sai resources catalog`

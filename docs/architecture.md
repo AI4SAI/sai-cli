@@ -7,7 +7,7 @@ Status: current HTTP-read baseline and 2026-10-09 human/Agent target correction
 `sai-cli` translates human or Agent intent into a native local query or an
 authorized SAI API operation, then renders a human answer or structured result.
 It runs on cluster nodes, user devices and dedicated isolated SAI user VMs.
-The current implementation provides HTTP reads and explicit local job/resource queries.
+The current implementation provides HTTP reads and explicit local job/resource/quota queries.
 Other native query integration and Portal management remain targets. It owns neither
 business authorization nor scheduler decisions.
 
@@ -71,6 +71,12 @@ Return their existing identifiers and accepted/executed/failed outcomes; allow
 the caller to inspect completion without creating a second workflow engine.
 An available browser route is not automatically an OAuth Agent endpoint.
 Local source availability and remote management do not depend on 3D deployment.
+
+Local quota resolves the chosen path's native project ID and reads explicit
+Lustre counter/grace fields as that user. It shares only native process/context
+and presentation primitives with other local queries. It does not import the
+gateway's mount bindings, grants or storage administration adapter; those solve
+the separate remote authorization problem.
 
 ## Current and target paths
 

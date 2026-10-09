@@ -44,7 +44,7 @@ def native_number(value: object) -> int | None:
 def local_options(args: argparse.Namespace, *, command: str) -> float:
     for name in ("config", "profile", "base_url", "site", "cluster", "cache", "no_cache", "allow_insecure_http"):
         if getattr(args, name, None) not in (None, False):
-            raise ConfigError(f"{command} uses this host's native Slurm context, not --{name.replace('_', '-')}")
+            raise ConfigError(f"{command} uses this host's native context, not --{name.replace('_', '-')}")
     timeout = args.timeout if args.timeout is not None else 10.0
     if not math.isfinite(timeout) or not 0 < timeout <= 120:
         raise ConfigError("--timeout must be greater than zero and at most 120 seconds")
@@ -55,7 +55,7 @@ def native_user() -> str:
     try:
         import pwd
     except ImportError as exc:
-        raise UnavailableError("local Slurm queries require a Unix native environment",
+        raise UnavailableError("local native queries require a Unix environment",
                                code="native_client_unavailable") from exc
     return pwd.getpwuid(os.geteuid()).pw_name
 

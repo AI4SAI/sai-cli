@@ -8,7 +8,8 @@ user devices or dedicated isolated SAI user VMs.
 Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
 `sai jobs local` and `sai resources local` implement native job and resource
-queries; native quota integration and Portal management remain planned.
+queries. `sai storage local-quota` reads a local path's Lustre project quota;
+Portal management remains planned.
 Business operations retain Portal's authority.
 See [the product scope](PRODUCT.md).
 
@@ -31,6 +32,11 @@ partition overview. Add a partition name or `--details` for node observations.
 The shared package provides `stat_gpu`/`stat_cpu` wrappers for existing aliases.
 See [native resources](contracts/native-resources/v1/README.md) for the distinction
 between allocations, blocked capacity, node reports and actual utilization.
+
+`sai storage local-quota --format table` reads the current directory's native
+Lustre project quota. Supply a path when needed; JSON preserves exact counters
+and grace state. This local read does not require a workspace ID or Portal login.
+See the [local quota contract](contracts/local-quota/v1/README.md).
 
 The implemented remote API surface is currently read-only:
 

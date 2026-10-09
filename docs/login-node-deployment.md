@@ -124,3 +124,11 @@ partition selection. Default output becomes a compact partition overview;
 selecting a partition or `--details` shows node observations. This changes neither
 the `gpu`/`cpu` aliases nor their native permission boundary. Rollback to a version
 without these wrappers restores their saved scripts before changing `cli/current`.
+
+The existing `quota` shell function migrates through
+[`local_quota.patch`](../site/shell/local_quota.patch) to the shared local command.
+Its current-directory default and quoted path argument remain. Apply the patch
+to the checksum-verified shared profile, syntax-check/canary it, and retain the
+complete prior profile for paired rollback. No separate executable named `quota`,
+per-node copy or mount is added. New shells load the function; existing shells
+retain their definition until reloaded.

@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: HTTP reads and native job/resource queries; native quota and Portal management planned
+Status: HTTP reads and native job/resource/quota queries; Portal management planned
 
 ## Target execution model
 
@@ -26,7 +26,10 @@ implements the existing job-helper filter semantics through Slurm JSON; the
 units and failure limits. `resources local` reuses the same native execution/value
 boundary for one per-node `sinfo` response; its [contract](../contracts/native-resources/v1/README.md)
 separates effective capacities, allocations, blocked resources and reported
-metrics. Native quota integration follows separately.
+metrics. `storage local-quota [PATH]` uses native path metadata and exact Lustre
+selected fields with the same bounded subprocess runner; see its
+[contract](../contracts/local-quota/v1/README.md). Shared shell activation is a
+separate migration, not an authentication-scope expansion.
 Remote errors must not cause a silent source or authority change.
 
 The first management vertical should use an existing account preference action:

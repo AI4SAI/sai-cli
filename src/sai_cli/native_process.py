@@ -14,18 +14,20 @@ from .errors import ContractError, UnavailableError
 MAX_NATIVE_BYTES = 32 * 1024 * 1024
 
 
-def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout: float) -> dict[str, Any]:
+def read_native_output(argv: Sequence[str], *, environ: Mapping[str, str], timeout: float,
+                       max_output_bytes: int | None = None, reject_stderr: bool = False) -> bytes:
     """Run one native client, without a shell, privilege change or HTTP fallback."""
     try:
         process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, env=dict(environ), bufsize=0)
     except FileNotFoundError as exc:
-        raise UnavailableError("the native Slurm client is not installed or is not on PATH",
+        raise UnavailableError("the native client is not installed or is not on PATH",
                                code="native_client_unavailable") from exc
     except OSError as exc:
         raise UnavailableError("the native client could not be started", code="native_query_failed") from exc
 
     output = bytearray()
+    output_limit = MAX_NATIVE_BYTES if max_output_bytes is None else max_output_bytes
     stderr_bytes = 0
     deadline = time.monotonic() + timeout
     try:
@@ -43,7 +45,7 @@ def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout
                         selector.unregister(key.fileobj)
                     elif key.data == "stdout":
                         output.extend(chunk)
-                        if len(output) > MAX_NATIVE_BYTES:
+                        if len(output) > output_limit:
                             raise UnavailableError("the native response is too large; narrow the query",
                                                    code="native_response_too_large")
                     else:
@@ -56,8 +58,10 @@ def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout
             except subprocess.TimeoutExpired as exc:
                 raise UnavailableError("the native query timed out", code="native_query_timeout") from exc
         if code:
-            raise UnavailableError("Slurm could not complete the query; check the native filters and site connection",
+            raise UnavailableError("the native query failed; check the requested path or filters and native access",
                                    code="native_query_failed")
+        if reject_stderr and stderr_bytes:
+            raise UnavailableError("the native query reported incomplete data", code="native_response_incomplete")
     finally:
         if process.poll() is None:
             process.kill()
@@ -67,6 +71,11 @@ def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout
         if process.stderr is not None:
             process.stderr.close()
 
+    return bytes(output)
+
+
+def read_native_json(argv: Sequence[str], *, environ: Mapping[str, str], timeout: float) -> dict[str, Any]:
+    output = read_native_output(argv, environ=environ, timeout=timeout)
     try:
         value = json.loads(output)
     except (ValueError, UnicodeError) as exc:
