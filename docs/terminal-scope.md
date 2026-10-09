@@ -23,8 +23,12 @@ not repurpose Unix group variables or reinterpret an explicit CLI `-A` value.
 A root-account-only alias missed jobs charged to child projects. The native
 subtree option corrects that identity scope using Slurm `WithSubAccounts` and
 Lineage. The alias update takes effect when the shared profile is reloaded or a
-new login shell starts; publication and positive ordinary-user queue checks are
-separate from source support.
+new login shell starts. The 2026-10-09 shared publication of source `f92698a3ce8e`
+passed positive ordinary-user organization and project reads on a login and a
+compute node, plus the actual `sqa`/`ja` aliases in an interactive login shell.
+The paired profile change only adds `--with-subaccounts` to those two aliases.
+No saved default, directory, membership or scheduler data changes. Existing
+shells load the new alias with `source /opt/sai/shell/bash.profile`.
 
 The first integration is `sai jobs local`, with thin versioned `stat_job` and
 `stat_job_all` wrappers in the shared package. It replaces shell interpolation

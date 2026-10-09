@@ -9,12 +9,12 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: shared human and Agent CLI
 
-The original alias visuals are being restored after the native-reader migration
-changed their presentation. The first color restoration was rejected because it
-lost native GPU IDX positions and added explanatory clutter. The correction
-preserves IDX order and uses Rich tables/bars for concise CPU partition groups,
-with fixed job and quota columns. Shared publication and ordinary-user readback
-are separate from source tests and visual review.
+Native aliases now use Rich resource tables, native GPU IDX positions, compact
+CPU partition groups and the original job/quota columns. Shared publication was
+verified under an ordinary UID on a login and a compute node. The identity queue
+also includes native child accounts, with a positive organization/project check;
+explicit account filters remain exact. This is bounded runtime verification,
+not a claim of complete product or human usability acceptance.
 
 The 2026-10-09 user clarification supersedes the earlier summary/cost-only
 interpretation. Local SSH-style query convenience and authorized Portal
@@ -36,8 +36,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
   reads on a login and compute node, including current directory and explicit path
 - [x] Verify local job human/JSON reads without a Portal device session on a
   login node and one compute node; record native call count and sampled latency
-- [ ] Publish and verify the native `sqa`/`ja` subtree correction with a positive
-  organization queue and a leaf-project queue; source tests alone are not delivery
+- [x] Publish and verify the native `sqa`/`ja` subtree correction with a positive
+  organization queue and a leaf-project queue on 2026-10-09
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and
