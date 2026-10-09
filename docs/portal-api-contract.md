@@ -1,4 +1,4 @@
-# Portal Read API Contract
+# Portal API Contract
 
 Managed task READ accepts explicit personal, organization and project account
 keys while retaining the existing DTO versions and field names. The authorized
@@ -17,13 +17,33 @@ consumes. The control plane remains the source of truth for authorization and
 may evolve independently, so contract changes require compatibility tests in
 both repositories.
 
-This is the implemented remote-read contract, not the entire CLI product scope.
-Planned local native queries use the caller's Unix/native authority independently.
-Planned Portal management must pair normal user/delegated authorization with
-the existing domain writers and their concurrency, retry and operation-result
-contracts. Existing read scopes and capabilities remain read-only; this document
-does not register management routes or grant write access. See
+This is the implemented remote API contract, not the entire CLI product scope.
+Local native queries use the caller's Unix/native authority independently.
+Default-account management uses the existing domain writer, a separate write
+scope and the concurrency/replay contract below. Other Portal management remains
+planned. Existing read scopes and capabilities remain read-only. See
 [command scope](terminal-scope.md).
+
+## Default computing account
+
+`GET /v1/account/cli/defaults?site_id=...` requires `sai.compute.read` and returns
+[`account.defaults/v1`](../contracts/account-defaults/v1/README.md). Choices are
+ready at the selected site; the saved preference is global. The current business
+default and timestamped site execution receipts remain separate fields.
+
+`PUT /v1/account/cli/defaults` requires `sai.compute.defaults.write`, an
+`Idempotency-Key` header and exactly `account_id` and `expected_account_id` in the
+body. Both IDs may be null; null clears the explicit preference or compares
+against an unset preference respectively. No query selectors are accepted.
+The response is [`account.default-change/v1`](../contracts/account-default-change/v1/README.md).
+The original acceptance is replayed only for the same actor, key and body.
+Current default or request-key conflicts return 409. Scope, account admission,
+current membership and existing site projection rules remain server-owned.
+No client write retry or authority fallback is allowed.
+
+The paired optional Identity scope and Portal source are prerequisites for this
+command. Existing read-only sessions do not acquire it through refresh. See
+[portable management](portal-management.md) for consent and delivery boundaries.
 
 ## Authentication
 

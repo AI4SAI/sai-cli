@@ -131,7 +131,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         stdout = StringIO()
         stderr = StringIO()
         result = main(
-            ["auth", "login", "--base-url", base_url, "--site", "site-a"],
+            ["auth", "login", "--base-url", base_url],
             environ=_env(tmp_path, identity_issuer=base_url),
             stdout=stdout,
             stderr=stderr,
@@ -149,7 +149,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
         status_out = StringIO()
         status_err = StringIO()
         assert main(
-            ["auth", "status", "--base-url", base_url, "--site", "site-a"],
+            ["auth", "status", "--base-url", base_url],
             environ=_env(tmp_path, identity_issuer=base_url),
             stdout=status_out,
             stderr=status_err,
@@ -179,7 +179,7 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
 
         logout_out = StringIO()
         assert main(
-            ["auth", "logout", "--base-url", base_url, "--site", "site-a"],
+            ["auth", "logout", "--base-url", base_url],
             environ=_env(tmp_path, identity_issuer=base_url),
             stdout=logout_out,
             stderr=StringIO(),

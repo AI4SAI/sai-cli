@@ -9,7 +9,8 @@ Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
 `sai jobs local` and `sai resources local` implement native job and resource
 queries. `sai storage local-quota` reads a local path's Lustre project quota;
-Portal management remains planned.
+Default-account management is available in source; its paired Portal/Identity
+release and ordinary-user acceptance remain separate gates.
 Business operations retain Portal's authority.
 See [the product scope](PRODUCT.md).
 
@@ -38,8 +39,15 @@ Lustre project quota. Supply a path when needed; JSON preserves exact counters
 and grace state. This local read does not require a workspace ID or Portal login.
 See the [local quota contract](contracts/local-quota/v1/README.md).
 
-The implemented remote API surface is currently read-only:
+The implemented remote API surface includes:
 
+- `sai account defaults` discovers accounts available at the selected site and
+  shows the user's global default and site application receipts.
+- `sai account set-default ACCOUNT_ID --if-current auto --request-id REQUEST_KEY`
+  requests an explicit global default change through Portal. It requires separate
+  user consent, the last saved default (`auto` means no explicit choice), and a
+  stable request key. Acceptance is separate from site application; see
+  [portable management](docs/portal-management.md).
 - `sai runs read RUN_REF --artifact-ref ARTIFACT_REF --workspace-key project:example`
   reads one bounded UTF-8 output section. Current file permission is checked
   independently; no Pilot session or model window is needed.
@@ -110,10 +118,10 @@ scope, workspace, partition, state, limit and storage options are rejected;
 use the corresponding batch command for those reads. See
 [terminal scope](docs/terminal-scope.md) for the rationale and deployment boundary.
 
-Portal management, including its applicable task/approval semantics, is a
-product requirement that is not implemented by the current read-only client.
-It must work for user-controlled agents without depending on a Pilot Session
-or model runtime. Agent command coverage does not expand the user's permissions.
+The first Portal management operation shares the existing default-account writer
+and site tasks. Broader management remains planned and must retain each domain's
+task/approval semantics. It works independently of a Pilot Session or model
+runtime. Agent command coverage does not expand the user's permissions.
 Job submission, cancellation and resource mutation remain roadmap items.
 Jobs can optionally read directly from the site-local capability gateway
 through a protected `site_read_base_url` profile setting; deployment is separate.
@@ -153,6 +161,7 @@ login-node package have been deployed.
 - [Login-node deployment run card](docs/login-node-deployment.md)
 - [Shared platform runtime layout](docs/platform-runtime-layout.md)
 - [CLI login and long-lived device sessions](docs/cli-auth.md)
+- [Portable Portal management](docs/portal-management.md)
 - [Login summary contract and design](docs/login-summary-design.md)
 - [Slurm job submit policy](docs/job-submit-policy.md)
 - [Roadmap](docs/roadmap.md)

@@ -177,8 +177,10 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ### Durable Mutation Semantics
 
-- The implemented CLI is currently read-only; authorized Portal management is
-  part of the target. Map each write to the existing domain service, user scope,
+- `account set-default` is the first authorized Portal mutation; it uses the
+  existing preference writer and task receipt with a separate write scope,
+  expected saved value and idempotency key. Other management remains planned.
+  Map each write to the existing domain service, user scope,
   concurrency/idempotency and receipt contract before implementation. Adding an
   HTTP verb or borrowing a browser/admin credential is not that integration.
 - Site-affecting mutations are task-first. The center records an idempotent

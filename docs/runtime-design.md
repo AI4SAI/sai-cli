@@ -1,6 +1,6 @@
 # Runtime Design
 
-Status: HTTP reads and native job/resource/quota queries; Portal management planned
+Status: HTTP reads, native job/resource/quota queries and the first Portal management action in source
 
 ## Target execution model
 
@@ -32,12 +32,14 @@ selected fields with the same bounded subprocess runner; see its
 separate migration, not an authentication-scope expansion.
 Remote errors must not cause a silent source or authority change.
 
-The first management vertical should use an existing account preference action:
-discover allowed choices, request a change through the canonical preference
-writer, and observe its site-sync result. Check its real OAuth/user authorization
-and retry/concurrency contract before exposing it to Agents. Prefer existing
-operation receipts; do not add a generic write proxy, task database or approval
-framework. JSON operation discovery must distinguish implemented reads, native
+The first management action uses the existing default-account preference:
+`account defaults` discovers site choices and projection receipts;
+`account set-default` submits a global change with the caller's last saved value
+and request key. It requires independent `sai.compute.defaults.write` consent.
+Global writes require no site selector; the account discovery read does.
+Neither uses the site-read gateway, a Pilot session or a shell-enabled grant.
+Source support does not establish live scope registration or site application.
+JSON operation discovery must distinguish implemented reads, native
 prerequisites and management operations rather than advertise planned commands.
 
 ## Current implementation

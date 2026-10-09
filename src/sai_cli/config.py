@@ -292,7 +292,9 @@ def _site_read_origin(value: object, *, managed: bool) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc.lower(), "", "", ""))
 
 
-def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None = None) -> Settings:
+def resolve_settings(
+    args: argparse.Namespace, environ: Mapping[str, str] | None = None, *, require_site: bool = True,
+) -> Settings:
     env = os.environ if environ is None else environ
     retired_names = [name for name in _RETIRED_AUTH_ENV if name in env]
     if retired_names:
@@ -362,7 +364,7 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
         None if managed else env.get("SAI_SITE_ID"),
         values.get("site_id"),
     )
-    if not site_id:
+    if not site_id and require_site:
         raise ConfigError("missing SAI site; set --site or SAI_SITE_ID")
     cluster_id = _first_text(
         None if managed else getattr(args, "cluster", None),
@@ -428,7 +430,7 @@ def resolve_settings(args: argparse.Namespace, environ: Mapping[str, str] | None
 
     return Settings(
         base_url=base_url.rstrip("/"),
-        site_id=site_id,
+        site_id=site_id or "",
         timeout_seconds=_parse_timeout(timeout_raw),
         allow_insecure_http=_parse_bool(insecure_raw, field="allow_insecure_http"),
         cache_path=Path(cache_raw).expanduser() if cache_raw else default_cache_path(env),
