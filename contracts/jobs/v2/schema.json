@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authorized native Slurm queue observations",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "job": {
+      "additionalProperties": true,
+      "properties": {
+        "array_task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elapsed_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gpus_per_node": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "job_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          },
+          "type": "string"
+        },
+        "mem_per_unit": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nodes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "partition": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "qos": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_or_nodelist": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_wait_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slots": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slurm_account": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          },
+          "type": "string"
+        },
+        "slurm_user": {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          },
+          "type": "string"
+        },
+        "start_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 64,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "maxLength": 32,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          },
+          "type": "string"
+        },
+        "state_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submit_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 64,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_link": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "job_id",
+        "array_task_id",
+        "name",
+        "slurm_user",
+        "slurm_account",
+        "state",
+        "state_label",
+        "priority",
+        "submit_time",
+        "start_time",
+        "elapsed_seconds",
+        "run_wait_seconds",
+        "partition",
+        "qos",
+        "nodes",
+        "slots",
+        "gpus_per_node",
+        "mem_per_unit",
+        "reason_or_nodelist"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "cluster_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      },
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+      "type": "string"
+    },
+    "etag": {
+      "maxLength": 64,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      },
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "freshness": {
+      "additionalProperties": true,
+      "properties": {
+        "age_seconds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "maxLength": 64,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+          },
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "squeue",
+            "scontrol"
+          ]
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "ttl_seconds": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "observed_at",
+        "ttl_seconds",
+        "age_seconds",
+        "stale"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "jobs/v2"
+    },
+    "scope_type": {
+      "const": "org_account"
+    },
+    "site_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+      },
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+      "type": "string"
+    },
+    "subject": {
+      "additionalProperties": true,
+      "properties": {
+        "slurm_account": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slurm_user": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+              },
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subaccounts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 63,
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "slurm_account": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+                },
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+                "type": "string"
+              },
+              "slurm_user": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "not": {
+                      "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+                    },
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "slurm_user",
+              "slurm_account"
+            ],
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "slurm_user",
+        "slurm_account",
+        "subaccounts"
+      ],
+      "type": "object"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/job"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "cluster_id",
+    "etag",
+    "freshness",
+    "schema_version",
+    "scope_type",
+    "site_id",
+    "subject",
+    "items",
+    "has_more"
+  ]
+}

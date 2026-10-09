@@ -500,3 +500,12 @@ resume metadata is saved; a new command starts from the beginning. Successful
 JSON contains only workspace/site/Run/artifact references, the chosen local
 output path, complete byte count and version. The batch CLI still needs no
 third-party runtime dependency. Paired server deployment is a separate gate.
+
+### Organization scope compatibility
+
+Remote organization reads include Portal-authorized project subjects, each with
+its own user restriction. The versioned grant and DTO changes are described in
+[the shared API contract](portal-api-contract.md#organization-job-scope). Native
+`sqa` remains a separate Unix-authorized read; its hierarchy is not business
+authorization. Deploy gateway and CLI/Pilot readers before the Center issuer;
+exact Run, self, personal and project contracts remain unchanged.

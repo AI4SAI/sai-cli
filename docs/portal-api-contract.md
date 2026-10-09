@@ -929,3 +929,25 @@ changed files and other failures do not trigger broad retries.
 Neither grant nor binary contents are printed. A completed local save returns
 `compute.run-artifact-saved/v1` with the request bindings, explicit local output
 path, size and version. Download capability material is never persisted.
+
+## Organization job scope
+
+Organization reads include the root and currently authorized project accounts.
+Portal resolves active ownership, member windows, site access and per-project
+activity visibility once. It signs `interactive-read-grant.v2` when child
+accounts are present. `subject.subaccounts` contains sorted exact
+`{slurm_account, slurm_user}` intersections, not a gateway expansion instruction.
+The gateway matches each job against one intersection before pagination.
+
+Expanded responses use jobs/v2, jobs.allocation/v3, jobs.placement/v2 and
+billing.job-observations/v2; central jobs use jobs.portal/v2 with subaccounts
+and central estimates use billing.running-estimate/v2. Exact scopes retain the
+preceding DTOs. Organization-to-project navigation returns jobs.web-context/v2
+with the original scope in source_context and the reauthorized project as
+the target. Old clients cannot be assumed to understand these responses.
+
+One grant contains at most 64 accounts, including the root. Oversized scopes
+return site_read_scope_too_large and require selecting a project. Direct signed
+leases keep the existing short-expiry/revocation contract; central relays
+recheck current complete scopes. Final billing, managed Runs and storage keep
+their existing domain permissions.

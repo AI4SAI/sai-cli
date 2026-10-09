@@ -301,6 +301,11 @@ editing either side. Do not copy private collaboration logs into this repo.
 
 ## CLI And Contract Discipline
 
+- A read-scope change must trace its policy owner, signed grant, gateway query,
+  secondary filters, cache, list/detail/allocation/estimate readers and all
+  consumers before implementation. Close it with a shared positive/negative
+  cross-consumer regression; a successful local alias is not remote closure.
+
 - Keep connection options valid both before the command and after the leaf
   command. Both `sai --site site-a jobs list` and
   `sai jobs list --site site-a` are supported contracts.

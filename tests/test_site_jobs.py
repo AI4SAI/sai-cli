@@ -343,3 +343,26 @@ def test_allocation_whole_observation_resource_and_index_budgets(site_allocation
     })
     with pytest.raises(ContractError):
         SiteJobAllocationResult.from_payload(site_allocation_payload, request_id="budget")
+
+
+def test_organization_subjects_keep_project_specific_visibility(site_jobs_payload, job_payload):
+    from sai_cli.contracts import JobResult
+    payload=deepcopy(site_jobs_payload)
+    payload.update(schema_version='jobs/v2',scope_type='org_account')
+    payload['subject']={'slurm_user':'alice','slurm_account':'org-a','subaccounts':[
+        {'slurm_user':None,'slurm_account':'project-a'}, {'slurm_user':'alice','slurm_account':'project-b'}]}
+    payload['items'][0].update(slurm_account='project-a',slurm_user='bob')
+    direct=SiteJobResult.from_payload(payload,request_id='organization')
+    assert direct.as_dict()==payload
+    central=deepcopy(job_payload)
+    central.update(schema_version='jobs.portal/v2',scope='org_account',**payload['subject'],items=payload['items'])
+    result=JobResult.from_payload(central,request_id='organization')
+    assert [row.as_dict() for row in result.items]==[row.as_dict() for row in direct.items]
+    for user,account in (('bob','project-b'),('bob','org-a'),('alice','unrelated')):
+        for body,reader in ((payload,SiteJobResult),(central,JobResult)):
+            changed=deepcopy(body);changed['items'][0].update(slurm_user=user,slurm_account=account)
+            with pytest.raises(ContractError):reader.from_payload(changed,request_id='denied')
+    for key,value in (('schema_version','jobs/v1'),('scope_type','project_account')):
+        with pytest.raises(ContractError):SiteJobResult.from_payload({**payload,key:value},request_id='invalid')
+    changed=deepcopy(payload);changed['subject']['subaccounts'].append(changed['subject']['subaccounts'][0])
+    with pytest.raises(ContractError):SiteJobResult.from_payload(changed,request_id='invalid')
