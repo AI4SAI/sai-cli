@@ -119,7 +119,7 @@ def test_missing_default_does_not_hide_personal_verification_action():
 def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, monkeypatch, output_format):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
-    monkeypatch.setattr(cli_module, "_load_overview_console", lambda: pytest.fail("batch status must not load UI"))
+    monkeypatch.setattr(cli_module, "_load_ui_console", lambda: pytest.fail("batch status must not load UI"))
     def reply(call, _):
         parsed = urlsplit(call["path"])
         assert parsed.path == "/v1/account/cli/overview"
@@ -181,7 +181,7 @@ def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monke
     import_started, response_ready = Event(), Event()
     workers = []
     caller = current_thread()
-    original_load = cli_module._load_overview_console
+    original_load = cli_module._load_ui_console
     original_read = PortalClient.account_overview
     original_import = builtins.__import__
 
@@ -205,7 +205,7 @@ def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monke
         response_ready.set()
         return http_status, sample() if http_status == 200 else {"detail": "scope unavailable"}
 
-    monkeypatch.setattr(cli_module, "_load_overview_console", load_console)
+    monkeypatch.setattr(cli_module, "_load_ui_console", load_console)
     monkeypatch.setattr(PortalClient, "account_overview", read)
     monkeypatch.setattr(builtins, "__import__", import_module)
     with http_endpoint(reply) as (origin, calls):

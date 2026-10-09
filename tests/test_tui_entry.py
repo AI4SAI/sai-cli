@@ -65,7 +65,7 @@ def test_bare_entry_reads_one_business_summary_for_terminal_or_pipe(tmp_path, mo
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     monkeypatch.setattr(builtins, "input", lambda *a: pytest.fail("summary must not prompt"))
-    monkeypatch.setattr(cli_module, "_load_overview_console", lambda: pytest.fail("bare entry needs no UI dependency"))
+    monkeypatch.setattr(cli_module, "_load_ui_console", lambda: pytest.fail("bare entry needs no UI dependency"))
     def reply(call, _):
         parsed = urlsplit(call["path"])
         assert parsed.path == "/v1/account/cli/overview"

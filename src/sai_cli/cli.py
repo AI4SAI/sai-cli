@@ -495,7 +495,7 @@ def _emit_error(error: SaiCliError, *, output_format: str, stderr: TextIO) -> No
     stderr.write(f"ERROR [{error.code}]: {error.message}{suffix}\n")
 
 
-def _load_overview_console() -> type:
+def _load_ui_console() -> type:
     try:
         from rich.console import Console
     except ModuleNotFoundError as exc:
@@ -532,13 +532,16 @@ def main(
             return 0
         if args.command == "resources" and args.resources_command == "local":
             from .local_resources import read_local_resources
-            from .native_resource_view import render_local_resources
-            from .native_display import use_color
             result = read_local_resources(args, environ=env)
-            width = shutil.get_terminal_size().columns if output.isatty() else 120
-            details = args.details or args.partition_name is not None or args.partition is not None
-            output.write(render_json(result.as_dict()) if output_format == "json" else
-                         render_local_resources(result, details=details, width=width, color=use_color(output, env)))
+            if output_format == "json":
+                output.write(render_json(result.as_dict()))
+            else:
+                _load_ui_console()
+                from .native_resource_view import render_local_resources
+                width = shutil.get_terminal_size().columns if output.isatty() else 120
+                details = args.details or args.partition_name is not None or args.partition is not None
+                color = output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb"
+                output.write(render_local_resources(result, details=details, width=width, color=color))
             return 0
         if args.command == "jobs" and args.jobs_command == "local":
             from .local_jobs import read_local_jobs, render_local_jobs
@@ -616,7 +619,7 @@ def main(
                 from concurrent.futures import ThreadPoolExecutor
                 from .overview_view import overview_panel
                 with ThreadPoolExecutor(max_workers=1) as worker:
-                    loading = worker.submit(_load_overview_console)
+                    loading = worker.submit(_load_ui_console)
                     result = client.account_overview(settings.site_id, account=account)
                     console = loading.result()
                 console(file=output).print(overview_panel(result, work_dir=os.getcwd(), base_url=settings.base_url,

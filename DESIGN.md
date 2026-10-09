@@ -21,13 +21,18 @@ before a common query. Agent calls use explicit inputs and never wait for TUI
 interaction; they report the domain's required confirmation or operation state.
 
 The native helper visuals are an existing product contract: job rows retain
-their fixed columns and local timestamps; GPU rows use blue allocated, green
-free and red blocked cells followed by a partition table; CPU rows group
-scheduled memory/CPUs and reported load/free memory; quota retains aligned native
+their fixed columns and local timestamps; GPU rows retain the native Slurm IDX
+positions with blue allocated and green idle cells, followed by a partition
+table. Blocked nodes use red. CPU rows group by partition, with CPU/memory
+allocation bars and separate reported load/free memory; quota retains aligned native
 usage, soft/hard limit and grace columns. `gpu` and `cpu` include node rows by
-default. Preserve these designs when changing the data reader. GPU cells encode
-quantities, not physical positions; narrow output uses explicit counts when the
-whole row cannot fit. Color follows the terminal and `NO_COLOR`.
+default. Use the existing Rich Table, Text, Columns and ProgressBar components,
+not a custom ANSI/layout engine. GPU slots follow Slurm IDX order; unavailable
+indices show `?`, never a made-up left-packed allocation. Rich wraps the slot
+grid at cell boundaries. CPU ratios are allocated/effective total; below 80
+columns the table prioritizes those allocations over OS reports. QOS appears
+once per partition, without repeated totals or explanatory paragraphs. Color
+follows the terminal and `NO_COLOR`. JSON does not import Rich.
 
 Cost is an explicit inquiry. Show the account/site and whether the amount is a
 running estimate or a settled charge. Use the existing command and server

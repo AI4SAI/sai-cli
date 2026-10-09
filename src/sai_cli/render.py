@@ -158,9 +158,9 @@ def _truncate(text: str, maximum: int) -> str:
     return f"{text[:maximum - 3]}..."
 
 
-def _line(values: Iterable[str], widths: list[int]) -> str:
+def _line(values: Iterable[str], widths: list[int], *, gap: int = 2) -> str:
     cells = [value.ljust(width) for value, width in zip(values, widths, strict=True)]
-    return "  ".join(cells).rstrip()
+    return (" " * gap).join(cells).rstrip()
 
 
 def render_resource_catalog(result: ResourceCatalog) -> str:

@@ -34,8 +34,13 @@ multiple partitions; partition totals can overlap.
 
 - GPU figures are configured and allocated GRES quantities. Typed entries are
   combined without double-counting a generic total. MPS/shards are not physical
-  GPUs, and MIG-like GPU GRES units are not full-card counts. Allocation indices
-  are not used to reconstruct physical device usage or identity.
+  GPUs, and MIG-like GPU GRES units are not full-card counts. The additive
+  `gpu.allocated_indices` field preserves the native Slurm IDX set from the
+  same observation, sorted and bounded to 4096 units. Indices must be unique,
+  in range and consistent with allocated counts. Missing, malformed or
+  inconsistent positions are null while valid counts remain available. Zero
+  allocated units have an empty set. These are scheduler positions, not a
+  mapping to physical GPU serials, CUDA ordinals or measured utilization.
 - CPU JSON preserves native total/allocated/idle/other counts and the reserved
   CPU count. Effective total and idle capacity exclude the native CPU-ID
   specialization set. Counting that bounded set does not infer CPU topology.
@@ -66,15 +71,21 @@ native state and allow/deny/assigned QOS constraints; these are not the caller's
 personal QOS permissions. Native addresses, comments, reasons, account/group
 lists, billing weights and unrelated provider fields are discarded.
 
-JSON remains the default machine output. Explicit human queries start with a
-partition table, including the largest free amount on one node. A partition
-name or `--details` adds node observations before that summary. The `gpu` and
+JSON remains the default machine output and imports no Rich modules. Explicit
+human queries use Rich (`sai-cli[tui]`) and start with a compact partition
+table. A partition name or `--details` selects node observations; GPU details
+retain the partition summary. The `gpu` and
 `cpu` wrappers pass `--details` by default, preserving their original dense
-presentation. GPU cells and bars show allocated/free/blocked quantities; they
-do not imply physical device positions or measured utilization. A down node's
-idle capacity is red/blocked, not green/free. Narrow views use explicit counts
-when all cells cannot fit. CPU columns keep scheduled and reported memory
-separate. Colors are terminal-only and respect `NO_COLOR` and `TERM=dumb`.
+presentation. GPU cells preserve native IDX order: `IDX:0,3` on four units is
+`[#][_][_][#]`. Unknown positions show `?`; wrapping never reorders the cells.
+A down node's idle cells are red, with zero available units. The GPU partition
+table retains totals, availability, allocated percentage and QOS. CPU details
+show one node per row grouped by partition, with allocated/effective-total
+bars for CPU and memory. Load and OS free memory remain separate and appear
+at widths of 80 columns or more; narrow tables prioritize allocation ratios.
+QOS appears once per CPU partition; CPU details do not repeat a summary. Long
+QOS text is ellipsized; below 64 columns the GPU summary omits that column.
+Exact constraints remain in JSON. Colors are terminal-only and respect `NO_COLOR` and `TERM=dumb`.
 The same observation drives JSON and human output, with unchanged native calls.
 
 Source and synthetic tests do not prove activation of shared helpers. Ordinary-

@@ -15,7 +15,7 @@ from .errors import ConfigError, ContractError, ForbiddenError, NotFoundError, U
 from .native_process import read_native_output
 from .native_values import local_options, native_environment, native_user
 from .render import format_decimal
-from .native_display import row
+from .render import _line
 
 
 _FIELDS = ("--blocks", "--block-softlimit", "--block-hardlimit", "--block-grace",
@@ -173,9 +173,8 @@ def render_local_quota(result: LocalQuota, *, width: int = 80) -> str:
         headings = ("used", "quota", "limit", "grace", "files", "quota", "limit", "grace")
         cells = [*rows[0][1:], *rows[1][1:]]
         widths = [max(8, len(heading), len(cell)) for heading, cell in zip(headings, cells, strict=True)]
-        lines = [row(headings, widths), row(cells, widths)]
+        lines = [_line(headings, widths), _line(cells, widths)]
     else:
-        lines = [row(headings, widths), "-" * (sum(widths) + 8), *(row(cells, widths) for cells in rows)]
+        lines = [_line(headings, widths), "-" * (sum(widths) + 8), *(_line(cells, widths) for cells in rows)]
     lines.insert(0, f"Disk quotas for project {value['native_project_id']}: {_path_text(value['path'])}")
-    lines.append("Quota: soft limit; Limit: hard limit. Scope: filesystem project.")
     return "\n".join(lines) + "\n"

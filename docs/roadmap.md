@@ -10,9 +10,11 @@ not imply production activation or completion of a paired rollout.
 ## Current priority: shared human and Agent CLI
 
 The original alias visuals are being restored after the native-reader migration
-changed their presentation. Source now includes fixed job columns, GPU colors
-and allocation count cells, CPU grouped tables and native quota columns. The
-shared visual correction requires its own ordinary-user publication readback.
+changed their presentation. The first color restoration was rejected because it
+lost native GPU IDX positions and added explanatory clutter. The correction
+preserves IDX order and uses Rich tables/bars for concise CPU partition groups,
+with fixed job and quota columns. Shared publication and ordinary-user readback
+are separate from source tests and visual review.
 
 The 2026-10-09 user clarification supersedes the earlier summary/cost-only
 interpretation. Local SSH-style query convenience and authorized Portal

@@ -128,7 +128,7 @@ def test_exact_large_counters_zero_limits_and_grace_states(native_quota):
     env['QUOTA_FIELDS']='0|0|0|-|0|0|0|-|'
     code,table,err=invoke(env,'storage','local-quota','--format','table',str(target))
     assert code==0 and not err and '0 B' in table and 'unlimited' in table
-    assert 'Disk quotas for project 42001' in table and 'Scope: filesystem project' in table
+    assert 'Disk quotas for project 42001' in table and 'Scope: filesystem project' not in table
     assert all(heading in table for heading in ('used', 'quota', 'limit', 'grace', 'files'))
 
 

@@ -9,7 +9,7 @@ import sys
 import pytest
 
 from sai_cli.cli import main
-from sai_cli.local_resources import _gpu_counts, _gpu_total, LocalResources
+from sai_cli.local_resources import _gpu_counts, _gpu_total, _gpu_indices, LocalResources
 from sai_cli.native_resource_view import render_local_resources
 
 
@@ -200,41 +200,97 @@ def test_invalid_source_never_silently_drops_nodes(native_client, defect):
     assert code in {6,7} and not output and 'private-provider-detail' not in error
 
 
-def test_summary_default_details_on_demand_and_narrow_readability(native_client):
+@pytest.mark.parametrize('used,total,expected', [
+    ('gpu:example:2(IDX:0,3)', 4, [0,3]),
+    ('gpu:example:4(IDX:5,9,12-13)', 16, [5,9,12,13]),
+    ('gpu:example:12(IDX:0,4-5,7-15)', 16, [0,4,5,*range(7,16)]),
+    ('gpu:example:0(IDX:N/A)', 4, []),
+    ('gpu:example:0', 4, []),
+    ('gpu:example:2(IDX:N/A)', 4, None),
+    ('gpu:example:2', 4, None),
+    ('gpu:example:2(IDX:0)', 4, None),
+    ('gpu:example:2(IDX:0,4)', 4, None),
+    ('gpu:example:2(IDX:0,0)', 4, None),
+    ('gpu:example:2(IDX:3-1)', 4, None),
+    ('gpu:example:2(IDX:0-999999999)', 4, None),
+    ('gpu:example:2(IDX:-1,0)', 4, None),
+    ('gpu:example:2(IDX:0,3)', 1000000000, None),
+    ('gpu:a:1(IDX:0),gpu:b:1(IDX:3)', 4, [0,3]),
+    ('gpu:a:1(IDX:0),gpu:b:1(IDX:0)', 4, None),
+    ('gpu:2(IDX:0,3),gpu:a:1(IDX:0),gpu:b:1(IDX:3)', 4, [0,3]),
+    ('gpu:2(IDX:0,3),gpu:a:1(IDX:1)', 4, None),
+])
+def test_native_gpu_positions_are_bounded_complete_and_consistent(used, total, expected):
+    assert _gpu_indices(used, total, _gpu_total(_gpu_counts(used))) == expected
+
+
+def test_gpu_visual_positions_and_machine_projection_share_the_same_observation(native_client):
+    env,path,payload=native_client
+    payload['sinfo'][0]['gres']['used']='gpu:example:2(IDX:0,3)'
+    path.write_text(json.dumps(payload))
     value=result(native_client, '--kind','gpu')
-    plain=render_local_resources(LocalResources(value),width=40)
-    detailed=render_local_resources(LocalResources(value),details=True,width=40)
-    assert 'node-a' not in plain and 'node-a' in detailed
-    assert 'Total' in plain and 'Blocked' in plain and 'max/node' in plain
-    assert 'utilization' in plain and 'Usage Matrix' not in detailed
-    assert all(len(line)<=40 for line in detailed.splitlines())
-    assert '\x1b' not in plain
-    code,table,error=invoke(native_client[0],'resources','local','gpu-new','--format','table')
-    assert code==0 and not error and 'node-a' in table
+    assert value['nodes'][0]['gpu']['allocated_indices']==[0,3]
+    table=render_local_resources(LocalResources(value),details=True,width=120)
+    running=next(line for line in table.splitlines() if line.startswith('node-a'))
+    assert '[#][_][_][#]' in running and '2/4' in running
+    assert 'TotGPU' in table and 'GLOBAL' in table and 'Allowed QOS' in table
+    assert 'max/node' not in table and 'Access and reservations' not in table
+    assert '[#][#][_][_]' not in table
+    unknown=result(native_client,'--kind','cpu')
+    cpu=render_local_resources(LocalResources(unknown),details=True,width=120)
+    assert 'CPU' in cpu and 'Mem GiB' in cpu and 'Load' in cpu and 'Free GiB' in cpu
+    assert '8/32' in cpu and '16/64' in cpu and '29.3' in cpu
+    assert cpu.count('normal,special')==1 and 'GLOBAL' not in cpu
 
 
-def test_restored_gpu_cells_keep_blocked_capacity_distinct_and_respect_terminal_color(native_client):
-    from sai_cli.native_display import allocation_bar, cell_width
-    value = result(native_client, '--kind', 'gpu')
-    table = render_local_resources(LocalResources(value), details=True, width=120, color=True)
-    down = next(line for line in table.splitlines() if line.startswith('node-b'))
-    running = next(line for line in table.splitlines() if line.startswith('node-a'))
-    assert '\x1b[91m' in down and '[x][x][x][x]' in down and '0/4' in down
-    assert '[#][#]' in running and '[_][_]' in running and '2/4' in running
-    plain = render_local_resources(LocalResources(value), details=True, width=120)
-    assert cell_width(running) == len(next(line for line in plain.splitlines() if line.startswith('node-a')))
-    assert 'TotGPU' in plain and 'GLOBAL' in plain and 'Allowed QOS' in plain
+def test_unknown_indices_are_not_replaced_by_grouped_counts(native_client):
+    value=result(native_client,'--kind','gpu')
+    assert value['nodes'][0]['gpu']['allocated_indices'] is None
+    table=render_local_resources(LocalResources(value),details=True,width=120)
+    running=next(line for line in table.splitlines() if line.startswith('node-a'))
+    assert '?' in running and '[#]' not in running and '2/4' in running
+
+
+@pytest.mark.parametrize('width', [40,80,120])
+def test_resource_tables_fit_width_without_losing_gpu_position_order(native_client, width):
+    from rich.text import Text
+    value=result(native_client,'--kind','gpu')
+    value['nodes'][0]['gpu']['allocated_indices']=[0,3]
+    for color in (False,True):
+        table=render_local_resources(LocalResources(value),details=True,width=width,color=color)
+        assert all(len(line)<=width for line in Text.from_ansi(table).plain.splitlines())
+    summary=render_local_resources(LocalResources(value),width=width)
+    assert 'node-a' not in summary and 'GLOBAL' in summary
+
+
+def test_native_resource_colors_and_literal_labels(native_client):
+    from rich.text import Text
+    value=result(native_client,'--kind','gpu')
+    value['nodes'][0]['gpu']['allocated_indices']=[0,3]
+    table=render_local_resources(LocalResources(value),details=True,width=120,color=True)
+    down=next(line for line in table.splitlines() if line.startswith('node-b'))
+    assert '\x1b[91m' in down and '0/4' in down
+    plain=Text.from_ansi(table).plain
+    assert '[_][_][_][_]' in next(line for line in plain.splitlines() if line.startswith('node-b'))
+    value['nodes'][0]['name']='[link=https://example.test]node[/link]'
+    assert '[link=https://example.test]node[/link]' in render_local_resources(LocalResources(value),details=True,width=160)
     class Terminal(StringIO):
-        def isatty(self):
-            return True
-    for environment, colored in (({}, True), ({'NO_COLOR': ''}, False), ({'TERM': 'dumb'}, False)):
-        out, err = Terminal(), StringIO()
+        def isatty(self): return True
+    for environment,colored in (({},True),({'NO_COLOR':''},False),({'TERM':'dumb'},False)):
+        out,err=Terminal(),StringIO()
         assert main(['resources','local','--kind','gpu','--details','--format','table'],
-                    environ={**native_client[0], **environment}, stdout=out, stderr=err) == 0
-        assert ('\x1b[' in out.getvalue()) == colored
-    assert '\x1b' not in json.dumps(value)
-    assert allocation_bar(16, 12, 4, cells=8, color=False, unit_cells=True) == '[#]×12 [_]×4'
-    assert allocation_bar(100, 79, 19, cells=10, color=False) == '[########..]'
+                    environ={**native_client[0],**environment},stdout=out,stderr=err)==0
+        assert ('\x1b[' in out.getvalue())==colored
+
+
+def test_long_qos_does_not_displace_gpu_counts_in_a_normal_terminal(native_client):
+    value=result(native_client,'--kind','gpu')
+    value['partitions'][0]['qos']['allowed']=','.join(f'research-{index}' for index in range(12))
+    table=render_local_resources(LocalResources(value),width=80)
+    assert all(label in table for label in ('Partition','TotGPU','Avail','Allocated','GLOBAL'))
+    global_row=next(line for line in table.splitlines() if line.startswith('GLOBAL'))
+    assert '8' in global_row and '2' in global_row and '25%' in global_row
+    assert all(len(line)<=80 for line in table.splitlines())
 
 
 def test_empty_native_data_is_not_a_source_failure(native_client):
@@ -250,7 +306,7 @@ from sai_cli.cli import main
 out,err=io.StringIO(),io.StringIO()
 assert main(['resources','local'],stdout=out,stderr=err)==0,err.getvalue()
 assert json.loads(out.getvalue())['source']=='sinfo'
-for name in ('sai_cli.auth','sai_cli.client','sai_cli.local_jobs','sai_cli.config','ssl','http.client'):
+for name in ('sai_cli.auth','sai_cli.client','sai_cli.local_jobs','sai_cli.config','ssl','http.client','rich','sai_cli.native_resource_view'):
     assert name not in sys.modules,name
 '''
     done=subprocess.run([sys.executable,'-c',program],env={**os.environ,**native_client[0]},

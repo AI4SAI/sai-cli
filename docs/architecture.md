@@ -331,8 +331,8 @@ A failure in either source must not fall back to a broader read.
 
 The batch CLI has no third-party runtime dependency. It uses Python 3.11+
 standard-library HTTP, JSON, TOML and filesystem primitives. The optional
-`tui` extra now contains Rich, shared by the compact summary and login
-presentation. Textual, full-screen navigation, result dialogs and their private
+`tui` extra now contains Rich, shared by native resource tables, the compact
+summary and login presentation. Textual, full-screen navigation, result dialogs and their private
 view state are removed. Optional formatting does not enter control-plane or
 site-gateway packages.
 

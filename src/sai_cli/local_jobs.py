@@ -16,7 +16,7 @@ from .native_values import (invalid_native as _invalid, native_number as _number
                             native_text as _text, local_options, native_environment,
                             native_header, native_user)
 from .render import _duration
-from .native_display import cell_width, clip, row
+from .render import _line, _truncate
 
 
 def _timestamp(value: int | None) -> str | None:
@@ -166,16 +166,16 @@ def render_local_jobs(result: LocalJobs) -> str:
         value = item.values
         timestamp = value["start_time"] or value["submit_time"]
         timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M:%S") if timestamp else "-"
-        cells = [value["job_id"], value["priority"], clip(value["name"] or "-", 13), value["slurm_user"],
+        cells = [value["job_id"], value["priority"], _truncate(value["name"] or "-", 13), value["slurm_user"],
                  timestamp, value["state"], _duration(value["run_wait_seconds"]), value["partition"], value["qos"],
                  value["nodes"], value["slots"], value["gpus_per_node"], value["mem_per_unit"],
                  value["array_task_id"], value["reason_or_nodelist"]]
         rows.append(["-" if cell is None or cell == "" else str(cell) for cell in cells])
     # Keep the familiar spacing while allowing IDs and native memory units to fit.
     for index in (0, 1, 3, 5, 7, 8, 9, 10, 11, 12, 13):
-        widths[index] = max(widths[index], *(cell_width(cells[index]) for cells in rows)) if rows else widths[index]
-    lines = [row(headings, widths, gap=1), "-" * (sum(widths) + len(widths) - 1)]
-    lines.extend(row(cells, widths, gap=1) for cells in rows)
+        widths[index] = max(widths[index], *(len(cells[index]) for cells in rows)) if rows else widths[index]
+    lines = [_line(headings, widths, gap=1), "-" * (sum(widths) + len(widths) - 1)]
+    lines.extend(_line(cells, widths, gap=1) for cells in rows)
     if not rows:
         lines.append("(no jobs)")
     lines.extend(("Note: 1. 'GPU' indicates the per-node GPU request.",
