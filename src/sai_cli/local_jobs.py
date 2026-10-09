@@ -125,6 +125,9 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
         raise ConfigError("--limit must be between 1 and 100000")
     actor = native_user()
     filters = {key: getattr(args, key) for key in ("users", "accounts", "partition", "qos", "states")}
+    subtree = getattr(args, "with_subaccounts", False)
+    if subtree and not filters["accounts"]:
+        raise ConfigError("--with-subaccounts requires one literal -A account")
     for value in filters.values():
         if value is not None and (not value.strip() or len(value) > 4096
                                   or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)):
@@ -135,16 +138,27 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
         filters["users"] = actor
     elif filters["users"] == "*":
         filters["users"] = None
+    native_env = native_environment(environ, filter_prefix="SQUEUE_")
+    account_root, expected_cluster, accounts = filters["accounts"], None, []
+    if subtree:
+        from .native_account_tree import account_tree
+        expected_cluster, accounts = account_tree(account_root, environ=native_env, timeout=timeout)
+        filters["accounts"] = ",".join(accounts)
     argv = ["squeue", "--json", "--local"]
     options = {"users": "user", "accounts": "account", "partition": "partition", "qos": "qos", "states": "states"}
     argv.extend(f"--{options[key]}={value}" for key, value in filters.items() if value is not None)
-    native_env = native_environment(environ, filter_prefix="SQUEUE_")
     payload = read_native_json(argv, environ=native_env, timeout=timeout)
     cluster, warning_count = native_header(payload)
+    if subtree:
+        if cluster != expected_cluster:
+            raise _invalid()
+        filters["account_root"] = account_root
     if not isinstance(payload.get("jobs"), list):
         raise _invalid()
     observed_at = datetime.now(timezone.utc).replace(microsecond=0)
     items = tuple(_item(job, observed=int(observed_at.timestamp())) for job in payload["jobs"])
+    if subtree and not {item.values["slurm_account"] for item in items}.issubset(accounts):
+        raise _invalid()
     # One display order for JSON and humans, matching the familiar state groups.
     order = {"R": 0, "PD": 1, "CG": 2, "S": 3}
     items = tuple(sorted(items, key=lambda item: (order.get(item.values["state"], 4),

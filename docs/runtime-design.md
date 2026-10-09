@@ -21,7 +21,11 @@ follows the same boundary: native queries load only their source, shared job
 values and presentation, without loading authentication or remote product clients.
 
 Preserve the explicit HTTP read contracts during migration. `sai jobs local`
-implements the existing job-helper filter semantics through Slurm JSON; the
+implements the existing job-helper filter semantics through Slurm JSON.
+The explicit `--with-subaccounts` mode resolves the local cluster and native
+Slurm `WithSubAccounts` hierarchy before that one queue read. `sqa`/`ja` use it
+so current-organization queries include child projects. Exact `-A` reads add no
+metadata query. The
 [native contract](../contracts/native-jobs/v1/README.md) records names, flags,
 units and failure limits. `resources local` reuses the same native execution/value
 boundary for one per-node `sinfo` response; its [contract](../contracts/native-resources/v1/README.md)

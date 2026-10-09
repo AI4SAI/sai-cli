@@ -24,7 +24,9 @@ cost queries; a full terminal workbench is not the product target. See
 For a local Slurm query, use `sai jobs local --format table`, or
 `sai jobs local -A research --format table`. JSON is the default for agents and
 scripts. Shared `stat_job`/`stat_job_all` now use this same implementation;
-`sqa`/`ja` select the applied Slurm account in new login shells.
+`sqa`/`ja` select the applied Slurm account and its native child accounts in
+new login shells. Use `-A ACCOUNT --with-subaccounts` for the same explicit
+subtree query; plain `-A ACCOUNT` stays exact.
 See the [native command contract](contracts/native-jobs/v1/README.md) for exact
 filter semantics and the [shared rollout](docs/login-node-deployment.md).
 

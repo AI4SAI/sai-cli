@@ -219,6 +219,7 @@ def _add_connection_arguments(parser: argparse.ArgumentParser, *, suppress_defau
 
 def _add_local_job_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-A", "--account", "--accounts", dest="accounts", help="native Slurm account(s), comma-separated")
+    parser.add_argument("--with-subaccounts", action="store_true", help="include native descendants of one -A account")
     parser.add_argument("-u", "--user", "--users", dest="users", help="native user(s); '*' selects all native-visible users")
     parser.add_argument("-p", "--partition", help="native partition(s)")
     parser.add_argument("-q", "--qos", help="native QOS name(s)")

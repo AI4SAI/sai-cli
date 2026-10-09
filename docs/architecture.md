@@ -84,6 +84,11 @@ overwriting a concurrent choice; the existing idempotency record preserves the
 original acceptance on replay. The CLI never retries this PUT automatically or
 calls the read gateway for a mutation. See [the management contract](portal-management.md).
 
+The optional native job subtree selector uses Slurm's `WithSubAccounts` and
+Lineage, bound to the local cluster. It narrows one queue request to those
+accounts and verifies returned scope; it neither duplicates account hierarchy
+nor consults Portal. Plain native account filters remain exact.
+
 Local quota resolves the chosen path's native project ID and reads explicit
 Lustre counter/grace fields as that user. It shares only native process/context
 and presentation primitives with other local queries. It does not import the

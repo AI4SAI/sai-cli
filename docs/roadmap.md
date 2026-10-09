@@ -36,6 +36,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
   reads on a login and compute node, including current directory and explicit path
 - [x] Verify local job human/JSON reads without a Portal device session on a
   login node and one compute node; record native call count and sampled latency
+- [ ] Publish and verify the native `sqa`/`ja` subtree correction with a positive
+  organization queue and a leaf-project queue; source tests alone are not delivery
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and

@@ -11,6 +11,7 @@ options are rejected; an unavailable native client never triggers an API fallbac
 ```bash
 sai jobs local --format table
 sai jobs local -A research --format table
+sai jobs local -A research --with-subaccounts --format table
 sai jobs local -p gpu-standard -t R,PD
 sai jobs local -u alice,bob --limit 100
 ```
@@ -25,6 +26,24 @@ This is native visibility, not evidence of Portal membership or business rights.
 `SQUEUE_*` environment defaults are removed so they cannot silently change the
 declared query. Native Slurm configuration is retained; SAI credentials are not
 passed to the subprocess. Values are argv elements, never shell source.
+
+`--with-subaccounts` explicitly expands one `-A` account to its native subtree.
+The `sqa`/`ja` aliases use this for the applied login account: an organization
+queue includes its child-project accounts; a leaf project remains that project.
+Plain `-A` remains an exact native account filter. The option requires one root,
+not a comma-separated list, and never derives an account from the current path
+or Unix group.
+
+Expansion reads local cluster metadata with `scontrol --json ping`, then uses
+`sacctmgr show assoc WithSubAccounts` for that cluster and root. The caller's
+native visibility applies. Lineage validates whole ancestor components; name
+prefixes and Portal membership are not used. Missing/incomplete hierarchy fails
+rather than falling back to a root-only or unfiltered queue. One subsequent
+`squeue --json --local --account=...` reads the resolved accounts. Its cluster
+and returned job accounts must match that scope. Association output is bounded
+to 1 MiB and each native process uses the configured timeout. These extra reads
+only accompany `--with-subaccounts`; normal queries retain one native call.
+No daemon, hierarchy cache, credential or authorization service is added.
 
 JSON is the default; human tables and JSON use the same normalized observation.
 There is no default row truncation. Explicit `--limit` (1–100000) reports
@@ -42,7 +61,7 @@ than disappearing from a successful queue.
 | `source`, `authority` | `squeue`, `native` |
 | `cluster` | Cluster reported by Slurm, not an inferred Portal site |
 | `actor` | Effective Unix `uid` and NSS `user` |
-| `filters` | Effective nullable `users`, `accounts`, `partition`, `qos`, `states` |
+| `filters` | Effective nullable `users`, `accounts`, `partition`, `qos`, `states`; subtree reads additionally identify `account_root`, with resolved accounts in `accounts` |
 | `observed_at` | UTC observation completion time |
 | `items`, `count` | Allowlisted job rows and number returned |
 | `has_more` | Explicit limit omitted matching rows |
@@ -66,7 +85,7 @@ Pending `start_time` is not promoted from a scheduler forecast into an actual
 start; its wait is measured from submission. Running/suspended duration follows
 native start/suspend/previous-active-time fields. Missing or inconsistent timing
 remains unknown. JSON times are UTC; human tables use the caller's local time
-with an explicit UTC offset. `slots` preserves the helper's convention of
+without a timezone suffix, matching the original helper. `slots` preserves the helper's convention of
 pending requested tasks and otherwise CPU slots. `gpus_per_node` is the native
 per-node request, including typed GPU requests; MPS/shards are not physical GPU
 counts. `mem_per_unit` labels CPU, node or GPU request units explicitly.

@@ -11,13 +11,20 @@ these focused command interactions.
 
 Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.
 The shared login profile maps `sqm` through `squeue` to `stat_job`, and `sqa`/`ja`
-to `stat_job -A` with the applied Slurm account. `gpu`/`cpu` use the common native
+to `stat_job -A ... --with-subaccounts` with the applied Slurm account.
+The identity queue includes native child-project accounts; explicit `-A` without
+that option remains exact. `gpu`/`cpu` use the common native
 resource reader; `quota` delegates to the same CLI's path-to-project Lustre read.
 These are native scopes, not business ownership.
 
 The shared alias migration replaced the unrelated Unix group selector with the
 `_SAI_LOGIN_ACCOUNT` context, also used by the login directory/summary. It does
 not repurpose Unix group variables or reinterpret an explicit CLI `-A` value.
+A root-account-only alias missed jobs charged to child projects. The native
+subtree option corrects that identity scope using Slurm `WithSubAccounts` and
+Lineage. The alias update takes effect when the shared profile is reloaded or a
+new login shell starts; publication and positive ordinary-user queue checks are
+separate from source support.
 
 The first integration is `sai jobs local`, with thin versioned `stat_job` and
 `stat_job_all` wrappers in the shared package. It replaces shell interpolation

@@ -28,7 +28,7 @@ def test_account_queries_use_the_applied_native_account_without_repurposing_unix
     result = subprocess.run(['bash', str(script), str(native_profile)], capture_output=True, text=True,
                             env={**os.environ, 'GROUP_NAME': 'unix-group', '_SAI_LOGIN_ACCOUNT': 'compute-account'})
     assert result.returncode == 0 and not result.stderr
-    assert result.stdout.splitlines() == ['argument=-A', 'argument=compute-account', 'argument=-t',
+    assert result.stdout.splitlines() == ['argument=-A', 'argument=compute-account', 'argument=--with-subaccounts', 'argument=-t',
                                          'argument=R', 'group=unix-group']
 
 
