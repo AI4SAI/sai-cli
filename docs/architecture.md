@@ -52,6 +52,11 @@ activation is a separate migration. Extract/reuse a single implementation
 where machine-readable output needs it; do not parse a rendered table, launch
 an interactive login shell or install a daemon for every query.
 
+The helper's human presentation retains its prior visual contract. Native
+resource tables have a dedicated renderer over the same observation; terminal
+color and column layout never change collected facts or machine JSON. Shared
+GPU/CPU entrypoints request the node detail view by default.
+
 Execution source is selected before the request from operation intent, explicit
 site selection and installed configuration. A local read may expose different
 native visibility from a Portal-scoped read; report that scope instead of

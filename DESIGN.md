@@ -20,6 +20,15 @@ JSON output. Avoid mandatory text entry, command catalogues or page navigation
 before a common query. Agent calls use explicit inputs and never wait for TUI
 interaction; they report the domain's required confirmation or operation state.
 
+The native helper visuals are an existing product contract: job rows retain
+their fixed columns and local timestamps; GPU rows use blue allocated, green
+free and red blocked cells followed by a partition table; CPU rows group
+scheduled memory/CPUs and reported load/free memory; quota retains aligned native
+usage, soft/hard limit and grace columns. `gpu` and `cpu` include node rows by
+default. Preserve these designs when changing the data reader. GPU cells encode
+quantities, not physical positions; narrow output uses explicit counts when the
+whole row cannot fit. Color follows the terminal and `NO_COLOR`.
+
 Cost is an explicit inquiry. Show the account/site and whether the amount is a
 running estimate or a settled charge. Use the existing command and server
 contract; do not build a queue browser merely to give access to cost.

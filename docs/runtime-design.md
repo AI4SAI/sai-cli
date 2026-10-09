@@ -45,6 +45,10 @@ prerequisites and management operations rather than advertise planned commands.
 ## Current implementation
 
 The terminal presentation follows [terminal scope](terminal-scope.md).
+Native helper tables preserve the original alias presentation: fixed job columns,
+colored GPU count cells and partition bars, grouped CPU/memory columns, and quota
+usage/limit/grace columns. `stat_gpu` and `stat_cpu` include nodes by default.
+ANSI rendering adds no dependency or native query; JSON remains unstyled.
 With no subcommand, `sai` uses the same central account read: plain text when
 stdout is a terminal, JSON when redirected. It returns without prompting and
 needs no optional UI package. This changes presentation only; it adds no native

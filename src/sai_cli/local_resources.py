@@ -5,17 +5,14 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
 import os
 import re
-from textwrap import fill
 from typing import Any, Mapping
 
 from .errors import ConfigError
 from .native_process import read_native_json
 from .native_values import (invalid_native, local_options, native_environment,
                             native_header, native_number, native_text, native_user)
-from .render import format_decimal
 
 
 _BLOCKED = {"DOWN", "DRAIN", "DRAINED", "DRAINING", "FAIL", "FAILING", "MAINTENANCE",
@@ -259,62 +256,3 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
         "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "filters": filters, "nodes": selected, "partitions": selected_parts,
         "summary": _summary(selected, parts), "unclassified_nodes": unknown, "warning_count": warnings})
-
-
-def _quantity(value: int | None, *, memory: bool = False) -> str:
-    if value is None:
-        return "?"
-    return format_decimal(str(Decimal(value) / 1024), 1, trim=True) + " GiB" if memory else str(value)
-
-
-def render_local_resources(result: LocalResources, *, details: bool = False, width: int = 80) -> str:
-    value = result.values
-    kind = value["filters"]["kind"]
-    width = max(40, width)
-    lines = [f"Slurm resources: {value['cluster']} ({kind})"]
-    if not value["nodes"]:
-        lines.append("No native nodes matched this query.")
-    for part in value["partitions"]:
-        summary = part["summary"]
-        lines.append("\n" + fill(f"{part['name']}  {summary['ready_nodes']}/{summary['nodes']} nodes ready  [{'+'.join(part['states']) or 'unknown'}]", width=width))
-        families = ("gpu",) if kind == "gpu" else ("cpu", "memory") if kind == "cpu" else ("gpu", "cpu", "memory")
-        for family in families:
-            resource = summary[family]
-            if family == "gpu" and kind == "all" and resource["capacity"] == 0:
-                continue
-            display = lambda item: _quantity(resource[item], memory=family == "memory")
-            title = {"gpu": "GPU units", "cpu": "CPUs", "memory": "RAM"}[family]
-            text = (f"{title}: {display('free_on_ready_nodes')} free* / {display('capacity')} capacity; "
-                    f"{display('allocated')} allocated, {display('blocked_unallocated')} blocked idle; "
-                    f"largest free/node {display('largest_free_on_one_node')}")
-            lines.append(fill(text, width=width, initial_indent="  ", subsequent_indent="  ", break_on_hyphens=False))
-        qos = part["qos"]
-        text = "Partition QOS: " + ("?" if qos["allowed"] is None else ", ".join(qos["allowed"].split(",")) or "no allow-list")
-        if qos["deny"]:
-            text += "; denied: " + qos["deny"]
-        lines.append(fill(text, width=width, initial_indent="  ", subsequent_indent="  ", break_on_hyphens=False))
-    if details:
-        lines.append("\nNodes")
-        for node in value["nodes"]:
-            lines.append(fill(f"{node['name']}  {'+'.join(node['states']) or 'unknown'}  ({', '.join(node['partitions'])})", width=width))
-            text = (f"GPU units {_quantity(node['gpu']['allocated_units'])}/{_quantity(node['gpu']['configured_units'])} allocated; "
-                    f"CPU {_quantity(node['cpu']['allocated'])}/{_quantity(node['cpu']['effective_total'])} allocated; "
-                    f"RAM {_quantity(node['memory']['unallocated_mib'], memory=True)} unallocated")
-            lines.append(fill(text, width=width, initial_indent="  ", subsequent_indent="  ", break_on_hyphens=False))
-            load = node["reported"]["cpu_load_hundredths"]
-            load_text = "?" if load is None else format_decimal(str(Decimal(load) / 100), 2, trim=True)
-            lines.append(fill(f"Reported load {load_text}; reported free RAM {_quantity(node['reported']['free_memory_mib'], memory=True)}",
-                              width=width, initial_indent="  ", subsequent_indent="  ", break_on_hyphens=False))
-    if value["unclassified_nodes"]:
-        lines.append(f"\nGPU configuration unknown on {value['unclassified_nodes']} node(s); inspect --kind all.")
-    if value["nodes"]:
-        summary = value["summary"]
-        families = ("gpu",) if kind == "gpu" else ("cpu", "memory") if kind == "cpu" else ("gpu", "cpu", "memory")
-        totals = [f"{family.upper()} {_quantity(summary[family]['free_on_ready_nodes'], memory=family == 'memory')} free* / "
-                  f"{_quantity(summary[family]['capacity'], memory=family == 'memory')} capacity" for family in families]
-        lines.append("\n" + fill(f"Unique nodes: {summary['nodes']}. " + "; ".join(totals), width=width))
-    lines.append("\n" + fill("Free*: unallocated on nodes/partitions without an observed blocking state. "
-                      "Access, reservations and resource constraints still apply. Allocation is not measured utilization.", width=width))
-    if not details and value["nodes"]:
-        lines.append("Use a partition name or --details for node observations.")
-    return "\n".join(lines) + "\n"

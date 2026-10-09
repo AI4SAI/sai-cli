@@ -243,7 +243,7 @@ def test_human_and_json_share_projection_without_terminal_control_sequences(nati
     row = json.loads(raw)["items"][0]
     assert row["state"] == "STOPPED" and "\\x1b" in row["name"]
     assert "\x1b" not in table and "STOPPED" in table and "simulation" not in table
-    local_start = datetime.fromisoformat(row['start_time']).astimezone().isoformat(sep=' ', timespec='seconds')
+    local_start = datetime.fromisoformat(row['start_time']).astimezone().strftime('%Y-%m-%d %H:%M:%S')
     assert local_start in table and row['start_time'].endswith('Z')
 
 

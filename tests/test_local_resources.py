@@ -9,7 +9,8 @@ import sys
 import pytest
 
 from sai_cli.cli import main
-from sai_cli.local_resources import _gpu_counts, _gpu_total, render_local_resources, LocalResources
+from sai_cli.local_resources import _gpu_counts, _gpu_total, LocalResources
+from sai_cli.native_resource_view import render_local_resources
 
 
 def number(value, *, present=True):
@@ -204,12 +205,36 @@ def test_summary_default_details_on_demand_and_narrow_readability(native_client)
     plain=render_local_resources(LocalResources(value),width=40)
     detailed=render_local_resources(LocalResources(value),details=True,width=40)
     assert 'node-a' not in plain and 'node-a' in detailed
-    assert 'GPU units' in plain and 'blocked idle' in plain and 'largest' in plain
+    assert 'Total' in plain and 'Blocked' in plain and 'max/node' in plain
     assert 'utilization' in plain and 'Usage Matrix' not in detailed
     assert all(len(line)<=40 for line in detailed.splitlines())
     assert '\x1b' not in plain
     code,table,error=invoke(native_client[0],'resources','local','gpu-new','--format','table')
     assert code==0 and not error and 'node-a' in table
+
+
+def test_restored_gpu_cells_keep_blocked_capacity_distinct_and_respect_terminal_color(native_client):
+    from sai_cli.native_display import allocation_bar, cell_width
+    value = result(native_client, '--kind', 'gpu')
+    table = render_local_resources(LocalResources(value), details=True, width=120, color=True)
+    down = next(line for line in table.splitlines() if line.startswith('node-b'))
+    running = next(line for line in table.splitlines() if line.startswith('node-a'))
+    assert '\x1b[91m' in down and '[x][x][x][x]' in down and '0/4' in down
+    assert '[#][#]' in running and '[_][_]' in running and '2/4' in running
+    plain = render_local_resources(LocalResources(value), details=True, width=120)
+    assert cell_width(running) == len(next(line for line in plain.splitlines() if line.startswith('node-a')))
+    assert 'TotGPU' in plain and 'GLOBAL' in plain and 'Allowed QOS' in plain
+    class Terminal(StringIO):
+        def isatty(self):
+            return True
+    for environment, colored in (({}, True), ({'NO_COLOR': ''}, False), ({'TERM': 'dumb'}, False)):
+        out, err = Terminal(), StringIO()
+        assert main(['resources','local','--kind','gpu','--details','--format','table'],
+                    environ={**native_client[0], **environment}, stdout=out, stderr=err) == 0
+        assert ('\x1b[' in out.getvalue()) == colored
+    assert '\x1b' not in json.dumps(value)
+    assert allocation_bar(16, 12, 4, cells=8, color=False, unit_cells=True) == '[#]×12 [_]×4'
+    assert allocation_bar(100, 79, 19, cells=10, color=False) == '[########..]'
 
 
 def test_empty_native_data_is_not_a_source_failure(native_client):

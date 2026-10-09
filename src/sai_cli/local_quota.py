@@ -9,13 +9,13 @@ from decimal import Decimal
 import os
 import re
 import time
-from textwrap import fill
 from typing import Any, Mapping
 
 from .errors import ConfigError, ContractError, ForbiddenError, NotFoundError, UnavailableError
 from .native_process import read_native_output
 from .native_values import local_options, native_environment, native_user
 from .render import format_decimal
+from .native_display import row
 
 
 _FIELDS = ("--blocks", "--block-softlimit", "--block-hardlimit", "--block-grace",
@@ -161,12 +161,21 @@ def _path_text(value: str) -> str:
 def render_local_quota(result: LocalQuota, *, width: int = 80) -> str:
     value = result.values
     files = lambda field: "unlimited" if int(value[field]) == 0 else f"{int(value[field]):,}"
-    lines = [f"Lustre project quota: {_path_text(value['path'])}",
-             f"Space  {_size(value['used_bytes'])}{'*' if value['native_usage_markers']['space'] else ''} used | soft {_size(value['block_soft_bytes'], limit=True)} | hard {_size(value['block_hard_bytes'], limit=True)}",
-             f"Files  {int(value['used_inodes']):,}{'*' if value['native_usage_markers']['inodes'] else ''} used | soft {files('inode_soft')} | hard {files('inode_hard')}"]
-    for kind, field in (("Space", "block_grace"), ("Files", "inode_grace")):
-        grace = value[field]
-        if grace["state"] != "inactive":
-            lines.append(f"{kind} grace: {grace['raw']}")
-    lines.append(f"Scope: all files with native project ID {value['native_project_id']} in this filesystem.")
-    return "\n".join(fill(line, width=max(40, width), break_on_hyphens=False) for line in lines) + "\n"
+    rows = [
+        ["Space", _size(value["used_bytes"]) + ("*" if value["native_usage_markers"]["space"] else ""),
+         _size(value["block_soft_bytes"], limit=True), _size(value["block_hard_bytes"], limit=True), value["block_grace"]["raw"]],
+        ["Files", f"{int(value['used_inodes']):,}" + ("*" if value["native_usage_markers"]["inodes"] else ""),
+         files("inode_soft"), files("inode_hard"), value["inode_grace"]["raw"]],
+    ]
+    headings = ["", "Used", "Quota", "Limit", "Grace"]
+    widths = [max(len(headings[index]), *(len(cells[index]) for cells in rows)) for index in range(5)]
+    if width >= 100:
+        headings = ("used", "quota", "limit", "grace", "files", "quota", "limit", "grace")
+        cells = [*rows[0][1:], *rows[1][1:]]
+        widths = [max(8, len(heading), len(cell)) for heading, cell in zip(headings, cells, strict=True)]
+        lines = [row(headings, widths), row(cells, widths)]
+    else:
+        lines = [row(headings, widths), "-" * (sum(widths) + 8), *(row(cells, widths) for cells in rows)]
+    lines.insert(0, f"Disk quotas for project {value['native_project_id']}: {_path_text(value['path'])}")
+    lines.append("Quota: soft limit; Limit: hard limit. Scope: filesystem project.")
+    return "\n".join(lines) + "\n"

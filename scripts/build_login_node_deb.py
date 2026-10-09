@@ -255,8 +255,8 @@ def build(*, output_dir: Path, allow_dirty: bool = False, with_tui: bool = False
         _write(shared / "cli/releases" / version / "bin/sai", wrapper, mode=0o755)
         for name, command in (("stat_job", "jobs local --format table"),
                               ("stat_job_all", "jobs local --format table --user '*'"),
-                              ("stat_gpu", "resources local --kind gpu --format table"),
-                              ("stat_cpu", "resources local --kind cpu --format table")):
+                              ("stat_gpu", "resources local --kind gpu --details --format table"),
+                              ("stat_cpu", "resources local --kind cpu --details --format table")):
             native_wrapper = (f'#!/bin/sh\nset -eu\nexec "/opt/sai/cli/releases/{version}/bin/sai" '
                               f'{command} "$@"\n')
             _write(shared / "cli/releases" / version / "bin" / name, native_wrapper, mode=0o755)

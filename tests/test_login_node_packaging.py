@@ -102,7 +102,7 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     subprocess.run(["sh", "-n", str(all_wrapper)], check=True)
     for name, kind in (("stat_gpu", "gpu"), ("stat_cpu", "cpu")):
         native_resource = wrapper.with_name(name)
-        assert f'resources local --kind {kind} --format table "$@"' in native_resource.read_text()
+        assert f'resources local --kind {kind} --details --format table "$@"' in native_resource.read_text()
         subprocess.run(["sh", "-n", str(native_resource)], check=True)
     for path in shared.rglob("*"):
         expected_mode = 0o755 if path.is_dir() or path.parent == wrapper.parent else 0o644

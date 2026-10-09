@@ -527,16 +527,18 @@ def main(
         if args.command == "storage" and args.storage_command == "local-quota":
             from .local_quota import read_local_quota, render_local_quota
             result = read_local_quota(args, environ=env)
-            width = shutil.get_terminal_size().columns if output.isatty() else 80
+            width = shutil.get_terminal_size().columns if output.isatty() else 120
             output.write(render_json(result.as_dict(), ensure_ascii=True) if output_format == "json" else render_local_quota(result, width=width))
             return 0
         if args.command == "resources" and args.resources_command == "local":
-            from .local_resources import read_local_resources, render_local_resources
+            from .local_resources import read_local_resources
+            from .native_resource_view import render_local_resources
+            from .native_display import use_color
             result = read_local_resources(args, environ=env)
-            width = shutil.get_terminal_size().columns if output.isatty() else 80
+            width = shutil.get_terminal_size().columns if output.isatty() else 120
             details = args.details or args.partition_name is not None or args.partition is not None
             output.write(render_json(result.as_dict()) if output_format == "json" else
-                         render_local_resources(result, details=details, width=width))
+                         render_local_resources(result, details=details, width=width, color=use_color(output, env)))
             return 0
         if args.command == "jobs" and args.jobs_command == "local":
             from .local_jobs import read_local_jobs, render_local_jobs

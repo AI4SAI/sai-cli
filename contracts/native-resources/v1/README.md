@@ -66,12 +66,16 @@ native state and allow/deny/assigned QOS constraints; these are not the caller's
 personal QOS permissions. Native addresses, comments, reasons, account/group
 lists, billing weights and unrelated provider fields are discarded.
 
-JSON remains the default machine output. Human output starts with partition
-summaries, including the largest free amount on one node; totals on different
-nodes do not establish that one job fits. A partition name or `--details`
-expands node observations. Counts and readable memory sizes replace simulated
-device matrices and misleading usage bars. The same observation drives both
-presentations. Native deadline and byte limits are shared with local job reads.
+JSON remains the default machine output. Explicit human queries start with a
+partition table, including the largest free amount on one node. A partition
+name or `--details` adds node observations before that summary. The `gpu` and
+`cpu` wrappers pass `--details` by default, preserving their original dense
+presentation. GPU cells and bars show allocated/free/blocked quantities; they
+do not imply physical device positions or measured utilization. A down node's
+idle capacity is red/blocked, not green/free. Narrow views use explicit counts
+when all cells cannot fit. CPU columns keep scheduled and reported memory
+separate. Colors are terminal-only and respect `NO_COLOR` and `TERM=dumb`.
+The same observation drives JSON and human output, with unchanged native calls.
 
 Source and synthetic tests do not prove activation of shared helpers. Ordinary-
 user runtime, alias, latency and native-value parity require separate checks.

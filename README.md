@@ -31,6 +31,9 @@ filter semantics and the [shared rollout](docs/login-node-deployment.md).
 For local capacity, `sai resources local --kind gpu --format table` shows a
 partition overview. Add a partition name or `--details` for node observations.
 The shared package provides `stat_gpu`/`stat_cpu` wrappers for existing aliases.
+Those helpers include node details by default, with the familiar colored GPU
+cells, partition summary and grouped CPU/memory columns. Job tables retain the
+compact fixed columns; quota retains usage, quota, limit and grace columns.
 See [native resources](contracts/native-resources/v1/README.md) for the distinction
 between allocations, blocked capacity, node reports and actual utilization.
 
