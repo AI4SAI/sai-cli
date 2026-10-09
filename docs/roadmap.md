@@ -38,15 +38,20 @@ does not return. Pilot delivery and hardware assets do not block this work.
   login node and one compute node; record native call count and sampled latency
 - [x] Publish and verify the native `sqa`/`ja` subtree correction with a positive
   organization queue and a leaf-project queue on 2026-10-09
-- [ ] Deliver the paired organization scope contract across Portal, gateway,
-  remote CLI and Pilot, including mixed per-project visibility and revocation
+- [x] Deploy the paired organization scope contract across Portal, gateway,
+  remote CLI and Pilot; bounded ordinary-user organization/project list,
+  detail, allocation, estimate and navigation reads passed on 2026-10-09
+- [ ] Complete production membership revocation and the real actor's Pilot
+  HTTP/MCP and full browser journeys; local mixed-visibility tests are separate
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
   device and dedicated isolated VM, with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and
   management services; begin with an existing preferences action and its receipt
 - [x] Implement the default-account source contract: independent write scope,
   expected saved value, existing idempotency/projection records and explicit
-  accepted versus applied results; production delivery remains separate
+  accepted versus applied results; paired Center/CLI/Identity components are
+  now deployed, with ordinary-user reads and read-only write denial verified
+  on 2026-10-10; permitted user writes and newly applied site changes remain open
 - [ ] Verify a real permitted management round trip, concurrency/retry behavior
   and denied action, then broaden domain coverage through those same owners
 

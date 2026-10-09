@@ -5,7 +5,8 @@
 2026-10-09 范围澄清：本文描述远程 API 凭据。本地 Slurm/Linux/Lustre 查询使用
 当前 Unix 用户的原生权限，不因整合进 CLI 就需要浏览器登录。用户设备或专有隔离
 VM 上的 Agent 使用本人/委托 OAuth 授权调用 Portal，不依赖 Pilot 会话。
-业务管理的写 scope 和各领域 API 配对尚未交付；现有 compute/billing/storage
+默认计算账户管理 API 与独立写 scope 已配套发布，真实用户写入仍待验；其他
+业务管理继续按领域配对。现有 compute/billing/storage
 只读 scope 不能据此增权，当前 CLI shell-enabled 规则也不是所有业务操作的通用前提。
 
 ## 用户体验

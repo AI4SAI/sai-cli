@@ -1,7 +1,9 @@
 # Portable Portal management
 
-Status: first management action implemented in source; paired production delivery
-and ordinary-user acceptance remain unverified.
+Status: the first management action's Center, shared CLI and optional Identity
+scope are deployed. Ordinary-user reads and rejection of a write using the
+existing read-only session passed on 2026-10-10. Human consent, a permitted write
+and a newly applied site change remain separate acceptance gates.
 
 The same CLI serves a person on a cluster and an Agent on a personal device or
 an isolated user VM. Native job, resource and quota queries use the current Unix
@@ -36,10 +38,10 @@ it must not copy the browser's business logic. Ordinary Portal account admission
 still applies. Shell access is not a substitute for permission to manage a
 business preference from a personal device.
 
-- Reads retain `sai.compute.read`. The proposed optional
+- Reads retain `sai.compute.read`. The optional
   `sai.compute.defaults.write` scope permits only changing this default; it
   grants no submission, cancellation, quota, wallet or membership mutation.
-  Identity must register and obtain consent for it before production use.
+  Identity registers it separately and requires explicit user consent.
   Existing read sessions and shared login configuration remain unchanged.
 - Mutations carry an idempotency key and the caller's expected saved default.
   Portal checks the expectation under the existing principal lock. A replay

@@ -83,8 +83,9 @@ The former `POST /v1/token` HMAC bootstrap is retired with the Portal issuer.
 CLI authentication uses device authorization/refresh or an explicit process-local
 Identity `SAI_TOKEN`. Old bearer-cache entries and HMAC configuration cannot
 select another credential path. Tokens never enter output or logs.
-This coordinated authentication change awaits paired Portal/CLI production
-release; local protocol tests do not establish that release.
+This authentication retirement has been paired and deployed with Portal/CLI,
+as recorded in [CLI authentication](cli-auth.md). Local protocol tests alone
+do not establish that deployment or close subsequent acceptance gates.
 
 ### Server-bound CLI capability
 
