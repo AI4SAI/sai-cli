@@ -12,8 +12,8 @@ these focused command interactions.
 Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.
 The shared login profile maps `sqm` through `squeue` to `stat_job`, and `sqa`/`ja`
 to `stat_job -A` with the applied Slurm account. `gpu`/`cpu` use the common native
-resource reader; quota resolves a path's Lustre project ID and reads
-that project's native quota. These are native scopes, not business ownership.
+resource reader; `quota` delegates to the same CLI's path-to-project Lustre read.
+These are native scopes, not business ownership.
 
 The shared alias migration replaced the unrelated Unix group selector with the
 `_SAI_LOGIN_ACCOUNT` context, also used by the login directory/summary. It does
@@ -48,7 +48,7 @@ performance guarantee. The source passed 970 tests; the installed runtime passed
 80 HTTP/native/auth/cost checks. The shell migration also passed its focused
 context tests. Prior runtime, exact helper/profile backups and paired rollback
 were retained; rollback was not exercised. Temporary canaries and the unselected
-candidate were removed. Native quota and Agent management remain unfinished.
+candidate were removed. General Agent management remains unfinished.
 
 ## Local resource delivery
 
@@ -79,6 +79,30 @@ acceptance claim. Old runtime/helper backups and conditional rollback were
 retained, without a rollback exercise. Temporary probes/uploads were removed.
 Neither these checks nor scheduler counts establish actual GPU utilization,
 hardware identity, user job eligibility or new Portal management authority.
+
+## Local quota delivery
+
+Source `f04459c2c5c9` and its thin shared `quota` function were published on
+2026-10-09. The function keeps the current-directory default and one quoted path;
+Agent calls use `storage local-quota` JSON. Two native reads resolve the path's
+project ID and request exact counter/grace fields from `lfs`; no gateway or Portal
+device session is needed. Existing job/resource entries remain on the same shared
+runtime. New shells load the function; existing shells retain their definition.
+
+The 583-file runtime and exact profile change passed content/mode readback.
+1038 source tests and 135 installed-wheel checks passed, including valid unusual
+filenames, native-byte paths, failed/inaccurate reads and shell argument handling.
+An ordinary user on a login node and one compute node matched Home and working-
+directory counters/limits against native `lfs quota`; actual `quota`, explicit
+path, unassigned-path failure and existing job aliases were checked after
+selection. Five query samples gave medians of 63/60 ms. This is bounded
+Lustre 2.17.0/site evidence, not fleet, enforcement or human-product acceptance.
+
+The result names its whole filesystem-project scope. It does not turn a shared
+project total into personal/subtree usage, a Portal budget or physical disk
+headroom. No quota, user data, identity session, job or service was changed for
+acceptance. Old runtime/profile and paired rollback were retained; rollback was
+not exercised. Probes/uploads and temporary shared canary were removed.
 
 ## Local execution
 

@@ -25,7 +25,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [x] Deliver GPU/CPU shared helper migration and compact resource presentation;
   ordinary-user login/compute checks completed on 2026-10-09
 - [x] Implement local path/project quota reads through native selected fields
-- [ ] Publish the thin `quota` helper migration and verify ordinary-user local reads
+- [x] Publish the thin `quota` helper migration and verify ordinary-user local
+  reads on a login and compute node, including current directory and explicit path
 - [x] Verify local job human/JSON reads without a Portal device session on a
   login node and one compute node; record native call count and sampled latency
 - [ ] Provide stable operation discovery and noninteractive Agent use on a user
