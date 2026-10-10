@@ -88,6 +88,16 @@ library and with config, network and subprocess execution unavailable. Independe
 between local logout cleanup and acknowledged server revocation. These
 are client proofs, not a newly authorized real user-device/VM management change.
 
+The shared CLI was updated once from `d7b0a62e97fa` on 2026-10-10. The 946-file
+runtime passed checksum/public-permission readback. A standard user read the
+31-operation catalogue with no native PATH and an invalid connection override;
+the normal selected entry returned the same catalogue as the inactive canary.
+The native GPU TUI still entered/exited a real terminal and restored its settings.
+Connection/profile bytes stayed unchanged; no permission, saved preference,
+backend service or per-node installation changed. Previous runtime and controlled
+rollback archives remain; task staging/helper and operator sessions were cleaned.
+
+
 ## Use from a user device or isolated user VM
 
 Select a protected non-secret profile with the existing Portal origin, Identity

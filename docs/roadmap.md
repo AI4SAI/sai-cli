@@ -43,8 +43,9 @@ does not return. Pilot delivery and hardware assets do not block this work.
   detail, allocation, estimate and navigation reads passed on 2026-10-09
 - [ ] Complete production membership revocation and the real actor's Pilot
   HTTP/MCP and full browser journeys; local mixed-visibility tests are separate
-- [ ] Publish offline `sai describe` over the existing command registration;
-  candidate describes actual sources, syntax, scope and mutation readback
+- [x] Publish offline `sai describe` over the existing command registration;
+  source `d7b0a62e97fa` was selected on 2026-10-10. Standard-user no-config/no-native
+  discovery and normal-entry TUI checks passed; actual user-device/VM actions remain separate
 - [ ] Verify noninteractive Agent use on a user device and dedicated isolated VM,
   with explicit local/remote prerequisites
 - [ ] Pair normal user/delegated authorization with existing Portal query and
