@@ -201,12 +201,12 @@ Pilot orchestration or backend fact source is introduced. `status` and the login
 summary remain one-shot. Native reads work without OAuth or Portal connectivity;
 explicit account/cost reads retain normal authorization and exact job binding.
 
-Implementation is a candidate. Focused keyboard tests cover immediate responses,
+The focused interaction was deployed from `f915ecf0cec0` on 2026-10-10.
+Focused keyboard tests cover immediate responses,
 scope changes, denied/reused-job cost, missing optional packages and cancellation
 of a blocked native child. Source and installed-wheel PTY checks preserve terminal
 settings on exit; 40/100-column synthetic views have been inspected. The full suite passed 1105 tests; wheel/sdist builds, public-surface checks and
-installed-wheel PTY restoration passed. Actual ordinary-user shared publication
-remains a separate gate.
+installed-wheel PTY restoration passed. Ordinary-user shared publication and selected-entry readback also passed.
 No human usability acceptance is claimed.
 
 The new code is a Textual presentation over existing commands: it adds no business
@@ -214,3 +214,14 @@ route, native parser, scheduler write or account mutation. The size increase cov
 the real interaction and cancelable process boundary removed by the static alias;
 independent review found and closed stale-widget, revoked-cost and managed-config
 regressions. The original authentication setup is retained.
+
+The 945-file shared runtime was selected once, with original connection config
+and login profile hashes unchanged. An ordinary user on a login node exercised
+435 candidate and 439 later selected identity jobs, job details and exact cost,
+GPU/CPU views, partition selection, native quota, account discovery and a
+40-column layout. The normal shared command entered and exited a real PTY,
+restoring its terminal settings. These changing counts are separate live queue
+observations. No job, membership, quota or account preference was changed.
+This is one login-node runtime check, not fleet or human usability acceptance.
+The old shared release remains available for rollback; task staging and the
+readback helper were archived/removed and all operator sessions closed.

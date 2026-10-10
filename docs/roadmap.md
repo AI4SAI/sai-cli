@@ -73,9 +73,10 @@ the new domain contract.
 
 ## Current terminal correction
 
-- [ ] Restore focused Textual interaction after the user rejected the static
-  `sai tui` alias. Source candidate uses shared native queries, keyboard selection
-  and on-demand business reads; package/live and visual acceptance remain separate.
+- [x] Restore focused Textual interaction after the user rejected the static
+  `sai tui` alias. Source `f915ecf0cec0` was deployed once on the shared runtime;
+  1105 tests, installed/native PTY and ordinary-user live queries passed.
+  Human usability and fleet runtime acceptance remain separate.
 
 The full terminal workbench deployed on 2026-10-06 has been rejected. The
 [terminal scope decision](terminal-scope.md) replaces the complete-workflow
