@@ -1,0 +1,165 @@
+{
+  "schema_version": "cli.describe/v1",
+  "client_version": "0.1.0",
+  "authorization_checked": false,
+  "path": [
+    "account",
+    "set-default"
+  ],
+  "detailed": true,
+  "operations": [
+    {
+      "command": [
+        "account",
+        "set-default"
+      ],
+      "summary": "change your default account for all active sites",
+      "source": "portal",
+      "effect": "business_write",
+      "required_scopes": [
+        "sai.compute.defaults.write"
+      ],
+      "site_required": false,
+      "site_option": false,
+      "cluster_option": false,
+      "interaction": "none",
+      "native_executables": [],
+      "conditional_requirements": [],
+      "notes": [
+        "Global preference; accepted does not mean applied at a site.",
+        "Use account defaults choices and default_account_id; auto represents null.",
+        "On an uncertain result, replay the same request-id, account_id and if-current. No automatic write retry."
+      ],
+      "readback": [
+        "account",
+        "defaults"
+      ],
+      "parameters": [
+        {
+          "name": "config",
+          "flags": [
+            "--config"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": false,
+          "description": "TOML configuration path",
+          "default": null
+        },
+        {
+          "name": "profile",
+          "flags": [
+            "--profile"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": false,
+          "description": "configuration profile",
+          "default": null
+        },
+        {
+          "name": "base_url",
+          "flags": [
+            "--base-url"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": false,
+          "description": "SAI API base URL",
+          "default": null
+        },
+        {
+          "name": "timeout",
+          "flags": [
+            "--timeout"
+          ],
+          "type": "number",
+          "arity": 1,
+          "required": false,
+          "description": "API timeout in seconds",
+          "default": null
+        },
+        {
+          "name": "cache",
+          "flags": [
+            "--cache"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": false,
+          "description": "short-lived token cache path",
+          "default": null
+        },
+        {
+          "name": "no_cache",
+          "flags": [
+            "--no-cache"
+          ],
+          "type": "boolean",
+          "arity": 0,
+          "required": false,
+          "description": "do not read or write the token cache",
+          "default": false
+        },
+        {
+          "name": "allow_insecure_http",
+          "flags": [
+            "--allow-insecure-http"
+          ],
+          "type": "boolean",
+          "arity": 0,
+          "required": false,
+          "description": "allow plain HTTP for development",
+          "default": null
+        },
+        {
+          "name": "account_id",
+          "flags": [],
+          "type": "string",
+          "arity": 1,
+          "required": true,
+          "description": "account ID from account defaults, or auto to clear the explicit choice",
+          "default": null
+        },
+        {
+          "name": "if_current",
+          "flags": [
+            "--if-current"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": true,
+          "description": "saved account ID last read, or auto when no explicit choice was saved",
+          "default": null
+        },
+        {
+          "name": "request_id",
+          "flags": [
+            "--request-id"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": true,
+          "description": "unique request key; reuse it only with exactly the same intent",
+          "default": null
+        },
+        {
+          "name": "format",
+          "flags": [
+            "--format"
+          ],
+          "type": "string",
+          "arity": 1,
+          "required": false,
+          "description": "output format (default: json)",
+          "default": "json",
+          "choices": [
+            "json",
+            "table"
+          ]
+        }
+      ],
+      "exclusive_parameters": []
+    }
+  ]
+}

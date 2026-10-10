@@ -43,8 +43,12 @@ and request key. It requires independent `sai.compute.defaults.write` consent.
 Global writes require no site selector; the account discovery read does.
 Neither uses the site-read gateway, a Pilot session or a shell-enabled grant.
 Source support does not establish live scope registration or site application.
-JSON operation discovery must distinguish implemented reads, native
-prerequisites and management operations rather than advertise planned commands.
+`sai describe` now distinguishes implemented reads, native prerequisites,
+local-file writes, session writes and business operations. Exact paths expose
+argparse-derived syntax and static scope/readback prerequisites. The descriptor
+runs before config/auth/native initialization and does not authorize a caller.
+[cli.describe/v1](../contracts/cli-description/v1/README.md) owns this offline
+protocol; command handlers retain configuration and semantic validation.
 
 ## Current implementation
 

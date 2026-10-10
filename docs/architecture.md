@@ -71,6 +71,12 @@ is a current API constraint, not the general authorization policy for all future
 Portal management. Pair the proper user/delegated API boundary with each domain
 service; do not remove shell checks from current contracts to emulate support.
 
+`sai describe` derives its offline command catalogue and argument syntax from
+this same argparse registration. Source/effect/scope metadata is attached there,
+not in a second dispatcher. It never inspects credentials or probes availability;
+current authorization remains with the called operation. The installed base
+package can describe itself without native tools or optional UI dependencies.
+
 For writes, Portal remains the single domain writer. Reuse supported action
 validation, idempotency/concurrency checks, approval rules and durable site tasks.
 Return their existing identifiers and accepted/executed/failed outcomes; allow

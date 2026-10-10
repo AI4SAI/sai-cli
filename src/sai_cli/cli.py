@@ -22,21 +22,42 @@ if TYPE_CHECKING:
     from .transport import JsonTransport
 
 
+def _operation(parser: argparse.ArgumentParser, *, source: str, scopes: tuple[str, ...] = (),
+               effect: str = "read", site: bool = True, site_option: bool | None = None, cluster: bool = False,
+               interaction: str = "none", executables: tuple[str, ...] = (),
+               requirements: tuple[dict, ...] = (), notes: tuple[str, ...] = (), readback: tuple[str, ...] = ()) -> None:
+    parser.set_defaults(_operation={"source": source, "effect": effect, "required_scopes": list(scopes),
+        "site_required": site, "site_option": site if site_option is None else site_option, "cluster_option": cluster, "interaction": interaction,
+        "native_executables": list(executables), "conditional_requirements": list(requirements),
+        "notes": list(notes), "readback": list(readback)})
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sai",
         description="SAI command-line interface for people and agents",
-        epilog="With no command, show the SAI account summary (JSON when redirected).",
+        epilog="With no command, show the SAI account summary (JSON when redirected). Use sai describe for machine-readable operations.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     _add_connection_arguments(parser)
 
     commands = parser.add_subparsers(dest="command")
+    discovery = commands.add_parser("describe", help="describe implemented commands as offline JSON")
+    discovery.add_argument("command_path", nargs="*", help="command words, such as account set-default")
+    _add_format_argument(discovery)
+    _operation(discovery, source="client", effect="introspection", site=False)
+
     for name, description in (
         ("status", "show SAI account, funds and access information"),
         ("tui", "open focused interactive queries; q returns to the shell"),
     ):
         overview = commands.add_parser(name, help=description, description=description)
+        _operation(overview, source="mixed" if name == "tui" else "portal",
+                   scopes=() if name == "tui" else ("sai.compute.read",),
+                   site=name != "tui", site_option=True, cluster=name == "tui", interaction="terminal" if name == "tui" else "none",
+                   requirements=({"when": "reading financial fields", "scopes": ["sai.billing.read"]},),
+                   notes=("Native views require no OAuth; account and cost views use their batch operation permissions.",)
+                         if name == "tui" else ("Financial fields require separate billing scope and policy; the overview may omit them.",))
         _add_connection_arguments(overview, suppress_defaults=True)
         overview.add_argument("--account", help="authorized account to view (does not change your submission account)")
         overview.add_argument("--language", choices=("zh-CN", "en-US"), default="zh-CN", help="summary language (default: zh-CN)")
@@ -51,12 +72,18 @@ def build_parser() -> argparse.ArgumentParser:
     defaults = account_commands.add_parser("defaults", help="show allowed accounts and site application receipts")
     _add_connection_arguments(defaults, suppress_defaults=True)
     _add_format_argument(defaults)
+    _operation(defaults, source="portal", scopes=("sai.compute.read",))
     set_default = account_commands.add_parser("set-default", help="change your default account for all active sites")
     _add_connection_arguments(set_default, suppress_defaults=True)
     set_default.add_argument("account_id", help="account ID from account defaults, or auto to clear the explicit choice")
     set_default.add_argument("--if-current", required=True, help="saved account ID last read, or auto when no explicit choice was saved")
     set_default.add_argument("--request-id", required=True, help="unique request key; reuse it only with exactly the same intent")
     _add_format_argument(set_default)
+    _operation(set_default, source="portal", effect="business_write", site=False,
+               scopes=("sai.compute.defaults.write",), readback=("account", "defaults"),
+               notes=("Global preference; accepted does not mean applied at a site.",
+                      "Use account defaults choices and default_account_id; auto represents null.",
+                      "On an uncertain result, replay the same request-id, account_id and if-current. No automatic write retry.",))
     runs = commands.add_parser("runs", help="read your managed computations and declared outputs")
     run_commands = runs.add_subparsers(dest="runs_command", required=True)
     for command, description in (
@@ -92,6 +119,10 @@ def build_parser() -> argparse.ArgumentParser:
             run_parser.add_argument("--stream", choices=("stdout", "stderr"), default="stdout")
             run_parser.add_argument("--max-bytes", type=int, default=65536, help="maximum log bytes (1-65536)")
         _add_format_argument(run_parser)
+        _operation(run_parser, source="portal", scopes=("sai.billing.read" if command == "cost" else "sai.compute.read",),
+                   effect="local_file_write" if command == "download" else "read",
+                   notes=(("Current file READ is checked independently of task visibility.",) if command in {"logs", "files", "read", "download"} else ())
+                         + (("Creates --output; existing files are never overwritten.",) if command == "download" else ()))
     jobs = commands.add_parser("jobs", help="read authorized scheduler jobs")
     job_commands = jobs.add_subparsers(dest="jobs_command", required=True)
 
@@ -100,6 +131,9 @@ def build_parser() -> argparse.ArgumentParser:
                               help="native query deadline in seconds (default: 10)")
     _add_local_job_arguments(local_parser)
     _add_format_argument(local_parser)
+    _operation(local_parser, source="native", site=False, executables=("squeue",),
+               requirements=({"when": "--with-subaccounts", "executables": ["scontrol", "sacctmgr"], "parameters": ["accounts"]},),
+               notes=("Current Unix/native authority; unfiltered reads select the current user.",))
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
     _add_connection_arguments(list_parser, suppress_defaults=True)
@@ -107,6 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--partition", help="partition narrowing filter")
     list_parser.add_argument("--limit", type=int, default=100, help="maximum jobs (1-500)")
     _add_format_argument(list_parser)
+    _operation(list_parser, source="configured_site_read", scopes=("sai.compute.read",), cluster=True)
 
     for command, description in (
         ("show", "show one authorized job"),
@@ -118,6 +153,10 @@ def build_parser() -> argparse.ArgumentParser:
         detail_parser.add_argument("job_id", help="job identifier, including an array task suffix")
         _add_job_scope_arguments(detail_parser)
         _add_format_argument(detail_parser)
+        _operation(detail_parser, source="configured_site_read" if command == "show" else "site_gateway",
+                   scopes=("sai.compute.read",), cluster=True,
+                   notes=(("Requires protected site_read_base_url, cluster and capability mode.",) if command != "show" else ())
+                         + (("Requires separately enabled site placement disclosure.",) if command == "placement" else ()))
 
     cost_parser = job_commands.add_parser("cost", help="show non-final running job cost estimates")
     cost_parser.add_argument("job_id", nargs="?", help="current job ID; omit to read the authorized scope")
@@ -125,6 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     _add_job_scope_arguments(cost_parser)
     cost_parser.add_argument("--partition", help="partition narrowing filter")
     _add_format_argument(cost_parser)
+    _operation(cost_parser, source="portal", scopes=("sai.billing.read",), cluster=True,
+               requirements=({"when": "job_id is supplied", "scopes": ["sai.compute.read"]},),
+               notes=("Non-final estimates; omit job_id for the scoped list. No client-side pricing.",))
 
     resources = commands.add_parser("resources", help="query native resources or published specifications")
     resource_commands = resources.add_subparsers(dest="resources_command", required=True)
@@ -138,9 +180,13 @@ def build_parser() -> argparse.ArgumentParser:
     native_resources.add_argument("--timeout", type=float, default=argparse.SUPPRESS,
                                   help="native query deadline in seconds (default: 10)")
     _add_format_argument(native_resources)
+    _operation(native_resources, source="native", site=False, executables=("sinfo",),
+               notes=("Scheduler allocation and reported capacity, not measured utilization.",))
     catalog_parser = resource_commands.add_parser("catalog", help="show compute and storage specifications and prices")
     _add_connection_arguments(catalog_parser, suppress_defaults=True)
     _add_format_argument(catalog_parser)
+    _operation(catalog_parser, source="portal", scopes=("sai.compute.read",),
+               notes=("Published specifications and prices; does not grant access or report live capacity.",))
 
     storage = commands.add_parser("storage", help="read authorized storage observations")
     storage_commands = storage.add_subparsers(dest="storage_command", required=True)
@@ -148,6 +194,8 @@ def build_parser() -> argparse.ArgumentParser:
     local_quota.add_argument("path", nargs="?", default=".", help="local file or directory (default: current directory)")
     local_quota.add_argument("--timeout", type=float, default=argparse.SUPPRESS, help="native read deadline in seconds (default: 10)")
     _add_format_argument(local_quota)
+    _operation(local_quota, source="native", site=False, executables=("lfs",),
+               notes=("Current Unix permissions and Lustre project quota; paths are not workspace IDs.",))
     for command, help_text in (
         ("workspaces", "list workspaces where you may read storage observations"),
         ("quota-summary", "show sampled storage quota and usage"),
@@ -160,6 +208,9 @@ def build_parser() -> argparse.ArgumentParser:
             quota_parser.add_argument("--limit", type=int, default=50, help="maximum rows in one page (1-100)")
             quota_parser.add_argument("--cursor", help="next cursor returned by the previous page")
         _add_format_argument(quota_parser)
+        _operation(quota_parser, source="site_gateway" if command == "native-quota" else "portal", scopes=("sai.storage.read",),
+                   notes=(("Requires a protected site origin and storage.quota.read capability; no cluster argument.",)
+                          if command == "native-quota" else ()))
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -179,6 +230,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="resume the protected pending device authorization",
     )
     _add_format_argument(login_parser)
+    _operation(login_parser, source="identity", effect="session_write", site=False, site_option=True, interaction="browser_consent",
+               notes=("Requested scopes come from the protected profile; no-wait starts and resume polls the same device flow.",
+                      "--no-wait and --resume are mutually exclusive. Credentials are stored privately, never supplied as argv.",))
 
     status_parser = auth_commands.add_parser(
         "status",
@@ -186,6 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_connection_arguments(status_parser, suppress_defaults=True)
     _add_format_argument(status_parser)
+    _operation(status_parser, source="identity_and_portal", site=False, site_option=True)
 
     logout_parser = auth_commands.add_parser(
         "logout",
@@ -193,6 +248,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_connection_arguments(logout_parser, suppress_defaults=True)
     _add_format_argument(logout_parser)
+    _operation(logout_parser, source="identity", effect="session_write", site=False, site_option=True,
+               notes=("Clears local credentials and attempts server revocation; inspect the revoked result, especially after a network failure.",))
     return parser
 
 
@@ -517,7 +574,8 @@ def main(
 ) -> int:
     output = sys.stdout if stdout is None else stdout
     errors = sys.stderr if stderr is None else stderr
-    args = build_parser().parse_args(list(argv) if argv is not None else None)
+    parser = build_parser()
+    args = parser.parse_args(list(argv) if argv is not None else None)
     if args.command is None:
         args.command = "status"
         args.format = "table" if output.isatty() else "json"
@@ -527,6 +585,11 @@ def main(
     env = os.environ if environ is None else environ
 
     try:
+        if args.command == "describe":
+            from .discovery import describe, render_description
+            result = describe(parser, args.command_path)
+            output.write(render_json(result) if output_format == "json" else render_description(result))
+            return 0
         if args.command == "tui":
             if not output.isatty() or not sys.stdin.isatty():
                 raise ConfigError("sai tui needs an interactive terminal; use sai status for one-shot output")

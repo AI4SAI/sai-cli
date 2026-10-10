@@ -69,6 +69,25 @@ path on MariaDB. Release the paired Portal/client contract and optional Identity
 scope before requesting fresh human consent. Use a standard user for production
 acceptance; source tests are not proof of a real site applying the preference.
 
+## Discover before invoking
+
+`sai describe` returns a compact operation catalogue. Use
+`sai describe account set-default` for exact parameter flags/requiredness,
+`business_write`, the separate write scope and `account defaults` readback.
+This works offline in a base installation. It reveals no profile values and
+makes no authorization claim. Session operations and local file downloads have
+their own effects; a catalogue entry is never permission to execute it.
+
+The description is generated from the existing parser rather than maintained as
+a parallel command list. Added code is limited to syntax serialization and the
+source/effect/prerequisite declarations beside command registration; no new
+provider or runtime dependency is introduced. The full local suite passed 1112
+tests, including discovery-driven native reads and a fake-HTTP preference
+write/readback. An installed wheel describes itself with only the standard
+library and with config, network and subprocess execution unavailable. Independent review corrected optional-site descriptions and the distinction
+between local logout cleanup and acknowledged server revocation. These
+are client proofs, not a newly authorized real user-device/VM management change.
+
 ## Use from a user device or isolated user VM
 
 Select a protected non-secret profile with the existing Portal origin, Identity
