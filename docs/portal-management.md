@@ -1,10 +1,11 @@
 # Portable Portal management
 
 Status: the first management action's Center, shared CLI and optional Identity
-scope are deployed. Ordinary-user consent, a permitted same-value write, exact
-replay, stale-value rejection and preservation of the existing read-only session
-passed on 2026-10-10. Changing the selected account and applying a new site
-projection remain separate acceptance gates.
+scope are deployed. On 2026-10-11 an independent Linux client completed an
+ordinary user's approved account change and restoration, with new site receipts
+and native readback for both. Exact replay, stale-value rejection, isolated-grant
+revocation and preservation of the daily read-only session also passed. Broader
+management domains and platform coverage remain separate work.
 
 The same CLI serves a person on a cluster and an Agent on a personal device or
 an isolated user VM. Native job, resource and quota queries use the current Unix
@@ -109,13 +110,38 @@ verify the provider-owned session boundary; never revoke the daily session as
 cleanup for an isolated-profile test. No client-side session registry or
 administrative substitute for the user's consent is introduced.
 
+The 2026-10-11 acceptance used a clean unprivileged Ubuntu container and the
+base wheel, without Slurm, Lustre, shared installations or a Pilot runtime.
+The normal device grant's issuer/subject matched the ordinary user's daily
+session, while the native session identifiers differed. Minimal OpenID scopes
+need not return a username; optional display claims are not identity keys.
+The user approved a real temporary account change. Both the change and restoration
+produced newer applied site receipts and matching native Slurm observations.
+Replaying either intent preserved its original acceptance and did not reapply it;
+a stale expectation was rejected. The temporary grant's latest refresh was
+rejected after logout. The daily session then refreshed successfully and still
+could not write. No computation was submitted. Private receipts retain exact
+objects and timestamps; this does not claim coverage of every user device or VM.
+
 For a different-default acceptance, first identify the actual user device/VM and
 an explicitly approved target/window. Read the current authorized choices,
 save the original value, and use expected-value/idempotency guards for both
 change and restoration. Verify each new site receipt and native default; do not
 replace a concurrent user choice or count another no-op as site execution proof.
+An acceptance may name an older in-flight projection: require a current applied
+receipt newer than the pre-change baseline, not equality with an obsolete
+acceptance generation. If site application fails, attempt the approved guarded
+restoration while the saved value still equals the test target. A failed or
+uncertain restoration must remain explicit.
 
 ## Use from a user device or isolated user VM
+
+Treat this environment as an ordinary client. An unprivileged container and
+resource limits do not establish network isolation. Use an approved client
+network with rules enforced outside the guest, keep administration and control
+networks inaccessible, and allow only the required service origins and name
+resolution. Native commands and internal site credentials are not prerequisites
+for these Portal operations.
 
 Select a protected non-secret profile with the existing Portal origin, Identity
 issuer, public `sai-cli` client and `sai-portal` resource. Explicitly request

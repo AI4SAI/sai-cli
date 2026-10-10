@@ -9,9 +9,10 @@ Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
 `sai jobs local` and `sai resources local` implement native job and resource
 queries. `sai storage local-quota` reads a local path's Lustre project quota;
-Default-account management is deployed, with ordinary-user same-value acceptance.
-A different default and fresh site receipt from a user device or isolated VM
-still need verification; see [portable management](docs/portal-management.md).
+Default-account management is deployed. An independent Linux client has passed
+an actual account change, new site receipt and native readback, restoration and
+isolated-session revocation; see [portable management](docs/portal-management.md).
+This validates the first management action, not every business domain or platform.
 Business operations retain Portal's authority.
 See [the product scope](PRODUCT.md).
 

@@ -5,8 +5,9 @@
 2026-10-09 范围澄清：本文描述远程 API 凭据。本地 Slurm/Linux/Lustre 查询使用
 当前 Unix 用户的原生权限，不因整合进 CLI 就需要浏览器登录。用户设备或专有隔离
 VM 上的 Agent 使用本人/委托 OAuth 授权调用 Portal，不依赖 Pilot 会话。
-默认计算账户管理 API 与独立写 scope 已配套发布，本人同值写入、重放和旧值冲突
-已验；真正切换默认账户及新站点投递仍另验。其他
+默认计算账户管理 API 与独立写 scope 已配套发布。2026-10-11 已在独立 Linux
+容器中完成普通用户实际切换、恢复、新站点回执和原生 Slurm 核对，以及重放、
+旧值冲突和独立授权撤销；日常会话重新刷新后仍可读取、不能写入。其他
 业务管理继续按领域配对。现有 compute/billing/storage
 只读 scope 不能据此增权，当前 CLI shell-enabled 规则也不是所有业务操作的通用前提。
 
@@ -110,7 +111,9 @@ TOML `username`/`key_id` 输入会在发起请求前被拒绝；对应命令参�
 - 多个 CLI 进程通过用户凭据锁串行化 refresh，避免 rotating token 的竞态。
 - 独立 profile 和凭据文件不保证独立原生会话。同一浏览器 SSO 可以使两次授权
   复用同一 `sid`；独立撤销验收使用独立浏览器会话，不能为清理临时凭据而误撤销
-  用户日常会话。本轮同值管理验收只清理临时本地凭据，没有声称撤销服务端 grant。
+  用户日常会话。早期同值验收只清理了本地凭据；2026-10-11 的独立客户端验收
+  确认同一主体、不同原生会话后，实际撤销测试 grant，并验证最新 refresh 被拒绝，
+  日常会话重新刷新仍成功。已签发 access token 的原有到期边界不因此改变。
 - managed login-node 的 `/opt/sai/cli/config.toml` 只提供非敏感 Portal/
   Identity origin、client ID、scope 和 resource；refresh token 始终由当前
   Unix 用户持有，不能由 root 配置文件共享，也不能放入 package 或 wrapper。
