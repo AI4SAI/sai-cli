@@ -26,6 +26,12 @@ For a local Slurm query, use `sai jobs local --format table`, or
 preserving each project's member visibility. The paired scope contract migration
 is documented in [the API contract](docs/portal-api-contract.md#organization-job-scope).
 
+For agents, `sai describe` lists the installed operations without logging in or
+loading a profile. `sai describe account set-default` expands one command's
+parameters, permissions and receipt/replay rules; `sai describe jobs` narrows
+the list. It does not check current authorization. See the
+[description contract](contracts/cli-description/v1/README.md).
+
 JSON is the default for agents and
 scripts. Shared `stat_job`/`stat_job_all` now use this same implementation;
 `sqa`/`ja` select the applied Slurm account and its native child accounts in
