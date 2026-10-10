@@ -90,9 +90,10 @@ see the [delivery record](docs/terminal-scope.md#local-job-delivery).
 GPU/CPU resource helpers also use the shared CLI and have passed ordinary-user
 login/compute checks. Native quota and the thin `quota` function are also
 published and verified against native counters in those two environments.
-Default-account management is implemented in source through the existing Portal
-writer and site receipts. Paired release, ordinary-user acceptance and broader
-portable Agent management remain unfinished. See
+Default-account management is deployed through the existing Portal writer and
+site receipts. Ordinary-user same-value acceptance and replay are verified; a
+different default, fresh site application and physical user-device/VM operation
+remain open. See
 [the management boundary](docs/portal-management.md),
 [runtime plan](docs/runtime-design.md) and [roadmap](docs/roadmap.md).
 

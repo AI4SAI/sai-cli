@@ -1,6 +1,7 @@
 # Runtime Design
 
-Status: HTTP reads, native job/resource/quota queries and the first Portal management action in source
+Status: HTTP/native queries and the first management action are deployed;
+complete portable-management acceptance remains open.
 
 ## Target execution model
 

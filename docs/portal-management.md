@@ -98,6 +98,23 @@ backend service or per-node installation changed. Previous runtime and controlle
 rollback archives remain; task staging/helper and operator sessions were cleaned.
 
 
+## Session boundary for portable acceptance
+
+The previous same-value acceptance used separate local credential files but
+shared the provider's native SSO session with the daily read profile. Deleting
+those temporary files preserved the daily session; server-side revocation of an
+independent management session was not proven. A profile/cache directory is not
+a separate Identity session. Before testing targeted logout or revocation,
+verify the provider-owned session boundary; never revoke the daily session as
+cleanup for an isolated-profile test. No client-side session registry or
+administrative substitute for the user's consent is introduced.
+
+For a different-default acceptance, first identify the actual user device/VM and
+an explicitly approved target/window. Read the current authorized choices,
+save the original value, and use expected-value/idempotency guards for both
+change and restoration. Verify each new site receipt and native default; do not
+replace a concurrent user choice or count another no-op as site execution proof.
+
 ## Use from a user device or isolated user VM
 
 Select a protected non-secret profile with the existing Portal origin, Identity
