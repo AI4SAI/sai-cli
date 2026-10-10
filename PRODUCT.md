@@ -91,9 +91,9 @@ GPU/CPU resource helpers also use the shared CLI and have passed ordinary-user
 login/compute checks. Native quota and the thin `quota` function are also
 published and verified against native counters in those two environments.
 Default-account management is deployed through the existing Portal writer and
-site receipts. Ordinary-user same-value acceptance and replay are verified; a
-different default, fresh site application and physical user-device/VM operation
-remain open. See
+site receipts. Actual change/restoration, new site application, replay and
+independent authorization revocation are verified on a clean Linux container;
+broader business and device coverage remains open. See
 [the management boundary](docs/portal-management.md),
 [runtime plan](docs/runtime-design.md) and [roadmap](docs/roadmap.md).
 

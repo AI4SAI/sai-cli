@@ -13,37 +13,43 @@ AMOUNT_FIELDS = ("gross_amount", "cash_amount", "sai_credit_cny_equivalent_amoun
 FUNDING_FIELDS = AMOUNT_FIELDS[1:-1]
 
 
+def cost_fields(data: dict, request_id: str) -> dict:
+    """Validate the same final amounts and funding visibility for every consumer."""
+    status = _text(data, "status", request_id)
+    if data.get("currency") != "CNY" or status not in {"pending", "settled", "unavailable", "not_chargeable"}:
+        raise ContractError(request_id=request_id)
+    visible = _boolean(data, "cash_visible", request_id)
+    amounts = _object(data.get("amounts"), request_id)
+    checked = {}
+    for key in AMOUNT_FIELDS:
+        value = _text(amounts, key, request_id, nullable=True, maximum=64)
+        unsigned = value.removeprefix("-") if key == "price_adjustment_amount" and value is not None else value
+        if unsigned is not None and re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{8}", unsigned) is None:
+            raise ContractError(request_id=request_id)
+        checked[key] = value
+    settled = status == "settled"
+    settled_at = _time(data, "settled_at", request_id, nullable=True)
+    unit = _text(data, "unit_name", request_id, nullable=True, maximum=64)
+    if ((not settled and (any(value is not None for value in checked.values()) or settled_at is not None or unit is not None))
+            or (settled and (checked["gross_amount"] is None or checked["quantity"] is None))
+            or (not visible and any(checked[key] is not None for key in FUNDING_FIELDS))
+            or (settled and visible and any(checked[key] is None for key in FUNDING_FIELDS))):
+        raise ContractError(request_id=request_id)
+    return {"status": status, "currency": "CNY", "settled_at": settled_at,
+            "cash_visible": visible, "amounts": checked, "unit_name": unit}
+
+
 @dataclass(frozen=True)
 class ManagedRunCost(ManagedReadResult):
     @classmethod
     def from_payload(cls, payload: object, *, workspace_key: str, site_id: str,
                      run_ref: str, request_id: str) -> "ManagedRunCost":
         data, result = _context(payload, "compute.run-cost/v1", workspace_key, site_id, request_id)
-        status = _text(data, "status", request_id)
-        if (_token(data, "run_ref", request_id) != run_ref or data.get("source") != "portal_final_billing"
-                or data.get("currency") != "CNY" or status not in {"pending", "settled", "unavailable", "not_chargeable"}):
+        if _token(data, "run_ref", request_id) != run_ref or data.get("source") != "portal_final_billing":
             raise ContractError(request_id=request_id)
-        visible = _boolean(data, "cash_visible", request_id)
-        amounts = _object(data.get("amounts"), request_id)
-        checked = {}
-        for key in AMOUNT_FIELDS:
-            value = _text(amounts, key, request_id, nullable=True, maximum=64)
-            unsigned = value.removeprefix("-") if key == "price_adjustment_amount" and value is not None else value
-            if unsigned is not None and re.fullmatch(r"(?:0|[1-9][0-9]*)\.[0-9]{8}", unsigned) is None:
-                raise ContractError(request_id=request_id)
-            checked[key] = value
-        settled = status == "settled"
-        settled_at = _time(data, "settled_at", request_id, nullable=True)
-        unit = _text(data, "unit_name", request_id, nullable=True, maximum=64)
-        if ((not settled and (any(value is not None for value in checked.values()) or settled_at is not None or unit is not None))
-                or (settled and (checked["gross_amount"] is None or checked["quantity"] is None))
-                or (not visible and any(checked[key] is not None for key in FUNDING_FIELDS))
-                or (settled and visible and any(checked[key] is None for key in FUNDING_FIELDS))):
-            raise ContractError(request_id=request_id)
+        checked = cost_fields(data, request_id)
         return cls({**result, "run_ref": run_ref, "source": "portal_final_billing",
-                    "queried_at": _time(data, "queried_at", request_id), "status": status,
-                    "currency": "CNY", "settled_at": settled_at, "cash_visible": visible,
-                    "amounts": checked, "unit_name": unit})
+                    "queried_at": _time(data, "queried_at", request_id), **checked})
 
 
 def cost_lines(result: ManagedRunCost, language: str = "en-US") -> list[str]:

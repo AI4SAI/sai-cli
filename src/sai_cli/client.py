@@ -22,6 +22,7 @@ from .managed_runs import (
     clean_run_ref, clean_tasks_workspace,
 )
 from .run_cost import ManagedRunCost
+from .job_charges import JobCharges
 from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -438,6 +439,42 @@ class PortalClient:
         site = clean_token(site_id, field="site", required=True, maximum=64) or ""
         response = self._central_get("/v1/account/cli/defaults", query={"site_id": site})
         return DefaultAccountState.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
+    def job_charges(self, query: JobQuery, *, job_key: str | None = None, job_id: str | None = None,
+                    start_date: str | None = None, end_date: str | None = None,
+                    cursor: str | None = None) -> JobCharges:
+        from datetime import date
+        query = query.validated()
+        if query.cluster_id or query.states or query.partition or query.limit > 100:
+            raise ConfigError('settled charges use a site, financial scope and at most 100 records')
+        key = clean_token(job_key, field='settled job key', required=job_key is not None)
+        if key and re.fullmatch(re.escape(f'slurm:{query.site_id}:') + r'(?:0|[1-9][0-9]{0,18})', key) is None:
+            raise ConfigError('settled job key must match the selected site and accounting record')
+        if job_id is not None:
+            job_id = clean_run_ref(job_id)
+        dates = []
+        for value in (start_date, end_date):
+            try:
+                dates.append(date.fromisoformat(value).isoformat() if value is not None else None)
+            except (ValueError, TypeError) as exc:
+                raise ConfigError('charge dates must be valid ISO dates') from exc
+        start, end = dates
+        if start and end and start > end:
+            raise ConfigError('charge start date must not follow end date')
+        if cursor is not None and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 1024
+                                   or re.fullmatch(r'[A-Za-z0-9_-]+', cursor) is None):
+            raise ConfigError('charge cursor is invalid')
+        if key and (job_id or start or end or cursor):
+            raise ConfigError('an exact charge key does not accept list filters')
+        params = {'site_id': query.site_id, 'scope': _SCOPES[query.scope], 'account': query.account_name,
+                  'account_id': query.account_id, 'workspace_key': query.workspace_key}
+        if key is None:
+            params.update(job_id=job_id, start_date=start, end_date=end, cursor=cursor, limit=query.limit)
+        path = '/v1/billing/cli/job-charges' + ('/' + quote(key, safe='') if key else '')
+        response = self._central_get(path, query=params)
+        return JobCharges.from_payload(response.payload, site_id=query.site_id, scope=_SCOPES[query.scope],
+            limit=query.limit, account_id=query.account_id, account_name=query.account_name, workspace_key=query.workspace_key,
+            job_key=key, job_id=job_id, start_date=start, end_date=end, request_id=response.request_id)
 
     def set_default_account(self, account_id: str | None, *, expected_account_id: str | None,
                             idempotency_key: str) -> DefaultAccountChange:

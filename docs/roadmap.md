@@ -298,8 +298,10 @@ prove the formal service, real issuer/user chain or production wrapper.
 - [x] Deployed Identity device-client registration, Portal resource-token
   verification and production capability key/epoch acceptance for the CLI user
 - [ ] Development-stack read-only smoke for self and one account scope
-- [ ] General settled-billing read command beyond the implemented per-Run
-  final-cost contract; read authority remains independent of job visibility
+- [x] Implement bounded `jobs charges` and exact accounting-record reads over
+  Portal's existing final facts, with separate financial scope and redaction
+- [ ] Publish and live-verify the paired settled-charge reader and CLI;
+  installed-wheel/local API evidence does not close production acceptance
 - [x] Python package metadata and installation entrypoint
 - [ ] Shell completion
 

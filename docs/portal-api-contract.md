@@ -45,7 +45,26 @@ The paired optional Identity scope and Portal source are prerequisites for this
 command. Existing read-only sessions do not acquire it through refresh. See
 [portable management](portal-management.md) for consent and delivery boundaries.
 
+## Final job charges
+
+The paired `GET /v1/billing/cli/job-charges` and `/{job_key}` resource reads use
+`sai.billing.read` and the existing financial scope resolver, independently of
+live queue visibility or shell access. They return
+[`billing.job-charges/v1`](../contracts/job-charges/v1/README.md), with exact
+amounts from the canonical final fact graph. The list accepts explicit account
+scope, site, scheduler-ID narrowing, settlement dates, limit and query-bound
+cursor. Exact reads use the record key returned by the list and reject list
+filters. There is no capability, native read, pricing or estimate fallback.
+
+`self` is restricted to the actor's charged jobs; account scopes resolve current
+financial visibility and preserve funding-field redaction. Same numeric job IDs
+may have several accounting incarnations. No default site or native queue grants
+access to a historical financial record. These routes require the paired Center
+deployment; source compatibility is not production activation.
+
 ## Authentication
+
+### Identity resource tokens
 
 User endpoints require a short-lived access token whose issuer and audience are
 validated by Portal. The token is issued by the SAI Identity OIDC provider:
@@ -545,16 +564,14 @@ The CLI validates this response recursively as an allowlist and ignores
 additive unknown fields. It does not cache responses, inspect wallets or
 ledgers, call Slurm, or calculate any amount.
 
-## Settled billing (future independent contract)
+## Settled billing
 
-Settled job cost is deliberately not part of the site-read capability or the
-current CLI command surface. A future `billing.settled.read` Portal Bearer
-route must query only `JobBillingSettlement.status=succeeded` rows with a
-complete `SlurmJobBillingFact`/ledger/line-item/usage graph, apply the same
-scope and site/cluster authorization, and return a new allowlisted DTO. It
-must not reuse `/v1/billing/ledger`, expose wallet/ledger internals, or let the
-client recompute a final amount. The command name, pagination, and DTO version
-remain open until that Portal contract is frozen with compatibility tests.
+`jobs charges` uses the independent [final charge contract](#final-job-charges)
+and current Portal financial authorization. It reads the existing validated
+final fact graph; it does not acquire a site capability, reuse the generic
+ledger response, expose wallet internals or calculate prices. `jobs cost`
+continues to describe a non-final running estimate. Paired production delivery
+of the final-charge reader is recorded separately in the roadmap.
 
 ## Bounded errors
 

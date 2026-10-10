@@ -96,6 +96,8 @@ The implemented remote API surface includes:
   current physical machine behind a scheduler name.
 - `sai jobs cost JOB_ID` reads one current job's non-final cost estimate from the
   same authorized observation. Omit the ID to read the authorized scope.
+- `sai jobs charges` lists settled job expenses from Portal. Use `--job-id` to
+  find a scheduler ID, then its returned record key for exact final amounts.
 - `sai runs list/show/logs/files --workspace-key project:example` reads your
   managed computations, including completed runs, bounded logs and output-file
   metadata. Task records and current file reads remain separate sources.
@@ -278,6 +280,8 @@ site_id = "site-a"
 sai
 sai jobs cost --format table
 sai jobs cost 12345 --format table
+sai jobs charges --job-id 12345
+sai jobs charges slurm:site-a:67890 --site site-a --format table
 sai status --format json
 sai jobs list
 sai jobs list --scope project-account --account project-example

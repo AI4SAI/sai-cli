@@ -1,0 +1,45 @@
+{
+  "schema_version": "billing.job-charges/v1",
+  "source": "portal_final_billing",
+  "site_id": "site-a",
+  "scope": "self",
+  "account_id": null,
+  "account": null,
+  "workspace_key": null,
+  "slurm_user": "alice",
+  "queried_at": "2026-10-11T00:00:00Z",
+  "date_basis": "settled_at",
+  "calendar_timezone": null,
+  "start_date": null,
+  "end_date": null,
+  "count": 1,
+  "has_more": false,
+  "next_cursor": null,
+  "items": [
+    {
+      "job_key": "slurm:site-a:71",
+      "site_id": "site-a",
+      "slurm_job_id": "42",
+      "slurm_job_id_raw": "42_0",
+      "slurm_user": "alice",
+      "slurm_account": "private-alice",
+      "partition": "gpu-standard",
+      "resource_kind": "gpu",
+      "resource_count": 1,
+      "status": "settled",
+      "currency": "CNY",
+      "settled_at": "2026-10-10T00:00:00Z",
+      "cash_visible": true,
+      "unit_name": "gpu-hour",
+      "amounts": {
+        "gross_amount": "10.00000000",
+        "cash_amount": "7.00000000",
+        "sai_credit_cny_equivalent_amount": "2.00000000",
+        "sai_credit_amount": "200.00000000",
+        "reservation_coverage_amount": "2.00000000",
+        "price_adjustment_amount": "-1.00000000",
+        "quantity": "2.00000000"
+      }
+    }
+  ]
+}
