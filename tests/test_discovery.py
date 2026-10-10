@@ -36,7 +36,7 @@ def test_discovery_is_independent_of_config_auth_native_commands_and_ui(tmp_path
     assert payload['schema_version']=='cli.describe/v1' and payload['authorization_checked'] is False
     assert payload['detailed'] is False
     commands={tuple(row['command']) for row in payload['operations']}
-    assert len(commands)==31 and {('jobs','local'),('runs','download'),('account','set-default'),('describe',)}<=commands
+    assert len(commands)==32 and {('jobs','local'),('jobs','charges'),('runs','download'),('account','set-default'),('describe',)}<=commands
     assert not any('parameters' in row for row in payload['operations'])
     for words in commands:
         exact=describe(build_parser(),list(words))
@@ -83,7 +83,7 @@ def test_effects_scope_minima_and_readback_do_not_invent_authority():
 
 def test_group_filter_unknown_path_and_table_output():
     group=describe(build_parser(),['jobs'])
-    assert group['detailed'] is False and len(group['operations'])==6
+    assert group['detailed'] is False and len(group['operations'])==7
     code,output,error=invoke(['describe','jobs','local','--format','table'])
     assert code==0 and not error and '-A, --account, --accounts' in output
     code,output,error=invoke(['describe','jobs','cancel'])

@@ -168,6 +168,20 @@ def build_parser() -> argparse.ArgumentParser:
                requirements=({"when": "job_id is supplied", "scopes": ["sai.compute.read"]},),
                notes=("Non-final estimates; omit job_id for the scoped list. No client-side pricing.",))
 
+    charges_parser = job_commands.add_parser("charges", help="read settled job charges from Portal")
+    charges_parser.add_argument("job_key", nargs="?", help="exact record key returned by the list")
+    _add_connection_arguments(charges_parser, suppress_defaults=True)
+    _add_account_scope_arguments(charges_parser)
+    charges_parser.add_argument("--job-id", help="narrow the list by scheduler ID; several historical executions may match")
+    charges_parser.add_argument("--start-date", help="first settlement date, YYYY-MM-DD in the site's billing timezone")
+    charges_parser.add_argument("--end-date", help="last settlement date, YYYY-MM-DD in the site's billing timezone")
+    charges_parser.add_argument("--limit", type=int, help="page size, 1–100 (default: 20)")
+    charges_parser.add_argument("--cursor", help="next cursor from the same financial query")
+    _add_format_argument(charges_parser)
+    _operation(charges_parser, source="portal", scopes=("sai.billing.read",),
+               notes=("Final charges from canonical billing records; no site capability or native tools.",
+                      "Self is the actor's own charged work; exact record keys distinguish reused scheduler IDs.",))
+
     resources = commands.add_parser("resources", help="query native resources or published specifications")
     resource_commands = resources.add_subparsers(dest="resources_command", required=True)
     native_resources = resource_commands.add_parser("local", help="query local Slurm GPU/CPU resources without Portal login")
@@ -287,6 +301,11 @@ def _add_local_job_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_account_scope_arguments(parser)
+    parser.add_argument("--states", help="comma-separated state narrowing filter")
+
+
+def _add_account_scope_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--scope",
         choices=("self", "personal-account", "org-account", "project-account"),
@@ -296,7 +315,6 @@ def _add_job_scope_arguments(parser: argparse.ArgumentParser) -> None:
     selector.add_argument("--account", help="Portal compute account name")
     selector.add_argument("--account-id", help="Portal compute account ID")
     selector.add_argument("--workspace-key", help="compute read scope: personal:<id>, org:<id>, or project:<id>")
-    parser.add_argument("--states", help="comma-separated state narrowing filter")
 
 
 def _add_format_argument(parser: argparse.ArgumentParser) -> None:
@@ -776,6 +794,23 @@ def main(
                       render_run_stats if args.runs_command == "stats" else
                       render_run_placement if args.runs_command == "placement" else render_managed_runs)
             output.write(render_json(result.as_dict()) if output_format == "json" else render(result))
+            return 0
+        if args.command == "jobs" and args.jobs_command == "charges":
+            from .client import JobQuery
+            from .managed_runs import clean_tasks_workspace
+            from .job_charges import render_job_charges
+            if args.cluster is not None:
+                raise ConfigError("settled charges use the recorded site; --cluster is not supported")
+            if args.job_key is not None and args.limit is not None:
+                raise ConfigError("an exact charge key does not accept --limit")
+            workspace = clean_tasks_workspace(args.workspace_key) if args.workspace_key is not None else None
+            query = JobQuery(site_id=settings.site_id,
+                scope=args.scope or (workspace.split(":", 1)[0] + "-account" if workspace else "self"),
+                account_name=args.account, account_id=args.account_id, workspace_key=workspace,
+                limit=args.limit if args.limit is not None else 20)
+            result = client.job_charges(query, job_key=args.job_key, job_id=args.job_id,
+                start_date=args.start_date, end_date=args.end_date, cursor=args.cursor)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_job_charges(result, detail=args.job_key is not None))
             return 0
         query = _job_query(args, settings=settings)
 

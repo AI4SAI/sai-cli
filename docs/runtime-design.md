@@ -254,6 +254,16 @@ through another domain's scope.
 
 ### Scheduler jobs
 
+`jobs charges [JOB_KEY]` reads settled computation expenses from Portal.
+Without a key it returns one bounded page; `--job-id` narrows discovery and may
+match more than one historical execution. With a list-returned key it reads
+exactly that accounting record. `--start-date` and `--end-date` filter settlement
+dates in the selected site's billing timezone. JSON retains full decimal
+precision; table mode gives a compact page or the existing final-cost details.
+The operation uses only Identity billing scope and current financial authority;
+it does not inherit cluster, live-state, site capability or shell prerequisites.
+`jobs cost` remains the explicit non-final running estimate.
+
 `--scope` accepts `self`, `personal-account`, `org-account`, or
 `project-account`.
 
