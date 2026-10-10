@@ -116,18 +116,24 @@ The implemented remote API surface includes:
   renew a short-lived access token from a revocable local device session, so a
   user does not log in again for every SSH connection.
 
-`sai tui` shows the same compact account summary as `sai status --format tui`,
-then returns to the shell. It needs no account ID or interactive setup and uses
-the applied login account when available. `--account` explicitly changes only
-the account being viewed. `--language zh-CN` (default) or `--language en-US`
-selects presentation; JSON fields remain unchanged.
+`sai tui` opens focused keyboard queries. On cluster hosts it starts with an
+available native query: jobs, GPU, CPU or quota. Use arrows and Enter to select,
+`r` to refresh, `c` to read the selected job's non-final cost and `q` to return
+to the shell. The scope/partition chooser replaces typed IDs; quota offers the
+current directory and Home. Native reads use the same readers and resource
+visuals as the aliases, without a Portal login or gateway round trip.
 
-Install optional formatting with `pip install '.[tui]'`. Only Rich and its
-dependencies are needed. The full-screen workbench, its task/file/resource
-navigation and Textual dependency have been removed from source. Old workbench
-scope, workspace, partition, state, limit and storage options are rejected;
-use the corresponding batch command for those reads. See
-[terminal scope](docs/terminal-scope.md) for the rationale and deployment boundary.
+Account information is a separate on-demand view, with an authorized account
+chooser. Cost and account reads retain their existing Identity/Portal permissions.
+No read changes the shell directory or submission account. `--view` selects an
+initial query; `--language zh-CN|en-US` selects interface copy. `--account` selects
+the business overview only; local jobs use the applied login account or self.
+
+Install the optional interface with `pip install '.[tui]'` (Textual and Rich).
+It requires an interactive terminal. `sai status --format tui` remains the
+one-shot Rich summary used at login. Plain `sai`, explicit JSON commands and
+aliases retain their behavior. The old Portal/Pilot workbench remains retired.
+See [terminal scope](docs/terminal-scope.md) for source and delivery boundaries.
 
 The first Portal management operation shares the existing default-account writer
 and site tasks. Broader management remains planned and must retain each domain's

@@ -36,7 +36,8 @@ follows the terminal and `NO_COLOR`. JSON does not import Rich.
 
 Cost is an explicit inquiry. Show the account/site and whether the amount is a
 running estimate or a settled charge. Use the existing command and server
-contract; do not build a queue browser merely to give access to cost.
+contract. A selected native job may request a cost explicitly; keep job/account/
+cluster/incarnation binding and separate business permission. Never estimate locally.
 
 Preserve useful existing login information and native-command guidance. Do not
 replace it with a menu the user must enter to recover the same information.
@@ -51,8 +52,14 @@ until an authorized directory supports that exact purpose.
 One choice needs arrows, Enter and Escape, with visible instructions. Escape
 returns without changing the shell or submission context. Optional search can
 help a long list; empty technical forms cannot be the default experience.
-No sidebar, task tree, resource browser, file manager or command catalogue is
-part of the terminal companion.
+`sai tui` is a focused Textual query surface, distinct from one-shot `status`.
+Available native queries use a single compact tab strip: jobs, GPU, CPU and quota;
+account information is fetched only when selected. Arrows/Enter select an existing
+job or partition, r refreshes, c reads an explicitly selected job estimate, and
+q returns to the shell. One answer stays visible; no workspace tree, file manager,
+Pilot orchestration or Portal page hierarchy belongs here. Native command names
+and the existing dense resource tables remain familiar. The initial view uses
+an installed native tool when present; a failed local read never changes source.
 
 ## Information hierarchy
 

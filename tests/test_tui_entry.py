@@ -1,4 +1,4 @@
-"""The terminal entry answers one SAI question without opening a workbench."""
+"""One-shot summaries stay separate from the interactive terminal entry."""
 from io import StringIO
 import builtins
 import json
@@ -14,7 +14,7 @@ from test_site_transport import http_endpoint
 
 @pytest.mark.parametrize("prefix", [True, False])
 @pytest.mark.parametrize("language,label", [("zh-CN", "组织共享"), ("en-US", "Shared")])
-def test_tui_reads_one_summary_and_returns_without_input(tmp_path, monkeypatch, prefix, language, label):
+def test_formatted_status_reads_one_summary_and_returns_without_input(tmp_path, monkeypatch, prefix, language, label):
     pytest.importorskip("rich")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
@@ -26,7 +26,7 @@ def test_tui_reads_one_summary_and_returns_without_input(tmp_path, monkeypatch, 
         return 200, sample()
     with http_endpoint(reply) as (origin, calls):
         options = ["--site", "site-a", "--base-url", origin]
-        command = ["tui", "--language", language]
+        command = ["status", "--format", "tui", "--language", language]
         out, err = StringIO(), StringIO()
         rc = main(options + command if prefix else command + options,
                   environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)},
@@ -49,7 +49,7 @@ def test_removed_workbench_selectors_are_rejected(arguments):
     assert rejected.value.code == 2
 
 
-@pytest.mark.parametrize("command", [["tui"], []])
+@pytest.mark.parametrize("command", [["status", "--format", "tui"], []])
 def test_summary_without_credentials_does_not_start_device_authorization(tmp_path, command):
     with http_endpoint(lambda *_: pytest.fail("summary must not start login")) as (origin, calls):
         out, err = StringIO(), StringIO()
@@ -83,3 +83,38 @@ def test_bare_entry_reads_one_business_summary_for_terminal_or_pipe(tmp_path, mo
         assert "未读消息  4 条" in out.getvalue() and "\x1b" not in out.getvalue()
     else:
         assert json.loads(out.getvalue())["funds"]["net_balance"] == "1280.50000000"
+
+
+def test_tui_rejects_redirected_output_before_authentication(tmp_path):
+    with http_endpoint(lambda *_: pytest.fail("nonterminal UI must not call HTTP")) as (origin, calls):
+        out, err = StringIO(), StringIO()
+        assert main(["tui", "--base-url", origin], stdout=out, stderr=err, environ={}) == 2
+        assert not out.getvalue() and "interactive terminal" in err.getvalue() and not calls
+
+
+@pytest.mark.parametrize('missing',['rich','textual'])
+def test_missing_optional_ui_package_has_install_hint(missing):
+    import subprocess
+    import sys
+    from pathlib import Path
+    source=str(Path(__file__).resolve().parents[1]/'src')
+    code='''
+import sys
+from io import StringIO
+sys.path.insert(0,sys.argv[1])
+import builtins
+original_import=builtins.__import__
+def without_dependency(name,*args,**kwargs):
+    if name.split('.')[0]==sys.argv[2]:
+        raise ModuleNotFoundError(name=sys.argv[2])
+    return original_import(name,*args,**kwargs)
+builtins.__import__=without_dependency
+from sai_cli.cli import main
+out,err=StringIO(),StringIO()
+out.isatty=lambda:True
+sys.stdin.isatty=lambda:True
+rc=main(['tui'],environ={},stdout=out,stderr=err)
+assert rc==2 and not out.getvalue()
+assert 'install sai-cli[tui]' in err.getvalue(),err.getvalue()
+'''
+    subprocess.run([sys.executable,'-I','-B','-c',code,source,missing],check=True,timeout=10)

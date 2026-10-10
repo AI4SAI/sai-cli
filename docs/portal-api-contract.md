@@ -416,7 +416,10 @@ to the CLI list route, change a grant, or put prices in the site gateway.
 jobs use a direct site origin. It reads one job with an exact grant, without
 list pagination or a partition filter. Explicit state filters only narrow the
 read; without one, state changes remain visible. The attached item is validated
-against its parent job. The whole observation
+against its parent job. CLI cost JSON also preserves `has_more=false` and the validated freshness
+`observed_at`, `ttl_seconds`, `age_seconds`, `stale` fields alongside `queried_at`.
+This additive serialization keeps machine consumers from guessing freshness.
+The whole observation
 is returned as one response; neither another list nor a local price join is
 used. Unsupported producers fail explicitly, with no fallback to a broad read.
 The command keeps the allowlisted job envelope and its attached

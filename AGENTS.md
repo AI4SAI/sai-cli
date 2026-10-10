@@ -86,8 +86,9 @@
   for published specifications and prices (not live capacity or eligibility).
   `sai status` reads the authorized account overview (funds and unread messages);
   plain `sai` uses that same handler, with text for a terminal and JSON otherwise.
-  `sai tui` uses the same compact presentation and returns to Shell. Rich is
-  optional; the Textual workbench and its private navigation are removed.
+  `sai tui` provides focused Textual query interaction; local reads precede
+  remote config/auth. `status --format tui` remains the one-shot Rich summary.
+  The old broad workbench and its private navigation remain removed.
 - JSON is the default machine interface; table output is an explicit
   presentation mode.
 - Development compatibility can call Portal `GET /v1/slurm/jobs`, detail, and

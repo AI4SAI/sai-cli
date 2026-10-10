@@ -7,7 +7,7 @@ from typing import Any
 
 from rich import box
 from rich.columns import Columns
-from rich.console import Console
+from rich.console import Console, Group
 from rich.progress_bar import ProgressBar
 from rich.table import Table
 from rich.text import Text
@@ -81,12 +81,14 @@ def _gpu_matrix(node: dict[str, Any], ready: bool | None) -> Columns | Text:
                     for index in range(total)], padding=0, equal=True)
 
 
-def _gpu_nodes(value: dict[str, Any]) -> Table:
-    table = _table("NodeName", "Status", "Partition", "GPU", "GPU (IDX)")
+def _gpu_nodes(value: dict[str, Any], width: int = 120) -> Table:
+    compact = width < 64
+    table = _table("Node" if compact else "NodeName", "State" if compact else "Status",
+                   *([] if compact else ["Partition"]), "GPU", "GPU (IDX)")
     table.columns[0].min_width = 6
-    table.columns[3].no_wrap = True
-    table.columns[4].min_width = 3
-    table.columns[4].max_width = max(node["gpu"]["configured_units"] or 1 for node in value["nodes"]) * 3
+    table.columns[-2].no_wrap = True
+    table.columns[-1].min_width = 3
+    table.columns[-1].max_width = max(node["gpu"]["configured_units"] or 1 for node in value["nodes"]) * 3
     for part in value["partitions"]:
         for node in value["nodes"]:
             if part["name"] not in node["partitions"] or node["kind"] != "gpu":
@@ -96,20 +98,22 @@ def _gpu_nodes(value: dict[str, Any]) -> Table:
             free = _available(gpu["unallocated_units"], ready)
             amount = Text(f"{_number(free)}/{_number(gpu['configured_units'])}",
                           style="bold" if free else BLOCKED if ready is False else "")
-            table.add_row(Text(node["name"]), _state(node, ready), Text(part["name"]), amount, _gpu_matrix(node, ready))
+            table.add_row(Text(node["name"]), _state(node, ready), *([] if compact else [Text(part["name"])]), amount, _gpu_matrix(node, ready))
     return table
 
 
-def _cpu_nodes(console: Console, value: dict[str, Any]) -> None:
-    bars = 10 if console.width >= 100 else 5 if console.width >= 64 else 0
-    reports = console.width >= 80
+def _cpu_nodes(value: dict[str, Any], width: int) -> Group:
+    blocks = []
+    bars = 10 if width >= 100 else 5 if width >= 64 else 0
+    reports = width >= 80
     for part in value["partitions"]:
         members = [node for node in value["nodes"] if part["name"] in node["partitions"] and node["kind"] != "gpu"]
         if not members:
             continue
-        console.print(Text.assemble((part["name"], "bold bright_magenta"), "  QOS ", _qos(part)),
-                      overflow="ellipsis", no_wrap=True)
-        table = _table("NodeName", "Status", "CPU\nalloc / total", "Mem GiB\nalloc / total",
+        blocks.append(Text.assemble((part["name"], "bold bright_magenta"), "  QOS ", _qos(part), overflow="ellipsis", no_wrap=True))
+        table = _table("Node" if width < 64 else "NodeName", "State" if width < 64 else "Status",
+                       "CPU\nalloc/total" if width < 64 else "CPU\nalloc / total",
+                       "GiB\nalloc/total" if width < 64 else "Mem GiB\nalloc / total",
                        *(["Load", "Free GiB"] if reports else []))
         if reports:
             table.columns[-2].justify = table.columns[-1].justify = "right"
@@ -124,8 +128,8 @@ def _cpu_nodes(console: Console, value: dict[str, Any]) -> None:
                 cells.extend((Text("?" if load is None else format_decimal(str(Decimal(load) / 100), 1, trim=True)),
                               Text(_gib(reported["free_memory_mib"]))))
             table.add_row(*cells)
-        console.print(table)
-        console.print()
+        blocks.extend((table, Text("")))
+    return Group(*blocks)
 
 
 def _summary(value: dict[str, Any], family: str, width: int) -> Table:
@@ -161,25 +165,26 @@ def _summary(value: dict[str, Any], family: str, width: int) -> Table:
     return table
 
 
-def render_local_resources(result: LocalResources, *, details: bool = False, width: int = 120, color: bool = False) -> str:
+def resource_view(result: LocalResources, *, details: bool = False, width: int = 120) -> Group:
     value = result.values
     if not value["nodes"]:
-        return "No native nodes matched this query.\n"
-    output = StringIO()
-    console = Console(file=output, width=max(40, width), height=25, force_terminal=color, color_system="standard" if color else None,
-                      no_color=not color, highlight=False, markup=False)
+        return Group(Text("No native nodes matched this query."))
+    blocks = []
     kind = value["filters"]["kind"]
     if kind != "cpu" and any(node["kind"] == "gpu" for node in value["nodes"]):
         if details:
-            console.print(_gpu_nodes(value))
-            console.print(Text.assemble("GPU: Free/Total  ", ("[_] Idle", FREE), "  ", ("[#] Alloc", ALLOCATED), "  ? Unknown"))
-            console.print()
-        console.print(_summary(value, "gpu", console.width))
+            blocks.extend((_gpu_nodes(value, width), Text.assemble("GPU: Free/Total  ", ("[_] Idle", FREE), "  ", ("[#] Alloc", ALLOCATED), "  ? Unknown"), Text("")))
+        blocks.append(_summary(value, "gpu", width))
     if kind != "gpu":
-        if details:
-            _cpu_nodes(console, value)
-        else:
-            console.print(_summary(value, "cpu", console.width))
+        blocks.append(_cpu_nodes(value, width) if details else _summary(value, "cpu", width))
     if value["unclassified_nodes"]:
-        console.print(Text(f"Unknown GPU configuration: {value['unclassified_nodes']} nodes", style=UNKNOWN))
+        blocks.append(Text(f"Unknown GPU configuration: {value['unclassified_nodes']} nodes", style=UNKNOWN))
+    return Group(*blocks)
+
+
+def render_local_resources(result: LocalResources, *, details: bool = False, width: int = 120, color: bool = False) -> str:
+    output = StringIO()
+    console = Console(file=output, width=max(40, width), height=25, force_terminal=color, color_system="standard" if color else None,
+                      no_color=not color, highlight=False, markup=False)
+    console.print(resource_view(result, details=details, width=console.width))
     return output.getvalue().rstrip() + "\n"

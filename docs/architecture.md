@@ -336,14 +336,16 @@ A failure in either source must not fall back to a broader read.
 
 The batch CLI has no third-party runtime dependency. It uses Python 3.11+
 standard-library HTTP, JSON, TOML and filesystem primitives. The optional
-`tui` extra now contains Rich, shared by native resource tables, the compact
-summary and login presentation. Textual, full-screen navigation, result dialogs and their private
-view state are removed. Optional formatting does not enter control-plane or
-site-gateway packages.
+`tui` extra contains Textual and Rich. The focused query app owns keyboard,
+selection and display state only. Native observations, resource renderables,
+account discovery, overview and cost contracts retain their existing owners.
+A single bounded reader coalesces refreshes; obsolete responses cannot repopulate
+a different view. No timer, credential store, authorization resolver or native
+parser is added. Local startup precedes remote configuration/authentication.
 
-`sai tui` selects the same handler as `sai status --format tui`; there is no
-second overview model or client. The existing bounded read and credentials
-remain authoritative. Plain and JSON output remain independent of Rich.
+`sai status --format tui` stays a one-shot Rich summary, including at login.
+`sai tui` explicitly launches the interactive app; redirects are rejected with
+an actionable diagnostic. Plain and JSON commands do not import Textual.
 
 The implementation is organized around explicit boundaries:
 

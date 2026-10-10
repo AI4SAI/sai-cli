@@ -806,6 +806,8 @@ class JobCostResult:
     def as_dict(self) -> dict[str, Any]:
         payload = self.observation.as_dict()
         payload["items"][0]["running_estimate"] = self.estimate.as_dict()
+        payload["has_more"] = False
+        payload["freshness"].update(self.freshness.as_dict())
         return payload
 
 

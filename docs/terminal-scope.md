@@ -189,3 +189,28 @@ evidence in [roadmap](roadmap.md), [billing](billing-read-plane.md) and
 [site reads](site-local-read-plane.md). They do not prove the newly clarified
 remaining local integration or Agent management. Neither requires waiting for 3D assets
 or the Pilot native UI release.
+
+## Focused interaction correction, 2026-10-10
+
+The user rejected replacing all TUI interaction with a static summary. Retiring
+the broad workbench did not authorize losing useful keyboard selection.
+`sai tui` now presents the native job/resource/quota queries and optional account
+read in one compact surface. It shares alias readers and resource renderables.
+No mandatory account/project/job/partition ID entry, new page tree, file manager,
+Pilot orchestration or backend fact source is introduced. `status` and the login
+summary remain one-shot. Native reads work without OAuth or Portal connectivity;
+explicit account/cost reads retain normal authorization and exact job binding.
+
+Implementation is a candidate. Focused keyboard tests cover immediate responses,
+scope changes, denied/reused-job cost, missing optional packages and cancellation
+of a blocked native child. Source and installed-wheel PTY checks preserve terminal
+settings on exit; 40/100-column synthetic views have been inspected. The full suite passed 1105 tests; wheel/sdist builds, public-surface checks and
+installed-wheel PTY restoration passed. Actual ordinary-user shared publication
+remains a separate gate.
+No human usability acceptance is claimed.
+
+The new code is a Textual presentation over existing commands: it adds no business
+route, native parser, scheduler write or account mutation. The size increase covers
+the real interaction and cancelable process boundary removed by the static alias;
+independent review found and closed stale-widget, revoked-cost and managed-config
+regressions. The original authentication setup is retained.
