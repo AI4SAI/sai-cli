@@ -173,7 +173,7 @@ def test_status_retains_managed_login_account_and_explicit_override(tmp_path, mo
 @pytest.mark.parametrize("http_status,missing_rich,expected_exit", [
     (200, False, 0), (403, False, 4), (200, True, 2), (403, True, 4),
 ])
-@pytest.mark.parametrize("command", [["status", "--format", "tui"], ["tui"]])
+@pytest.mark.parametrize("command", [["status", "--format", "tui"]])
 def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monkeypatch, http_status, missing_rich, expected_exit, command):
     pytest.importorskip("rich")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")

@@ -21,7 +21,7 @@ summary and cost commands remain useful delivered parts, not the entire scope.
 
 | Consumer | Primary use | Interaction |
 | --- | --- | --- |
-| Person on a login/compute node | Queries like `sqm`, `sqa`, `gpu`, `cpu` and `quota`, plus account, budget and cost information | Familiar aliases and short commands, useful defaults, compact tables and optional focused interaction |
+| Person on a login/compute node | Queries like `sqm`, `sqa`, `gpu`, `cpu` and `quota`, plus account, budget and cost information | Familiar aliases and short commands, useful defaults, compact tables and focused keyboard interaction |
 | Agent or script on any supported host | Query SAI and manage the user's authorized Portal resources | Stable structured results, discoverable operations, bounded errors and verifiable mutation outcomes |
 
 These are presentation choices over common operations. An agent may expose a

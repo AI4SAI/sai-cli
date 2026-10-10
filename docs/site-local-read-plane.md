@@ -1,8 +1,9 @@
 # Site-Local Interactive Read Plane
 
 The shared read capabilities below remain independent of presentation. Source
-now retires the full-screen terminal workbench under [terminal scope](terminal-scope.md);
-`sai tui` reads only the compact central account overview. Earlier TUI deployment
+retires the broad terminal workbench under [terminal scope](terminal-scope.md).
+`sai tui` provides focused native query interaction plus explicit authorized
+business reads; its local views do not use this remote gateway. Earlier TUI deployment
 records below retain their historical evidence boundary.
 
 The 2026-10-09 product clarification includes local native queries within the

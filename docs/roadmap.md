@@ -73,6 +73,10 @@ the new domain contract.
 
 ## Current terminal correction
 
+- [ ] Restore focused Textual interaction after the user rejected the static
+  `sai tui` alias. Source candidate uses shared native queries, keyboard selection
+  and on-demand business reads; package/live and visual acceptance remain separate.
+
 The full terminal workbench deployed on 2026-10-06 has been rejected. The
 [terminal scope decision](terminal-scope.md) replaces the complete-workflow
 brief: native Slurm/Linux remain the normal tools; SAI supplies concise
@@ -83,7 +87,7 @@ do not require matching TUI screens.
 - [x] Correct product scope, presentation rules and cross-interface requirements
 - [x] Classify current features against native tools and existing batch commands
 - [x] Retire the broad workbench navigation and private view machinery in source;
-  `sai tui` reuses the existing account summary and returns to Shell
+  the static `sai tui` replacement was rejected on 2026-10-10; restore focused interaction
 - [x] No-subcommand entry reuses that same read: terminal text or redirected JSON,
   with no extra UI dependency, native query or automatic login. Local HTTP and
   installed-wheel pipe/PTY checks passed. Shared source `3468ea841490` was selected
@@ -229,7 +233,7 @@ and notes, and reuses the existing account overview and permissions.
 
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
 - [x] `sai status` JSON/plain/Rich summary and `sai tui` presentation entry,
-  with one shared login fragment and no Textual dependency
+  with one shared login fragment; focused Textual interaction is a separate entry
 - [ ] Live login latency, privacy, cleanup and user-comprehension validation
 
 Implementation and target deployment coverage are tracked separately; live

@@ -27,6 +27,7 @@ def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cos
     assert result.observation.items[0].values["state"] == "S"
     assert result.estimate.values["gross_cny"] == "2.00000000"
     assert result.estimate.values["slurm_job_db_index"] == 2**60
+    assert JobCostResult.from_payload(result.as_dict(), request_id="roundtrip") == result
     assert result.as_dict()["items"][0]["running_estimate"]["slurm_job_db_index"] == 2**60
     assert "running_estimate" not in JobResult.from_payload(job_cost_payload, request_id="test").as_dict()["items"][0]
 

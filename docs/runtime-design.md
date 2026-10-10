@@ -59,8 +59,8 @@ stdout is a terminal, JSON when redirected. It returns without prompting and
 needs no optional UI package. This changes presentation only; it adds no native
 query, site grant or automatic device login. Explicit commands keep their format
 defaults and existing argument-order contract.
-`sai tui` and `sai status --format tui` share one compact read and return to the
-shell. The shared replacement was selected on 2026-10-07; bounded ordinary-user
+`sai tui` provides focused Textual query interaction; `sai status --format tui`
+keeps the one-shot summary and returns to the shell. The shared replacement was selected on 2026-10-07; bounded ordinary-user
 and SSH/PTY evidence is recorded in the scope decision, separately from human
 usability acceptance.
 
@@ -132,22 +132,30 @@ times describe physical quotas, not the organization's whole funding pool.
 There is no source fallback. Native deployment requires a reviewed readable
 filesystem anchor; local code does not enable it.
 
-`sai tui` is the formatted entry to the same `status` command handler. It reads
-one authorized account overview, prints it and returns without consuming stdin,
-switching terminal screens, polling, opening a browser or starting device login.
-No job, file, catalogue or Pilot request accompanies that read. An unavailable
-credential directs the user to the existing explicit `sai auth login` flow.
+`sai tui` uses Textual for focus, selection, scrolling and terminal restoration.
+Queries invoke the same batch CLI operations and JSON models in a cancelable
+child process, with no Shell. Textual cancellation terminates only that process
+group, including its native children, then reaps it before returning to Shell.
+The initial view is an available local query, or account information on a host
+without native commands. `--view jobs|gpu|cpu|quota|account` selects explicitly;
+unavailable native tools are reported, never replaced by a remote read.
+One current observation feeds each view. Partition selection filters that same
+resource observation, preserving GPU indices. Job reads select self or the applied
+native account and subtree; account and cost reads initialize the existing
+remote client only when requested. A selected cost must match cluster, account,
+user, job/task and submission time before display. Native visibility never grants
+billing permission. The interface contains no write or Pilot session handler.
 
-The default uses the applied managed-login account where available; otherwise
-Portal resolves its normal overview context. `--account` changes only the read
-selector. It does not change a shell directory, submission account or payer.
-Both entries accept `--language zh-CN|en-US`. Status keeps JSON as its default;
-language changes presentation only. Missing or denied financial facts never
-become zero. Rich is optional; JSON and plain table output do not import it.
+`r` refreshes, arrows/Enter select or inspect, `c` requests a job estimate,
+Escape closes the current detail/selection and `q` exits. Outstanding reads are
+bounded and serialized; repeated requests retain only the newest pending query.
+Changing view/scope clears stale facts before loading. Account names come from
+the existing authorized defaults directory and change only the view, not the
+saved preference. Native queries do not require a business configuration or login.
 
-The full workbench and its job-scope/workspace/partition/state/limit/storage
-options are removed. The batch commands retain their own selectors and exact
-authority. No deprecated option is silently ignored or widened.
+`sai status --format tui` still prints one Rich summary without consuming stdin,
+including from the shared login fragment. Neither command starts device login
+automatically. JSON and plain output remain independent of optional UI packages.
 
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`,
 `jobs show` and `storage native-quota`. `jobs allocation JOB_ID` also requires

@@ -34,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command")
     for name, description in (
         ("status", "show SAI account, funds and access information"),
-        ("tui", "show a compact SAI summary and return to the shell"),
+        ("tui", "open focused interactive queries; q returns to the shell"),
     ):
         overview = commands.add_parser(name, help=description, description=description)
         _add_connection_arguments(overview, suppress_defaults=True)
@@ -43,7 +43,9 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "status":
             overview.add_argument("--format", choices=("json", "table", "tui"), default="json")
         else:
-            overview.set_defaults(command="status", format="tui")
+            overview.add_argument("--view", choices=("jobs", "gpu", "cpu", "quota", "account"),
+                                  help="initial query (default: an available local query)")
+            overview.set_defaults(format="table")
     account = commands.add_parser("account", help="inspect and manage your SAI computing defaults")
     account_commands = account.add_subparsers(dest="account_command", required=True)
     defaults = account_commands.add_parser("defaults", help="show allowed accounts and site application receipts")
@@ -525,6 +527,18 @@ def main(
     env = os.environ if environ is None else environ
 
     try:
+        if args.command == "tui":
+            if not output.isatty() or not sys.stdin.isatty():
+                raise ConfigError("sai tui needs an interactive terminal; use sai status for one-shot output")
+            try:
+                from .tui import QueryApp
+            except ModuleNotFoundError as exc:
+                if exc.name not in {"textual", "rich"}:
+                    raise
+                raise ConfigError("Interactive UI dependencies are unavailable; install sai-cli[tui].") from None
+            from .tui_queries import Queries
+            QueryApp(Queries(args, env), language=args.language, initial=args.view).run()
+            return 0
         if args.command == "storage" and args.storage_command == "local-quota":
             from .local_quota import read_local_quota, render_local_quota
             result = read_local_quota(args, environ=env)
