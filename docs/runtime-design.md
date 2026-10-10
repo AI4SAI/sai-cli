@@ -1,7 +1,8 @@
 # Runtime Design
 
-Status: HTTP/native queries and the first management action are deployed;
-complete portable-management acceptance remains open.
+Status: HTTP/native queries and the first management action are deployed.
+The default-account change/restore flow is verified on an independent Linux
+client; broader management and platform coverage remain open.
 
 ## Target execution model
 

@@ -47,19 +47,22 @@ does not return. Pilot delivery and hardware assets do not block this work.
   source `d7b0a62e97fa` was selected on 2026-10-10. Standard-user no-config/no-native
   discovery and normal-entry TUI checks passed; actual user-device/VM actions remain separate
 - [ ] Verify noninteractive Agent use on a user device and dedicated isolated VM,
-  with explicit local/remote prerequisites
+  with explicit local/remote prerequisites; the independent Linux-container
+  default-account flow below is verified, not the whole device/platform matrix
 - [ ] Pair normal user/delegated authorization with existing Portal query and
   management services; begin with an existing preferences action and its receipt
 - [x] Implement the default-account source contract: independent write scope,
   expected saved value, existing idempotency/projection records and explicit
   accepted versus applied results; paired Center/CLI/Identity components are
   now deployed, with ordinary-user reads and read-only write denial verified
-  on 2026-10-10; different-account writes and newly applied site changes remain open
+  on 2026-10-10; the actual change/restore acceptance below followed on 2026-10-11
 - [x] Verify ordinary-user consent and permitted same-value management over the
   installed CLI, exact replay, stale-value rejection and read-only write denial
   after normal refresh (2026-10-10); the saved default and old receipt stayed equal
-- [ ] Verify a different default and newly applied site receipt, plus full
-  management from a user device or isolated VM, before broadening domain coverage
+- [x] Verify the complete first management action from an independent Linux
+  container: approved account change and restoration, new site receipts and
+  native Slurm readback, exact replay, stale-value rejection and isolated-grant
+  revocation with a successful fresh daily-session read and write denial
 
 Local job/resource reads and shared helper migrations are deployed. The
 [bounded delivery record](terminal-scope.md#local-job-delivery) distinguishes
