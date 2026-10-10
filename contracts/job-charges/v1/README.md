@@ -1,6 +1,7 @@
 # billing.job-charges/v1
 
-Candidate paired contract; not deployed.
+Paired source contract: CLI PR6 and Portal PR298 are merged. Production
+activation remains a separate delivery gate.
 
 An Identity resource token with `sai.billing.read` reads existing final computation
 charges through `GET /v1/billing/cli/job-charges` and its exact `/{job_key}` view.
