@@ -1,7 +1,10 @@
 # billing.job-charges/v1
 
-Paired source contract: CLI PR6 and Portal PR298 are merged. Production
-activation remains a separate delivery gate.
+Paired source contract: CLI PR6 and Portal PR298 are deployed in the shared
+installation. A standard user's existing Identity session passed self, default
+organization and another organization reads, exact-record/list agreement and
+forbidden-scope rejection through the selected entrypoint. This is bounded
+production evidence; it does not certify every client platform or financial scope.
 
 An Identity resource token with `sai.billing.read` reads existing final computation
 charges through `GET /v1/billing/cli/job-charges` and its exact `/{job_key}` view.

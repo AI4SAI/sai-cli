@@ -300,8 +300,10 @@ prove the formal service, real issuer/user chain or production wrapper.
 - [ ] Development-stack read-only smoke for self and one account scope
 - [x] Implement bounded `jobs charges` and exact accounting-record reads over
   Portal's existing final facts, with separate financial scope and redaction
-- [ ] Publish and live-verify the paired settled-charge reader and CLI;
-  installed-wheel/local API evidence does not close production acceptance
+- [x] Publish and live-verify the paired settled-charge reader and shared CLI:
+  an existing standard-user session passed self/default/non-default organization,
+  exact-record agreement and forbidden-scope checks through the selected runtime.
+  Shared configuration and default-account state stayed unchanged.
 - [x] Python package metadata and installation entrypoint
 - [ ] Shell completion
 
