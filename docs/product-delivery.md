@@ -194,6 +194,25 @@ Before a publication decision, prepare these concrete outputs:
 - Versioning, compatibility, update/rollback, contribution and private security
   reporting instructions, with reproducible validation.
 
+The initial private audit found one operational account name in historical
+documentation and an internal host in commit authorship, including a closed
+pull request's patch. Current-file checks alone therefore do not justify a
+visibility change. A separate private candidate can retain reviewed history
+with those identifiers removed; preserve the original private history for
+deployment provenance. Do not rewrite the live remote as part of preparation.
+
+The current repository also has an internal self-hosted runner. Public
+contributions must use an isolated hosted runner with no SAI network or
+credentials. Changing only the workflow label is insufficient while a public
+repository can still select the internal runner; remove that access before
+publication, or use a clean public repository with no such registration.
+
+[The provenance inventory](../THIRD_PARTY.md) separates the base client, pinned
+UI dependencies and GPL-derived scheduler patch. Python source distributions
+exclude that patch; the complete repository retains it with upstream notices.
+These hygiene changes do not approve the proposed first-party license or a
+public release.
+
 ## Current order of work
 
 1. Close independent first-use obstacles with the shipped guide and skill on
