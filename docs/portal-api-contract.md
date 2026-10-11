@@ -26,6 +26,12 @@ planned. Existing read scopes and capabilities remain read-only. See
 
 ## Default computing account
 
+Public first-use connection uses `GET /v1/auth/config?client=sai-cli`, without
+Bearer or capability. The versioned [connection contract](../contracts/cli-connection/v1/README.md)
+contains only the configured resource issuer, first-party client ID, audience
+and capability-mode requirement. The original queryless browser config is
+unchanged. This paired source addition needs server activation before use.
+
 `GET /v1/account/cli/defaults?site_id=...` requires `sai.compute.read` and returns
 [`account.defaults/v1`](../contracts/account-defaults/v1/README.md). Choices are
 ready at the selected site; the saved preference is global. The current business

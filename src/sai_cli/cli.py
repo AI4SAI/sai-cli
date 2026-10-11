@@ -52,6 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
                        help="JSON envelope or installable SKILL.md (default: json)")
     _operation(skill, source="client", effect="introspection", site=False)
 
+    configure = commands.add_parser("configure", help="connect a personal client using a trusted service URL")
+    configure.add_argument("service_url", help="trusted SAI service URL")
+    _add_connection_arguments(configure, suppress_defaults=True)
+    _add_format_argument(configure)
+    configure.set_defaults(_connection_options=("config", "profile", "timeout"))
+    _operation(configure, source="identity_and_portal", effect="local_file_write", site=False,
+               notes=("Reads public connection metadata and OIDC discovery without credentials; creates a new user config without replacing existing profiles.",))
+
     invitations = commands.add_parser("invitations", help="read and accept your collaboration invitations")
     invitation_commands = invitations.add_subparsers(dest="invitations_command", required=True)
     for name, description in (("list", "list your pending invitations"),
@@ -663,6 +671,12 @@ def main(
             from .agent_skill import bundled_skill
             result = bundled_skill()
             output.write(render_json(result) if output_format == "json" else result["content"])
+            return 0
+        if args.command == "configure":
+            from .setup import configure, render_configured
+            from .discovery import authorization_scopes
+            result = configure(args, env, scope=" ".join(("openid", "offline_access", *authorization_scopes(parser, ["sites"]))))
+            output.write(render_json(result) if output_format == "json" else render_configured(result))
             return 0
         if args.command == "tui":
             if not output.isatty() or not sys.stdin.isatty():

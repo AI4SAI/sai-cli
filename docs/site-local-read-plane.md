@@ -1,5 +1,10 @@
 # Site-Local Interactive Read Plane
 
+Portable `configure SERVICE_URL` discovers only public central connection
+settings. It selects no site or gateway origin and sends no credentials. Local
+native reads remain independent; direct gateway destinations still come only
+from protected deployment configuration.
+
 The shared read capabilities below remain independent of presentation. Source
 retires the broad terminal workbench under [terminal scope](terminal-scope.md).
 `sai tui` provides focused native query interaction plus explicit authorized

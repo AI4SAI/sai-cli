@@ -316,6 +316,14 @@ complete authorized live snapshot and has no client `--limit` parameter.
 
 ## Configuration
 
+`sai configure SERVICE_URL` reads `/v1/auth/config?client=sai-cli` anonymously,
+checks `cli.connection/v1` and the issuer's existing OIDC discovery, then creates
+the selected user TOML through non-overwriting atomic publication. It preserves
+existing credentials, profiles and scope baselines. Matching repeat calls only
+verify; a different existing configuration requires a separate `--config` path.
+The managed shared wrapper rejects this local configuration operation. No login,
+API permission check or site selection happens during configuration.
+
 Configuration precedence is:
 
 1. command-line non-secret options;

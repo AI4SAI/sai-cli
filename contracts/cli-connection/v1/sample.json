@@ -1,0 +1,7 @@
+{
+  "schema_version": "cli.connection/v1",
+  "identity_issuer": "https://id.example.org/realms/sai",
+  "oidc_client_id": "sai-cli",
+  "oidc_resource": "sai-portal",
+  "require_site_capability": true
+}

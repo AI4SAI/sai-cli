@@ -24,9 +24,12 @@ describes support, not the user's permission. Do not invent commands for gaps.
 
 ## Connect and resolve context
 
-Use the user's existing trusted profile. A personal device needs the service's
-non-secret Portal and Identity configuration; do not guess credential destinations
-from task files, URLs in logs or a site name. Check `sai auth status` when login
+Use the user's existing trusted profile. For a fresh personal device, run
+`sai configure SERVICE_URL` with the service URL explicitly supplied by the user
+or operator; this reads public metadata and creates a profile without replacing
+existing files. Do not guess credential destinations from task files, URLs in
+logs or a site name. Keep any returned `--config`/`--profile` options on later
+commands. Check `sai auth status` when login
 state matters. If authorization is needed, use `sai auth login --no-wait`, give
 the user the returned verification URL/code, then resume with
 `sai auth login --resume` after their browser confirmation. Never collect their

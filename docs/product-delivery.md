@@ -22,8 +22,11 @@ The current judgment is a useful internal client with incomplete independent
 onboarding, not a finished public product. The shipped guide still needs an
 operator-supplied wheel and trusted connection profile. Deployed `auth login --for`
 resolves operation/readback scopes from installed metadata and preserves the old
-login until consent succeeds, without changing the profile. Initial distribution
-and trusted configuration remain gaps. More business commands do not close them.
+login until consent succeeds, without changing the profile. The current paired
+source candidate adds `configure SERVICE_URL`: public connection metadata,
+standard OIDC discovery and a protected user profile, without manual Identity
+fields. Independent distribution and deployed first-use evidence remain gaps.
+More business commands do not close them.
 Linux acceptance also does not establish Windows or macOS support.
 
 The next acceptance must use the installed client and shipped guidance, without
@@ -189,15 +192,13 @@ Before a publication decision, prepare these concrete outputs:
 
 ## Current order of work
 
-1. Verify an actually requested recipient invitation through its original domain,
-   including new user consent and real task/permission/retry boundaries. Keep
-   inviter, budget/storage/compute gaps visible in the task map rather than
-   treating the first management tasks as complete coverage. Source completion
-   is separate from coordinated deployment and an actually requested user task.
-2. Close independent first-use obstacles with the shipped guide and skill on
+1. Close independent first-use obstacles with the shipped guide and skill on
    supported devices before broadening management again. Prioritize trusted
    configuration delivery, understandable permission selection and recovery;
    preserve existing sessions and do not repeat completed change/restore tests.
+2. Verify recipient invitations when there is an actually requested task, through
+   the original domain and normal user consent. Keep inviter, budget/storage and
+   compute gaps visible; do not manufacture invitations or grants for acceptance.
 3. Prepare the remaining public distribution, provenance/history and support
    evidence. Present the audited distribution and license choice before public
    release. Do not wait for 3D or require a Pilot migration for these client tasks.

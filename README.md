@@ -253,6 +253,20 @@ configuration, canary, and rollback are documented in the
 
 ## Configure
 
+For a portable installation, use your trusted SAI service URL:
+
+```bash
+sai configure https://portal.example.org --format table
+sai auth login
+sai sites --format table
+```
+
+`configure` verifies public connection settings and standard Identity discovery,
+then creates a private user TOML configuration without overwriting existing
+profiles. It sends no credentials and performs no login or site selection.
+The paired server endpoint must be deployed; older manually supplied profiles
+continue to work. Shared cluster commands are already configured.
+
 Use an already-issued short-lived Identity access token for a single process:
 
 ```bash

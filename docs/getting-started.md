@@ -23,7 +23,7 @@ SAI account summary; its business facts require your normal SAI login separately
 
 Python 3.11 or newer is required; independent-client validation currently covers
 Linux. Windows and macOS are not yet qualified. The repository remains private without an approved public
-release: obtain the reviewed wheel and non-secret connection profile from your
+release: obtain the reviewed wheel and trusted service URL from your
 SAI service operator. Do not assume a package with a similar public name is this
 client. Check the supplied artifact checksum before installation.
 
@@ -43,17 +43,23 @@ The optional TUI has separate dependencies; see [terminal scope](terminal-scope.
 
 ## Sign in and choose a site
 
-The operator-provided profile contains service addresses and registered client
-settings, never credentials. Store it as `~/.config/sai/config.toml` (or the
-equivalent XDG configuration path), owned by you and not writable by other users.
-Preserve any existing profiles. The [configuration reference](../README.md#configure)
-shows the fields; ask the service operator for missing values rather than guessing
-Identity or Portal addresses. A site is not required for login or discovery.
+Use the service URL supplied by your operator. The command verifies its public
+connection settings and Identity discovery, then saves a new user configuration.
+It never overwrites existing profiles or credentials. A site is not required.
 
 ```bash
+sai configure https://portal.example.org --format table
 sai auth login
 sai sites --format table
 ```
+
+Use your actual trusted URL in place of the example. `configure` requires the
+paired server's public CLI configuration endpoint. An older server reports a
+configuration error; it does not guess an Identity address. Existing reviewed
+profiles continue to work; see the [configuration reference](../README.md#configure).
+To connect a second independent service, use `--config PATH` and keep that option
+on subsequent commands. A repeated configure verifies the same connection while
+preserving custom settings. The shared cluster installation is already configured.
 
 Open the URL printed by login in your browser and confirm the device code. Keep
 the terminal command running until confirmation completes. The CLI stores a
@@ -123,6 +129,9 @@ A missing session calls for `sai auth login`; a permission denial requires the
 relevant account/site authorization, not a broader native query. An unavailable
 service is different from having no resources. Keep the bounded error code and
 request ID for support, without exporting credentials or raw logs.
+If the local connection is missing, repeat `sai configure` with your trusted
+service URL. If a file already points elsewhere, retain it and use a separate
+`--config PATH`; do not copy credentials or remove an existing login to repair it.
 
 Install a reviewed newer wheel with the same environment's `python -m pip install`
 and `--upgrade`. Keep the earlier wheel for `--force-reinstall` rollback. Updating

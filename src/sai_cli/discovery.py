@@ -52,6 +52,9 @@ def _parameters(parser: argparse.ArgumentParser, root: argparse.ArgumentParser, 
         allowed |= {"cluster"}
     if operation["source"] == "client":
         allowed = set()
+    connection_options = parser.get_default("_connection_options")
+    if connection_options is not None:
+        allowed &= set(connection_options)
     return [_parameter(action, default=(root.get_default(name) if action.default == argparse.SUPPRESS else parser.get_default(name)))
             for name, action in actions.items() if name not in _CONNECTION or name in allowed]
 

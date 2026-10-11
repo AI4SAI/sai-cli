@@ -37,6 +37,13 @@ The architecture keeps the following responsibilities separate:
 
 ## Local queries and portable Agent management
 
+Portable `configure URL` uses the explicitly selected service's public auth
+configuration and standard OIDC discovery. Portal projects its existing resource
+verifier settings; the client creates its ordinary user profile without replacing
+an existing one. This adds no credential or service directory. A fresh profile
+requests only the installed site-discovery permission; later task permissions
+use normal explicit consent. See [the connection contract](../contracts/cli-connection/v1/README.md).
+
 ```text
 human aliases / commands ----+
 user-controlled agent ------+--> common CLI operation

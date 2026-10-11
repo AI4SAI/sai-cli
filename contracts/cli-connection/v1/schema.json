@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SAI public CLI connection v1",
+  "type": "object",
+  "required": ["schema_version", "identity_issuer", "oidc_client_id", "oidc_resource", "require_site_capability"],
+  "properties": {
+    "schema_version": {"const": "cli.connection/v1"},
+    "identity_issuer": {"type": "string", "minLength": 1, "maxLength": 512, "format": "uri"},
+    "oidc_client_id": {"const": "sai-cli"},
+    "oidc_resource": {"type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[!-~]+$"},
+    "require_site_capability": {"const": true}
+  },
+  "additionalProperties": true
+}
