@@ -40,6 +40,11 @@ For a local Slurm query, use `sai jobs local --format table`, or
 preserving each project's member visibility. The paired scope contract migration
 is documented in [the API contract](docs/portal-api-contract.md#organization-job-scope).
 
+`sai jobs local --job-id 12345 --format table` shows that job's node, GPU IDX
+positions and CPU IDs grouped by Slurm socket. In `sai tui`, select a job and
+press Enter for the same map. JSON exposes the same allocation for Agents.
+The CLI and gateway use one [native projection](contracts/native-job-allocation/v1/README.md).
+
 For agents, `sai describe` lists the installed operations without logging in or
 loading a profile. `sai describe account set-default` expands one command's
 parameters, permissions and receipt/replay rules; `sai describe jobs` narrows

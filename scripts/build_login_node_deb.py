@@ -74,6 +74,8 @@ def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
 
 def _source_files(root: Path = REPO_ROOT) -> list[Path]:
     paths = [root / value for value in SOURCE_PATHS]
+    paths.extend(sorted((root / "src").glob("*.py")))
+    paths.extend((root / "contracts").glob("native-slurm-source.json"))
     paths.extend(sorted((root / "packaging/login-node").glob("*-requirements.txt")))
     paths.extend(sorted((root / "src" / "sai_cli").rglob("*.py")))
     if any(not path.is_file() or path.is_symlink() for path in paths):

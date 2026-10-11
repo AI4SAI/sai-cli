@@ -46,7 +46,7 @@ class QueryApp(App):
     #job-table { height: 1fr; display: none; }
     #answer { height: 1fr; }
     #content { height: auto; }
-    #detail { height: auto; max-height: 45%; display: none; padding: 1 2; overflow-y: auto; }
+    #detail { height: auto; max-height: 60%; display: none; padding: 1 2; overflow-y: auto; }
     #notice { height: auto; max-height: 3; margin: 0 2; }
     Footer { background: $surface; }
     """
@@ -151,12 +151,12 @@ class QueryApp(App):
     def _request(self, request: Read) -> None:
         self._version += 1
         self._pending = self._version, request
-        if request.view not in {"cost", "accounts"}:
+        if request.view not in {"cost", "accounts", "allocation"}:
             self.snapshot = None
             self.query_one("#job-table", DataTable).clear()
             self.query_one("#content", Static).update("")
             self.query_one("#detail").display = False
-        if request.view == "cost":
+        if request.view in {"cost", "allocation"}:
             self.query_one("#detail-content", Static).update("")
             self.query_one("#detail").display = False
         self.refresh_bindings()
@@ -189,6 +189,10 @@ class QueryApp(App):
                 elif request.view == "cost":
                     self.query_one("#detail-content", Static).update(self._cost_view(result))
                     self.query_one("#detail").display = True
+                elif request.view == "allocation":
+                    from .allocation_view import allocation_view
+                    self.query_one("#detail-content", Static).update(allocation_view(result.as_dict(), language=self.language))
+                    self.query_one("#detail").display = True
                 else:
                     self.snapshot = result
                     self._render()
@@ -197,7 +201,7 @@ class QueryApp(App):
             self._active_request = None
 
     def _matches_job(self, request: Read) -> bool:
-        return request.view != "cost" or request.job["item"].canonical_id == self._selected_job
+        return request.view not in {"cost", "allocation"} or request.job["item"].canonical_id == self._selected_job
 
     def _render(self) -> None:
         if self.snapshot is None:
@@ -266,8 +270,8 @@ class QueryApp(App):
         if event.row_key.value != self._selected_job:
             self._selected_job = event.row_key.value
             self.query_one("#detail").display = False
-            pending_cost = self._pending is not None and self._pending[1].view == "cost"
-            active_cost = self._active_request is not None and self._active_request.view == "cost"
+            pending_cost = self._pending is not None and self._pending[1].view in {"cost", "allocation"}
+            active_cost = self._active_request is not None and self._active_request.view in {"cost", "allocation"}
             if pending_cost or (active_cost and self._pending is None):
                 self._version += 1
                 self._pending = None
@@ -277,11 +281,15 @@ class QueryApp(App):
     def details(self, event: DataTable.RowSelected) -> None:
         if self.snapshot is None:
             return
-        row = next(item.values for item in self.snapshot.items if item.canonical_id == event.row_key.value)
-        fields = [("Job", event.row_key.value), (self.words["name"], row["name"]), (self.words["account"], row["slurm_account"]),
-                  (self.words["partition"], row["partition"]), (self.words["node"], row["reason_or_nodelist"])]
-        self.query_one("#detail-content", Static).update(Text("\n".join(f"{label}  {value or '—'}" for label, value in fields)))
-        self.query_one("#detail").display = True
+        item = next(item for item in self.snapshot.items if item.canonical_id == event.row_key.value)
+        if "[" in item.canonical_id:
+            from .allocation_view import allocation_view
+            self.query_one("#detail-content", Static).update(allocation_view({"job": item.as_dict(),
+                "allocation": {"status": "not_allocated" if item.values["state"] == "PD" else "unavailable", "nodes": []}},
+                language=self.language))
+            self.query_one("#detail").display = True
+            return
+        self._request(Read("allocation", self.selection, {"cluster": self.snapshot.cluster, "item": item}))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "inspect":

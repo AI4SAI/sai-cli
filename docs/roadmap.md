@@ -9,6 +9,13 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
+- [ ] Deliver unified per-job CPU/GPU topology through local CLI/TUI, the
+  existing gateway and Web/Pilot consumers. Shared source and integration
+  verification are in progress; actual rollout remains open.
+- [ ] After topology delivery: native-view refresh frequency, inline CPU/GPU
+  node expansion and one clear account selector. New feedback does not replace
+  the topology work in progress.
+
 Follow the [task and delivery map](product-delivery.md). It identifies the
 user outcome, existing capability owner, implemented surface and remaining
 management gap. Completed commands and tests do not establish complete product

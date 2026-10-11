@@ -296,6 +296,10 @@ def render_site_allocation(result: SiteJobAllocationResult) -> str:
                   for index, heading in enumerate(headings)]
         lines.extend((_line(headings, widths), _line(("-" * width for width in widths), widths)))
         lines.extend(_line(row, widths) for row in rows)
+        for node in result.nodes:
+            if "cpu_ids" in node.topology:
+                ids = node.topology["cpu_ids"]
+                lines.append(f"{node.name} CPU IDs: " + ("Unknown" if ids is None else format_allocation_indices(tuple(ids)) if ids else "-"))
         lines.append("Slurm resource units and indices do not identify CUDA/NVML devices, physical slots or MIG parents.")
     return "\n".join(lines) + "\n"
 

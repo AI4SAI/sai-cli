@@ -565,3 +565,13 @@ its own user restriction. The versioned grant and DTO changes are described in
 `sqa` remains a separate Unix-authorized read; its hierarchy is not business
 authorization. Deploy gateway and CLI/Pilot readers before the Center issuer;
 exact Run, self, personal and project contracts remain unchanged.
+
+## Shared job topology
+
+Local `jobs local --job-id ID`, TUI Enter and gateway job allocation share the
+canonical native Slurm projection. Node CPU IDs, socket/core/thread dimensions
+and configured GPU count extend the existing allocation contract. Web/Pilot
+consumes that same DTO. Local reads do not use OAuth or the gateway. See the
+[native allocation contract](../contracts/native-job-allocation/v1/README.md)
+for call bounds, provenance and unknown semantics. This candidate is not yet
+a deployed runtime; refresh and account-selector improvements are a later slice.

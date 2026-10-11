@@ -49,7 +49,8 @@ def test_discovery_is_independent_of_config_auth_native_commands_and_ui(tmp_path
 
 def test_types_choices_required_flags_and_exclusive_selectors_come_from_parser():
     local=operation('jobs','local')
-    assert local['source']=='native' and local['required_scopes']==[] and local['native_executables']==['squeue']
+    assert local['source']=='native' and local['required_scopes']==[] and local['native_executables']==[]
+    assert any(row.get('executables')==['scontrol'] for row in local['conditional_requirements'])
     fields={row['name']:row for row in local['parameters']}
     assert fields['limit']['type']=='integer'
     assert fields['with_subaccounts']['type']=='boolean' and fields['with_subaccounts']['arity']==0

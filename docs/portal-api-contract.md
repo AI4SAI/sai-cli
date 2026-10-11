@@ -1006,3 +1006,13 @@ return site_read_scope_too_large and require selecting a project. Direct signed
 leases keep the existing short-expiry/revocation contract; central relays
 recheck current complete scopes. Final billing, managed Runs and storage keep
 their existing domain permissions.
+
+## Shared job topology
+
+Local `jobs local --job-id ID`, TUI Enter and gateway job allocation share the
+canonical native Slurm projection. Node CPU IDs, socket/core/thread dimensions
+and configured GPU count extend the existing allocation contract. Web/Pilot
+consumes that same DTO. Local reads do not use OAuth or the gateway. See the
+[native allocation contract](../contracts/native-job-allocation/v1/README.md)
+for call bounds, provenance and unknown semantics. This candidate is not yet
+a deployed runtime; refresh and account-selector improvements are a later slice.

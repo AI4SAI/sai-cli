@@ -166,9 +166,13 @@ def build_parser() -> argparse.ArgumentParser:
     local_parser.add_argument("--timeout", type=float, default=argparse.SUPPRESS,
                               help="native query deadline in seconds (default: 10)")
     _add_local_job_arguments(local_parser)
+    local_parser.add_argument("--job-id", help="inspect one native job allocation, including CPU/GPU IDs")
     _add_format_argument(local_parser)
-    _operation(local_parser, source="native", site=False, executables=("squeue",),
-               requirements=({"when": "--with-subaccounts", "executables": ["scontrol", "sacctmgr"], "parameters": ["accounts"]},),
+    _operation(local_parser, source="native", site=False, executables=(),
+               requirements=({"when": "listing jobs without --job-id", "executables": ["squeue"]},
+                             {"when": "--job-id", "executables": ["scontrol"]},
+                             {"when": "--job-id has allocated nodes", "executables": ["sinfo"]},
+                             {"when": "--with-subaccounts", "executables": ["scontrol", "sacctmgr"], "parameters": ["accounts"]}),
                notes=("Current Unix/native authority; unfiltered reads select the current user.",))
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
@@ -692,9 +696,20 @@ def main(
                 output.write(render_local_resources(result, details=details, width=width, color=color))
             return 0
         if args.command == "jobs" and args.jobs_command == "local":
-            from .local_jobs import read_local_jobs, render_local_jobs
-            result = read_local_jobs(args, environ=env)
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_local_jobs(result))
+            if args.job_id is not None:
+                from .native_topology import read_local_job_topology
+                result = read_local_job_topology(args, environ=env)
+                if output_format == "json":
+                    output.write(render_json(result.as_dict()))
+                else:
+                    _load_ui_console()
+                    from .allocation_view import render_allocation
+                    output.write(render_allocation(result.as_dict(), width=shutil.get_terminal_size().columns if output.isatty() else 100,
+                        color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb"))
+            else:
+                from .local_jobs import read_local_jobs, render_local_jobs
+                result = read_local_jobs(args, environ=env)
+                output.write(render_json(result.as_dict()) if output_format == "json" else render_local_jobs(result))
             return 0
         from .auth import TokenProvider
         from .config import resolve_settings
