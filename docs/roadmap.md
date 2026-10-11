@@ -33,10 +33,11 @@ historical entries are not an automatic new-feature queue.
   a clean installed wheel and independent Agent task passed against synthetic HTTP
 - [x] Publish the matching skill on the shared CLI and verify ordinary-user export,
   existing API/native reads and focused TUI entry/exit on 2026-10-11
+- [x] Publish `configure SERVICE_URL` and paired public metadata: CLI
+  `0bc982e47888`/Center `bc0d9547e947`; independent installed-wheel HTTPS setup
+  and ordinary-user existing-session/native compatibility passed
 - [ ] Observe independent first-use experience on supported user devices;
-  `configure SERVICE_URL` and paired public metadata are merged; production
-  activation follows the existing compatible Center release window;
-  existing-session login-host checks do not prove fresh self-service onboarding
+  anonymous setup and existing-session checks do not prove a fresh browser grant
 - [ ] Deliver the recipient invitation task through the original collaboration
   owner; paired list/detail/accept, shared client and optional scopes are deployed;
   actual new consent, recipient acceptance and site application remain open

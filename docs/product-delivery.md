@@ -20,16 +20,17 @@ product hypothesis to validate, not a result established by publishing source.
 
 The current judgment is a useful internal client with incomplete independent
 onboarding, not a finished public product. The shipped guide still needs an
-operator-supplied wheel and trusted connection profile. Deployed `auth login --for`
+operator-supplied wheel and trusted service URL. Deployed `auth login --for`
 resolves operation/readback scopes from installed metadata and preserves the old
-login until consent succeeds, without changing the profile. The paired merged
-source adds `configure SERVICE_URL`: public connection metadata,
+login until consent succeeds, without changing the profile. Deployed
+`configure SERVICE_URL` provides public connection metadata,
 standard OIDC discovery and a protected user profile, without manual Identity
-fields. Independent distribution and deployed first-use evidence remain gaps.
-More business commands do not close them. CLI source `4e3cd8a2ae3c` and Portal
-source `bc0d9547e947` have passed source and installed-wheel HTTP checks; their
-paired production activation remains pending. The current shared runtime keeps
-the previously verified native and business operations.
+fields. CLI `0bc982e47888` and Portal `bc0d9547e947` were paired on 2026-10-11.
+The independent base wheel created/rechecked a private profile through actual
+HTTPS metadata and Identity discovery. An ordinary user's candidate and selected
+shared client also passed existing-session business/native queries and TUI checks.
+No new login was started. Independent human first-use and public distribution
+remain open; existing-session checks do not establish a fresh browser grant.
 Linux acceptance also does not establish Windows or macOS support.
 
 The next acceptance must use the installed client and shipped guidance, without
