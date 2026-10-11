@@ -28,10 +28,10 @@ def ranges(values: list[int]) -> str:
     return ", ".join(parts)
 
 
-def socket_panel(socket: int, *, cores: int, threads: int, occupied: set[int], chinese: bool, width: int) -> Panel:
+def socket_panel(socket: int, *, cores: int, threads: int, occupied: set[int], chinese: bool,
+                 width: int, digits: int) -> Panel:
     start, stop = socket * cores * threads, (socket + 1) * cores * threads
     tiles = []
-    digits = len(str(stop - 1))
     for core in range(cores):
         tile = Text(("核 " if chinese else "Core ") + str(core) + "\n")
         for index in range(start + core * threads, start + (core + 1) * threads):
@@ -121,9 +121,10 @@ def _allocation_view(value: dict, *, language: str, width: int) -> Group:
             blocks.extend((Text(""), Text("CPU  " + ranges(cpu_ids), style="bold")))
             cores, threads = topology["cores_per_socket"], topology["threads_per_core"]
             occupied = set(cpu_ids)
+            digits = len(str(topology["sockets"] * cores * threads - 1))
             panel_width = (width - 2) // 2 if width >= 76 else width
             blocks.append(Columns([socket_panel(socket, cores=cores, threads=threads, occupied=occupied,
-                                                chinese=chinese, width=panel_width)
+                                                chinese=chinese, width=panel_width, digits=digits)
                                    for socket in range(topology["sockets"])], padding=(1, 2), equal=True))
     blocks.extend((Text(""), Text("* 本作业分配 · CPU 按插槽 / 核分组，数字为 Slurm CPU ID" if chinese else
         "* Allocated to this job · CPU grouped by socket / core, numbers are Slurm CPU IDs")))

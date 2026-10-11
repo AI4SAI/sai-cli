@@ -121,3 +121,15 @@ def test_two_dimensional_allocation_keeps_core_membership_and_monochrome_markers
         assert 'GPU  1, 3' in output and '* 1' in output and '* 3' in output
     else:
         assert 'GPU' not in output
+
+
+def test_socket_grids_keep_the_same_geometry_across_two_and_three_digit_ids(topology_client):
+    from sai_cli.allocation_view import render_allocation
+    code, raw, error = invoke(topology_client[0], 'jobs', 'local', '--job-id', '42')
+    assert code == 0, error
+    value = json.loads(raw)
+    node = value['allocation']['nodes'][0]
+    node.update(cpu_ids=list(range(32,48)), cpu_topology={'sockets':4,'cores_per_socket':16,'threads_per_core':2})
+    value['allocation']['nodes'] = [node]
+    output = render_allocation(value, width=80)
+    assert [line.count('核 12') for line in output.splitlines() if '核 12' in line] == [2,2]
