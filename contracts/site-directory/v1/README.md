@@ -1,6 +1,7 @@
 # site.directory/v1
 
-Paired candidate contract; not deployed.
+Paired CLI PR7 and Portal PR308 are merged. Production activation remains
+a separate release and ordinary-user acceptance step.
 
 `sai sites` calls `GET /v1/account/cli/sites` with the existing Identity
 `sai.compute.read` scope and current account admission. It needs no selected
