@@ -24,7 +24,7 @@ scope and the concurrency/replay contract below. Other Portal management remains
 planned. Existing read scopes and capabilities remain read-only. See
 [command scope](terminal-scope.md).
 
-## Default computing account
+## First-use connection
 
 Public first-use connection uses `GET /v1/auth/config?client=sai-cli`, without
 Bearer or capability. The versioned [connection contract](../contracts/cli-connection/v1/README.md)
@@ -32,6 +32,8 @@ contains only the configured resource issuer, first-party client ID, audience
 and capability-mode requirement. The original queryless browser config is
 unchanged. The paired producer/client were activated on 2026-10-11; installed
 anonymous HTTPS discovery and ordinary-user existing-session reads passed.
+
+## Default computing account
 
 `GET /v1/account/cli/defaults?site_id=...` requires `sai.compute.read` and returns
 [`account.defaults/v1`](../contracts/account-defaults/v1/README.md). Choices are
