@@ -10,8 +10,10 @@ not imply production activation or completion of a paired rollout.
 ## Current priority: complete human and Agent tasks
 
 - [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
-  and Web/Pilot. Shared CLI `e27c47495390` and gateway `ead4d38f6d66` are deployed;
-  ordinary-user local/API equality and native TUI inspection passed.
+  and Web/Pilot. Shared CLI readability correction `d9695900cd7a` and gateway
+  `ead4d38f6d66` are deployed; ordinary-user local/API equality and native TUI
+  inspection passed. The corrected view leads with numbered allocations and
+  named CPU socket groups; human usability acceptance remains separate.
 - [ ] Activate the merged Web/Pilot consumer and updated central relay with
   their original release owner; their source merge is not production acceptance.
 - [ ] After topology delivery: native-view refresh frequency, inline CPU/GPU

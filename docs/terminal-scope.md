@@ -255,3 +255,14 @@ shows their numbered ranges. Highlighted ranges belong to this job; other
 ranges do not imply idle capacity. Rich Panels/Columns handle wrapping without
 a custom terminal framework. Native parsing and the shared Web/Agent DTO are
 unchanged. Refresh/account-selector feedback remains queued separately.
+
+Shared CLI `d9695900cd7a` was published on 2026-10-11. An ordinary user selected
+a real running job through the installed 100-column TUI, showing the numbered
+allocation and socket groups. The 954-file inventory, permissions and original
+profile/configuration hashes passed readback. Source tests passed 1159 checks,
+including hosted Python 3.11/3.13 CI; synthetic views covered 40/80/100 columns.
+The previous shared runtime remains available for rollback; staging was archived
+or removed and both SSH/SFTP pairs closed. The Web presentation correction is
+merged but still follows its original owner's production release. The gateway
+and native DTO did not change in this display-only publication. These checks
+do not constitute the user's visual acceptance.
