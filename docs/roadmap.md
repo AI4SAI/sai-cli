@@ -15,11 +15,14 @@ management gap. Completed commands and tests do not establish complete product
 coverage. The records below preserve their evidence boundaries; unchecked
 historical entries are not an automatic new-feature queue.
 
-- [ ] Finish the paired site-discovery activation and ordinary-user first query
+- [x] Finish paired site-discovery activation and ordinary-user installed reads,
+  including explicit directory-returned site selection on the base client
 - [x] Package portable first-use guidance and an offline official Agent skill;
   a clean installed wheel and independent Agent task passed against synthetic HTTP
-- [ ] Complete the ordinary-user installed first-use journey after paired site
-  discovery activation; synthetic authorization is not production user consent
+- [x] Publish the matching skill on the shared CLI and verify ordinary-user export,
+  existing API/native reads and focused TUI entry/exit on 2026-10-11
+- [ ] Observe independent first-use experience on supported user devices;
+  existing-session login-host checks do not prove fresh self-service onboarding
 - [ ] Select and deliver a recurring management task through its existing Portal
   owner; project collaboration is a candidate, with explicit user scope and
   durable acceptance/application/retry behavior still to design
@@ -71,8 +74,8 @@ does not return. Pilot delivery and hardware assets do not block this work.
   discovery and normal-entry TUI checks passed; actual user-device/VM actions remain separate
 - [x] Add `sai sites` to discover published IDs/names before explicit selection
   from a portable client, using the existing Portal site chooser
-- [ ] Publish and verify the paired site-directory route and client on the
-  ordinary user's installed path; source tests do not close this gate
+- [x] Publish and verify the paired site-directory route and client on the
+  ordinary user's installed path; see [shared delivery](product-delivery.md#shared-first-use-delivery)
 - [ ] Verify noninteractive Agent use on a user device and dedicated isolated VM,
   with explicit local/remote prerequisites; the independent Linux-container
   default-account flow below is verified, not the whole device/platform matrix

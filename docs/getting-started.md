@@ -74,9 +74,9 @@ your computing account choices and existing site application receipts. Neither
 changes your default. A published site may still require access authorization;
 listing it does not grant access or prove spare capacity.
 
-In the current source, site discovery is implemented; its paired production
-activation is tracked in [the delivery map](product-delivery.md). An older
-deployment may not provide it. Report that version mismatch instead of treating
+The paired site directory and shared client are deployed; the
+[delivery map](product-delivery.md#shared-first-use-delivery) records the validation scope.
+An older deployment may not provide discovery. Report that mismatch instead of treating
 an error as an empty directory or guessing IDs. Site choice remains explicit.
 
 ## Give your Agent the matching skill

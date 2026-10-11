@@ -23,7 +23,7 @@ product hypothesis to validate, not a result established by publishing source.
 | User task | Existing owner and path | CLI evidence today | Remaining product work |
 | --- | --- | --- | --- |
 | Check local queue, GPU/CPU allocation and path quota | Native Slurm/Linux/Lustre under the actual Unix user | Shared aliases and focused Textual queries deployed; ordinary login/compute checks | Preserve familiar output and latency; broaden real terminal/device usability evidence as needed |
-| Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and installed-wheel synthetic workflow verified; `sites` is paired-merged, not yet activated; default-account choices deployed | Complete the ordinary-user first-use journey on the paired installed release |
+| Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and synthetic independent-Agent workflow verified; shared site discovery and account choices deployed with ordinary-user reads | Observe independent first-use experience on supported devices using shipped guidance |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Understand and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No ordinary OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
@@ -91,6 +91,27 @@ Fresh installation and device authorization were also exercised against local
 HTTP fixtures. This is client/workflow evidence, not real consent or a production
 release. The guide and skill require no additional runtime dependencies.
 
+## Shared first-use delivery
+
+On 2026-10-11, shared CLI source `9a51836dc880` was selected after the existing
+service owner's compatible Center release. The immutable runtime's 950 files
+and public permissions matched the reviewed artifact. Configuration and shared
+login-profile bytes stayed unchanged; the previous runtime remains available
+for conditional rollback. No node-local package or service restart was needed.
+
+An ordinary user's existing device session passed candidate and selected-entry
+reads of site names, account choices, published resources and settled charges.
+The base client explicitly selected the directory-returned site using the same
+trusted non-secret profile. Native jobs/resources/Lustre quota and the focused
+GPU TUI passed, including exit and terminal restoration. The current self job
+and estimate scopes were empty; these reads do not prove positive job execution.
+
+The skill export matched the previously exercised bytes. Temporary staging and
+all operator sessions were closed. This completes the paired site-discovery and
+shared skill publication, without new consent or business writes. These checks
+ran on a login host: fresh independent-device onboarding, whole-product human
+usability and broader management remain separate acceptance work.
+
 Keep three extension points concrete: native readers, business-operation modules
 and Agent skills. A dynamic plugin framework needs real external consumers before
 it becomes a supported platform. Pilot plugins consume shared capabilities;
@@ -130,15 +151,15 @@ Before a publication decision, prepare these concrete outputs:
 
 ## Current order of work
 
-1. Finish the already paired site-discovery publication in the existing service
-   window and verify the ordinary user's directory-to-selected-site journey.
-2. Reconcile product/architecture documentation and public-facing metadata;
-   prepare the first-use and skill package plus a reviewable release surface.
-3. Select and deliver a recurring management task through its original domain;
+1. Observe independent first use with the shipped guide and skill on supported
+   devices. Fix demonstrated installation, context or recovery obstacles without
+   repeating completed default-account change/restore acceptance.
+2. Select and deliver a recurring management task through its original domain;
    evaluate project collaboration first, including its task/permission/retry
    boundaries. Keep budget/storage/compute gaps visible in the task map rather
    than treating one write as complete coverage.
-4. Present the audited distribution and license choice for approval before public
+3. Prepare the remaining public distribution, provenance/history and support
+   evidence. Present the audited distribution and license choice before public
    release. Do not wait for 3D or require a Pilot migration for these client tasks.
 
 Digital-twin presentation retains its separate [design](digital-twin-design.md):
