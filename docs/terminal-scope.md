@@ -225,3 +225,12 @@ observations. No job, membership, quota or account preference was changed.
 This is one login-node runtime check, not fleet or human usability acceptance.
 The old shared release remains available for rollback; task staging and the
 readback helper were archived/removed and all operator sessions closed.
+
+## Per-job topology
+
+Enter on an exact native job now reads its allocated nodes, GPU IDX positions
+and CPU IDs using the shared projection. Pending grouped arrays retain a concise
+no-allocation detail. `jobs local --job-id ID` exposes the same observation as
+JSON or a compact Rich map. CPU partitions add Slurm socket/core/thread dimensions
+from their existing node read. The current slice does not change refresh policy
+or account selection; those user feedback items follow its delivery.

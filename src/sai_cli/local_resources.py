@@ -9,6 +9,8 @@ import os
 import re
 from typing import Any, Mapping
 
+from sai_native_slurm import gpu_counts as _gpu_counts, gpu_indices as _gpu_indices, node_dimensions
+
 from .errors import ConfigError
 from .native_process import read_native_json
 from .native_values import (invalid_native, local_options, native_environment,
@@ -21,7 +23,6 @@ _BLOCKED = {"DOWN", "DRAIN", "DRAINED", "DRAINING", "FAIL", "FAILING", "MAINTENA
 _NOT_REPORTING = {"DOWN", "NOT_RESPONDING", "NO_RESPOND", "POWER_DOWN", "POWERED_DOWN",
                   "POWERING_DOWN", "POWERING_UP", "FUTURE", "UNKNOWN"}
 _BASE_UP = {"IDLE", "MIXED", "ALLOCATED", "COMPLETING"}
-_GRES = re.compile(r"([^(),]+)(?:\(([^()]*)\))?(?:,|$)")
 
 
 def _object(value: object) -> dict[str, Any]:
@@ -43,75 +44,6 @@ def _equal_range(value: object) -> int | None:
         raise invalid_native()
     return low
 
-
-def _gpu_counts(value: object) -> dict[str | None, int] | None:
-    """Read configured/allocated GRES counts independently of index metadata."""
-    if value is None:
-        return None
-    value = native_text(value)
-    if value in {"", "(null)"}:
-        return {}
-    result: dict[str | None, int] = {}
-    offset = 0
-    while offset < len(value):
-        match = _GRES.match(value, offset)
-        if match is None:
-            return None
-        parts = match[1].split(":")
-        if len(parts) not in {2, 3} or not all(parts):
-            return None
-        if parts[0] == "gpu":
-            if len(parts) not in {2, 3} or not parts[-1].isdecimal():
-                return None
-            kind = parts[1] if len(parts) == 3 else None
-            if kind in result:
-                return None
-            result[kind] = native_number(int(parts[-1]))
-        offset = match.end()
-    return result
-
-
-def _gpu_indices(value: object, total: int | None, allocated: int | None) -> list[int] | None:
-    """Keep native IDX positions only when the complete set agrees with the count."""
-    if total is None or allocated is None or not 0 <= allocated <= total <= 4096:
-        return None
-    if allocated == 0:
-        return []
-    if not isinstance(value, str):
-        return None
-    entries: dict[str | None, set[int] | None] = {}
-    for match in _GRES.finditer(value):
-        parts = match[1].split(":")
-        if parts[0] != "gpu":
-            continue
-        kind = parts[1] if len(parts) == 3 else None
-        metadata = match[2] or ""
-        indices: set[int] = set()
-        if metadata.startswith("IDX:"):
-            for piece in metadata[4:].split(","):
-                span = re.fullmatch(r"([0-9]+)(?:-([0-9]+))?", piece)
-                if span is None:
-                    break
-                first, last = int(span[1]), int(span[2] or span[1])
-                if not 0 <= first <= last < total or indices.intersection(range(first, last + 1)):
-                    break
-                indices.update(range(first, last + 1))
-            else:
-                if len(indices) == int(parts[-1]):
-                    entries[kind] = indices
-                    continue
-        entries[kind] = set() if parts[-1] == "0" else None
-    if None in entries:
-        indices = entries[None]
-        if indices is None or any(item is not None and not item <= indices for item in entries.values()):
-            return None
-    else:
-        indices = set()
-        for item in entries.values():
-            if item is None or indices.intersection(item):
-                return None
-            indices.update(item)
-    return sorted(indices) if len(indices) == allocated else None
 
 
 def _gpu_total(values: dict[str | None, int] | None) -> int | None:
@@ -174,6 +106,7 @@ def _node(entry: dict[str, Any]) -> dict[str, Any]:
         load = None
     return {
         "name": names[0], "states": states, "kind": gpu_kind, "node_ready": ready,
+        "cpu_topology": node_dimensions(entry),
         "gpu": {"configured_units": total_gpu, "allocated_units": used_gpu,
                 "unallocated_units": _remaining(total_gpu, used_gpu),
                 "allocated_indices": _gpu_indices(gres.get("used"), total_gpu, used_gpu),
@@ -278,7 +211,10 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
     memberships: dict[str, set[str]] = {}
     for raw in rows:
         entry = _object(raw)
-        node, part = _node(entry), _partition(entry.get("partition"))
+        try:
+            node, part = _node(entry), _partition(entry.get("partition"))
+        except ValueError as exc:
+            raise invalid_native() from exc
         name, part_name = node["name"], part["name"]
         if (name in nodes and nodes[name] != node) or (part_name in parts and parts[part_name] != part):
             raise invalid_native()

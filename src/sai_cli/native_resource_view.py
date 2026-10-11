@@ -114,7 +114,7 @@ def _cpu_nodes(value: dict[str, Any], width: int) -> Group:
         table = _table("Node" if width < 64 else "NodeName", "State" if width < 64 else "Status",
                        "CPU\nalloc/total" if width < 64 else "CPU\nalloc / total",
                        "GiB\nalloc/total" if width < 64 else "Mem GiB\nalloc / total",
-                       *(["Load", "Free GiB"] if reports else []))
+                       *(["S×C×T", "Load", "Free GiB"] if reports else []))
         if reports:
             table.columns[-2].justify = table.columns[-1].justify = "right"
         for node in members:
@@ -125,7 +125,9 @@ def _cpu_nodes(value: dict[str, Any], width: int) -> Group:
                      _allocation(memory["allocated_mib"], memory["effective_mib"], memory=True, bars=bars, ready=ready)]
             if reports:
                 load = reported["cpu_load_hundredths"]
-                cells.extend((Text("?" if load is None else format_decimal(str(Decimal(load) / 100), 1, trim=True)),
+                topology = node.get("cpu_topology")
+                dimensions = "?" if topology is None else "×".join(str(topology[key]) for key in ("sockets", "cores_per_socket", "threads_per_core"))
+                cells.extend((Text(dimensions), Text("?" if load is None else format_decimal(str(Decimal(load) / 100), 1, trim=True)),
                               Text(_gib(reported["free_memory_mib"]))))
             table.add_row(*cells)
         blocks.extend((table, Text("")))

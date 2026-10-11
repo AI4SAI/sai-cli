@@ -13,7 +13,8 @@ from sai_cli.cli import build_parser
 from sai_cli.errors import AuthenticationError, ContractError
 from sai_cli.tui import QueryApp
 from sai_cli.tui_queries import Queries, Read
-from test_local_jobs import native_client as job_client, native_job
+from test_local_jobs import native_client, native_job
+from test_native_topology import topology_client as job_client
 from test_local_resources import native_client as resource_client
 from test_overview import sample
 from test_site_transport import http_endpoint
@@ -41,9 +42,9 @@ def test_job_selection_refresh_details_and_exit_without_portal(job_client, monke
             await loaded(app,pilot)
             assert app.query_one('#job-table',DataTable).row_count == 2
             assert app.query_one('#job-table').has_focus
-            await pilot.press('down','enter')
+            await pilot.press('down','enter');await loaded(app,pilot)
             assert app.query_one('#detail').display
-            assert 'second-job' in str(app.query_one('#detail-content',Static).render())
+            assert 'second-job' in app.export_screenshot()
             await pilot.press('escape')
             assert not app.query_one('#detail').display
             await pilot.press('r');await loaded(app,pilot)

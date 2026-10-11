@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 from typing import Any
+from sai_native_slurm import normalize_node_topology, MAX_OBSERVATION_CPU_IDS
 
 from .contracts import (
     JobItem,
@@ -226,6 +227,7 @@ class SiteAllocationNode:
     cpus: int
     memory_mib: int | None
     gres: tuple[SiteAllocationGres, ...] | None
+    topology: dict = field(default_factory=dict)
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteAllocationNode":
@@ -244,12 +246,16 @@ class SiteAllocationNode:
         )
         if parsed_gres is not None and len({(item.name, item.type) for item in parsed_gres}) != len(parsed_gres):
             raise ContractError(request_id=request_id)
+        try:
+            topology = normalize_node_topology(payload)
+        except ValueError as exc:
+            raise ContractError(request_id=request_id) from exc
         return cls(name, _required_int(payload, "cpus", request_id=request_id),
-                   _nullable_int(payload, "memory_mib", request_id=request_id), parsed_gres)
+                   _nullable_int(payload, "memory_mib", request_id=request_id), parsed_gres, topology)
 
     def as_dict(self) -> dict[str, Any]:
         return {"name": self.name, "cpus": self.cpus, "memory_mib": self.memory_mib,
-                "gres": None if self.gres is None else [item.as_dict() for item in self.gres]}
+                "gres": None if self.gres is None else [item.as_dict() for item in self.gres], **self.topology}
 
 
 @dataclass(frozen=True)
@@ -306,6 +312,8 @@ class SiteJobAllocationResult(_SiteJobContext):
             resource_count = sum(len(node.gres or ()) for node in parsed_nodes)
             index_count = sum(len(item.indices or ()) for node in parsed_nodes for item in node.gres or ())
             if resource_count > 4096 or index_count > 65536:
+                raise ContractError(request_id=request_id)
+            if sum(len(node.topology.get("cpu_ids") or ()) for node in parsed_nodes) > MAX_OBSERVATION_CPU_IDS:
                 raise ContractError(request_id=request_id)
         return cls(
             **vars(context), job=job, restart_count=restart_count,

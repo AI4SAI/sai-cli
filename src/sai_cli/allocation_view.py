@@ -1,0 +1,91 @@
+"""Rich allocation maps over the common local/gateway node DTO."""
+from __future__ import annotations
+
+from io import StringIO
+from rich.columns import Columns
+from rich.console import Console, Group
+from rich.table import Table
+from rich.text import Text
+from .native_resource_view import ALLOCATED, UNKNOWN, _gib
+
+
+def ranges(values: list[int]) -> str:
+    if not values:
+        return "—"
+    parts, start, end = [], values[0], values[0]
+    for value in values[1:]:
+        if value == end + 1:
+            end = value
+        else:
+            parts.append(str(start) if start == end else f"{start}–{end}")
+            start = end = value
+    parts.append(str(start) if start == end else f"{start}–{end}")
+    return ", ".join(parts)
+
+
+def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
+    chinese = language == "zh-CN"
+    job, allocation = value["job"], value["allocation"]
+    identity = job["job_id"] + ("_" + job["array_task_id"] if job["array_task_id"] is not None else "")
+    blocks = [Text(f"{identity}  {job['name'] or ''}  ·  {job['state']}", style="bold")]
+    blocks.append(Text(" · ".join(str(job[key]) for key in ("slurm_account", "partition") if job.get(key))))
+    if allocation["status"] != "allocated":
+        state = allocation["status"]
+        blocks.append(Text(("尚未分配节点" if chinese else "No nodes allocated") if state == "not_allocated" else
+                           ("当前分配未知" if chinese else "Allocation unavailable"), style=UNKNOWN))
+        if job.get("reason_or_nodelist"):
+            blocks.append(Text(job["reason_or_nodelist"]))
+        return Group(*blocks)
+    cpu_cells = sum((node.get("cpu_topology") or {}).get("sockets", 0) *
+                    (node.get("cpu_topology") or {}).get("cores_per_socket", 0) for node in allocation["nodes"])
+    gpu_cells = sum((node.get("gpu_total") or len(resource["indices"] or ()))
+                    for node in allocation["nodes"] for resource in node["gres"] or ())
+    for node in allocation["nodes"]:
+        blocks.extend((Text(""), Text(f"{node['name']}  ·  {node['cpus']} CPU  ·  {_gib(node['memory_mib'])} GiB", style="bold")))
+        if node["gres"] is None and node.get("gpu_total") != 0:
+            blocks.append(Text("GPU IDX  ?", style=UNKNOWN))
+        for resource in node["gres"] or ():
+            title = resource["name"].upper() + (" · " + resource["type"] if resource["type"] else "")
+            indices = resource["indices"]
+            if indices is None:
+                blocks.append(Text(f"{title}  ×{resource['count']}  ·  IDX ?"))
+                continue
+            total = node.get("gpu_total") if resource["name"] == "gpu" else None
+            slots = range(total) if total is not None and (not indices or indices[-1] < total) else indices
+            if len(slots) > 64 or gpu_cells > 2048:
+                blocks.append(Text(f"{title}  IDX " + ranges(indices)))
+                continue
+            occupied = set(indices)
+            blocks.append(Text(title + "  IDX", style="bold"))
+            blocks.append(Columns([Text(f"[{index}]" if index in occupied else f" {index} ",
+                style="bold " + ALLOCATED if index in occupied else "dim") for index in slots], padding=(0, 1)))
+        cpu_ids, topology = node.get("cpu_ids"), node.get("cpu_topology")
+        if cpu_ids is None:
+            blocks.append(Text("CPU IDs  ?", style=UNKNOWN))
+        elif topology is None or topology["sockets"] > 32 or topology["cores_per_socket"] > 256 or cpu_cells > 8192:
+            blocks.append(Text("CPU IDs  " + ranges(cpu_ids)))
+        else:
+            rows = Table.grid(padding=(0, 1))
+            rows.add_column(no_wrap=True)
+            rows.add_column(overflow="fold")
+            rows.add_column(overflow="fold")
+            cores, threads = topology["cores_per_socket"], topology["threads_per_core"]
+            occupied = set(cpu_ids)
+            for socket in range(topology["sockets"]):
+                start = socket * cores * threads
+                bitmap = Text()
+                for core in range(cores):
+                    selected = start + core * threads in occupied
+                    bitmap.append("■" if selected else "·", style=ALLOCATED if selected else "dim")
+                selected_ids = [index for index in cpu_ids if start <= index < start + cores * threads]
+                rows.add_row(Text(f"CPU S{socket}"), bitmap, Text("IDs " + ranges(selected_ids)))
+            blocks.append(rows)
+    blocks.extend((Text(""), Text("■ 本作业 · Slurm 编号" if chinese else "■ This job · Slurm IDs", style="dim")))
+    return Group(*blocks)
+
+
+def render_allocation(value: dict, *, width: int = 100, color: bool = False) -> str:
+    output = StringIO()
+    Console(file=output, width=max(40, width), force_terminal=color, color_system="standard" if color else None,
+            markup=False, highlight=False).print(allocation_view(value))
+    return output.getvalue()
