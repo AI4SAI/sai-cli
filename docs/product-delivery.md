@@ -174,6 +174,16 @@ not alter credentials or grant permissions. Retain the prior artifact for
 rollback. Pre-release versions and incomplete platform support must remain
 explicit in instructions and release notes. No PyPI registration is claimed.
 
+The [first public alpha](https://github.com/AI4SAI/sai-cli/releases/tag/v0.2.0a1)
+was published on 2026-10-12 from `cb42d6987b95c870071915166554b7017eae5bc4`.
+The independent public repository is the active development source; the original
+history remains in a private read-only archive. GitHub-hosted Python 3.11/3.13
+CI passed 1200 tests and packaging checks without internal runners or secrets.
+Anonymous downloads matched all three published asset hashes. Clean Linux pipx
+base/TUI installs exposed the matching skill and 39 operations, verified public
+connection metadata and reported missing login normally. No new device consent,
+business mutation or shared-site installation was performed by this release.
+
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
 consumer/producer changes. The installed `describe` output owns command syntax.

@@ -7,7 +7,7 @@ Portal. The former summary-and-cost-only interpretation is superseded.
 The overloaded full-screen workbench remains retired; it is not the model for
 these focused command interactions.
 
-## Query usability correction, source candidate
+## Query usability correction
 
 Native job account selection now discovers this Unix user's other Slurm
 associations through `account local`, sharing the existing parser. The selector
@@ -23,8 +23,9 @@ IDs. Color plus `*` identifies allocations. These are schematic scheduler
 diagrams, not physical connectivity or Linux/NUMA maps. Resource selection
 preserves the existing allocation colors and uses one compact scope summary.
 
-This slice is a source candidate. Local native-substitute, HTTP and rendered
-checks do not establish production installation or human acceptance.
+This slice is included in the portable `0.2.0a1` alpha. Local native-substitute,
+HTTP and rendered checks, and a clean installation of the public wheel, do not
+establish shared-site installation or human acceptance.
 
 ## Human workflow
 

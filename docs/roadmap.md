@@ -11,8 +11,8 @@ not imply production activation or completion of a paired rollout.
 
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and readable two-dimensional allocation inspection
-  in a source candidate; see [query usability](terminal-scope.md#query-usability-correction-source-candidate).
-- [ ] Publish that corrected query slice and check it on the installed ordinary
+  in the portable `0.2.0a1` alpha; see [query usability](terminal-scope.md#query-usability-correction).
+- [ ] Deploy that corrected query slice and check it on the shared ordinary
   user path. Local synthetic render/interaction checks are not live acceptance.
 
 - [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
@@ -53,6 +53,9 @@ historical entries are not an automatic new-feature queue.
   user consent remains a separate acceptance step
 - [x] Prepare the public-alpha client boundary, upstream notices, versioned
   GitHub distribution and Linux qualification
+- [x] Publish `v0.2.0a1` with isolated GitHub-hosted Python 3.11/3.13 CI,
+  wheel/source/checksum assets, anonymous download verification and clean
+  base/TUI installations. This does not update the shared cluster installation
 - [ ] Qualify additional supported platforms and independent human first use
 
 Broader budget, storage and compute management remain in the capability map.
