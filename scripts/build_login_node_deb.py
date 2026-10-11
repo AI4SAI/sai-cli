@@ -17,7 +17,10 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import zipfile
+
+from packaging.version import Version
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +44,14 @@ def _run(*args: str) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     ).stdout.strip()
+
+
+def _debian_version(project_version: str) -> str:
+    """Formal site packages use release versions, preserving prerelease order."""
+    version = Version(project_version)
+    if version.epoch or version.post is not None or version.dev is not None or version.local is not None:
+        raise RuntimeError("site packages require a final, alpha, beta or release-candidate project version")
+    return version.base_version + (f"~{version.pre[0]}{version.pre[1]}" if version.pre else "")
 
 
 def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
@@ -69,7 +80,9 @@ def _git_provenance(*, allow_dirty: bool) -> tuple[str, str, bool, bool, int]:
         reachable = True
     timestamp = int(_run("git", "show", "-s", "--format=%ct", "HEAD"))
     stamp = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d%H%M%S")
-    return commit, f"0.1.0+{stamp}.{commit[:12]}", not dirty, reachable, timestamp
+    project = tomllib.loads(_run("git", "show", f"{commit}:pyproject.toml"))["project"]
+    version = _debian_version(project["version"])
+    return commit, f"{version}+{stamp}.{commit[:12]}", not dirty, reachable, timestamp
 
 
 def _source_files(root: Path = REPO_ROOT) -> list[Path]:
