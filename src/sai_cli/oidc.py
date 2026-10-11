@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import ipaddress
+import re
 from typing import Mapping
 from urllib.parse import urlsplit
 
@@ -45,6 +46,7 @@ class DeviceTokenResult:
     refresh_expires_at: int | None
     subject: str | None = None
     device_id: str | None = None
+    scope: str | None = None
 
 
 class OidcPending(Exception):
@@ -53,6 +55,14 @@ class OidcPending(Exception):
 
 class OidcSlowDown(Exception):
     """The provider asked the client to poll less frequently."""
+
+
+def scope_text(value: object) -> str:
+    """Validate the RFC 6749 scope grammar without interpreting permissions."""
+    if (not isinstance(value, str) or not 1 <= len(value) <= 1024
+            or re.fullmatch(r'[\x21\x23-\x5b\x5d-\x7e]+(?: [\x21\x23-\x5b\x5d-\x7e]+)*', value) is None):
+        raise ContractError("the Identity scope is invalid")
+    return " ".join(dict.fromkeys(value.split(" ")))
 
 
 def _token(value: object, *, field: str) -> str:
@@ -155,7 +165,7 @@ class OidcClient:
             raise ConfigError("the Identity issuer is invalid")
         self.issuer_url = issuer
         self.client_id = _text(client_id, field="client_id", maximum=128)
-        self.scope = _text(scope, field="scope", maximum=1024)
+        self.scope = scope_text(scope)
         if "offline_access" not in self.scope.split():
             raise ConfigError("the Identity scope must include offline_access")
         self.resource = resource.strip() if isinstance(resource, str) and resource.strip() else None
@@ -453,6 +463,7 @@ class OidcClient:
             refresh_expires_at=refresh_expires_at,
             subject=subject,
             device_id=device_id,
+            scope=scope_text(payload["scope"]) if "scope" in payload else None,
         )
 
 

@@ -41,6 +41,25 @@ sai auth logout
 `0700/0600` 的用户凭据缓存，过期后失效；它不会写入 shell history、TOML
 或日志。
 
+## 按操作申请权限
+
+候选功能：`sai auth login --for account set-default` 为指定操作及其结果查询
+申请权限；`--for invitations` 覆盖该命令组。权限取自现有命令声明，不增加另一份
+权限目录。可加 `--no-wait`，本人在浏览器确认后只需 `sai auth login --resume`。
+登录不会执行业务操作，也不修改连接配置或共享 profile。
+
+现有会话在新授权等待、拒绝或权限不足时继续可用；成功后同一连接下的普通命令
+使用更新后的登录。已有明确记录的授权范围会保留，新增权限仍由 Identity 确认。
+权限不足返回 `identity_scope_not_granted`，不会拿不足的授权覆盖旧凭据。
+`auth status` JSON 的 `scopes` 表示当前设备凭据记录的 OAuth 范围，未知为 null；
+它不代表站点、项目或业务角色已获准。显式 `SAI_TOKEN` 不属于设备会话，应先取消
+该环境输入，再为设备登录申请权限。
+
+凭据继续绑定 Portal、issuer、client、resource 和配置中的 scope 基线。新增授权的
+请求范围和实际返回范围分别保存在原受保护的待确认/凭据记录中。旧记录无需迁移；
+它们缺失的范围保持未知。续期省略 scope 时保留原授权，明确缩小时采用新范围。
+这些客户端验证不证明生产注册、本人同意或真实业务操作已完成。
+
 ## 协议归属
 
 Device Authorization Grant 是 OAuth 2.0 的授权方式，不是 OAuth 的替代

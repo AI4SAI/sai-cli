@@ -249,6 +249,7 @@ class TokenCache:
     def put(
         self, key: str, *, token: str, expires_at: int | None,
         allow_unknown_expiry: bool = False,
+        scope: str | None = None,
     ) -> None:
         if not self.enabled:
             return
@@ -263,6 +264,7 @@ class TokenCache:
             )
         ):
             raise AuthenticationError("the token cache entry is invalid")
+        self._validate_scope(scope)
         self._secure_parent()
         payload = self._read()
         now = int(self.clock())
@@ -277,11 +279,31 @@ class TokenCache:
             )
         }
         payload["entries"][key] = {"token": token, "expires_at": expires_at}
+        if scope is not None:
+            payload["entries"][key]["scope"] = scope
         encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
         if len(encoded) > _MAX_CACHE_BYTES:
             raise AuthenticationError("the token cache is too large")
 
         self._write(encoded, error_message="the token cache could not be written")
+
+    @staticmethod
+    def _validate_scope(scope: object) -> None:
+        if scope is not None and (
+            not isinstance(scope, str) or not 1 <= len(scope) <= 1024 or not scope.isascii()
+            or any(ord(char) < 32 or ord(char) == 127 for char in scope)
+        ):
+            raise AuthenticationError("the credential scope is invalid")
+
+    def scope(self, key: str) -> str | None:
+        entry = self._read()["entries"].get(key)
+        if entry is None:
+            return None
+        if not isinstance(entry, dict):
+            raise AuthenticationError("the token cache entry is invalid")
+        scope = entry.get("scope")
+        self._validate_scope(scope)
+        return scope
 
     def delete(self, key: str) -> None:
         if not self.enabled:

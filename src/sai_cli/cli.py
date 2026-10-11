@@ -279,9 +279,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="resume the protected pending device authorization",
     )
+    login_parser.add_argument("--for", dest="authorization_path", nargs="+", metavar="COMMAND",
+                              help="authorize a command or group, for example: --for invitations")
     _add_format_argument(login_parser)
     _operation(login_parser, source="identity", effect="session_write", site=False, site_option=True, interaction="browser_consent",
-               notes=("Requested scopes come from the protected profile; no-wait starts and resume polls the same device flow.",
+               notes=("--for adds the installed command/group and its readback permissions to this device login; the profile is unchanged.",
+                      "Current granted scopes are retained; browser consent is required. No operation runs as part of login.",
+                      "Use --resume alone to resume the saved permission request.",
                       "--no-wait and --resume are mutually exclusive. Credentials are stored privately, never supplied as argv.",))
 
     status_parser = auth_commands.add_parser(
@@ -441,8 +445,10 @@ def _poll_device_authorization(
             interval = min(30, interval + 5)
             result = None
         if result is not None:
-            provider.install_device_tokens(result)
-            provider.clear_pending_device_code()
+            try:
+                provider.install_device_tokens(result)
+            finally:
+                provider.clear_pending_device_code(device_code=device_code)
             return {
                 "ok": True,
                 "authenticated": True,
@@ -450,6 +456,7 @@ def _poll_device_authorization(
                 "device_id": result.device_id,
                 "expires_at": result.access_expires_at,
                 "refresh_expires_at": result.refresh_expires_at,
+                "scopes": (provider.device_scope() or "").split(),
             }
         if authorization is None:
             deadline = min(deadline, now + 600)
@@ -473,6 +480,7 @@ def _handle_auth_command(
     provider: TokenProvider,
     output: TextIO,
     errors: TextIO,
+    authorization_scopes: tuple[str, ...] = (),
 ) -> int:
     from .auth import DeviceAuthorization
     from .render import render_account_status
@@ -488,7 +496,7 @@ def _handle_auth_command(
             raise ContractError("use either --no-wait or --resume")
         authorization: DeviceAuthorization | None = None
         if args.resume:
-            pending = provider.pending_device_code()
+            pending = provider.resume_device_authorization()
             if not pending:
                 raise AuthenticationError(
                     "no pending device authorization; run `sai auth login`",
@@ -503,7 +511,7 @@ def _handle_auth_command(
                 interval_seconds=5,
             )
         else:
-            authorization = provider.start_device_authorization()
+            authorization = provider.start_device_authorization(scopes=authorization_scopes)
             errors.write(
                 "请在浏览器打开以下地址，并确认显示的设备码：\n"
                 f"{authorization.verification_url}\n"
@@ -518,6 +526,7 @@ def _handle_auth_command(
                 "expires_at": authorization.expires_at,
                 "interval_seconds": authorization.interval_seconds,
                 "resume": "sai auth login --resume",
+                "requested_scopes": oidc_client.scope.split(),
             }
             _auth_result_output(return_value, output_format=output_format, output=output)
             return 0
@@ -555,6 +564,7 @@ def _handle_auth_command(
             )
             return 0
         refresh = provider.device_refresh()
+        granted_scope = provider.device_scope() if lease.source != "environment" else None
         safe = {
             "ok": True,
             "authenticated": True,
@@ -563,6 +573,7 @@ def _handle_auth_command(
             "client_id": oidc_client.client_id,
             "access_expires_at": lease.expires_at,
             "refresh_expires_at": refresh[1] if refresh else None,
+            "scopes": granted_scope.split() if granted_scope is not None else None,
         }
         account = PortalClient(transport=provider.transport, token_provider=provider).account_status(lease=lease)
         if output_format == "json":
@@ -688,6 +699,14 @@ def main(
         from .auth import TokenProvider
         from .config import resolve_settings
 
+        requested_scopes: tuple[str, ...] = ()
+        if args.command == "auth" and args.auth_command == "login" and args.authorization_path:
+            from .discovery import authorization_scopes
+            if args.resume:
+                raise ConfigError("--resume continues the saved permission request; omit --for")
+            if env.get("SAI_TOKEN"):
+                raise ConfigError("Unset SAI_TOKEN before authorizing this device login.")
+            requested_scopes = authorization_scopes(parser, args.authorization_path)
         settings = resolve_settings(
             args, env,
             require_site=not (args.command in {"auth", "sites", "invitations"} or
@@ -708,6 +727,7 @@ def main(
                 provider=provider,
                 output=output,
                 errors=errors,
+                authorization_scopes=requested_scopes,
             )
         from .capability import CapabilityProvider
         from .client import PortalClient
@@ -904,6 +924,12 @@ def main(
             output.write(render_table(result))
         return 0
     except SaiCliError as exc:
+        if exc.code == "identity_scope_denied" and args.command != "auth" and not env.get("SAI_TOKEN"):
+            path = [args.command]
+            subcommand = getattr(args, args.command + "_command", None)
+            if subcommand:
+                path.append(subcommand)
+            exc.message = "Permission is missing; authorize this operation with `sai auth login --for " + " ".join(path) + "`."
         if (args.command == "status" and output_format in {"table", "tui"}
                 and isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"):
             errors.write("SAI account information: run sai auth login to sign in.\n" if args.language == "en-US"

@@ -101,7 +101,20 @@ accounts at the site I selected." The Agent should discover names and IDs,
 explain the answer, and preserve your selection. Then an explicitly requested
 management task can use [the existing default-account workflow](portal-management.md).
 It needs separate write authorization and reports central acceptance separately
-from site application. Broader management coverage remains planned.
+from site application. When permission is missing, authorize that operation:
+
+```bash
+sai auth login --for account set-default
+```
+
+Confirm in your browser, then continue the requested task. The command includes
+the permission needed to read its result, keeps current granted permissions and
+does not perform the account change. It updates your protected device login;
+the connection profile stays unchanged. For an Agent, add `--no-wait` and later
+use `sai auth login --resume` without repeating the target. A command group such
+as `--for invitations` requests the group's published permissions. Server-side
+roles and site access still apply. This permission selection is a source
+candidate; service scope registration and deployment remain separate.
 
 ## Recover or upgrade
 

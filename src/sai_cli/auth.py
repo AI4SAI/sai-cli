@@ -20,8 +20,8 @@ from .cache import (
     device_refresh_cache_key,
 )
 from .config import Settings
-from .errors import AuthenticationError, ContractError, SaiCliError
-from .oidc import DeviceAuthorization, DeviceTokenResult, OidcClient
+from .errors import AuthenticationError, ContractError, ForbiddenError, SaiCliError
+from .oidc import DeviceAuthorization, DeviceTokenResult, OidcClient, scope_text
 from .transport import JsonTransport
 
 
@@ -80,6 +80,7 @@ def _validate_device_result(result: DeviceTokenResult, *, now: int) -> DeviceTok
         refresh_expires_at=result.refresh_expires_at,
         subject=result.subject.strip() if result.subject else None,
         device_id=result.device_id.strip() if result.device_id else None,
+        scope=scope_text(result.scope) if result.scope is not None else None,
     )
 
 
@@ -116,7 +117,9 @@ class TokenProvider:
             "identity_issuer": client.issuer_url if client is not None else None,
             "client_id": client.client_id if client is not None else self.settings.oidc_client_id,
             "resource": client.resource if client is not None else self.settings.oidc_resource,
-            "scope": client.scope if client is not None else self.settings.oidc_scope,
+            # The configured baseline identifies the profile. Explicit consent
+            # updates this session without changing its connection configuration.
+            "scope": self.settings.oidc_scope,
         }
 
     def _device_access_key(self) -> str:
@@ -191,33 +194,46 @@ class TokenProvider:
         """Persist an OIDC token response without exposing token values."""
 
         checked = _validate_device_result(result, now=int(self.clock()))
+        requested = self.oidc_client.scope if self.oidc_client else self.settings.oidc_scope
+        if checked.scope is not None and not set(requested.split()) <= set(checked.scope.split()):
+            raise ForbiddenError("Identity did not grant the requested permissions; the existing login is unchanged.",
+                                 code="identity_scope_not_granted")
         if not self.settings.use_cache:
             raise AuthenticationError(
                 "persistent device login requires the credential cache",
                 code="credentials_unavailable",
             )
         with self._credential_lock():
-            self._store_device_tokens_locked(checked)
+            self._store_device_tokens_locked(checked, scope=checked.scope or requested)
 
-    def _store_device_tokens_locked(self, result: DeviceTokenResult) -> None:
+    def _store_device_tokens_locked(self, result: DeviceTokenResult, *, scope: str | None) -> None:
         self.credential_cache.put(
             self._device_refresh_key(),
             token=result.refresh_token,
             expires_at=result.refresh_expires_at,
             allow_unknown_expiry=True,
+            scope=scope,
         )
         self.cache.put(
             self._device_access_key(),
             token=result.access_token,
             expires_at=result.access_expires_at,
+            scope=scope,
         )
 
-    def start_device_authorization(self) -> DeviceAuthorization:
+    def start_device_authorization(self, *, scopes: tuple[str, ...] = ()) -> DeviceAuthorization:
+        if not self.settings.use_cache:
+            raise AuthenticationError("device login requires the credential cache", code="credentials_unavailable")
         if self.oidc_client is None:
             raise AuthenticationError(
                 "SAI Identity issuer is not configured; set SAI_IDENTITY_ISSUER",
                 code="credentials_unavailable",
             )
+        with self._credential_lock():
+            current = self.device_scope() or ""
+        self.oidc_client.scope = scope_text(" ".join(sorted(
+            set(self.oidc_client.scope.split()) | set(current.split()) | set(scopes)
+        )))
         authorization = self.oidc_client.start_device_authorization(now=int(self.clock()))
         self.store_pending_device_code(
             device_code=authorization.device_code,
@@ -245,17 +261,25 @@ class TokenProvider:
             allow_unknown_expiry=True,
         )
 
+    def device_scope(self) -> str | None:
+        if self.device_refresh() is None:
+            return None
+        value = self.credential_cache.scope(self._device_refresh_key())
+        return scope_text(value) if value is not None else None
+
     def store_pending_device_code(self, *, device_code: str, expires_at: int) -> None:
         if not self.settings.use_cache:
             raise AuthenticationError(
                 "device login requires the credential cache",
                 code="credentials_unavailable",
             )
-        self.credential_cache.put(
-            self._device_pending_key(),
-            token=_validate_token(device_code),
-            expires_at=expires_at,
-        )
+        with self._credential_lock():
+            self.credential_cache.put(
+                self._device_pending_key(),
+                token=_validate_token(device_code),
+                expires_at=expires_at,
+                scope=self.oidc_client.scope if self.oidc_client else self.settings.oidc_scope,
+            )
 
     def pending_device_code(self, *, now: int | None = None) -> tuple[str, int] | None:
         current = int(self.clock()) if now is None else now
@@ -264,6 +288,15 @@ class TokenProvider:
             now=current,
             margin_seconds=0,
         )
+
+    def resume_device_authorization(self) -> tuple[str, int] | None:
+        with self._credential_lock():
+            pending = self.pending_device_code()
+            if pending and self.oidc_client is not None:
+                scope = self.credential_cache.scope(self._device_pending_key())
+                if scope is not None:
+                    self.oidc_client.scope = scope_text(scope)
+            return pending
 
     def clear_pending_device_code(self, *, device_code: str | None = None) -> None:
         with self._credential_lock():
@@ -319,11 +352,14 @@ class TokenProvider:
                 current = self.device_refresh(now=now)
                 if not current:
                     raise AuthenticationError("the SAI device refresh credential is unavailable")
+                saved_scope = self.device_scope()
                 result = _validate_device_result(
                     self.oidc_client.refresh(refresh_token=current[0], now=now),
                     now=now,
                 )
-                self._store_device_tokens_locked(result)
+                # RFC 6749 omission retains the original grant. Legacy records
+                # with no scope metadata stay unknown until the issuer states it.
+                self._store_device_tokens_locked(result, scope=result.scope or saved_scope)
                 return TokenLease(
                     token=result.access_token,
                     expires_at=result.access_expires_at,

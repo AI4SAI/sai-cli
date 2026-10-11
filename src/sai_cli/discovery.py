@@ -91,3 +91,28 @@ def render_description(value: dict) -> str:
             name = ", ".join(parameter["flags"]) or parameter["name"]
             lines.append(f"  {name}: {parameter['type']}" + (" (required)" if parameter["required"] else ""))
     return "\n".join(lines) + "\n"
+
+
+def authorization_scopes(root: argparse.ArgumentParser, path: list[str]) -> tuple[str, ...]:
+    """Use the installed operation declarations, including their readback."""
+    scopes: set[str] = set()
+    visited: set[tuple[str, ...]] = set()
+    pending = [path]
+    while pending:
+        current = pending.pop()
+        if tuple(current) in visited:
+            continue
+        visited.add(tuple(current))
+        description = describe(root, current)
+        if not description["detailed"]:
+            pending.extend(item["command"] for item in description["operations"])
+            continue
+        operation = description["operations"][0]
+        scopes.update(operation["required_scopes"])
+        for condition in operation["conditional_requirements"]:
+            scopes.update(condition.get("scopes", ()))
+        if operation["readback"]:
+            pending.append(operation["readback"])
+    if not scopes:
+        raise ConfigError("This operation needs no additional Identity permission.")
+    return tuple(sorted(scopes))
