@@ -202,8 +202,9 @@ def test_cost_keyboard_selection_clears_previous_amount_on_rejection(job_client,
             assert calls[-1].job['item'].canonical_id=='42'
             assert app.query_one('#detail').display
             await pilot.press('c');await loaded(app,pilot)
-            assert not app.query_one('#detail').display
-            assert not str(app.query_one('#detail-content',Static).render())
+            assert app.query_one('#detail').has_focus
+            assert str(app.query_one('#detail-content',Static).render()) == 'Estimate denied'
+            assert '¥' not in app.export_screenshot()
     asyncio.run(run())
 
 
@@ -266,7 +267,7 @@ def test_leaving_job_clears_pending_cost_errors_and_loading(job_client,repeat):
             await loaded(app,pilot)
             await pilot.press('c');await asyncio.wait_for(started.wait(),2)
             if repeat:await pilot.press('c')
-            await pilot.press('down')
+            await pilot.press('escape','down')
             assert not str(app.query_one('#notice',Static).render())
             release.set();await loaded(app,pilot)
             assert not str(app.query_one('#notice',Static).render())

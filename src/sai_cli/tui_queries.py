@@ -88,12 +88,17 @@ class Queries:
         return resolve_settings(self.args, self.environ)
 
     async def read(self, request: Read):
+        if request.view == "job_accounts":
+            from .local_accounts import LocalAccounts
+            return LocalAccounts(await self._command(["account", "local"]))
         if request.view == "jobs":
             from .local_jobs import LocalJobs
             from .contracts import JobItem
             command = ["jobs", "local", "--limit", "500"]
             if request.selection == "identity" and self.account:
                 command += ["-A", self.account, "--with-subaccounts"]
+            elif request.selection.startswith("account:"):
+                command += ["-A", request.selection.removeprefix("account:"), "--with-subaccounts"]
             data = await self._command(command)
             return LocalJobs(cluster=data["cluster"], actor=data["actor"]["user"], uid=data["actor"]["uid"],
                 filters=data["filters"], observed_at=data["observed_at"], has_more=data["has_more"], warning_count=data["warning_count"],
@@ -107,11 +112,11 @@ class Queries:
             value = await self._command(["jobs", "local", "--job-id", item.canonical_id])
             if value["cluster"] != request.job["cluster"] or any(value["job"][key] != item.values[key]
                 for key in ("job_id", "array_task_id", "slurm_user", "slurm_account", "submit_time")):
-                raise ContractError("The job changed; refresh before inspecting it.")
+                raise ContractError("The job changed; return to the list and refresh before inspecting it.")
             return NativeTopology(value)
         if request.view == "quota":
             from .local_quota import LocalQuota
-            path = self.home if request.selection == "home" else self.directory
+            path = self.home if request.selection == "home" else request.selection or self.directory
             return LocalQuota(await self._command(["storage", "local-quota", path]))
         settings = self.settings()
         if request.view == "account":
@@ -132,15 +137,16 @@ class Queries:
             command = ["jobs", "cost", job.canonical_id]
             if not settings.managed_login_node:
                 command += ["--cluster", settings.cluster_id]
-            if request.selection == "identity":
+            if request.selection == "identity" or request.selection.startswith("account:"):
                 choices = (await self.read(Read("accounts"))).values["choices"]
-                account = next((row for row in choices if row["name"] == self.account), None)
+                selected = self.account if request.selection == "identity" else request.selection.removeprefix("account:")
+                account = next((row for row in choices if row["name"] == selected), None)
                 if account is None:
-                    raise ForbiddenError("The login account is not in the authorized account directory.")
+                    raise ForbiddenError("This native account is not in the authorized SAI account directory.")
                 command += ["--scope", account["kind"] + "-account", "--account-id", account["id"]]
             result = JobCostResult.from_payload(await self._command(command, remote=True), request_id="job-cost")
             returned = result.observation.items[0].values
             if any(returned[key] != job.values[key] for key in ("job_id", "array_task_id", "slurm_account", "slurm_user", "submit_time")):
-                raise ContractError("The job changed; refresh before reading its estimate.")
+                raise ContractError("The job changed; return to the list and refresh before reading its estimate.")
             return result
         raise ConfigError("Unknown terminal query")

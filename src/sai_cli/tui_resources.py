@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.text import Text
 
 from .local_resources import _available, _ready
-from .native_resource_view import _allocation, _gib, _gpu_matrix, _number, _state, _qos
+from .native_resource_view import ALLOCATED, BLOCKED, FREE, _allocation, _gib, _gpu_matrix, _number, _state, _qos
 from .render import format_decimal
 
 
@@ -28,11 +28,19 @@ def node_cells(node: dict, partitions: list[dict], *, kind: str, width: int) -> 
 
 
 def compact_summary(value: dict, kind: str, language: str) -> Group:
-    rows = []
-    for part in [*value["partitions"], {"name": "GLOBAL", "summary": value["summary"]}]:
-        capacity = part["summary"][kind]
-        rows.append(Text(f"{part['name']}  {_number(capacity['free_on_ready_nodes'])}/{_number(capacity['capacity'])} " +
-                         ("空闲" if language == "zh-CN" else "free")))
+    chinese = language == "zh-CN"
+    capacity = value["summary"][kind]
+    line = Text(kind.upper() + "  ")
+    line.append(("空闲 " if chinese else "Free ") + _number(capacity["free_on_ready_nodes"]), style=FREE)
+    line.append(" / " + _number(capacity["capacity"]))
+    line.append((" · 已分配 " if chinese else " · Allocated ") + _number(capacity["allocated"]), style=ALLOCATED)
+    if capacity["blocked_unallocated"] != 0:
+        line.append((" · 不可用 " if chinese else " · Unavailable ") + _number(capacity["blocked_unallocated"]), style=BLOCKED)
+    rows = [line]
+    if kind == "gpu":
+        rows.append(Text("[#] 已分配  [_] 空闲  ? 未知" if chinese else "[#] Allocated  [_] Idle  ? Unknown"))
+    if value["unclassified_nodes"]:
+        rows.append(Text(("GPU 配置未知的节点：" if chinese else "Unknown GPU configuration: ") + str(value["unclassified_nodes"])))
     return Group(*rows)
 
 

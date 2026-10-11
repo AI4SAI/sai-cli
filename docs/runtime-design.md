@@ -176,9 +176,21 @@ remote client only when requested. A selected cost must match cluster, account,
 user, job/task and submission time before display. Native visibility never grants
 billing permission. The interface contains no write or Pilot session handler.
 
+Opening the native job selector reads `account local`, sharing the existing
+association parser under the current UID. It does not delay the first queue.
+Selected accounts use the original subtree filter and cost reauthorization.
+Quota offers an explicit native directory chooser, without translating scheduler
+accounts to filesystem paths. Choices persist when switching query views.
+
 `r` refreshes, `p` pauses/resumes updates, arrows/Enter or a click inspect a row, and `c` requests a job estimate.
-Escape closes the current detail/selection and `q` exits. Outstanding reads are
-bounded and serialized; repeated requests retain only the newest pending query.
+Escape closes the current detail/selection and `q` exits. Job detail holds
+keyboard focus and the available content area; arrows
+and page keys scroll without changing the selected job. `r` rereads that exact
+detail, and Escape restores the original list without a new query. Allocation
+drawings use the same Rich renderer as batch output, with a two-dimensional GPU
+grid and CPU socket/core/ID grouping, including monochrome allocation markers.
+Outstanding reads are bounded and serialized; repeated requests retain only
+the newest pending query.
 Changing view/scope clears stale facts before loading. Account names come from
 the existing authorized defaults directory and change only the view, not the
 saved preference. Native queries do not require a business configuration or login.

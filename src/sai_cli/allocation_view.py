@@ -1,11 +1,13 @@
 """Rich allocation maps over the common local/gateway node DTO."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from io import StringIO
 from rich import box
 from rich.columns import Columns
-from rich.console import Console, Group
+from rich.console import Console, ConsoleOptions, Group, RenderResult
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 from .native_resource_view import ALLOCATED, UNKNOWN, _gib
 
@@ -26,23 +28,54 @@ def ranges(values: list[int]) -> str:
     return ", ".join(parts)
 
 
-def socket_panel(socket: int, *, cores: int, threads: int, occupied: set[int], chinese: bool) -> Panel:
+def socket_panel(socket: int, *, cores: int, threads: int, occupied: set[int], chinese: bool, width: int) -> Panel:
     start, stop = socket * cores * threads, (socket + 1) * cores * threads
-    text = Text()
-    first = start
-    for index in range(start + 1, stop + 1):
-        if index == stop or (index in occupied) != (first in occupied):
-            if text:
-                text.append("  ")
-            label = str(first) if index == first + 1 else f"{first}–{index - 1}"
-            text.append(" " + label + " ", style=SELECTED if first in occupied else "white")
-            first = index
+    tiles = []
+    digits = len(str(stop - 1))
+    for core in range(cores):
+        tile = Text(("核 " if chinese else "Core ") + str(core) + "\n")
+        for index in range(start + core * threads, start + (core + 1) * threads):
+            if index != start + core * threads:
+                tile.append(" ")
+            tile.append(f"{'*' if index in occupied else ' '}{index:>{digits}}",
+                        style=SELECTED if index in occupied else "default")
+        tiles.append(tile)
     active = any(start <= index < stop for index in occupied)
-    return Panel(text, title=("CPU 插槽 " if chinese else "CPU socket ") + str(socket),
-                 title_align="left", border_style=ALLOCATED if active else "dim", box=box.ROUNDED, padding=(0, 1))
+    tile_width = max((4 if chinese else 5) + len(str(cores - 1)), threads * (digits + 2) - 1)
+    columns = next(count for count in (4, 2, 1) if count * (tile_width + 1) <= width - 3 or count == 1)
+    grid = Table.grid(padding=(1, 1))
+    for _ in range(columns):
+        grid.add_column(width=tile_width)
+    for start in range(0, len(tiles), columns):
+        grid.add_row(*tiles[start:start + columns])
+    return Panel(grid, title=("CPU 插槽 " if chinese else "CPU socket ") + str(socket), width=width,
+                 title_align="left", border_style=ALLOCATED if active else "default", box=box.ROUNDED, padding=(0, 1))
 
 
-def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
+def gpu_grid(slots, occupied: set[int], *, width: int) -> Table:
+    grid = Table(show_header=False, box=box.SQUARE, show_lines=True, padding=(0, 1))
+    cells = [Text(f"{'*' if index in occupied else ' '}{index:>2}",
+                  style=SELECTED if index in occupied else "default") for index in slots]
+    columns = 8 if width >= 64 else 4
+    for start in range(0, len(cells), columns):
+        grid.add_row(*cells[start:start + columns])
+    return grid
+
+
+@dataclass(frozen=True)
+class AllocationView:
+    value: dict
+    language: str
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        yield _allocation_view(self.value, language=self.language, width=options.max_width)
+
+
+def allocation_view(value: dict, *, language: str = "zh-CN") -> AllocationView:
+    return AllocationView(value, language)
+
+
+def _allocation_view(value: dict, *, language: str, width: int) -> Group:
     chinese = language == "zh-CN"
     job, allocation = value["job"], value["allocation"]
     identity = job["job_id"] + ("_" + job["array_task_id"] if job["array_task_id"] is not None else "")
@@ -78,8 +111,7 @@ def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
             occupied = set(indices)
             selected_ids = ", ".join(map(str, indices)) if len(indices) <= 8 else ranges(indices)
             blocks.append(Text(f"{title}  " + selected_ids + model, style="bold"))
-            blocks.append(Columns([Text(f" {index:^2} ", style=SELECTED if index in occupied else "white")
-                                   for index in slots], padding=(0, 1), equal=True))
+            blocks.append(gpu_grid(slots, occupied, width=width))
         cpu_ids, topology = node.get("cpu_ids"), node.get("cpu_topology")
         if cpu_ids is None:
             blocks.append(Text("CPU 编号未知" if chinese else "CPU IDs unknown", style=UNKNOWN))
@@ -89,9 +121,12 @@ def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
             blocks.extend((Text(""), Text("CPU  " + ranges(cpu_ids), style="bold")))
             cores, threads = topology["cores_per_socket"], topology["threads_per_core"]
             occupied = set(cpu_ids)
-            blocks.append(Columns([socket_panel(socket, cores=cores, threads=threads, occupied=occupied, chinese=chinese)
-                                   for socket in range(topology["sockets"])], width=18, padding=(0, 1), equal=True))
-    blocks.extend((Text(""), Text("高亮：本作业分配" if chinese else "Highlighted: allocated to this job", style="dim")))
+            panel_width = (width - 2) // 2 if width >= 76 else width
+            blocks.append(Columns([socket_panel(socket, cores=cores, threads=threads, occupied=occupied,
+                                                chinese=chinese, width=panel_width)
+                                   for socket in range(topology["sockets"])], padding=(1, 2), equal=True))
+    blocks.extend((Text(""), Text("* 本作业分配 · CPU 按插槽 / 核分组，数字为 Slurm CPU ID" if chinese else
+        "* Allocated to this job · CPU grouped by socket / core, numbers are Slurm CPU IDs")))
     return Group(*blocks)
 
 

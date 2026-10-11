@@ -59,7 +59,7 @@ def test_background_refresh_preserves_rows_selection_scroll_and_focus(job_client
             app._last_read_at -= 6
             app._poll_current_view()
             await pilot.pause(.05)
-            assert calls == ['jobs','jobs'] and chooser.expanded
+            assert calls == ['jobs','jobs','job_accounts'] and chooser.expanded
             await pilot.press('escape')
             table.focus()
             await pilot.press('enter'); await loaded(app,pilot)
@@ -67,7 +67,7 @@ def test_background_refresh_preserves_rows_selection_scroll_and_focus(job_client
             app._last_read_at -= 6
             app._poll_current_view()
             await pilot.pause(.05)
-            assert calls == ['jobs','jobs','allocation']
+            assert calls == ['jobs','jobs','job_accounts','allocation']
     asyncio.run(run())
 
 

@@ -113,6 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
             overview.set_defaults(format="table")
     account = commands.add_parser("account", help="inspect and manage your SAI computing defaults")
     account_commands = account.add_subparsers(dest="account_command", required=True)
+    local_accounts = account_commands.add_parser("local", help="list this Unix user's native Slurm accounts")
+    _add_connection_arguments(local_accounts, suppress_defaults=True)
+    _add_format_argument(local_accounts)
+    _operation(local_accounts, source="native", site=False, executables=("scontrol", "sacctmgr"),
+               notes=("Native associations under the current UID; no Portal membership or default-account change.",))
     defaults = account_commands.add_parser("defaults", help="show allowed accounts and site application receipts")
     _add_connection_arguments(defaults, suppress_defaults=True)
     _add_format_argument(defaults)
@@ -689,6 +694,12 @@ def main(
                 raise ConfigError("Interactive UI dependencies are unavailable; install sai-cli[tui].") from None
             from .tui_queries import Queries
             QueryApp(Queries(args, env), language=args.language, initial=args.view).run()
+            return 0
+        if args.command == "account" and args.account_command == "local":
+            from .local_accounts import read_local_accounts
+            result = read_local_accounts(args, environ=env)
+            output.write(render_json(result.as_dict()) if output_format == "json" else
+                         "Account\n" + "\n".join(result.values["accounts"]) + "\n")
             return 0
         if args.command == "storage" and args.storage_command == "local-quota":
             from .local_quota import read_local_quota, render_local_quota

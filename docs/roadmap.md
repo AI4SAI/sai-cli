@@ -9,6 +9,12 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
+- [x] Implement native account discovery, explicit quota directory selection,
+  retained query scopes and readable two-dimensional allocation inspection
+  in a source candidate; see [query usability](terminal-scope.md#query-usability-correction-source-candidate).
+- [ ] Publish that corrected query slice and check it on the installed ordinary
+  user path. Local synthetic render/interaction checks are not live acceptance.
+
 - [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
   and Web/Pilot. Shared CLI readability correction `d9695900cd7a` and gateway
   `ead4d38f6d66` are deployed; ordinary-user local/API equality and native TUI

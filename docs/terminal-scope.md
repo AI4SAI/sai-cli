@@ -7,6 +7,25 @@ Portal. The former summary-and-cost-only interpretation is superseded.
 The overloaded full-screen workbench remains retired; it is not the model for
 these focused command interactions.
 
+## Query usability correction, source candidate
+
+Native job account selection now discovers this Unix user's other Slurm
+associations through `account local`, sharing the existing parser. The selector
+loads on opening and keeps the initial queue independent. Quota offers a native
+directory chooser; it does not invent an account-to-path mapping. Selections
+survive switching queries, without changing shell or saved defaults.
+
+Selected jobs show node/pending-reason context directly. Enter gives the
+allocation map keyboard focus and the content area; arrows/page keys scroll,
+`r` refreshes that detail and Escape restores the selected list row. GPU slots
+form a two-dimensional grid; CPU sockets contain core groups and exact Slurm CPU
+IDs. Color plus `*` identifies allocations. These are schematic scheduler
+diagrams, not physical connectivity or Linux/NUMA maps. Resource selection
+preserves the existing allocation colors and uses one compact scope summary.
+
+This slice is a source candidate. Local native-substitute, HTTP and rendered
+checks do not establish production installation or human acceptance.
+
 ## Human workflow
 
 Keep `sqm`, `sqa`, `gpu`, `cpu` and `quota` familiar and immediately usable.

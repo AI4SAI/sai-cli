@@ -114,6 +114,12 @@ overwriting a concurrent choice; the existing idempotency record preserves the
 original acceptance on replay. The CLI never retries this PUT automatically or
 calls the read gateway for a mutation. See [the management contract](portal-management.md).
 
+`account local` and the TUI's job chooser reuse the native association reader to
+list only the current Unix user's accounts. The chooser does not load Portal
+membership or infer storage paths. Its [contract](../contracts/native-accounts/v1/README.md)
+keeps discovery and query authority explicit. Local quota selects a real path
+with Textual's directory tree, then invokes the existing bounded Lustre read.
+
 The optional native job subtree selector uses Slurm's `WithSubAccounts` and
 Lineage, bound to the local cluster. It narrows one queue request to those
 accounts and verifies returned scope; it neither duplicates account hierarchy

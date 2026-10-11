@@ -36,7 +36,7 @@ def test_discovery_is_independent_of_config_auth_native_commands_and_ui(tmp_path
     assert payload['schema_version']=='cli.describe/v1' and payload['authorization_checked'] is False
     assert payload['detailed'] is False
     commands={tuple(row['command']) for row in payload['operations']}
-    assert len(commands)==38 and {('configure',),('sites',),('jobs','local'),('jobs','charges'),('runs','download'),('account','set-default'),('describe',),('skill',),('invitations','accept')}<=commands
+    assert len(commands)==39 and {('configure',),('sites',),('jobs','local'),('jobs','charges'),('runs','download'),('account','local'),('account','set-default'),('describe',),('skill',),('invitations','accept')}<=commands
     assert not any('parameters' in row for row in payload['operations'])
     for words in commands:
         exact=describe(build_parser(),list(words))

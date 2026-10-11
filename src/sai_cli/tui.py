@@ -43,16 +43,21 @@ class QueryApp(App):
     REFRESH_SECONDS = {"jobs": 5, "gpu": 10, "cpu": 10, "quota": 30, "account": 60}
     CSS = """
     Screen { background: ansi_default; color: ansi_default; }
-    #heading { height: 1; margin: 1 2 0 2; text-style: bold; }
+    #heading { height: auto; max-height: 2; margin: 0 2; text-style: bold; }
     Tabs { margin: 0 1; }
     #controls { height: 3; margin: 0 1; }
     Select { width: 1fr; }
     #body { height: 1fr; margin: 0 2; }
     #job-table, #resource-table { height: 1fr; display: none; }
+    DataTable { scrollbar-gutter: stable; }
+    DataTable > .datatable--header { background: ansi_default; color: ansi_default; }
+    DataTable:focus > .datatable--cursor { background: ansi_black; color: ansi_bright_white; }
+    #job-context { height: auto; max-height: 5; margin-top: 1; display: none; }
     #answer { height: 1fr; }
-    #body.resources #answer { height: auto; max-height: 35%; }
+    #body.resources #answer { height: auto; max-height: 4; }
     #content { height: auto; }
     #detail { height: auto; max-height: 60%; display: none; padding: 1 2; overflow-y: auto; }
+    #detail.job-detail { height: 1fr; max-height: 100%; }
     #notice { height: auto; max-height: 3; margin: 0 2; }
     Footer { background: $surface; }
     """
@@ -79,6 +84,11 @@ class QueryApp(App):
         self._selected_job = None
         self._selected_node = None
         self._detail_node = None
+        self._detail_request: Read | None = None
+        self._detail_observed_at: str | None = None
+        self._selections: dict[str, str] = {}
+        self._native_accounts: list[str] = []
+        self._discover_accounts = False
         self._last_read_at = time.monotonic()
         self._paused = False
         self._focus_after_read = False
@@ -92,7 +102,9 @@ class QueryApp(App):
             yield Select([(self.words["current"], "")], allow_blank=False, id="selection")
         with Vertical(id="body"):
             yield DataTable(id="job-table", cursor_type="row", zebra_stripes=True)
-            yield DataTable(id="resource-table", cursor_type="row", zebra_stripes=True, header_height=2)
+            yield DataTable(id="resource-table", cursor_type="row", zebra_stripes=True, header_height=2,
+                            cursor_foreground_priority="renderable")
+            yield Static(id="job-context", markup=False)
             with VerticalScroll(id="answer"):
                 yield Static(id="content", markup=False)
         with VerticalScroll(id="detail"):
@@ -103,15 +115,15 @@ class QueryApp(App):
     def on_mount(self) -> None:
         self._bindings.bind("enter", "inspect", self.words["detail"], priority=True)
         for key in ("refresh", "cost", "back", "quit"):
-            self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key], show=key != "back")
-
+            self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key])
+        self.bind("p", "pause", description=self.words["pause"])
         self._configure()
         self.action_refresh()
-        self.bind("p", "pause", description=self.words["pause"])
+        self.watch(self.query_one("#selection", Select), "expanded", self._selector_opened, init=False)
         self.set_interval(1, self._poll_current_view)
 
     def _poll_current_view(self) -> None:
-        if self._reading or self._paused or self.query_one("#selection", Select).expanded:
+        if self._reading or self._paused or len(self.screen_stack) > 1 or self.query_one("#selection", Select).expanded:
             return
         if self.view == "jobs" and self.query_one("#detail").display:
             return
@@ -128,9 +140,10 @@ class QueryApp(App):
     def _configure(self) -> None:
         w = self.words
         options = {
-            "jobs": [(w["mine"], "mine")] + ([(w["identity"] + " · " + self.queries.account, "identity")] if self.queries.account else []),
-            "gpu": [(w["all"], "")], "cpu": [(w["all"], "")],
-            "quota": [(w["here"], ""), (w["home"], "home")], "account": [(w["loading"], "")],
+            "jobs": self._job_options(),
+            "gpu": [(w["all"], "")] + ([(self.selection, self.selection)] if self.selection else []),
+            "cpu": [(w["all"], "")] + ([(self.selection, self.selection)] if self.selection else []),
+            "quota": self._quota_options(), "account": [(w["loading"], self.selection)],
         }[self.view]
         self._set_options(options, self.selection)
         self.query_one("#selection").disabled = self.view == "account"
@@ -138,12 +151,43 @@ class QueryApp(App):
         self.query_one("#resource-table").display = self.view in {"gpu", "cpu"}
         self.query_one("#body").set_class(self.view in {"gpu", "cpu"}, "resources")
         self.query_one("#answer").display = self.view != "jobs"
-        self.query_one("#detail").display = False
-        self._detail_node = None
+        self._close_detail(focus=False)
+        self.query_one("#job-context").display = self.view == "jobs"
         self.query_one("#heading", Static).update(Text(f"SAI  ·  {w['central'] if self.view == 'account' else w['local']}"))
         if self.view in {"jobs", "gpu", "cpu"}:
             self.query_one("#job-table" if self.view == "jobs" else "#resource-table").focus()
         self.refresh_bindings()
+
+    def _job_options(self) -> list[tuple[str, str]]:
+        options = [(self.words["mine"], "mine")]
+        if self.queries.account:
+            options.append((self.words["identity"] + " · " + self.queries.account, "identity"))
+        options += [(account, "account:" + account) for account in self._native_accounts if account != self.queries.account]
+        if self.selection.startswith("account:") and self.selection not in {value for _, value in options}:
+            options.append((self.selection.removeprefix("account:"), self.selection))
+        return options
+
+    def _quota_options(self) -> list[tuple[str, str]]:
+        from .local_quota import _path_text
+        options = [(self.words["here"], ""), (self.words["home"], "home")]
+        if self.selection not in {"", "home"}:
+            options.append((_path_text(self.selection), self.selection))
+        options.append(("选择目录…" if self.language == "zh-CN" else "Choose directory…", "pick-directory"))
+        return options
+
+    def _selector_opened(self, expanded: bool) -> None:
+        if expanded and self.view == "jobs":
+            if self._reading:
+                self._discover_accounts = True
+            else:
+                self._request(Read("job_accounts"))
+
+    def _quota_directory_selected(self, path: str | None) -> None:
+        if path is not None:
+            self.selection = path
+            self._set_options(self._quota_options(), path)
+            self._clear_snapshot()
+            self.action_refresh()
 
     def _set_options(self, options: list[tuple[str, str]], selected: str) -> None:
         widget = self.query_one("#selection", Select)
@@ -160,8 +204,9 @@ class QueryApp(App):
     def tab_changed(self, event: Tabs.TabActivated) -> None:
         if event.tab.id == self.view:
             return
+        self._selections[self.view] = self.selection
         self.view = event.tab.id
-        self.selection = "identity" if self.view == "jobs" and self.queries.account else ""
+        self.selection = self._selections.get(self.view, "identity" if self.view == "jobs" and self.queries.account else "")
         self.snapshot = None
         self._configure()
         self.action_refresh()
@@ -170,9 +215,15 @@ class QueryApp(App):
     def selection_changed(self, event: Select.Changed) -> None:
         if event.value is Select.BLANK or event.value != event.select.value or event.value == self.selection:
             return
+        if self.view == "quota" and event.value == "pick-directory":
+            from .tui_directory import QuotaDirectory
+            with event.select.prevent(Select.Changed):
+                event.select.value = self.selection
+            path = self.queries.home if self.selection == "home" else self.selection or self.queries.directory
+            self.push_screen(QuotaDirectory(path, language=self.language), self._quota_directory_selected)
+            return
         self.selection = str(event.value)
-        self.query_one("#detail").display = False
-        self._detail_node = None
+        self._close_detail(focus=False)
         if self.view in {"gpu", "cpu"} and self.snapshot is not None:
             self._render()
             self.query_one("#resource-table").focus()
@@ -185,7 +236,7 @@ class QueryApp(App):
             self.query_one(Tabs).active = view
 
     def action_refresh(self) -> None:
-        self._request(Read(self.view, self.selection))
+        self._request(self._detail_request or Read(self.view, self.selection))
 
     def _clear_snapshot(self) -> None:
         self.snapshot = None
@@ -194,8 +245,31 @@ class QueryApp(App):
             with table.prevent(DataTable.RowHighlighted):
                 table.clear()
         self.query_one("#content", Static).update("")
+        self.query_one("#job-context", Static).update("")
+        self._close_detail(focus=False)
+
+    def _show_detail(self, content, *, focus: bool = True) -> None:
+        self.query_one("#detail-content", Static).update(content)
+        detail = self.query_one("#detail", VerticalScroll)
+        detail.set_class(self.view == "jobs", "job-detail")
+        detail.display = True
+        self.query_one("#body").display = self.view != "jobs"
+        if self.view in {"gpu", "cpu"}:
+            self.query_one("#answer").display = False
+        if focus:
+            detail.scroll_home(animate=False)
+            detail.focus()
+        self.refresh_bindings()
+
+    def _close_detail(self, *, focus: bool = True) -> None:
         self.query_one("#detail").display = False
-        self._detail_node = None
+        self.query_one("#body").display = True
+        self._detail_node = self._detail_request = self._detail_observed_at = None
+        if self.view in {"gpu", "cpu"}:
+            self.query_one("#answer").display = True
+        if focus and self.view in {"jobs", "gpu", "cpu"}:
+            self.query_one("#job-table" if self.view == "jobs" else "#resource-table").focus()
+        self.refresh_bindings()
 
     def _request(self, request: Read) -> None:
         self._version += 1
@@ -205,12 +279,15 @@ class QueryApp(App):
         if self.snapshot is None:
             self._clear_snapshot()
         if request.view == "jobs":
-            self.query_one("#detail").display = False
+            self._close_detail(focus=self.query_one("#detail").has_focus)
         if request.view in {"cost", "allocation"}:
-            self.query_one("#detail-content", Static).update("")
-            self.query_one("#detail").display = False
+            first_read = self._detail_request != request
+            self._detail_request = request
+            if first_read:
+                self._detail_observed_at = None
+                self._show_detail(Text(request.job["item"].canonical_id + " · " + self.words["loading"]))
         self.refresh_bindings()
-        if self.snapshot is None or request.view in {"cost", "allocation"}:
+        if self.snapshot is None or request.view in {"job_accounts", "cost", "allocation"}:
             self.query_one("#notice", Static).update(self.words["loading"])
         if not self._reading:
             self._reading = True
@@ -233,26 +310,34 @@ class QueryApp(App):
                     result = await self.queries.read(request)
                 except Exception as exc:
                     if version == self._version and self._matches_job(request):
-                        if request.view not in {"cost", "allocation"}:
+                        if request.view not in {"cost", "allocation", "job_accounts"}:
                             self._clear_snapshot()
                         if request.view == "account" and not directory_ready:
                             self._set_options([(self.words["current"], self.selection)], self.selection)
                             self.query_one("#selection").disabled = True
                         message = self.words["login"] if isinstance(exc, AuthenticationError) else (
                             exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
-                        self.query_one("#notice", Static).update(Text(message, style="bold yellow"))
+                        error = Text(message, style="bold yellow")
+                        if request.view in {"cost", "allocation"}:
+                            self.query_one("#notice", Static).update("")
+                            self._show_detail(error, focus=False)
+                        else:
+                            self.query_one("#notice", Static).update(error)
                     continue
                 if version != self._version or not self._matches_job(request):
                     continue
                 self.query_one("#notice", Static).update("")
-                if request.view == "cost":
-                    self.query_one("#detail-content", Static).update(self._cost_view(result))
-                    self.query_one("#detail").display = True
+                if request.view == "job_accounts":
+                    self._native_accounts = result.values["accounts"]
+                    self._set_options(self._job_options(), self.selection)
+                elif request.view == "cost":
+                    self._detail_observed_at = result.freshness.observed_at
+                    self._show_detail(self._cost_view(result), focus=False)
                     self._stamp(self.snapshot.observed_at)
                 elif request.view == "allocation":
                     from .allocation_view import allocation_view
-                    self.query_one("#detail-content", Static).update(allocation_view(result.as_dict(), language=self.language))
-                    self.query_one("#detail").display = True
+                    self._detail_observed_at = result.as_dict()["observed_at"]
+                    self._show_detail(allocation_view(result.as_dict(), language=self.language), focus=False)
                     self._stamp(self.snapshot.observed_at)
                 else:
                     if request.view == "account":
@@ -266,6 +351,10 @@ class QueryApp(App):
             self._reading = False
             self._active_request = None
             self._last_read_at = time.monotonic()
+            if self._discover_accounts:
+                self._discover_accounts = False
+                if self.view == "jobs" and self.query_one("#selection", Select).expanded:
+                    self._request(Read("job_accounts"))
 
     def _account_options(self, directory: dict, *, overview: dict | None = None) -> None:
         options = [(row["name"], row["name"]) for row in directory["choices"]]
@@ -289,8 +378,8 @@ class QueryApp(App):
             self._render_resources()
             return
         elif self.view == "quota":
-            from .local_quota import render_local_quota
-            body = Text(render_local_quota(self.snapshot, width=max(36, self.size.width - 4)))
+            from .tui_quota import quota_view
+            body = quota_view(self.snapshot, language=self.language)
         else:
             from .overview_view import overview_panel
             body = overview_panel(self.snapshot, language=self.language)
@@ -308,7 +397,7 @@ class QueryApp(App):
         wide = self.size.width >= 80
         table.add_column("Job", width=12 if wide else 10)
         table.add_column(self.words["state"], width=4)
-        table.add_column(self.words["name"], width=max(10, self.size.width - (61 if wide else 26)))
+        table.add_column(self.words["name"], width=max(8, self.size.width - (64 if wide else 30)))
         if wide:
             table.add_column(self.words["time"], width=14)
             table.add_column(self.words["partition"], width=16)
@@ -324,10 +413,16 @@ class QueryApp(App):
         else:
             self._selected_job = None
         table.scroll_to(scroll.x, scroll.y, animate=False, force=True)
+        self._job_context()
         self.query_one("#notice", Static).update(self.words["empty"] if not self._job_ids else (
             self.words["truncated"] if self.snapshot.has_more else ""))
         self._stamp(self.snapshot.observed_at)
         self.refresh_bindings()
+
+    def _job_context(self) -> None:
+        from .tui_jobs import job_context
+        item = next((item for item in self.snapshot.items if item.canonical_id == self._selected_job), None)
+        self.query_one("#job-context", Static).update(job_context(item, language=self.language) if item else "")
 
     def _resource_nodes(self) -> list[dict]:
         if self.snapshot is None:
@@ -340,8 +435,6 @@ class QueryApp(App):
                 if not self.selection or part["name"] == self.selection]
 
     def _render_resources(self) -> None:
-        from .local_resources import LocalResources
-        from .native_resource_view import resource_view
         from .tui_resources import node_cells, node_detail, compact_summary
         from rich.console import Group
         from rich.table import Table
@@ -357,7 +450,7 @@ class QueryApp(App):
         table = self.query_one("#resource-table", DataTable)
         scroll, cursor = table.scroll_offset, table.cursor_row
         table.clear(columns=True)
-        width = max(36, self.size.width - 4)
+        width = max(24, table.size.width - table.styles.scrollbar_size_vertical)
         name_width = max(6, width // 6)
         state_width = 8 if width >= 64 else 4
         partition_width = max(12, width // 6) if not self.selection and width >= 80 else 0
@@ -399,7 +492,7 @@ class QueryApp(App):
         else:
             self._selected_node = None
         table.scroll_to(scroll.x, scroll.y, animate=False, force=True)
-        summary = compact_summary(values, self.view, self.language) if width < 60 else resource_view(LocalResources(values), width=width)
+        summary = compact_summary(values, self.view, self.language)
         self.query_one("#content", Static).update(summary if nodes else "")
         self.query_one("#notice", Static).update("" if nodes else self.words["no_nodes"])
         if self._detail_node in names:
@@ -429,11 +522,10 @@ class QueryApp(App):
         node = next((node for node in self._resource_nodes() if node["name"] == event.row_key.value), None)
         if node is not None:
             self._detail_node = node["name"]
-            self.query_one("#detail-content", Static).update(node_detail(node, self._resource_parts(), language=self.language, width=max(36, self.size.width - 4)))
-            self.query_one("#detail").display = True
-            self.query_one("#answer").display = False
+            self._show_detail(node_detail(node, self._resource_parts(), language=self.language, width=max(36, self.size.width - 4)))
 
     def _stamp(self, value: str) -> None:
+        value = self._detail_observed_at or value
         stamp = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().strftime("%H:%M:%S")
         source = self.words["central"] if self.view == "account" else self.words["local"]
         cluster = getattr(self.snapshot, "cluster", None) or self.snapshot.as_dict().get("cluster")
@@ -453,7 +545,8 @@ class QueryApp(App):
             return
         if event.row_key.value != self._selected_job:
             self._selected_job = event.row_key.value
-            self.query_one("#detail").display = False
+            self._close_detail(focus=False)
+            self._job_context()
             pending_cost = self._pending is not None and self._pending[1].view in {"cost", "allocation"}
             active_cost = self._active_request is not None and self._active_request.view in {"cost", "allocation"}
             if pending_cost or (active_cost and self._pending is None):
@@ -468,10 +561,9 @@ class QueryApp(App):
         item = next(item for item in self.snapshot.items if item.canonical_id == event.row_key.value)
         if "[" in item.canonical_id:
             from .allocation_view import allocation_view
-            self.query_one("#detail-content", Static).update(allocation_view({"job": item.as_dict(),
+            self._show_detail(allocation_view({"job": item.as_dict(),
                 "allocation": {"status": "not_allocated" if item.values["state"] == "PD" else "unavailable", "nodes": []}},
                 language=self.language))
-            self.query_one("#detail").display = True
             self._stamp(self.snapshot.observed_at)
             return
         self._request(Read("allocation", self.selection, {"cluster": self.snapshot.cluster, "item": item}))
@@ -481,7 +573,12 @@ class QueryApp(App):
             table = self.query("#resource-table" if self.view in {"gpu", "cpu"} else "#job-table")
             return bool(table) and table.first().has_focus and self.snapshot is not None and table.first().row_count > 0
         if action == "cost":
-            return self.view == "jobs" and self.snapshot is not None and bool(self._job_ids) and self.query_one("#job-table").has_focus
+            return self.view == "jobs" and self.snapshot is not None and bool(self._job_ids) and (
+                self.query_one("#job-table").has_focus or self.query_one("#detail").has_focus)
+        if action == "back":
+            return self.query_one("#detail").display or self.query_one("#selection", Select).expanded
+        if action == "pause":
+            return not (self.view == "jobs" and self.query_one("#detail").display)
         return True
 
     def action_inspect(self) -> None:
@@ -515,10 +612,8 @@ class QueryApp(App):
             self.query_one("#selection", Select).expanded = False
         elif self.query_one("#detail").display:
             self._version += 1
-            self.query_one("#detail").display = False
-            self._detail_node = None
-            if self.view in {"gpu", "cpu"}:
-                self.query_one("#answer").display = True
+            self._pending = None
+            self._close_detail()
             if self.snapshot is not None:
                 self._stamp(self.snapshot.as_dict()["observed_at"])
         else:

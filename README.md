@@ -22,6 +22,12 @@ resumes updates, Enter inspects a row, and `c` requests that job's running cost
 through your authorized SAI account. Allocation is distinct from utilization;
 running estimates are distinct from settled charges.
 
+The job selector discovers your native Slurm accounts; quota lets you choose an
+actual directory. Job details show a two-dimensional GPU grid and CPU
+socket/core/ID map. Arrow/page keys scroll, `r` refreshes the same detail, and
+Escape returns to the selected row. Native account names are also available as
+JSON through `sai account local`. These reads do not change your shell or defaults.
+
 Native adapters have been exercised with Slurm 26.05.1 and Lustre 2.17;
 other native versions are not yet qualified.
 

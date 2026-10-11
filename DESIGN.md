@@ -67,6 +67,21 @@ reading. Suspend polling during a selector or job detail. CPU/GPU node details
 reuse the same refreshed observation. An account chooser displays actual names
 as soon as its authorized directory loads; it needs no adjacent load button.
 
+Job, partition and quota selections persist across view changes. Native job
+account choices come from the current user's Slurm associations when the selector
+opens; the first queue does not wait for this discovery. Quota chooses real
+directories through Textual's directory tree without typing or deriving paths
+from account names. Business account selection retains its Portal owner.
+
+Job inspection gives the map the content area and keyboard focus. Arrow and
+page keys scroll; Escape restores the original list position. Refresh rereads
+the selected detail, preserving its position; rejection clears the old detail.
+GPU cells use a fixed two-dimensional numbered grid. CPU panels group Slurm CPU
+IDs by socket and core, reflowing at the actual available width. Mark allocations
+with both color and `*`, so monochrome views retain the answer. Grid positions
+are schematic, not proof of GPU connectivity or Linux/NUMA affinity. Keep the
+shared projection unchanged and do not draw facts the source does not supply.
+
 ## Information hierarchy
 
 Lead with the human account/project name and relevant site. Show a genuine

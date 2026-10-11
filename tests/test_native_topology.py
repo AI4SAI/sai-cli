@@ -96,3 +96,28 @@ def test_position_maps_keep_indices_and_cpu_ranges_at_terminal_width(topology_cl
     assert '插槽 0' in rendered and '插槽 1' in rendered and '2–3' in rendered and '14–15' in rendered
     assert 'IDX' not in rendered and 'CPU S' not in rendered and '■' not in rendered
     assert max(Console().measure(line).maximum for line in rendered.splitlines())<=width
+
+
+@pytest.mark.parametrize('gpu', [False, True])
+@pytest.mark.parametrize('width', [40, 80, 120])
+def test_two_dimensional_allocation_keeps_core_membership_and_monochrome_markers(topology_client, width, gpu):
+    from sai_cli.allocation_view import render_allocation
+    env, _, _ = topology_client
+    code, raw, error = invoke(env, 'jobs', 'local', '--job-id', '42')
+    assert code == 0, error
+    value = json.loads(raw)
+    value['allocation']['nodes'] = value['allocation']['nodes'][:1]
+    node = value['allocation']['nodes'][0]
+    if not gpu:
+        node.update(gres=[], gpu_total=0)
+    output = render_allocation(value, width=width, color=False)
+    assert '\x1b' not in output
+    assert all(f'核 {core}' in output for core in range(4))
+    assert '* 2' in output or '*2' in output
+    assert '*14' in output and '*15' in output
+    socket_lines = [line for line in output.splitlines() if 'CPU 插槽' in line]
+    assert len(socket_lines) == (2 if width == 40 else 1)
+    if gpu:
+        assert 'GPU  1, 3' in output and '* 1' in output and '* 3' in output
+    else:
+        assert 'GPU' not in output
