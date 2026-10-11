@@ -272,7 +272,7 @@ device code, then stores only a protected rotating refresh credential. See
 
 To authorize a supported operation without editing permission strings, use
 `sai auth login --for account set-default` or `sai auth login --for invitations`.
-This source candidate derives permissions from the installed commands and their
+This merged source feature derives permissions from the installed commands and their
 readback. Browser confirmation updates the device login; it runs no business
 action and leaves the profile unchanged. Existing deployed clients may not yet
 support this option.

@@ -27,7 +27,7 @@ historical entries are not an automatic new-feature queue.
   owner; paired list/detail/accept and optional scopes are merged and tested,
   with production registration and actual consent still separate
 - [ ] Deliver task-based consent without manual scope/profile editing:
-  candidate `auth login --for` reuses installed operation metadata, protected
+  merged `auth login --for` reuses installed operation metadata, protected
   device credentials and normal Identity browser consent
 - [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
   supported platforms and release policy; license/publication remain unapproved

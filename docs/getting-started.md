@@ -113,8 +113,7 @@ does not perform the account change. It updates your protected device login;
 the connection profile stays unchanged. For an Agent, add `--no-wait` and later
 use `sai auth login --resume` without repeating the target. A command group such
 as `--for invitations` requests the group's published permissions. Server-side
-roles and site access still apply. This permission selection is a source
-candidate; service scope registration and deployment remain separate.
+roles and site access still apply. This permission selection is merged in source; service scope registration and deployment remain separate.
 
 ## Recover or upgrade
 

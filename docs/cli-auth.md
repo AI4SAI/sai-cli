@@ -43,7 +43,7 @@ sai auth logout
 
 ## 按操作申请权限
 
-候选功能：`sai auth login --for account set-default` 为指定操作及其结果查询
+已合入、尚未部署：`sai auth login --for account set-default` 为指定操作及其结果查询
 申请权限；`--for invitations` 覆盖该命令组。权限取自现有命令声明，不增加另一份
 权限目录。可加 `--no-wait`，本人在浏览器确认后只需 `sai auth login --resume`。
 登录不会执行业务操作，也不修改连接配置或共享 profile。
