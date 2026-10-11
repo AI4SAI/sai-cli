@@ -265,6 +265,7 @@ class SiteJobAllocationResult(_SiteJobContext):
     scheduler_states: tuple[str, ...]
     allocation_status: str
     nodes: tuple[SiteAllocationNode, ...] | None
+    interconnect: dict | None = field(default=None, kw_only=True)
 
     @classmethod
     def from_payload(cls, payload: object, *, request_id: str) -> "SiteJobAllocationResult":
@@ -315,9 +316,17 @@ class SiteJobAllocationResult(_SiteJobContext):
                 raise ContractError(request_id=request_id)
             if sum(len(node.topology.get("cpu_ids") or ()) for node in parsed_nodes) > MAX_OBSERVATION_CPU_IDS:
                 raise ContractError(request_id=request_id)
+        interconnect = None
+        if "interconnect" in payload:
+            from sai_native_topology import normalize_join
+            try:
+                interconnect = normalize_join(payload["interconnect"], {"status": status,
+                    "nodes": None if parsed_nodes is None else [node.as_dict() for node in parsed_nodes]}, cluster=context.cluster_id)
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ContractError(request_id=request_id) from exc
         return cls(
             **vars(context), job=job, restart_count=restart_count,
-            scheduler_states=tuple(states), allocation_status=status, nodes=parsed_nodes,
+            scheduler_states=tuple(states), allocation_status=status, nodes=parsed_nodes, interconnect=interconnect,
         )
 
     def require_request_binding(
@@ -331,6 +340,7 @@ class SiteJobAllocationResult(_SiteJobContext):
 
     def as_dict(self) -> dict[str, Any]:
         return {"schema_version": "jobs.allocation/v3" if self.subaccounts else "jobs.allocation/v2", **super().as_dict(),
+                **({"interconnect": self.interconnect} if self.interconnect is not None else {}),
                 "job": self.job.as_dict(), "restart_count": self.restart_count,
                 "scheduler_states": list(self.scheduler_states),
                 "allocation": {"status": self.allocation_status,

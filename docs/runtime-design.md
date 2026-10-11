@@ -187,8 +187,9 @@ Escape closes the current detail/selection and `q` exits. Job detail holds
 keyboard focus and the available content area; arrows
 and page keys scroll without changing the selected job. `r` rereads that exact
 detail, and Escape restores the original list without a new query. Allocation
-drawings use the same Rich renderer as batch output, with a two-dimensional GPU
-grid and CPU socket/core/ID grouping, including monochrome allocation markers.
+details share the batch Rich renderer. The current candidate prioritizes a compact
+CPU/NUMA and GPU relationship view, selected-GPU paths and optional hardware
+details; exact Slurm IDs remain available without per-thread panels.
 Outstanding reads are bounded and serialized; repeated requests retain only
 the newest pending query.
 Changing view/scope clears stale facts before loading. Account names come from
@@ -606,3 +607,14 @@ for call bounds, provenance and unknown semantics. The shared CLI and site gatew
 an ordinary user. The paired Web/Pilot source is merged; its production
 activation remains with the original Pilot release. Focused polling and account
 selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).
+
+Hardware interconnect is a separate candidate fact, `node.interconnect/v1`.
+It is joined only when `sai jobs local --job-id ID --with-interconnect` is
+requested, so ordinary allocation JSON remains stable and a missing mapping
+cannot look like an empty topology. The record is site-published and time-bound;
+it contains verified CPU/NUMA-to-GPU affinity, GPU path classes and safe
+node-fabric peer references. The same standard-library parser is exported from
+the Portal producer for the CLI and gateway. Pilot adoption remains with its
+existing owner. It never runs
+remote SSH, treats Slurm IDX as a physical identity, or falls back from an
+expired record to a guessed layout.

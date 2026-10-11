@@ -93,14 +93,15 @@ def test_position_maps_keep_indices_and_cpu_ranges_at_terminal_width(topology_cl
     assert code==0,error
     rendered=render_allocation(json.loads(text),width=width)
     assert 'GPU  1, 3' in rendered
-    assert '插槽 0' in rendered and '插槽 1' in rendered and '2–3' in rendered and '14–15' in rendered
-    assert 'IDX' not in rendered and 'CPU S' not in rendered and '■' not in rendered
+    assert 'CPU  2–3, 6–7, 10–11, 14–15' in rendered
+    assert '硬件互联未记录' in rendered
+    assert 'CPU 插槽' not in rendered and '核 0' not in rendered
     assert max(Console().measure(line).maximum for line in rendered.splitlines())<=width
 
 
 @pytest.mark.parametrize('gpu', [False, True])
 @pytest.mark.parametrize('width', [40, 80, 120])
-def test_two_dimensional_allocation_keeps_core_membership_and_monochrome_markers(topology_client, width, gpu):
+def test_allocation_default_is_compact_and_keeps_unknown_topology_explicit(topology_client, width, gpu):
     from sai_cli.allocation_view import render_allocation
     env, _, _ = topology_client
     code, raw, error = invoke(env, 'jobs', 'local', '--job-id', '42')
@@ -112,18 +113,12 @@ def test_two_dimensional_allocation_keeps_core_membership_and_monochrome_markers
         node.update(gres=[], gpu_total=0)
     output = render_allocation(value, width=width, color=False)
     assert '\x1b' not in output
-    assert all(f'核 {core}' in output for core in range(4))
-    assert '* 2' in output or '*2' in output
-    assert '*14' in output and '*15' in output
-    socket_lines = [line for line in output.splitlines() if 'CPU 插槽' in line]
-    assert len(socket_lines) == (2 if width == 40 else 1)
-    if gpu:
-        assert 'GPU  1, 3' in output and '* 1' in output and '* 3' in output
-    else:
-        assert 'GPU' not in output
+    assert 'CPU 插槽' not in output
+    assert '硬件互联未记录' in output
+    assert ('GPU  1, 3' in output) is gpu
 
 
-def test_socket_grids_keep_the_same_geometry_across_two_and_three_digit_ids(topology_client):
+def test_compact_view_does_not_expand_for_three_digit_ids(topology_client):
     from sai_cli.allocation_view import render_allocation
     code, raw, error = invoke(topology_client[0], 'jobs', 'local', '--job-id', '42')
     assert code == 0, error
@@ -132,4 +127,53 @@ def test_socket_grids_keep_the_same_geometry_across_two_and_three_digit_ids(topo
     node.update(cpu_ids=list(range(32,48)), cpu_topology={'sockets':4,'cores_per_socket':16,'threads_per_core':2})
     value['allocation']['nodes'] = [node]
     output = render_allocation(value, width=80)
-    assert [line.count('核 12') for line in output.splitlines() if '核 12' in line] == [2,2]
+    assert 'CPU  32–47' in output
+    assert 'CPU 插槽' not in output
+
+
+def test_interconnect_view_shows_cpu_gpu_gpu_gpu_and_node_edges(topology_client):
+    from rich.console import Console
+    from sai_cli.allocation_view import render_allocation
+    env, _, _ = topology_client
+    code, raw, error = invoke(env, 'jobs', 'local', '--job-id', '42')
+    assert code == 0, error
+    value = json.loads(raw)
+    value['allocation']['nodes'] = value['allocation']['nodes'][:1]
+    record = {
+        'schema_version': 'node.interconnect/v1', 'node': 'compute-a', 'cluster': 'cluster-a',
+        'boot_time': 1767210000, 'slurmd_start_time': 1767211000, 'observed_at': '2026-01-01T00:00:00Z', 'expires_at': '2027-01-01T00:00:00Z',
+        'cpu_topology': {'sockets': 2, 'cores_per_socket': 4, 'threads_per_core': 2},
+        'numa': [{'id': 0, 'packages': [0], 'linux_cpu_ids': list(range(8))}],
+        'gpus': [{'index': 0, 'numa': 0, 'cpu_ids': list(range(8))},
+                 {'index': 1, 'numa': 0, 'cpu_ids': list(range(8))}],
+        'links': [{'a': 0, 'b': 1, 'kind': 'NV2'}],
+        'nics': [{'index': 0, 'gpu_paths': [{'gpu': 0, 'kind': 'PIX'}],
+                  'peer': 'endpoint-0123456789abcdef01234567', 'rate_gbps': 100}],
+    }
+    value['interconnect'] = {'nodes':[{'node':'compute-a','status':'recorded','value':record}]}
+    value['allocation']['nodes'][0]['gres'][0]['indices'] = [0, 1]
+    output = render_allocation(value, width=80, color=False)
+    assert 'NVLink ×2' in output
+    assert 'NUMA 0' in output and '0*' in output and '1*' in output
+    from sai_cli.interconnect_view import fabric_view
+    from io import StringIO
+    stream = StringIO()
+    Console(file=stream).print(fabric_view(value['allocation']['nodes'], {'compute-a':record}, chinese=True))
+    assert 'NIC 0' in stream.getvalue() and '连接点 1' in stream.getvalue()
+    assert '01234567' not in stream.getvalue()
+    assert 'CPU 插槽' not in output
+    assert max(Console().measure(line).maximum for line in output.splitlines()) <= 80
+
+
+def test_multi_node_fabric_keeps_only_observed_connection_without_hash_labels():
+    from sai_cli.interconnect_view import fabric_view
+    from rich.console import Console
+    from io import StringIO
+    peers=['endpoint-'+'a'*24,'endpoint-'+'b'*24]
+    nodes=[{'name':'compute-a'},{'name':'compute-b'}]
+    records={node['name']:{'nics':[{'index':0,'peer':peer,'rate_gbps':100}],
+              'fabric_links':[{'a':peers[0],'b':peers[1],'kind':'infiniband'}]} for node,peer in zip(nodes,peers)}
+    out=StringIO();Console(file=out,width=40).print(fabric_view(nodes,records,chinese=True))
+    text=out.getvalue()
+    assert 'compute-a' in text and 'compute-b' in text and '── IB ──' in text
+    assert 'endpoint-' not in text and '交换机' not in text

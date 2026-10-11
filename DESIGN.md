@@ -76,11 +76,14 @@ from account names. Business account selection retains its Portal owner.
 Job inspection gives the map the content area and keyboard focus. Arrow and
 page keys scroll; Escape restores the original list position. Refresh rereads
 the selected detail, preserving its position; rejection clears the old detail.
-GPU cells use a fixed two-dimensional numbered grid. CPU panels group Slurm CPU
-IDs by socket and core, reflowing at the actual available width. Mark allocations
-with both color and `*`, so monochrome views retain the answer. Grid positions
-are schematic, not proof of GPU connectivity or Linux/NUMA affinity. Keep the
-shared projection unchanged and do not draw facts the source does not supply.
+The default detail uses a compact CPU/NUMA tree and the selected GPUs' connection
+matrix. `i` expands PCIe ancestry and the complete GPU matrix from the same
+observation, without another read. Exact Slurm CPU ranges remain concise;
+per-thread panels are removed. Native Slurm sockets may be configured NUMA
+groups and are not labeled as physical CPU packages. Draw PCIe and fabric edges
+only when the recorded native observation supplies them. Keep missing, expired
+and replaced observations distinct from an idle device.
+
 
 ## Information hierarchy
 

@@ -270,16 +270,18 @@ class PortalClient:
             )
         return response
 
-    def job_allocation(self, job_id: str, query: JobQuery) -> SiteJobAllocationResult:
+    def job_allocation(self, job_id: str, query: JobQuery, *, interconnect: bool = False) -> SiteJobAllocationResult:
         identifier = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
         if not re.fullmatch(r"[0-9]+(?:_[0-9]+)?", identifier):
             raise ConfigError("allocation requires a numeric job ID or numeric job_task ID")
         request = query.validated(detail=True)
         response = self._site_get(
-            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/allocation",
+            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/allocation" + ("?include_interconnect=true" if interconnect else ""),
             body=request.capability_request(operation="jobs.allocation", job_id=identifier),
         )
         result = SiteJobAllocationResult.from_payload(response.payload, request_id=response.request_id)
+        if interconnect and result.interconnect is None:
+            raise ContractError("The gateway did not return the requested interconnect layer.", request_id=response.request_id)
         result.require_request_binding(
             site_id=request.site_id, cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope], request_id=response.request_id,

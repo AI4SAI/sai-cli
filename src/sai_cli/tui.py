@@ -86,6 +86,8 @@ class QueryApp(App):
         self._detail_node = None
         self._detail_request: Read | None = None
         self._detail_observed_at: str | None = None
+        self._allocation_detail: dict | None = None
+        self._expanded_allocation = False
         self._selections: dict[str, str] = {}
         self._native_accounts: list[str] = []
         self._discover_accounts = False
@@ -117,12 +119,23 @@ class QueryApp(App):
         for key in ("refresh", "cost", "back", "quit"):
             self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key])
         self.bind("p", "pause", description=self.words["pause"])
+        self.bind("i", "allocation_details", description="硬件" if self.language == "zh-CN" else "Hardware")
         self._configure()
         self.action_refresh()
         self.watch(self.query_one("#selection", Select), "expanded", self._selector_opened, init=False)
         self.set_interval(1, self._poll_current_view)
 
     def _poll_current_view(self) -> None:
+        if self._allocation_detail is not None:
+            value = self._allocation_detail
+            joined = value.get("interconnect")
+            if joined and any(row["status"] == "recorded" and datetime.fromisoformat(
+                    row["value"]["expires_at"].replace("Z", "+00:00")).timestamp() <= time.time()
+                    for row in joined["nodes"]):
+                from sai_native_topology import normalize_join
+                from .allocation_view import allocation_view
+                value["interconnect"] = normalize_join(joined, value["allocation"], cluster=value["cluster"])
+                self._show_detail(allocation_view(value, language=self.language, expanded=self._expanded_allocation), focus=False)
         if self._reading or self._paused or len(self.screen_stack) > 1 or self.query_one("#selection", Select).expanded:
             return
         if self.view == "jobs" and self.query_one("#detail").display:
@@ -136,6 +149,16 @@ class QueryApp(App):
         self.refresh_bindings()
         if self.snapshot is not None:
             self._stamp(self.snapshot.as_dict()["observed_at"])
+
+    def action_allocation_details(self) -> None:
+        if self._allocation_detail is not None and self.query_one("#detail").display:
+            from .allocation_view import allocation_view
+            self._expanded_allocation = not self._expanded_allocation
+            self._bindings.bind("i", "allocation_details", ("收起" if self._expanded_allocation else "硬件")
+                                if self.language == "zh-CN" else ("Collapse" if self._expanded_allocation else "Hardware"))
+            self._show_detail(allocation_view(self._allocation_detail, language=self.language,
+                expanded=self._expanded_allocation), focus=False)
+            self.query_one("#detail", VerticalScroll).scroll_home(animate=False)
 
     def _configure(self) -> None:
         w = self.words
@@ -254,6 +277,7 @@ class QueryApp(App):
         detail.set_class(self.view == "jobs", "job-detail")
         detail.display = True
         self.query_one("#body").display = self.view != "jobs"
+        self.query_one("#controls").display = self.view != "jobs"
         if self.view in {"gpu", "cpu"}:
             self.query_one("#answer").display = False
         if focus:
@@ -262,8 +286,11 @@ class QueryApp(App):
         self.refresh_bindings()
 
     def _close_detail(self, *, focus: bool = True) -> None:
+        self._allocation_detail = None
+        self._expanded_allocation = False
         self.query_one("#detail").display = False
         self.query_one("#body").display = True
+        self.query_one("#controls").display = True
         self._detail_node = self._detail_request = self._detail_observed_at = None
         if self.view in {"gpu", "cpu"}:
             self.query_one("#answer").display = True
@@ -284,6 +311,8 @@ class QueryApp(App):
             first_read = self._detail_request != request
             self._detail_request = request
             if first_read:
+                self._allocation_detail = None
+                self._expanded_allocation = False
                 self._detail_observed_at = None
                 self._show_detail(Text(request.job["item"].canonical_id + " · " + self.words["loading"]))
         self.refresh_bindings()
@@ -319,6 +348,7 @@ class QueryApp(App):
                             exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
                         error = Text(message, style="bold yellow")
                         if request.view in {"cost", "allocation"}:
+                            self._allocation_detail = None
                             self.query_one("#notice", Static).update("")
                             self._show_detail(error, focus=False)
                         else:
@@ -337,7 +367,9 @@ class QueryApp(App):
                 elif request.view == "allocation":
                     from .allocation_view import allocation_view
                     self._detail_observed_at = result.as_dict()["observed_at"]
-                    self._show_detail(allocation_view(result.as_dict(), language=self.language), focus=False)
+                    self._allocation_detail = result.as_dict()
+                    self._show_detail(allocation_view(self._allocation_detail, language=self.language,
+                        expanded=self._expanded_allocation), focus=False)
                     self._stamp(self.snapshot.observed_at)
                 else:
                     if request.view == "account":
@@ -536,6 +568,8 @@ class QueryApp(App):
 
     def on_resize(self) -> None:
         if self.is_mounted:
+            self._bindings.bind("c", "cost", self.words["cost"], show=self.size.width >= 60)
+            self.refresh_bindings()
             self._render()
 
     @on(DataTable.RowHighlighted, "#job-table")
@@ -569,6 +603,8 @@ class QueryApp(App):
         self._request(Read("allocation", self.selection, {"cluster": self.snapshot.cluster, "item": item}))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "allocation_details":
+            return self._allocation_detail is not None and self.query_one("#detail").has_focus
         if action == "inspect":
             table = self.query("#resource-table" if self.view in {"gpu", "cpu"} else "#job-table")
             return bool(table) and table.first().has_focus and self.snapshot is not None and table.first().row_count > 0

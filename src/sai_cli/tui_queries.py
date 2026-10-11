@@ -109,7 +109,7 @@ class Queries:
         if request.view == "allocation":
             from .native_topology import NativeTopology
             item = request.job["item"]
-            value = await self._command(["jobs", "local", "--job-id", item.canonical_id])
+            value = await self._command(["jobs", "local", "--job-id", item.canonical_id, "--with-interconnect"])
             if value["cluster"] != request.job["cluster"] or any(value["job"][key] != item.values[key]
                 for key in ("job_id", "array_task_id", "slurm_user", "slurm_account", "submit_time")):
                 raise ContractError("The job changed; return to the list and refresh before inspecting it.")

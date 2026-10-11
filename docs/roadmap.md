@@ -10,14 +10,14 @@ not imply production activation or completion of a paired rollout.
 ## Current priority: complete human and Agent tasks
 
 - [x] Implement native account discovery, explicit quota directory selection,
-  retained query scopes and readable two-dimensional allocation inspection
+  retained query scopes and numbered allocation inspection
   in the portable `0.2.0a1` alpha; see [query usability](terminal-scope.md#query-usability-correction).
 - [x] Deploy corrected shared source `d49be4d3ec77` and verify the ordinary-user
   candidate/stable entry, native identity/CPU-ID/directory reads and PTY exit;
   one compute node also passed native reads under the ordinary UID. Configuration
   and profile were preserved. Human visual and fleet acceptance remain separate.
 
-- [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
+- [x] Deliver shared per-job CPU/GPU allocation facts across CLI/TUI, the gateway
   and Web/Pilot. Shared CLI readability correction `d9695900cd7a` and gateway
   `ead4d38f6d66` are deployed; ordinary-user local/API equality and native TUI
   inspection passed. The corrected view leads with numbered allocations and
@@ -28,6 +28,10 @@ not imply production activation or completion of a paired rollout.
   inline CPU/GPU node inspection and one direct account chooser. Ordinary-user
   candidate/selected reads and terminal restoration passed on a login node;
   human usability acceptance remains separate.
+- [ ] Pair and publish `node.interconnect/v1`: verified CPU/NUMA↔GPU, GPU↔GPU
+  and node-fabric relationships must feed CLI/TUI, gateway, Web and Pilot from
+  one parser. The compact renderer is a candidate; no deployment or physical
+  topology acceptance is claimed yet.
 
 Follow the [task and delivery map](product-delivery.md). It identifies the
 user outcome, existing capability owner, implemented surface and remaining
