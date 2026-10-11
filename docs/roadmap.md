@@ -34,7 +34,8 @@ historical entries are not an automatic new-feature queue.
 - [x] Publish the matching skill on the shared CLI and verify ordinary-user export,
   existing API/native reads and focused TUI entry/exit on 2026-10-11
 - [ ] Observe independent first-use experience on supported user devices;
-  `configure SERVICE_URL` and paired public metadata are a source candidate;
+  `configure SERVICE_URL` and paired public metadata are merged; production
+  activation follows the existing compatible Center release window;
   existing-session login-host checks do not prove fresh self-service onboarding
 - [ ] Deliver the recipient invitation task through the original collaboration
   owner; paired list/detail/accept, shared client and optional scopes are deployed;
