@@ -1,34 +1,26 @@
-# Security Policy
+# Security policy
 
-## Reporting
+Report a vulnerability through [GitHub private vulnerability reporting](https://github.com/AI4SAI/sai-cli/security/advisories/new).
+Do not include credentials, private deployment information or an exploit against
+an active system in a public issue. Include the client version, affected command,
+expected behavior and a minimal synthetic reproduction when possible.
 
-Report suspected vulnerabilities privately to the repository maintainers. Do
-not open a public issue containing credentials, tokens, private deployment
-details, user data, or an exploit against an active SAI environment.
+## Supported versions
 
-## Client security boundary
+During alpha, fixes target the latest published alpha. Keep the previous reviewed
+wheel for rollback. A client update does not grant new permission or alter a
+server's authorization policy.
 
-Remote `sai-cli` operations are API clients, not authorization boundaries. The
-SAI control plane and deployed site-local read gateway independently validate
-their actors, scopes, sites, account selectors and narrowing filters. Explicit
-local Slurm/Linux/Lustre queries run under the caller's actual Unix authority;
-that visibility grants no Portal business permission.
+## Authority
 
-The client is expected to:
+Local Slurm/Linux/Lustre reads run under the caller's Unix authority. Remote
+operations use normal Identity authorization and the owning service's policies.
+Native visibility never grants Portal business, billing or write permission.
 
-- keep token caches private and atomic;
-- reject insecure remote HTTP by default;
-- avoid command-line secret arguments;
-- bound response sizes and timeouts;
-- redact server error bodies;
-- allowlist response fields;
-- fail closed rather than query a broader native source.
+Credentials are private user-owned files, never command arguments or TOML data.
+The client verifies TLS, bounds responses, rejects cross-origin redirects and
+filters output. Configuration requires an explicitly trusted service URL;
+credentials are not sent during connection discovery.
 
-Business writes use the existing domain service, separate user scope and its
-concurrency, replay, audit and receipt contract. Read permissions do not grant
-write authority. A client confirmation or preview does not replace server policy
-or turn an accepted asynchronous request into a completed operation.
-
-Never include real secrets, internal addresses, node lists, raw scheduler logs,
-or private operational evidence in bug reports or test fixtures.
-
+Management uses each domain's existing scope, concurrency/replay and receipt
+contract. An accepted request is not proof that site execution has completed.

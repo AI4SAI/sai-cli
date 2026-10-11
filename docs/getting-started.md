@@ -22,17 +22,18 @@ SAI account summary; its business facts require your normal SAI login separately
 ## Install on your device
 
 Python 3.11 or newer is required; independent-client validation currently covers
-Linux. Windows and macOS are not yet qualified. The repository remains private without an approved public
-release: obtain the reviewed wheel and trusted service URL from your
-SAI service operator. Do not assume a package with a similar public name is this
-client. Check the supplied artifact checksum before installation.
+Linux. Windows and macOS are not yet qualified. Download the reviewed wheel and
+SHA-256 checksum from the matching [GitHub release](https://github.com/AI4SAI/sai-cli/releases).
+Use the trusted service URL supplied by your operator. This alpha is distributed
+through GitHub; do not assume a package with a similar registry name is this
+client. Verify the published artifact checksum before installation.
 
 In a directory you control, with the provided wheel present:
 
 ```bash
 python3 -m venv .sai-env
 . .sai-env/bin/activate
-python -m pip install ./sai_cli-0.1.0-py3-none-any.whl
+python -m pip install ./sai_cli-0.2.0a1-py3-none-any.whl
 sai --version
 sai describe --format table
 ```
@@ -56,7 +57,7 @@ sai sites --format table
 Use your actual trusted URL in place of the example. `configure` requires the
 paired server's public CLI configuration endpoint. An older server reports a
 configuration error; it does not guess an Identity address. Existing reviewed
-profiles continue to work; see the [configuration reference](../README.md#configure).
+profiles continue to work; see the [configuration reference](runtime-design.md#configuration).
 To connect a second independent service, use `--config PATH` and keep that option
 on subsequent commands. A repeated configure verifies the same connection while
 preserving custom settings. The shared cluster installation is already configured.

@@ -1,8 +1,7 @@
 # Human and Agent product delivery
 
 Status: established product scope and current delivery map, reviewed 2026-10-11.
-The public-distribution and license sections are recommendations, not permission
-to publish. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
+Publishing still requires the maintainer release process. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
 remains the executable operation catalogue.
 
 ## Product decisions
@@ -19,8 +18,8 @@ The open client can reduce integration cost; adoption or revenue growth is a
 product hypothesis to validate, not a result established by publishing source.
 
 The current judgment is a useful internal client with incomplete independent
-onboarding, not a finished public product. The shipped guide still needs an
-operator-supplied wheel and trusted service URL. Deployed `auth login --for`
+onboarding, not a mature product. Versioned GitHub releases provide the reviewed wheel;
+a user still selects their trusted service URL. Deployed `auth login --for`
 resolves operation/readback scopes from installed metadata and preserves the old
 login until consent succeeds, without changing the profile. Deployed
 `configure SERVICE_URL` provides public connection metadata,
@@ -29,7 +28,7 @@ fields. CLI `0bc982e47888` and Portal `bc0d9547e947` were paired on 2026-10-11.
 The independent base wheel created/rechecked a private profile through actual
 HTTPS metadata and Identity discovery. An ordinary user's candidate and selected
 shared client also passed existing-session business/native queries and TUI checks.
-No new login was started. Independent human first-use and public distribution
+No new login was started. Independent human first-use and broader platform qualification
 remain open; existing-session checks do not establish a fresh browser grant.
 Linux acceptance also does not establish Windows or macOS support.
 
@@ -160,58 +159,37 @@ and Agent skills. A dynamic plugin framework needs real external consumers befor
 it becomes a supported platform. Pilot plugins consume shared capabilities;
 they do not become a runtime requirement for another Agent.
 
-## Proposed open-source distribution
+## Open-source distribution
 
-Recommend a public client, public user-operation contracts, generic examples and
-tests, and versioned official skills. This lowers adoption and integration cost
-while the services retain their own authentication, business policy and data.
-Licensing server components is a separate decision. Site-controller artifacts
-and patches retain their own provenance and runtime role; a client license must
-not silently relabel upstream material.
+The first-party client, user-operation contracts, generic examples/tests and
+versioned official Agent guidance use Apache-2.0. The shared native projection
+is included; other Portal/Identity/Pilot server code is not licensed by this
+repository. [Third-party provenance](../THIRD_PARTY.md) records optional UI
+licenses and the separately licensed Slurm patch.
 
-The [official lark-cli](https://github.com/larksuite/cli) demonstrates a cohesive
-product: task shortcuts, typed commands, schema discovery, versioned skill text,
-structured output, auth and diagnostics. Reuse those ideas with the current
-Python implementation. Its guided setup and permission selection also identify
-where SAI's current operator-led first use needs improvement. Mechanical API
-code can be generated from intentionally
-published user contracts; internal/admin APIs remain with their existing owners.
-The Go/npm stack and unrestricted raw-API layer are not prerequisites for SAI.
+Versioned GitHub releases provide a wheel, source distribution and SHA-256
+checksums from one reviewed source commit. The initial public version is
+`0.2.0a1`; the preceding `0.1.0` deployments were internal. A wheel upgrade does
+not alter credentials or grant permissions. Retain the prior artifact for
+rollback. Pre-release versions and incomplete platform support must remain
+explicit in instructions and release notes. No PyPI registration is claimed.
 
-The repository currently has no approved license. Apache-2.0 is a proposed
-permissive option to evaluate alongside copyright/provenance and dependency
-obligations; it has not been assigned. No public package, tag, release or visibility
-change follows automatically from this document.
+API schema versions are independent of the client release version. Additive
+server fields remain ignored until modeled; incompatible contracts need paired
+consumer/producer changes. The installed `describe` output owns command syntax.
+Native reads remain independent of control-plane connectivity.
 
-Before a publication decision, prepare these concrete outputs:
+Public pull requests run on isolated hosted CI without SAI credentials, private
+network access or internal runner registration. Use GitHub private vulnerability
+reporting for sensitive findings. Keep production evidence and private account,
+host and asset identifiers outside this public repository and its issue reports.
 
-- A declared license/provenance and bundled-dependency inventory, including
-  non-client site artifacts and required notices.
-- A reviewed candidate covering current files, reachable Git history, metadata
-  and actual package contents; a working-tree pattern scan covers only one part.
-- A clean installation and matching official skill with an ordinary-user first
-  task on each claimed supported platform; unsupported platforms are explicit.
-- Versioning, compatibility, update/rollback, contribution and private security
-  reporting instructions, with reproducible validation.
-
-The initial private audit found one operational account name in historical
-documentation and an internal host in commit authorship, including a closed
-pull request's patch. Current-file checks alone therefore do not justify a
-visibility change. A separate private candidate can retain reviewed history
-with those identifiers removed; preserve the original private history for
-deployment provenance. Do not rewrite the live remote as part of preparation.
-
-The current repository also has an internal self-hosted runner. Public
-contributions must use an isolated hosted runner with no SAI network or
-credentials. Changing only the workflow label is insufficient while a public
-repository can still select the internal runner; remove that access before
-publication, or use a clean public repository with no such registration.
-
-[The provenance inventory](../THIRD_PARTY.md) separates the base client, pinned
-UI dependencies and GPL-derived scheduler patch. Python source distributions
-exclude that patch; the complete repository retains it with upstream notices.
-These hygiene changes do not approve the proposed first-party license or a
-public release.
+The [official lark-cli](https://github.com/larksuite/cli) demonstrates useful
+operation discovery, task-oriented authorization and versioned skills. Reuse
+those product ideas without introducing a CLI-owned model loop or another
+business state store. Native readers, existing business operations and Agent
+skills are the current extension points; a generic plugin framework needs real
+consumers before it becomes a supported platform.
 
 ## Current order of work
 
@@ -222,9 +200,8 @@ public release.
 2. Verify recipient invitations when there is an actually requested task, through
    the original domain and normal user consent. Keep inviter, budget/storage and
    compute gaps visible; do not manufacture invitations or grants for acceptance.
-3. Prepare the remaining public distribution, provenance/history and support
-   evidence. Present the audited distribution and license choice before public
-   release. Do not wait for 3D or require a Pilot migration for these client tasks.
+3. Keep versioned distribution, provenance/history and support evidence current.
+   Review release artifacts and compatibility before each public release. Do not wait for 3D or require a Pilot migration for these client tasks.
 
 Digital-twin presentation retains its separate [design](digital-twin-design.md):
 authorized asset facts, parameterized models and clear measured/schematic status.

@@ -1,0 +1,10 @@
+sai-cli
+Copyright 2026 AI4SAI contributors.
+
+This product includes the SAI native Slurm projection identified by
+contracts/native-slurm-source.json and the official sai-cli Agent guidance.
+
+Optional terminal components retain the licenses and copyright notices shipped
+by their respective upstream distributions. See THIRD_PARTY.md. The separate
+Slurm controller patch in the full repository retains its upstream GPL terms
+and is not included in the Python distributions.

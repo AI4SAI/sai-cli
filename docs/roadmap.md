@@ -45,8 +45,9 @@ historical entries are not an automatic new-feature queue.
   shared source `7939328519f4`, original metadata/credentials and normal Identity
   consent. Existing-session reads and missing-scope denial passed; actual new
   user consent remains a separate acceptance step
-- [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
-  supported platforms and release policy; license/publication remain unapproved
+- [x] Prepare the public-alpha client boundary, upstream notices, versioned
+  GitHub distribution and Linux qualification
+- [ ] Qualify additional supported platforms and independent human first use
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a

@@ -12,9 +12,9 @@
 - Read `docs/platform-runtime-layout.md` before changing shared installation
   prefixes or login integration. Platform commands do not belong in the
   development-toolchain tree or receive per-command NFS mounts.
-- This repository is currently private and has no approved open-source
-  license. Do not publish packages, releases, tags, or make the repository
-  public until maintainers approve a license and release policy.
+- First-party client code uses Apache-2.0; preserve all separately identified
+  upstream licenses and notices. Public releases and tags require a reviewed,
+  tested artifact and explicit maintainer authorization.
 
 ## Long-Running Work And Goals
 

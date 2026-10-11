@@ -12,6 +12,8 @@ recursive-include site *.lua
 recursive-include site *.bash
 recursive-include site *.patch
 recursive-include packaging/login-node *.txt
+include packaging/login-node/sai
+include packaging/login-node/config.toml.example
 recursive-include site *.tcl
 recursive-include tests *.py
 prune site/slurm/patches

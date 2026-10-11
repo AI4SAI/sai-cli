@@ -23,9 +23,9 @@ acceptance. Track task completion, repeated technical input, recovery effort,
 and operating cost.
 
 [The task and delivery map](docs/product-delivery.md) owns the current capability
-gaps, next complete journeys and proposed public distribution strategy. It
-distinguishes the established human/Agent scope from licensing and publication
-decisions that remain unapproved. Historical implementation records do not
+gaps, next complete journeys and public distribution strategy. It keeps
+first-party client licensing separate from server components and upstream
+site integration artifacts. Historical implementation records do not
 automatically select the next feature.
 
 ## People and agents

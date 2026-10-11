@@ -1,8 +1,8 @@
 # Source provenance and third-party components
 
-The repository's first-party license and public release policy are not yet
-approved. This inventory preserves upstream notices; it does not assign a
-license to unreleased SAI code or imply upstream endorsement.
+First-party SAI client code, the shared native projection and official Agent
+guidance use Apache-2.0. Upstream components retain their own licenses and
+notices; no upstream endorsement is implied.
 
 ## Client and shared projection
 
@@ -10,7 +10,7 @@ The base Python wheel contains the SAI client and its official Agent skill,
 with no third-party runtime dependency. `src/sai_native_slurm.py` is an exact
 export of the SAI Portal native projection. Its originating path, revision and
 digest are recorded in [the source manifest](contracts/native-slurm-source.json).
-The first-party license decision must explicitly cover this shared export.
+This shared export is included in the first-party Apache-2.0 license.
 Portal services, databases and their other code are not part of this client.
 
 Slurm and Lustre commands are external native programs. The wheel includes
@@ -46,10 +46,9 @@ the client runtime.
 `site/slurm/patches/slurm-26.05.1-preserve-hold.patch` modifies Slurm's
 `src/slurmctld/acct_policy.c`. That upstream file is GPL version 2 or later,
 with the upstream OpenSSL exception and notices. Its terms are kept separately
-in [the patch directory](site/slurm/patches/README.md).
+in [the repository's patch directory](https://github.com/AI4SAI/sai-cli/tree/main/site/slurm/patches).
 
 The scheduler patch is a repository/operator artifact. It is excluded from the
 Python wheel and source distribution; obtain it and its notices from the full
-repository when building a patched Slurm. A future first-party client license
-must not relabel this upstream-derived patch. The SAI Lua, shell and Tcl site
+repository when building a patched Slurm. The first-party client license does not relabel this upstream-derived patch. The SAI Lua, shell and Tcl site
 artifacts retain their separately documented operating roles.

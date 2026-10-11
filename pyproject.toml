@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sai-cli"
-version = "0.1.0"
+version = "0.2.0a1"
 description = "SAI command-line interface for people and agents"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 authors = [
   { name = "AI4SAI contributors" },

@@ -15,6 +15,7 @@ TEXT_SUFFIXES = {
     "",
     ".bash",
     ".cfg",
+    ".example",
     ".html",
     ".ini",
     ".json",
