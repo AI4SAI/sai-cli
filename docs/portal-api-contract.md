@@ -64,6 +64,20 @@ deployment; source compatibility is not production activation.
 
 ## Authentication
 
+### Published site discovery
+
+`GET /v1/account/cli/sites` uses the existing Identity `sai.compute.read` scope
+and current account admission, without shell access or a selected site. The
+[`site.directory/v1`](../contracts/site-directory/v1/README.md) allowlist returns
+only published site IDs/names plus page metadata. It reuses the existing Portal
+site chooser; this is neither a membership directory nor a routing registry.
+Disabled entries are excluded. No SSH address or gateway origin is returned.
+
+`limit` is 1–100 and `cursor` is the previous page's site-ID lower bound. Rows
+are sorted by exact ID; deletion/disablement of the cursor row does not broaden
+the next page. Later commands explicitly select `--site` and independently
+recheck their own authority. Paired source support does not prove deployment.
+
 ### Identity resource tokens
 
 User endpoints require a short-lived access token whose issuer and audience are

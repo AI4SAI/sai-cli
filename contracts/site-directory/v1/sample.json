@@ -1,0 +1,14 @@
+{
+  "schema_version": "site.directory/v1",
+  "source": "portal_published_sites",
+  "queried_at": "2026-10-11T00:00:00Z",
+  "items": [
+    {
+      "site_id": "site-a",
+      "display_name": "研究站点"
+    }
+  ],
+  "count": 1,
+  "has_more": false,
+  "next_cursor": null
+}

@@ -47,6 +47,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_format_argument(discovery)
     _operation(discovery, source="client", effect="introspection", site=False)
 
+    sites = commands.add_parser("sites", help="list published site names before choosing --site")
+    _add_connection_arguments(sites, suppress_defaults=True)
+    sites.add_argument("--limit", type=int, default=50, help="page size, 1–100 (default: 50)")
+    sites.add_argument("--cursor", help="next cursor from the previous site page")
+    _add_format_argument(sites)
+    _operation(sites, source="portal", scopes=("sai.compute.read",), site=False,
+               notes=("Published directory only; does not grant access, select a site or discover credential destinations.",))
+
     for name, description in (
         ("status", "show SAI account, funds and access information"),
         ("tui", "open focused interactive queries; q returns to the shell"),
@@ -649,7 +657,7 @@ def main(
 
         settings = resolve_settings(
             args, env,
-            require_site=not (args.command == "auth" or
+            require_site=not (args.command in {"auth", "sites"} or
                               args.command == "account" and args.account_command == "set-default"),
         )
         transport = _build_transport(settings)
@@ -690,6 +698,13 @@ def main(
             ),
         )
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
+        if args.command == "sites":
+            from .sites import render_sites
+            if args.site is not None or args.cluster is not None:
+                raise ConfigError("sites lists the published directory; --site and --cluster are not filters")
+            result = client.sites(limit=args.limit, cursor=args.cursor)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_sites(result))
+            return 0
         if args.command == "account":
             from .default_account import render_default_account
             if args.cluster is not None:

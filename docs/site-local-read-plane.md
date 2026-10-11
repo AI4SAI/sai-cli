@@ -448,6 +448,11 @@ required. A future authorized site directory may publish the first mapping,
 but accepting it requires a coordinated client contract; arbitrary user URLs
 and response redirects cannot choose credential destinations.
 
+The implemented `sai sites` directory is narrower: it reads published names
+and IDs from Portal before explicit selection. It exposes no network origins,
+adds no gateway request and makes no claim about the caller's site permissions.
+The future routing-directory contract above remains separate.
+
 Site-local TUI/Agent reads should use the local route. Prefer site-local DNS
 for the same stable hostname where available; otherwise select a protected
 site-local origin explicitly. Preserve certificate name/CA validation on every

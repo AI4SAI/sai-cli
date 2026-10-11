@@ -60,6 +60,9 @@ See the [local quota contract](contracts/local-quota/v1/README.md).
 
 The implemented remote API surface includes:
 
+- `sai sites` lists published site IDs and names before you choose a site.
+  It needs no configured site. Use a returned ID with `--site` on the next
+  command; listing a site does not grant account, compute or file access.
 - `sai account defaults` discovers accounts available at the selected site and
   shows the user's global default and site application receipts.
 - `sai account set-default ACCOUNT_ID --if-current auto --request-id REQUEST_KEY`
@@ -273,6 +276,10 @@ oidc_scope = "openid offline_access sai.compute.read sai.billing.read sai.storag
 oidc_resource = "sai-portal"
 site_id = "site-a"
 ```
+
+On a user device, `site_id` may be omitted while signing in and discovering
+sites. After `sai auth login`, use `sai sites --format table`, then select a
+returned ID explicitly, for example `sai account defaults --site site-a`.
 
 ## Use
 

@@ -23,6 +23,7 @@ from .managed_runs import (
 )
 from .run_cost import ManagedRunCost
 from .job_charges import JobCharges
+from .sites import SiteDirectory, site_directory_query
 from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -439,6 +440,11 @@ class PortalClient:
         site = clean_token(site_id, field="site", required=True, maximum=64) or ""
         response = self._central_get("/v1/account/cli/defaults", query={"site_id": site})
         return DefaultAccountState.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
+    def sites(self, *, limit: int = 50, cursor: str | None = None) -> SiteDirectory:
+        query = site_directory_query(limit=limit, cursor=cursor)
+        response = self._central_get("/v1/account/cli/sites", query=query)
+        return SiteDirectory.from_payload(response.payload, limit=limit, cursor=cursor, request_id=response.request_id)
 
     def job_charges(self, query: JobQuery, *, job_key: str | None = None, job_id: str | None = None,
                     start_date: str | None = None, end_date: str | None = None,
