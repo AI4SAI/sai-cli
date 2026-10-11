@@ -9,9 +9,11 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
-- [ ] Deliver unified per-job CPU/GPU topology through local CLI/TUI, the
-  existing gateway and Web/Pilot consumers. Shared source and integration
-  verification are in progress; actual rollout remains open.
+- [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
+  and Web/Pilot. Shared CLI `e27c47495390` and gateway `ead4d38f6d66` are deployed;
+  ordinary-user local/API equality and native TUI inspection passed.
+- [ ] Activate the merged Web/Pilot consumer and updated central relay with
+  their original release owner; their source merge is not production acceptance.
 - [ ] After topology delivery: native-view refresh frequency, inline CPU/GPU
   node expansion and one clear account selector. New feedback does not replace
   the topology work in progress.

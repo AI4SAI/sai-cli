@@ -1014,5 +1014,7 @@ canonical native Slurm projection. Node CPU IDs, socket/core/thread dimensions
 and configured GPU count extend the existing allocation contract. Web/Pilot
 consumes that same DTO. Local reads do not use OAuth or the gateway. See the
 [native allocation contract](../contracts/native-job-allocation/v1/README.md)
-for call bounds, provenance and unknown semantics. This candidate is not yet
-a deployed runtime; refresh and account-selector improvements are a later slice.
+for call bounds, provenance and unknown semantics. The shared CLI and site gateway were deployed on 2026-10-11 and checked with
+an ordinary user. The paired Web/Pilot source is merged; its production
+activation remains with the original Pilot release. Refresh and account-selector
+improvements follow that delivery.

@@ -234,3 +234,15 @@ no-allocation detail. `jobs local --job-id ID` exposes the same observation as
 JSON or a compact Rich map. CPU partitions add Slurm socket/core/thread dimensions
 from their existing node read. The current slice does not change refresh policy
 or account selection; those user feedback items follow its delivery.
+
+Shared runtime `e27c47495390` and the gateway producer `ead4d38f6d66` were
+published on 2026-10-11. The 954-file client inventory, permissions, original
+profile/configuration and standard-user selected-entry checks passed. Four
+native samples matched Slurm CPU_IDs; an authorized remote allocation matched
+the local observation, and a real native TUI selection displayed GPU/CPU IDs.
+The gateway's original dependency runtime and seven protected inputs were
+unchanged; journal start/finish pairs and active/enabled state were checked.
+Old packages/releases are retained for rollback. Task staging and all operator
+connections were closed. Web/Pilot source is merged and awaits its original
+owner's compatible production release. This is bounded site verification,
+not a whole-product or fleet acceptance claim.
