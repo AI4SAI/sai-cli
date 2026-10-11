@@ -40,8 +40,8 @@ by the operator; no node installation or configuration change was needed.
 Source checks passed 1209 tests and hosted Python 3.11/3.13 CI. The previous
 runtime and guarded rollback remain; rollback was not exercised. Staging and
 operator connections were closed. This is bounded site verification, not fleet
-or human visual acceptance; no CPU-only running job was present in the sampled
-scope, and no job or authorization grant was created for the check.
+or human visual acceptance. These checks did not include a CPU-only running job;
+no job or authorization grant was created for the check.
 
 ## Human workflow
 
