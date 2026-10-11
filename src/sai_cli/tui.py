@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+import time
 
 from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, VerticalScroll
-from textual.widgets import Button, DataTable, Footer, Select, Static, Tab, Tabs
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widgets import DataTable, Footer, Select, Static, Tab, Tabs
 
 from .errors import AuthenticationError, SaiCliError
 from .tui_queries import Queries, Read
@@ -17,14 +18,18 @@ from .tui_queries import Queries, Read
 LABELS = {
     "zh-CN": {"jobs": "作业", "gpu": "GPU", "cpu": "CPU", "quota": "配额", "account": "账户",
         "mine": "我的作业", "identity": "当前身份", "all": "全部分区", "here": "当前目录", "home": "Home",
-        "current": "登录账户", "choose": "选择账户", "refresh": "刷新", "cost": "费用", "quit": "退出",
+        "current": "当前账户", "refresh": "刷新", "cost": "费用", "quit": "退出",
+        "pause": "暂停刷新", "resume": "继续刷新", "paused": "已暂停", "auto": "自动 {seconds}s",
+        "gpu_free": "GPU\n空闲/总", "gpu_slots": "GPU\n卡位", "cpu_count": "CPU\n分配/总", "memory": "GiB\n分配/总", "no_nodes": "当前分区没有节点", "node_name": "节点",
         "loading": "读取中…", "empty": "当前范围没有作业", "local": "本站", "central": "SAI 账户",
         "login": "账户查询需要登录：退出后运行 sai auth login", "failure": "读取失败，按 r 重试",
         "time": "运行 / 等待", "name": "名称", "state": "状态", "partition": "分区", "node": "节点 / 原因",
         "truncated": "仅显示前 500 条", "detail": "详情", "back": "返回", "snapshot": "更新", "read_only": "查看账户", "estimate_title": "预估费用 · 未结算", "standard_price": "标准价", "cash_price": "现金价", "unknown": "暂不可用", "stale": "旧观察，请刷新", "partial": "部分预估", "not_started": "尚未开始", "unavailable": "预估暂不可用"},
     "en-US": {"jobs": "Jobs", "gpu": "GPU", "cpu": "CPU", "quota": "Quota", "account": "Account",
         "mine": "My jobs", "identity": "Login account", "all": "All partitions", "here": "Working directory", "home": "Home",
-        "current": "Login account", "choose": "Choose account", "refresh": "Refresh", "cost": "Estimate", "quit": "Quit",
+        "current": "Current account", "refresh": "Refresh", "cost": "Estimate", "quit": "Quit",
+        "pause": "Pause", "resume": "Resume", "paused": "Paused", "auto": "Auto {seconds}s",
+        "gpu_free": "GPU\nfree/all", "gpu_slots": "GPU\nslots", "cpu_count": "CPU\nalloc/all", "memory": "GiB\nalloc/all", "no_nodes": "No nodes in this partition", "node_name": "Node",
         "loading": "Reading…", "empty": "No jobs in this scope", "local": "Local", "central": "SAI account",
         "login": "Sign in after exiting: sai auth login", "failure": "Read failed; press r to retry",
         "time": "Run / wait", "name": "Name", "state": "State", "partition": "Partition", "node": "Nodes / reason",
@@ -35,16 +40,17 @@ LABELS = {
 class QueryApp(App):
     TITLE = "SAI"
     ENABLE_COMMAND_PALETTE = False
+    REFRESH_SECONDS = {"jobs": 5, "gpu": 10, "cpu": 10, "quota": 30, "account": 60}
     CSS = """
     Screen { background: ansi_default; color: ansi_default; }
     #heading { height: 1; margin: 1 2 0 2; text-style: bold; }
     Tabs { margin: 0 1; }
     #controls { height: 3; margin: 0 1; }
     Select { width: 1fr; }
-    #choose { width: auto; min-width: 12; display: none; }
     #body { height: 1fr; margin: 0 2; }
-    #job-table { height: 1fr; display: none; }
+    #job-table, #resource-table { height: 1fr; display: none; }
     #answer { height: 1fr; }
+    #body.resources #answer { height: auto; max-height: 35%; }
     #content { height: auto; }
     #detail { height: auto; max-height: 60%; display: none; padding: 1 2; overflow-y: auto; }
     #notice { height: auto; max-height: 3; margin: 0 2; }
@@ -71,15 +77,22 @@ class QueryApp(App):
         self._active_request: Read | None = None
         self._job_ids: list[str] = []
         self._selected_job = None
+        self._selected_node = None
+        self._detail_node = None
+        self._last_read_at = time.monotonic()
+        self._paused = False
+        self._focus_after_read = False
+        self._focus_before_read = None
+        self._options: list[tuple[str, str]] = []
 
     def compose(self) -> ComposeResult:
         yield Static("SAI", id="heading", markup=False)
         yield Tabs(*(Tab(self.words[view], id=view) for view in self.queries.views), active=self.view)
         with Horizontal(id="controls"):
             yield Select([(self.words["current"], "")], allow_blank=False, id="selection")
-            yield Button(self.words["choose"], id="choose")
-        with Horizontal(id="body"):
+        with Vertical(id="body"):
             yield DataTable(id="job-table", cursor_type="row", zebra_stripes=True)
+            yield DataTable(id="resource-table", cursor_type="row", zebra_stripes=True, header_height=2)
             with VerticalScroll(id="answer"):
                 yield Static(id="content", markup=False)
         with VerticalScroll(id="detail"):
@@ -94,26 +107,52 @@ class QueryApp(App):
 
         self._configure()
         self.action_refresh()
+        self.bind("p", "pause", description=self.words["pause"])
+        self.set_interval(1, self._poll_current_view)
+
+    def _poll_current_view(self) -> None:
+        if self._reading or self._paused or self.query_one("#selection", Select).expanded:
+            return
+        if self.view == "jobs" and self.query_one("#detail").display:
+            return
+        if time.monotonic() - self._last_read_at >= self.REFRESH_SECONDS[self.view]:
+            self.action_refresh()
+
+    def action_pause(self) -> None:
+        self._paused = not self._paused
+        self._bindings.bind("p", "pause", self.words["resume" if self._paused else "pause"])
+        self.refresh_bindings()
+        if self.snapshot is not None:
+            self._stamp(self.snapshot.as_dict()["observed_at"])
 
     def _configure(self) -> None:
         w = self.words
         options = {
             "jobs": [(w["mine"], "mine")] + ([(w["identity"] + " · " + self.queries.account, "identity")] if self.queries.account else []),
             "gpu": [(w["all"], "")], "cpu": [(w["all"], "")],
-            "quota": [(w["here"], ""), (w["home"], "home")], "account": [(w["current"], "")],
+            "quota": [(w["here"], ""), (w["home"], "home")], "account": [(w["loading"], "")],
         }[self.view]
         self._set_options(options, self.selection)
-        self.query_one("#choose").display = self.view == "account"
+        self.query_one("#selection").disabled = self.view == "account"
         self.query_one("#job-table").display = self.view == "jobs"
+        self.query_one("#resource-table").display = self.view in {"gpu", "cpu"}
+        self.query_one("#body").set_class(self.view in {"gpu", "cpu"}, "resources")
         self.query_one("#answer").display = self.view != "jobs"
         self.query_one("#detail").display = False
+        self._detail_node = None
         self.query_one("#heading", Static).update(Text(f"SAI  ·  {w['central'] if self.view == 'account' else w['local']}"))
+        if self.view in {"jobs", "gpu", "cpu"}:
+            self.query_one("#job-table" if self.view == "jobs" else "#resource-table").focus()
         self.refresh_bindings()
 
     def _set_options(self, options: list[tuple[str, str]], selected: str) -> None:
         widget = self.query_one("#selection", Select)
         with widget.prevent(Select.Changed):
-            widget.set_options([(Text(label), value) for label, value in options])
+            if options != self._options:
+                widget.set_options([(Text(label), value) for label, value in options])
+                self._options = options
+                # Labels can change while the selected value stays the same.
+                widget.mutate_reactive(Select.value)
             widget.value = selected if selected in {value for _, value in options} else options[0][1]
             self.selection = str(widget.value)
 
@@ -132,14 +171,14 @@ class QueryApp(App):
         if event.value is Select.BLANK or event.value != event.select.value or event.value == self.selection:
             return
         self.selection = str(event.value)
+        self.query_one("#detail").display = False
+        self._detail_node = None
         if self.view in {"gpu", "cpu"} and self.snapshot is not None:
             self._render()
+            self.query_one("#resource-table").focus()
         else:
+            self._clear_snapshot()
             self.action_refresh()
-
-    @on(Button.Pressed, "#choose")
-    def choose_account(self) -> None:
-        self._request(Read("accounts"))
 
     def action_view(self, view: str) -> None:
         if view in self.queries.views:
@@ -148,19 +187,31 @@ class QueryApp(App):
     def action_refresh(self) -> None:
         self._request(Read(self.view, self.selection))
 
+    def _clear_snapshot(self) -> None:
+        self.snapshot = None
+        self._job_ids = []
+        for table in self.query(DataTable):
+            with table.prevent(DataTable.RowHighlighted):
+                table.clear()
+        self.query_one("#content", Static).update("")
+        self.query_one("#detail").display = False
+        self._detail_node = None
+
     def _request(self, request: Read) -> None:
         self._version += 1
         self._pending = self._version, request
-        if request.view not in {"cost", "accounts", "allocation"}:
-            self.snapshot = None
-            self.query_one("#job-table", DataTable).clear()
-            self.query_one("#content", Static).update("")
+        self._focus_after_read = self.snapshot is None
+        self._focus_before_read = self.focused
+        if self.snapshot is None:
+            self._clear_snapshot()
+        if request.view == "jobs":
             self.query_one("#detail").display = False
         if request.view in {"cost", "allocation"}:
             self.query_one("#detail-content", Static).update("")
             self.query_one("#detail").display = False
         self.refresh_bindings()
-        self.query_one("#notice", Static).update(self.words["loading"])
+        if self.snapshot is None or request.view in {"cost", "allocation"}:
+            self.query_one("#notice", Static).update(self.words["loading"])
         if not self._reading:
             self._reading = True
             self.run_worker(self._drain(), exit_on_error=False)
@@ -171,10 +222,22 @@ class QueryApp(App):
                 version, request = self._pending
                 self._pending = None
                 self._active_request = request
+                directory_ready = False
                 try:
+                    if request.view == "account":
+                        directory = await self.queries.read(Read("accounts"))
+                        if version != self._version:
+                            continue
+                        self._account_options(directory.values)
+                        directory_ready = True
                     result = await self.queries.read(request)
                 except Exception as exc:
                     if version == self._version and self._matches_job(request):
+                        if request.view not in {"cost", "allocation"}:
+                            self._clear_snapshot()
+                        if request.view == "account" and not directory_ready:
+                            self._set_options([(self.words["current"], self.selection)], self.selection)
+                            self.query_one("#selection").disabled = True
                         message = self.words["login"] if isinstance(exc, AuthenticationError) else (
                             exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
                         self.query_one("#notice", Static).update(Text(message, style="bold yellow"))
@@ -182,23 +245,36 @@ class QueryApp(App):
                 if version != self._version or not self._matches_job(request):
                     continue
                 self.query_one("#notice", Static).update("")
-                if request.view == "accounts":
-                    self._set_options([(self.words["current"], "")] + [(row["name"], row["name"]) for row in result.values["choices"]], self.selection)
-                    self.query_one("#selection").focus()
-                    self.query_one("#selection", Select).action_show_overlay()
-                elif request.view == "cost":
+                if request.view == "cost":
                     self.query_one("#detail-content", Static).update(self._cost_view(result))
                     self.query_one("#detail").display = True
+                    self._stamp(self.snapshot.observed_at)
                 elif request.view == "allocation":
                     from .allocation_view import allocation_view
                     self.query_one("#detail-content", Static).update(allocation_view(result.as_dict(), language=self.language))
                     self.query_one("#detail").display = True
+                    self._stamp(self.snapshot.observed_at)
                 else:
+                    if request.view == "account":
+                        self._account_options(directory.values, overview=result.values)
                     self.snapshot = result
                     self._render()
+                    if self._focus_after_read and self.focused is self._focus_before_read:
+                        if self.view in {"jobs", "gpu", "cpu"}:
+                            self.query_one("#job-table" if self.view == "jobs" else "#resource-table").focus()
         finally:
             self._reading = False
             self._active_request = None
+            self._last_read_at = time.monotonic()
+
+    def _account_options(self, directory: dict, *, overview: dict | None = None) -> None:
+        options = [(row["name"], row["name"]) for row in directory["choices"]]
+        if overview is not None and overview["context"]["state"] == "available":
+            self.selection = overview["context"]["slurm_account"]
+        if self.selection not in {value for _, value in options}:
+            options.insert(0, (self.selection or self.words["current"], self.selection))
+        self._set_options(options, self.selection)
+        self.query_one("#selection").disabled = False
 
     def _matches_job(self, request: Read) -> bool:
         return request.view not in {"cost", "allocation"} or request.job["item"].canonical_id == self._selected_job
@@ -210,14 +286,8 @@ class QueryApp(App):
             self._render_jobs()
             return
         if self.view in {"gpu", "cpu"}:
-            from .local_resources import LocalResources
-            from .native_resource_view import resource_view
-            values = self.snapshot.as_dict()
-            self._set_options([(self.words["all"], "")] + [(row["name"], row["name"]) for row in values["partitions"]], self.selection)
-            if self.selection:
-                part = next(row for row in values["partitions"] if row["name"] == self.selection)
-                values = {**values, "partitions": [part], "nodes": [row for row in values["nodes"] if self.selection in row["partitions"]], "summary": part["summary"]}
-            body = resource_view(LocalResources(values), details=True, width=max(36, self.size.width - 4))
+            self._render_resources()
+            return
         elif self.view == "quota":
             from .local_quota import render_local_quota
             body = Text(render_local_quota(self.snapshot, width=max(36, self.size.width - 4)))
@@ -231,6 +301,8 @@ class QueryApp(App):
         from .render import _duration
         table = self.query_one("#job-table", DataTable)
         selected = self._selected_job
+        scroll = table.scroll_offset
+        cursor = table.cursor_row
         table.clear(columns=True)
         self._job_ids = [item.canonical_id for item in self.snapshot.items]
         wide = self.size.width >= 80
@@ -246,27 +318,139 @@ class QueryApp(App):
             if wide:
                 cells += [_duration(row["run_wait_seconds"]), row["partition"] or "—"]
             table.add_row(*(Text(str(value)) for value in cells), key=item.canonical_id)
-        if selected in self._job_ids:
-            table.move_cursor(row=self._job_ids.index(selected))
+        if self._job_ids:
+            table.move_cursor(row=self._job_ids.index(selected) if selected in self._job_ids else min(cursor, len(self._job_ids) - 1), scroll=False)
+            self._selected_job = self._job_ids[table.cursor_row]
+        else:
+            self._selected_job = None
+        table.scroll_to(scroll.x, scroll.y, animate=False, force=True)
         self.query_one("#notice", Static).update(self.words["empty"] if not self._job_ids else (
             self.words["truncated"] if self.snapshot.has_more else ""))
         self._stamp(self.snapshot.observed_at)
-        table.focus()
         self.refresh_bindings()
+
+    def _resource_nodes(self) -> list[dict]:
+        if self.snapshot is None:
+            return []
+        return [node for node in self.snapshot.values["nodes"]
+                if not self.selection or self.selection in node["partitions"]]
+
+    def _resource_parts(self) -> list[dict]:
+        return [part for part in self.snapshot.values["partitions"]
+                if not self.selection or part["name"] == self.selection]
+
+    def _render_resources(self) -> None:
+        from .local_resources import LocalResources
+        from .native_resource_view import resource_view
+        from .tui_resources import node_cells, node_detail, compact_summary
+        from rich.console import Group
+        from rich.table import Table
+        values = self.snapshot.as_dict()
+        options = [(self.words["all"], "")] + [(part["name"], part["name"]) for part in values["partitions"]]
+        if self.selection and self.selection not in {value for _, value in options}:
+            options.append((self.selection, self.selection))
+        self._set_options(options, self.selection)
+        nodes = self._resource_nodes()
+        parts = self._resource_parts()
+        if self.selection and parts:
+            values = {**values, "nodes": nodes, "partitions": parts, "summary": parts[0]["summary"]}
+        table = self.query_one("#resource-table", DataTable)
+        scroll, cursor = table.scroll_offset, table.cursor_row
+        table.clear(columns=True)
+        width = max(36, self.size.width - 4)
+        name_width = max(6, width // 6)
+        state_width = 8 if width >= 64 else 4
+        partition_width = max(12, width // 6) if not self.selection and width >= 80 else 0
+        remaining = width - name_width - state_width - partition_width - (10 if partition_width else 8)
+        data_width = max(6, remaining // 2)
+        labels = ("gpu_free", "gpu_slots") if self.view == "gpu" else ("cpu_count", "memory")
+        sizes = (min(data_width, 10), remaining - min(data_width, 10)) if self.view == "gpu" else (data_width, data_width)
+        columns = [("node_name", name_width), ("state", state_width)]
+        if partition_width:
+            columns.append(("partition", partition_width))
+        if width < 60:
+            columns = [("node_name", (width - 4) // 2), ("gpu_free" if self.view == "gpu" else "detail", (width - 4) // 2)]
+        else:
+            columns += list(zip(labels, sizes))
+        for label, size in columns:
+            table.add_column(self.words[label], width=size)
+        for node in nodes:
+            cells = node_cells(node, parts, kind=self.view, width=width)
+            if width < 60:
+                name = Text.assemble(cells[0], "\n", cells[1])
+                if not self.selection:
+                    name.append("\n" + ", ".join(node["partitions"]), style="dim")
+                if self.view == "gpu":
+                    metrics = Group(cells[2], cells[3])
+                else:
+                    metrics = Table.grid(padding=(0, 1))
+                    metrics.add_row("CPU", cells[2])
+                    metrics.add_row("GiB", cells[3])
+                cells = [name, metrics]
+            elif partition_width:
+                cells.insert(2, Text(", ".join(node["partitions"])))
+            elif not self.selection:
+                cells[0].append("\n" + ", ".join(node["partitions"]), style="dim")
+            table.add_row(*cells, key=node["name"], height=None)
+        names = [node["name"] for node in nodes]
+        if names:
+            table.move_cursor(row=names.index(self._selected_node) if self._selected_node in names else min(cursor, len(names) - 1), scroll=False)
+            self._selected_node = names[table.cursor_row]
+        else:
+            self._selected_node = None
+        table.scroll_to(scroll.x, scroll.y, animate=False, force=True)
+        summary = compact_summary(values, self.view, self.language) if width < 60 else resource_view(LocalResources(values), width=width)
+        self.query_one("#content", Static).update(summary if nodes else "")
+        self.query_one("#notice", Static).update("" if nodes else self.words["no_nodes"])
+        if self._detail_node in names:
+            node = nodes[names.index(self._detail_node)]
+            self.query_one("#detail-content", Static).update(node_detail(node, parts, language=self.language, width=width))
+        elif self._detail_node is not None:
+            self._detail_node = None
+            self.query_one("#detail").display = False
+        self.query_one("#answer").display = self._detail_node is None
+        self._stamp(self.snapshot.as_dict()["observed_at"])
+        self.refresh_bindings()
+
+    @on(DataTable.RowHighlighted, "#resource-table")
+    def highlight_node(self, event: DataTable.RowHighlighted) -> None:
+        table = self.query_one("#resource-table", DataTable)
+        if table.row_count == 0 or event.row_key != table.coordinate_to_cell_key(table.cursor_coordinate).row_key:
+            return
+        if event.row_key.value != self._selected_node:
+            self._selected_node = event.row_key.value
+            self._detail_node = None
+            self.query_one("#detail").display = False
+            self.query_one("#answer").display = True
+
+    @on(DataTable.RowSelected, "#resource-table")
+    def resource_details(self, event: DataTable.RowSelected) -> None:
+        from .tui_resources import node_detail
+        node = next((node for node in self._resource_nodes() if node["name"] == event.row_key.value), None)
+        if node is not None:
+            self._detail_node = node["name"]
+            self.query_one("#detail-content", Static).update(node_detail(node, self._resource_parts(), language=self.language, width=max(36, self.size.width - 4)))
+            self.query_one("#detail").display = True
+            self.query_one("#answer").display = False
 
     def _stamp(self, value: str) -> None:
         stamp = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().strftime("%H:%M:%S")
         source = self.words["central"] if self.view == "account" else self.words["local"]
         cluster = getattr(self.snapshot, "cluster", None) or self.snapshot.as_dict().get("cluster")
         context = " · " + cluster if cluster else ""
+        paused = self._paused or (self.view == "jobs" and self.query_one("#detail").display)
+        context += " · " + (self.words["paused"] if paused else self.words["auto"].format(seconds=self.REFRESH_SECONDS[self.view]))
         self.query_one("#heading", Static).update(Text(f"SAI  ·  {source}{context}  ·  {stamp}"))
 
     def on_resize(self) -> None:
         if self.is_mounted:
             self._render()
 
-    @on(DataTable.RowHighlighted)
+    @on(DataTable.RowHighlighted, "#job-table")
     def highlight(self, event: DataTable.RowHighlighted) -> None:
+        table = self.query_one("#job-table", DataTable)
+        if table.row_count == 0 or event.row_key != table.coordinate_to_cell_key(table.cursor_coordinate).row_key:
+            return
         if event.row_key.value != self._selected_job:
             self._selected_job = event.row_key.value
             self.query_one("#detail").display = False
@@ -277,7 +461,7 @@ class QueryApp(App):
                 self._pending = None
                 self.query_one("#notice", Static).update("")
 
-    @on(DataTable.RowSelected)
+    @on(DataTable.RowSelected, "#job-table")
     def details(self, event: DataTable.RowSelected) -> None:
         if self.snapshot is None:
             return
@@ -288,19 +472,20 @@ class QueryApp(App):
                 "allocation": {"status": "not_allocated" if item.values["state"] == "PD" else "unavailable", "nodes": []}},
                 language=self.language))
             self.query_one("#detail").display = True
+            self._stamp(self.snapshot.observed_at)
             return
         self._request(Read("allocation", self.selection, {"cluster": self.snapshot.cluster, "item": item}))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "inspect":
-            table = self.query("#job-table")
-            return bool(table) and table.first().has_focus and self.snapshot is not None and bool(self._job_ids)
+            table = self.query("#resource-table" if self.view in {"gpu", "cpu"} else "#job-table")
+            return bool(table) and table.first().has_focus and self.snapshot is not None and table.first().row_count > 0
         if action == "cost":
-            return self.view == "jobs" and self.snapshot is not None and bool(self._job_ids)
+            return self.view == "jobs" and self.snapshot is not None and bool(self._job_ids) and self.query_one("#job-table").has_focus
         return True
 
     def action_inspect(self) -> None:
-        self.query_one("#job-table", DataTable).action_select_cursor()
+        self.query_one("#resource-table" if self.view in {"gpu", "cpu"} else "#job-table", DataTable).action_select_cursor()
 
     def action_cost(self) -> None:
         if self.view != "jobs" or self.snapshot is None or not self._job_ids:
@@ -331,5 +516,10 @@ class QueryApp(App):
         elif self.query_one("#detail").display:
             self._version += 1
             self.query_one("#detail").display = False
+            self._detail_node = None
+            if self.view in {"gpu", "cpu"}:
+                self.query_one("#answer").display = True
+            if self.snapshot is not None:
+                self._stamp(self.snapshot.as_dict()["observed_at"])
         else:
             self.exit()

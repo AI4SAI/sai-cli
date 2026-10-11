@@ -148,13 +148,17 @@ The implemented remote API surface includes:
 
 `sai tui` opens focused keyboard queries. On cluster hosts it starts with an
 available native query: jobs, GPU, CPU or quota. Use arrows and Enter to select,
-`r` to refresh, `c` to read the selected job's non-final cost and `q` to return
+`r` to refresh, `p` to pause/resume updates, `c` to read the selected job's non-final cost and `q` to return
 to the shell. The scope/partition chooser replaces typed IDs; quota offers the
 current directory and Home. Native reads use the same readers and resource
 visuals as the aliases, without a Portal login or gateway round trip.
 
-Account information is a separate on-demand view, with an authorized account
-chooser. Cost and account reads retain their existing Identity/Portal permissions.
+Only the visible view refreshes: jobs every 5 seconds, GPU/CPU every 10 seconds,
+quota every 30 seconds and account information every 60 seconds. Open selectors
+and job details pause polling; selection and scroll position survive updates.
+Select a CPU/GPU node with Enter or a click to inspect its current observation.
+Account information loads its authorized account chooser directly, without a
+separate button. Cost and account reads retain their existing Identity/Portal permissions.
 No read changes the shell directory or submission account. `--view` selects an
 initial query; `--language zh-CN|en-US` selects interface copy. `--account` selects
 the business overview only; local jobs use the applied login account or self.

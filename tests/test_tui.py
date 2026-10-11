@@ -88,7 +88,7 @@ def test_slow_native_read_coalesces_refresh_and_never_overwrites_new_view(job_cl
         calls.append(request.view)
         if len(calls)==1:
             started.set();await asyncio.wait_for(release.wait(),3)
-        if request.view=='account':raise AuthenticationError('private test marker')
+        if request.view=='accounts':raise AuthenticationError('private test marker')
         return await original(request)
     queries.read=read
     async def run():
@@ -103,7 +103,7 @@ def test_slow_native_read_coalesces_refresh_and_never_overwrites_new_view(job_cl
             await pilot.pause(.05)
             assert app.view=='account' and app.snapshot is None
             release.set();await loaded(app,pilot)
-            assert calls==['jobs','account']
+            assert calls==['jobs','accounts']
             assert 'sai auth login' in str(app.query_one('#notice',Static).render())
             assert 'private test marker' not in str(app.query_one('#notice',Static).render())
             assert app.snapshot is None
@@ -114,9 +114,11 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
     monkeypatch.setenv('NO_PROXY','127.0.0.1,localhost')
     from test_default_account import state
     fail=[False]
+    directory_denied=[False]
     def reply(call,_):
         assert call['method']=='GET' and call['bearer']=='Bearer test-user'
-        if '/defaults?' in call['path']:return 200,state()
+        if '/defaults?' in call['path']:
+            return (403, {'detail':{'code':'scope_denied','message':'Denied'}}) if directory_denied[0] else (200,state())
         if fail[0]:return 403,{'detail':{'code':'scope_denied','message':'Denied'}}
         value=sample()
         if 'slurm_account_name=' in call['path']:
@@ -131,15 +133,25 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
             app=QueryApp(queries)
             async with app.run_test(size=(60,24)) as pilot:
                 await loaded(app,pilot)
-                assert len(calls)==1 and app.snapshot is not None
-                await pilot.click('#choose');await loaded(app,pilot)
-                assert len(calls)==2 and app.query_one(Select).expanded
-                await pilot.press('down','enter');await loaded(app,pilot)
-                assert len(calls)==3
+                assert len(calls)==2 and app.snapshot is not None
+                assert not app.query('#choose')
+                app.query_one('#selection',Select).value='org-research'
+                await loaded(app,pilot)
+                assert len(calls)==4
                 fail[0]=True
                 await pilot.press('r');await loaded(app,pilot)
                 assert app.snapshot is None
                 assert not str(app.query_one('#content',Static).render())
+                assert not app.query_one(Select).disabled
+                fail[0]=False
+                app.query_one(Select).value='personal-alice'
+                await loaded(app,pilot)
+                assert app.selection=='personal-alice' and app.snapshot is not None
+                directory_denied[0]=True
+                await pilot.press('r');await loaded(app,pilot)
+                assert app.snapshot is None and app.query_one(Select).disabled
+                assert len(app._options)==1
+                assert all(call['method']=='GET' for call in calls)
         asyncio.run(run())
 
 

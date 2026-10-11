@@ -363,8 +363,9 @@ standard-library HTTP, JSON, TOML and filesystem primitives. The optional
 selection and display state only. Native observations, resource renderables,
 account discovery, overview and cost contracts retain their existing owners.
 A single bounded reader coalesces refreshes; obsolete responses cannot repopulate
-a different view. No timer, credential store, authorization resolver or native
-parser is added. Local startup precedes remote configuration/authentication.
+a different view. One Textual timer schedules only the visible query; it neither
+runs overlapping reads nor adds a daemon, credential store, authorization resolver
+or native parser. Local startup precedes remote configuration/authentication.
 
 `sai status --format tui` stays a one-shot Rich summary, including at login.
 `sai tui` explicitly launches the interactive app; redirects are rejected with
@@ -461,5 +462,5 @@ consumes that same DTO. Local reads do not use OAuth or the gateway. See the
 [native allocation contract](../contracts/native-job-allocation/v1/README.md)
 for call bounds, provenance and unknown semantics. The shared CLI and site gateway were deployed on 2026-10-11 and checked with
 an ordinary user. The paired Web/Pilot source is merged; its production
-activation remains with the original Pilot release. Refresh and account-selector
-improvements follow that delivery.
+activation remains with the original Pilot release. Focused polling and account
+selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).

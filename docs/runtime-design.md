@@ -176,12 +176,21 @@ remote client only when requested. A selected cost must match cluster, account,
 user, job/task and submission time before display. Native visibility never grants
 billing permission. The interface contains no write or Pilot session handler.
 
-`r` refreshes, arrows/Enter select or inspect, `c` requests a job estimate,
+`r` refreshes, `p` pauses/resumes updates, arrows/Enter or a click inspect a row, and `c` requests a job estimate.
 Escape closes the current detail/selection and `q` exits. Outstanding reads are
 bounded and serialized; repeated requests retain only the newest pending query.
 Changing view/scope clears stale facts before loading. Account names come from
 the existing authorized defaults directory and change only the view, not the
 saved preference. Native queries do not require a business configuration or login.
+
+The visible query alone polls: jobs 5 seconds, GPU/CPU 10 seconds, native quota
+30 seconds and account information 60 seconds, measured from read completion.
+An open selector or job detail suspends automatic reads. Node detail refreshes
+from the same resource observation without an extra native call. Refresh keeps
+rows visible while reading, then preserves selection, scroll and focus; a failed
+read clears the stale result and shows its error. Account entry and refresh read
+the existing directory and overview serially. Changing the selected account
+clears its old facts immediately and never calls the default-account writer.
 
 `sai status --format tui` still prints one Rich summary without consuming stdin,
 including from the shared login fragment. Neither command starts device login
@@ -575,5 +584,5 @@ consumes that same DTO. Local reads do not use OAuth or the gateway. See the
 [native allocation contract](../contracts/native-job-allocation/v1/README.md)
 for call bounds, provenance and unknown semantics. The shared CLI and site gateway were deployed on 2026-10-11 and checked with
 an ordinary user. The paired Web/Pilot source is merged; its production
-activation remains with the original Pilot release. Refresh and account-selector
-improvements follow that delivery.
+activation remains with the original Pilot release. Focused polling and account
+selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).

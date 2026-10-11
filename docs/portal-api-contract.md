@@ -1016,5 +1016,5 @@ consumes that same DTO. Local reads do not use OAuth or the gateway. See the
 [native allocation contract](../contracts/native-job-allocation/v1/README.md)
 for call bounds, provenance and unknown semantics. The shared CLI and site gateway were deployed on 2026-10-11 and checked with
 an ordinary user. The paired Web/Pilot source is merged; its production
-activation remains with the original Pilot release. Refresh and account-selector
-improvements follow that delivery.
+activation remains with the original Pilot release. Focused polling and account
+selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).

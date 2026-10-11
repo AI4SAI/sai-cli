@@ -69,14 +69,14 @@ def _allocation(used: int | None, total: int | None, *, memory: bool = False, ba
     return row
 
 
-def _gpu_matrix(node: dict[str, Any], ready: bool | None) -> Columns | Text:
+def _gpu_matrix(node: dict[str, Any], ready: bool | None, *, numbered: bool = False) -> Columns | Text:
     gpu = node["gpu"]
     indices, total = gpu["allocated_indices"], gpu["configured_units"]
     if indices is None or total is None:
         return Text("?", style=UNKNOWN)
     idle = FREE if ready is True else BLOCKED if ready is False else UNKNOWN
     occupied = set(indices)
-    return Columns([Text("[#]" if index in occupied else "[_]",
+    return Columns([Text(f"[{index}]" if numbered else "[#]" if index in occupied else "[_]",
                          style=ALLOCATED if index in occupied else idle)
                     for index in range(total)], padding=0, equal=True)
 

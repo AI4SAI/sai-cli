@@ -61,6 +61,12 @@ Pilot orchestration or Portal page hierarchy belongs here. Native command names
 and the existing dense resource tables remain familiar. The initial view uses
 an installed native tool when present; a failed local read never changes source.
 
+Refresh only the visible query, with a visible cadence and `p` to pause/resume.
+Keep the selected row, scroll position and focus instead of clearing a list while
+reading. Suspend polling during a selector or job detail. CPU/GPU node details
+reuse the same refreshed observation. An account chooser displays actual names
+as soon as its authorized directory loads; it needs no adjacent load button.
+
 ## Information hierarchy
 
 Lead with the human account/project name and relevant site. Show a genuine

@@ -266,3 +266,24 @@ or removed and both SSH/SFTP pairs closed. The Web presentation correction is
 merged but still follows its original owner's production release. The gateway
 and native DTO did not change in this display-only publication. These checks
 do not constitute the user's visual acceptance.
+
+## Focused query interaction
+
+The current source adds automatic refresh of the visible view: jobs every 5
+seconds, GPU/CPU every 10 seconds, quota every 30 seconds and accounts every 60
+seconds. `p` pauses/resumes; `r` refreshes immediately. An open selector or job
+detail suspends polling. Reads remain serialized and bounded. Lists retain
+selection, scroll and focus; failures clear stale facts. Removing a selected
+partition does not silently expand its scope to every partition.
+
+Enter or a click on a CPU/GPU node opens inline details from that same native
+observation, including reported load/memory and known CPU dimensions or GPU
+indices. It adds no query, node SSH or measured-utilization claim. The existing
+Rich allocation bars and native GPU position renderer are reused.
+
+The account view loads one authorized selector directly, replacing the separate
+load button. Its label names the account being viewed. Each refresh uses the
+existing directory and overview GETs; a changed choice clears old account facts.
+It does not change the saved default, shell identity, payer or working directory.
+This interaction slice is a source candidate; publication and ordinary-user
+verification are still pending.
