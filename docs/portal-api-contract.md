@@ -77,6 +77,8 @@ Disabled entries are excluded. No SSH address or gateway origin is returned.
 are sorted by exact ID; deletion/disablement of the cursor row does not broaden
 the next page. Later commands explicitly select `--site` and independently
 recheck their own authority. Paired source support does not prove deployment.
+The [shared delivery record](product-delivery.md#shared-first-use-delivery) records
+the subsequent bounded ordinary-user production checks.
 
 ### Identity resource tokens
 

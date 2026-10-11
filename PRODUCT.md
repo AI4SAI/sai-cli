@@ -109,8 +109,9 @@ broader business and device coverage remains open. See
 [runtime plan](docs/runtime-design.md) and [roadmap](docs/roadmap.md).
 
 Settled job-charge reads are also deployed with bounded ordinary-user evidence.
-Published-site discovery is implemented and paired-merged, with production
-activation still separate. Account/member, project/budget, storage and compute
+Published-site discovery and the bundled Agent skill are deployed with bounded
+ordinary-user reads; see the [delivery map](docs/product-delivery.md#shared-first-use-delivery).
+Account/member, project/budget, storage and compute
 management beyond the default-account action remain product gaps; a working
 read command does not establish their management coverage.
 

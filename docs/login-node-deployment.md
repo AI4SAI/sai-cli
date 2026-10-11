@@ -3,8 +3,9 @@
 This is the cluster installation role, not the only supported product target.
 User devices and dedicated isolated user VMs install the same CLI independently
 with per-user configuration/credentials. They do not require this NFS tree or a
-Pilot runtime. The package supports HTTP reads and explicit local job queries;
-other native helper integration and Portal management remain planned.
+Pilot runtime. The package supports native queries, authorized API reads and
+the first default-account management action. The [product delivery map](product-delivery.md)
+tracks the remaining management coverage and ordinary-user evidence.
 
 The release has one immutable shared runtime archive. The small integration
 Debian package is only for an existing package-owned login-node entrypoint;
