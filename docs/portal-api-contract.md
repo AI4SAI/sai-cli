@@ -78,8 +78,9 @@ extra writer is introduced. Unknown/duplicate query fields are rejected.
 Paired [page](../contracts/collaboration-invitations/v1/README.md) and
 [detail](../contracts/collaboration-invitation/v1/README.md) contracts allowlist
 terms and current original task presentations, excluding tokens, contacts,
-provider data and raw filesystem paths. These new routes/scopes are not yet
-deployed. Existing browser invitation routes remain their own live consumers.
+provider data and raw filesystem paths. The paired API, shared client and optional
+Identity scopes are deployed; actual recipient consent and applied access remain
+separate. Existing browser invitation routes retain their live consumers.
 
 ### Published site discovery
 

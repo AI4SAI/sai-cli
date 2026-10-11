@@ -12,7 +12,8 @@ aliases, or a portable installation with normal sign-in and explicit site choice
 `sai invitations list`, `show INVITATION_ID` and `accept INVITATION_ID` support
 the recipient side of organization, project and shared-directory collaboration.
 They use separate invitation scopes and the existing acceptance/task services.
-The paired CLI, API and optional Identity scopes are merged, not yet deployed; see [invitation management](docs/portal-management.md#collaboration-invitations).
+The paired CLI, API and optional Identity scopes are deployed; actual recipient
+consent and acceptance remain separate from publication; see [invitation management](docs/portal-management.md#collaboration-invitations).
 
 Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
@@ -272,10 +273,10 @@ device code, then stores only a protected rotating refresh credential. See
 
 To authorize a supported operation without editing permission strings, use
 `sai auth login --for account set-default` or `sai auth login --for invitations`.
-This merged source feature derives permissions from the installed commands and their
+The shared client derives permissions from the installed commands and their
 readback. Browser confirmation updates the device login; it runs no business
-action and leaves the profile unchanged. Existing deployed clients may not yet
-support this option.
+action and leaves the profile unchanged. Shared source `7939328519f4` includes
+this option; older independent installations require an update.
 
 In capability mode the CLI first exchanges the user Bearer for an opaque,
 operation-bound site-read capability, then calls the matching server-bound CLI

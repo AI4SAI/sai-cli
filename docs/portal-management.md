@@ -102,9 +102,10 @@ Use the separately authorized `account defaults` read to inspect the result.
 
 Contracts: [page](../contracts/collaboration-invitations/v1/README.md) and
 [detail/accept](../contracts/collaboration-invitation/v1/README.md).
-CLI, Portal and Identity changes are merged after local integrated checks and
-GitHub CI. Production registration, deployment and a real requested user task
-remain separate acceptance work.
+The paired API, shared CLI and optional Identity scopes are deployed. An
+ordinary user's existing session retained its reads and correctly lacked the
+new invitation permissions. Actual additional consent, recipient acceptance
+and applied site access remain separate acceptance work.
 Inviter-side member/role management and broader budgets/storage/compute remain
 separate gaps; this recipient workflow does not complete those domains.
 

@@ -24,11 +24,12 @@ historical entries are not an automatic new-feature queue.
 - [ ] Observe independent first-use experience on supported user devices;
   existing-session login-host checks do not prove fresh self-service onboarding
 - [ ] Deliver the recipient invitation task through the original collaboration
-  owner; paired list/detail/accept and optional scopes are merged and tested,
-  with production registration and actual consent still separate
-- [ ] Deliver task-based consent without manual scope/profile editing:
-  merged `auth login --for` reuses installed operation metadata, protected
-  device credentials and normal Identity browser consent
+  owner; paired list/detail/accept, shared client and optional scopes are deployed;
+  actual new consent, recipient acceptance and site application remain open
+- [x] Publish task-based consent without manual scope/profile editing:
+  shared source `7939328519f4`, original metadata/credentials and normal Identity
+  consent. Existing-session reads and missing-scope denial passed; actual new
+  user consent remains a separate acceptance step
 - [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
   supported platforms and release policy; license/publication remain unapproved
 
