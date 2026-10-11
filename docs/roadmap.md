@@ -24,8 +24,8 @@ historical entries are not an automatic new-feature queue.
 - [ ] Observe independent first-use experience on supported user devices;
   existing-session login-host checks do not prove fresh self-service onboarding
 - [ ] Deliver the recipient invitation task through the original collaboration
-  owner; paired list/detail/accept and optional scopes are a tested source
-  candidate, with production registration and actual consent still separate
+  owner; paired list/detail/accept and optional scopes are merged and tested,
+  with production registration and actual consent still separate
 - [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
   supported platforms and release policy; license/publication remain unapproved
 

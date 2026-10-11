@@ -102,7 +102,9 @@ Use the separately authorized `account defaults` read to inspect the result.
 
 Contracts: [page](../contracts/collaboration-invitations/v1/README.md) and
 [detail/accept](../contracts/collaboration-invitation/v1/README.md).
-This remains a paired source candidate pending full validation and deployment.
+CLI, Portal and Identity changes are merged after local integrated checks and
+GitHub CI. Production registration, deployment and a real requested user task
+remain separate acceptance work.
 Inviter-side member/role management and broader budgets/storage/compute remain
 separate gaps; this recipient workflow does not complete those domains.
 
