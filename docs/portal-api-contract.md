@@ -64,6 +64,23 @@ deployment; source compatibility is not production activation.
 
 ## Authentication
 
+### Recipient collaboration invitations
+
+`GET /v1/account/cli/invitations` accepts only `limit` (1–100) and the returned
+exclusive invitation-ID `cursor`. `GET /v1/account/cli/invitations/{id}` reads
+that recipient's invitation and access-task results. Both require
+`sai.collaboration.invitations.read`. `POST /v1/account/cli/invitations/{id}/accept`
+requires `sai.collaboration.invitations.accept` and an empty JSON object; it
+reuses the original acceptance operation. The invitation ID is the natural
+replay key. No automatic client retry, site capability, scheduler query or
+extra writer is introduced. Unknown/duplicate query fields are rejected.
+
+Paired [page](../contracts/collaboration-invitations/v1/README.md) and
+[detail](../contracts/collaboration-invitation/v1/README.md) contracts allowlist
+terms and current original task presentations, excluding tokens, contacts,
+provider data and raw filesystem paths. These new routes/scopes are not yet
+deployed. Existing browser invitation routes remain their own live consumers.
+
 ### Published site discovery
 
 `GET /v1/account/cli/sites` uses the existing Identity `sai.compute.read` scope

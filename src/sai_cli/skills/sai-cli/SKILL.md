@@ -76,6 +76,20 @@ For the implemented default-account change:
 Follow each future operation's own receipt/retry contract rather than applying
 this preference-specific procedure to unrelated writes.
 
+For received collaboration invitations, discover your pending invitations and
+read the selected invitation's target, role, validity and scope before accepting
+the user's requested one. The invitation carries its target site and current
+terms; do not send a site override or an invitation-link secret. Its ID is the
+replay identity.
+After a conflict or uncertain response, read that same invitation before deciding
+whether to retry. Acceptance time, currently linked task results and current
+workspace access are separate facts. Administrators can change an accepted directory invitation
+later; a repeat acceptance is not fresh consent to those changed terms.
+Organization membership becoming active also selects that organization as the
+default computing account under the existing business rule. Explain that effect
+before accepting an organization invitation; inspect `account defaults` with
+its separate read permission when the user needs the resulting account state.
+
 ## Return a useful answer
 
 Explain the result, selected site/account and any action still pending. Successful

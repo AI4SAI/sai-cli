@@ -24,6 +24,7 @@ from .managed_runs import (
 from .run_cost import ManagedRunCost
 from .job_charges import JobCharges
 from .sites import SiteDirectory, site_directory_query
+from .invitations import Invitations, invitation_reference
 from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -417,6 +418,30 @@ class PortalClient:
             self.token_provider.invalidate(lease)
             lease = self.token_provider.get(force_exchange=True)
             return self._get_with_lease(path, query=query, lease=lease)
+
+    def invitations(self, *, limit: int = 50, cursor: str | None = None) -> Invitations:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("invitation page limit must be between 1 and 100")
+        try:
+            cursor = invitation_reference(cursor) if cursor is not None else None
+        except ValueError as exc:
+            raise ConfigError("invitation cursor must be an ID from the previous page") from exc
+        response = self._central_get("/v1/account/cli/invitations", query={"limit": limit, "cursor": cursor})
+        return Invitations.page(response.payload, limit=limit, cursor=cursor, request_id=response.request_id)
+
+    def invitation(self, invitation_id: str, *, accept: bool = False) -> Invitations:
+        try:
+            identifier = invitation_reference(invitation_id)
+        except ValueError as exc:
+            raise ConfigError("invitation ID is invalid") from exc
+        path = "/v1/account/cli/invitations/" + quote(identifier, safe="")
+        if accept:
+            lease = self.token_provider.get()
+            response = self.transport.request("POST", path + "/accept",
+                headers={"Authorization": f"Bearer {lease.token}"}, json_body={})
+        else:
+            response = self._central_get(path, query={})
+        return Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
 
     def list_run_workspaces(self, *, site_id: str, limit: int = 50,
                             cursor: str | None = None, workspace_key: str | None = None) -> ManagedRunWorkspaces:

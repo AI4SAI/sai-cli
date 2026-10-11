@@ -61,6 +61,51 @@ business preference from a personal device.
   can replay the same request key and intent, then read the saved preference and
   site receipt. Receipt time is historical evidence, not continuous monitoring.
 
+## Collaboration invitations
+
+The next complete ordinary-user task is to read an invitation addressed to you,
+understand its target, role, validity and site scope, accept that exact invitation,
+and inspect the owner's currently linked access-task result. The three commands are
+`invitations list`, `invitations show INVITATION_ID` and
+`invitations accept INVITATION_ID`. They add no TUI page or invitation database.
+
+Portal reuses `OrgInvitation`, the canonical recipient and expiry predicates,
+`accept_workspace_invitation_by_id`, and the existing task readback service.
+The target and current terms belong to the invitation; there is no caller-selected recipient,
+site override or invitation secret in command arguments. The pending list is
+paged by immutable invitation ID. Detail remains an exact recipient-bound read
+after the invitation leaves the pending list. Shared-directory site labels
+preserve the original namespace scope rather than implying a single-site grant.
+
+Read/show require `sai.collaboration.invitations.read`; acceptance requires
+`sai.collaboration.invitations.accept`. Both are optional user-consent scopes.
+Existing compute, storage, billing and default-account grants stay unchanged.
+Normal account eligibility and current inviter authority still apply. A claimed
+open invitation can require Identity assurance before acceptance; initial token
+claiming stays in its existing browser flow.
+
+The immutable invitation ID is the domain's natural replay identity. A repeat
+uses the existing locked acceptance and task generation; it does not issue a
+new invitation or restore a subsequently revoked relationship. No automatic
+write retry is added. `accepted` is the invitation state. Per-site deliveries
+come from the owner's currently linked tasks, and `workspace_available` is a
+separate current access check. An administrator can update an accepted directory
+invitation's role, validity and linked task; `accepted_at` is historical and does
+not prove acceptance of those later terms. A completed task alone never grants
+current access.
+
+When organization membership becomes active, the original business rule selects
+that organization as the user's default computing account and synchronizes it
+to sites. Explain this effect before accepting an organization invitation. The
+accept scope covers that existing effect, not arbitrary preference changes.
+Use the separately authorized `account defaults` read to inspect the result.
+
+Contracts: [page](../contracts/collaboration-invitations/v1/README.md) and
+[detail/accept](../contracts/collaboration-invitation/v1/README.md).
+This remains a paired source candidate pending full validation and deployment.
+Inviter-side member/role management and broader budgets/storage/compute remain
+separate gaps; this recipient workflow does not complete those domains.
+
 ## Delivery gates
 
 Verify the ordinary user identity, read-only token rejection, revoked membership,

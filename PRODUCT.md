@@ -115,6 +115,10 @@ Account/member, project/budget, storage and compute
 management beyond the default-account action remain product gaps; a working
 read command does not establish their management coverage.
 
+Recipient invitation discovery, acceptance and original task readback are the
+next paired source candidate, with separate optional scopes. Inviter-side
+management remains planned. See the [task map](docs/product-delivery.md).
+
 WebUI/Pilot product modules and the role-based hardware digital twin remain
 with their existing owners. [Hardware design](docs/digital-twin-design.md) records
 asset-based parametric 3D and Agent-readable facts; 3D is not a prerequisite for
