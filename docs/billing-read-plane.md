@@ -4,9 +4,10 @@ Status: unified native observations and Portal presentation deployed; bounded
 ordinary-user list/estimate reads passed, including a nonempty organization
 scope on 2026-10-07. Complete task acceptance remains open.
 
-This is the cross-product boundary for `sai-cli`, `sai-pilot`, Portal, and site
-runtime. Native job facts come from the capability gateway; Portal remains the
-only price owner. Network routing may differ by site, but product semantics do
+This is the remote read and billing boundary for `sai-cli`, `sai-pilot`, Portal,
+and site runtime. Remote native job facts come from the capability gateway;
+explicit cluster-local CLI queries use Slurm under the caller's Unix authority.
+Portal remains the only price owner. Network routing may differ by site, but product semantics do
 not. Existing production evidence is recorded in the
 [basic connection](site-local-read-plane.md#basic-production-connection).
 
@@ -26,7 +27,7 @@ site observations -> Portal operation worker -> exposure/settlement
 | Portal | actor binding, membership, site/account policy, issuer, pricing, settled facts and issuance audit | Identity credentials and native scheduler access |
 | Site-read gateway | envelope verification, claim narrowing, native read adapter, short cache, bounded audit buffer | membership/RBAC decisions, wallet/ledger writes, provisioning or scheduler writes |
 | Billing contract/kernel | versioned DTOs and deterministic arithmetic used by Portal | independent price policy or final settlement |
-| `sai-cli` / `sai-pilot` | explicit intent, bootstrap/renewal, transport, allowlist validation, presentation | Slurm access, price calculation, wallet/ledger access, authorization policy |
+| `sai-cli` / `sai-pilot` | explicit intent, bootstrap/renewal, transport, allowlist validation, presentation; explicit CLI local queries under caller UID | scheduler administration through a read grant, price calculation, direct wallet/ledger database access, authorization policy |
 
 The gateway and clients do not calculate prices. Portal applies its existing
 start-time pricing and payer visibility rules to the returned observation.
@@ -98,7 +99,9 @@ authoritative binding proves their relationship. See the
 [native usage contract](portal-api-contract.md#native-usage-and-optional-estimates).
 
 The site runtime reuses its canonical Slurm queue/detail adapter. This client
-repository owns no native reader and no gateway server. The independent gateway
+repository owns the explicit local native readers described in the
+[native jobs contract](../contracts/native-jobs/v1/README.md); it contains no
+gateway server. The independent gateway
 must be packaged as a low-privilege role separate from the existing
 write-capable site-agent package and must exclude broad accounting scans, enforcement,
 provisioning, quota mutation, identity administration, and sudo.

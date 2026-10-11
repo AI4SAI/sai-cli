@@ -15,6 +15,8 @@ isolated-session revocation; see [portable management](docs/portal-management.md
 This validates the first management action, not every business domain or platform.
 Business operations retain Portal's authority.
 See [the product scope](PRODUCT.md).
+The [task and delivery map](docs/product-delivery.md) distinguishes implemented
+capabilities, complete user journeys and the proposed public distribution.
 
 The existing account/access information, funds, budget and cost commands remain
 available. Start with `sai`
@@ -241,7 +243,7 @@ export SAI_TOKEN='<short-lived-identity-token>'
 export SAI_REQUIRE_SITE_CAPABILITY=1
 ```
 
-All current HTTP commands use SAI Identity authentication. Planned native local
+All current HTTP commands use SAI Identity authentication. Implemented native local
 queries use the existing Unix/native authority independently. `SAI_TOKEN` is process-local
 and is never cached; it does not belong in a shell profile or TOML file.
 Legacy HMAC exchange and its bearer cache are retired. `SAI_API_USERNAME`,
