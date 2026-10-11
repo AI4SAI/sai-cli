@@ -127,3 +127,32 @@ def test_failed_discovery_and_oversized_metadata_leave_no_config(tmp_path,monkey
     with http_endpoint(lambda *_:(200,{**settings('https://id.example.org'),'extra':'x'*16384})) as (origin,_):
         code,text,error=invoke(tmp_path,'configure',origin)
         assert code==7 and not text and not (tmp_path/'config/sai/config.toml').exists()
+
+
+def test_first_use_never_claims_success_with_another_effective_connection(tmp_path,monkeypatch):
+    from sai_cli.cli import build_parser
+    from sai_cli.config import resolve_settings
+    monkeypatch.setenv('NO_PROXY','127.0.0.1,localhost')
+    with _server() as (identity,_), http_endpoint(lambda *_:(200,settings(identity))) as (service,_):
+        destination=tmp_path/'config/sai/config.toml'
+        for overrides in ({'SAI_API_BASE_URL':'https://previous.example.org'},
+                          {'SAI_IDENTITY_ISSUER':'https://other.example.org'},
+                          {'SAI_OIDC_CLIENT_ID':'old-client'},
+                          {'SAI_OIDC_RESOURCE':'old-resource'},
+                          {'SAI_OIDC_SCOPE':'openid offline_access'},
+                          {'SAI_REQUIRE_SITE_CAPABILITY':'false'}):
+            code,text,error=invoke(tmp_path,'configure',service,env=overrides)
+            assert code==2 and not text and not destination.exists()
+            assert 'configuration_environment_conflict' in error
+            assert next(iter(overrides)) in error
+            assert next(iter(overrides.values())) not in json.loads(error)['error']['message']
+        matching={'SAI_API_BASE_URL':service+'/', 'SAI_IDENTITY_ISSUER':identity+'/',
+                  'SAI_REQUIRE_SITE_CAPABILITY':'true'}
+        code,text,error=invoke(tmp_path,'configure',service,env=matching)
+        assert code==0,error
+        actual=resolve_settings(build_parser().parse_args(['sites']),
+                                {'XDG_CONFIG_HOME':str(tmp_path/'config'),**matching},require_site=False)
+        assert actual.base_url==service and actual.identity_issuer.rstrip('/')==identity
+        original=destination.read_bytes()
+        assert invoke(tmp_path,'configure',service,env={'SAI_API_BASE_URL':'https://previous.example.org'})[0]==2
+        assert destination.read_bytes()==original

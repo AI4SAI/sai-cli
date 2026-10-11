@@ -10,7 +10,7 @@ import tempfile
 from typing import Mapping
 from urllib.parse import urlsplit, urlunsplit
 
-from .config import _parse_bool, _parse_timeout, _profile, _read_config, default_config_path
+from .config import _parse_bool, _parse_timeout, _profile, _read_config, default_config_path, validate_connection_environment
 from .errors import ConfigError, ContractError
 from .oidc import OidcClient
 from .transport import JsonTransport, normalize_base_url
@@ -57,7 +57,9 @@ def configure(args: argparse.Namespace, environ: Mapping[str, str], *, scope: st
         if any(saved.get(key) != value for key, value in values.items() if key != "oidc_scope"):
             raise ConfigError("An existing configuration differs; choose a new --config path. Existing profiles were kept.",
                               code="configuration_exists")
+        validate_connection_environment(saved, environ)
     else:
+        validate_connection_environment(values, environ)
         content = f"default_profile = {json.dumps(profile)}\n\n[profiles.{json.dumps(profile)}]\n"
         content += "".join(f"{key} = {json.dumps(value)}\n" for key, value in values.items())
         _create_profile(path, content)

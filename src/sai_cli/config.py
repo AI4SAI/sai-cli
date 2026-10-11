@@ -18,6 +18,7 @@ from .transport import normalize_base_url
 
 
 _PROFILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_DEFAULT_OIDC_SCOPE = "openid offline_access"
 _MANAGED_CONFIG_PATH = Path("/opt/sai/cli/config.toml")
 _MANAGED_CONFIG_OWNER_UID = 0
 _RETIRED_AUTH_ENV = ("SAI_API_USERNAME", "SAI_API_KEY_ID", "SAI_API_SHARED_SECRET")
@@ -72,7 +73,7 @@ class Settings:
     credential_path: Path | None = None
     identity_issuer: str | None = None
     oidc_client_id: str = "sai-cli"
-    oidc_scope: str = "openid offline_access"
+    oidc_scope: str = _DEFAULT_OIDC_SCOPE
     oidc_resource: str | None = None
     managed_login_node: bool = False
     require_site_capability: bool = False
@@ -292,6 +293,29 @@ def _site_read_origin(value: object, *, managed: bool) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc.lower(), "", "", ""))
 
 
+def validate_connection_environment(values: Mapping[str, Any], environ: Mapping[str, str]) -> None:
+    """A saved first-use profile must describe the subsequent command's connection."""
+    fields = {"SAI_API_BASE_URL": "base_url", "SAI_IDENTITY_ISSUER": "identity_issuer",
+              "SAI_OIDC_CLIENT_ID": "oidc_client_id", "SAI_OIDC_SCOPE": "oidc_scope",
+              "SAI_OIDC_RESOURCE": "oidc_resource"}
+    conflicts = []
+    for variable, key in fields.items():
+        override = _first_text(environ.get(variable))
+        configured = _first_text(values.get(key), _DEFAULT_OIDC_SCOPE if key == "oidc_scope" else None)
+        if key in {"base_url", "identity_issuer"}:
+            override = override.rstrip("/") if override else None
+            configured = configured.rstrip("/") if configured else None
+        if override is not None and override != configured:
+            conflicts.append(variable)
+    variable = "SAI_REQUIRE_SITE_CAPABILITY"
+    if variable in environ and _parse_bool(environ[variable], field=variable) != values.get("require_site_capability"):
+        conflicts.append(variable)
+    if conflicts:
+        raise ConfigError("Connection environment overrides the selected profile; unset " +
+                          ", ".join(conflicts) + " and retry. Existing files were kept.",
+                          code="configuration_environment_conflict")
+
+
 def resolve_settings(
     args: argparse.Namespace, environ: Mapping[str, str] | None = None, *, require_site: bool = True,
 ) -> Settings:
@@ -406,8 +430,8 @@ def resolve_settings(
     oidc_scope = _first_text(
         None if managed else env.get("SAI_OIDC_SCOPE"),
         values.get("oidc_scope"),
-        "openid offline_access",
-    ) or "openid offline_access"
+        _DEFAULT_OIDC_SCOPE,
+    ) or _DEFAULT_OIDC_SCOPE
     oidc_resource = _first_text(
         None if managed else env.get("SAI_OIDC_RESOURCE"),
         values.get("oidc_resource"),

@@ -132,6 +132,9 @@ request ID for support, without exporting credentials or raw logs.
 If the local connection is missing, repeat `sai configure` with your trusted
 service URL. If a file already points elsewhere, retain it and use a separate
 `--config PATH`; do not copy credentials or remove an existing login to repair it.
+If configuration reports a connection environment conflict, unset only the
+listed old `SAI_*` variables and retry. Matching overrides are accepted; a saved
+profile must not silently lose to an old service address in the Shell.
 
 Install a reviewed newer wheel with the same environment's `python -m pip install`
 and `--upgrade`. Keep the earlier wheel for `--force-reinstall` rollback. Updating
