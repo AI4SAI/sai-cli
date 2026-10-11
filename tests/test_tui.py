@@ -23,7 +23,8 @@ from test_site_transport import http_endpoint
 async def loaded(app, pilot):
     for _ in range(100):
         await pilot.pause(.02)
-        if not app._reading:
+        if (not app._reading and app.view == app.query_one(Tabs).active
+                and app.selection == app.query_one(Select).value):
             return
     pytest.fail('read did not finish')
 
