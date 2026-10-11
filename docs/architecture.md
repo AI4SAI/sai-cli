@@ -84,6 +84,11 @@ the caller to inspect completion without creating a second workflow engine.
 An available browser route is not automatically an OAuth Agent endpoint.
 Local source availability and remote management do not depend on 3D deployment.
 
+`sai sites` projects the existing published Portal site chooser to a bounded
+ID/name page. It provides the missing discovery step before explicit site
+selection on a portable client. Discovery does not resolve credential origins,
+select a site, or grant site access; each later operation keeps its own policy.
+
 The first write uses Portal's existing preference writer and projection tasks,
 behind an explicit Identity resource adapter. An expected saved account prevents
 overwriting a concurrent choice; the existing idempotency record preserves the

@@ -46,6 +46,10 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [x] Publish offline `sai describe` over the existing command registration;
   source `d7b0a62e97fa` was selected on 2026-10-10. Standard-user no-config/no-native
   discovery and normal-entry TUI checks passed; actual user-device/VM actions remain separate
+- [x] Add `sai sites` to discover published IDs/names before explicit selection
+  from a portable client, using the existing Portal site chooser
+- [ ] Publish and verify the paired site-directory route and client on the
+  ordinary user's installed path; source tests do not close this gate
 - [ ] Verify noninteractive Agent use on a user device and dedicated isolated VM,
   with explicit local/remote prerequisites; the independent Linux-container
   default-account flow below is verified, not the whole device/platform matrix

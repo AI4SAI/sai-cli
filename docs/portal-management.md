@@ -72,6 +72,11 @@ acceptance; source tests are not proof of a real site applying the preference.
 
 ## Discover before invoking
 
+After signing in on a user device, use `sai sites` to obtain published site
+names and IDs without having to configure a site first. Pass a returned ID to
+the next site-specific command. Directory presence is not permission to use a
+site, and the CLI does not select or save one automatically.
+
 `sai describe` returns a compact operation catalogue. Use
 `sai describe account set-default` for exact parameter flags/requiredness,
 `business_write`, the separate write scope and `account defaults` readback.

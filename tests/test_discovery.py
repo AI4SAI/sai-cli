@@ -36,7 +36,7 @@ def test_discovery_is_independent_of_config_auth_native_commands_and_ui(tmp_path
     assert payload['schema_version']=='cli.describe/v1' and payload['authorization_checked'] is False
     assert payload['detailed'] is False
     commands={tuple(row['command']) for row in payload['operations']}
-    assert len(commands)==32 and {('jobs','local'),('jobs','charges'),('runs','download'),('account','set-default'),('describe',)}<=commands
+    assert len(commands)==33 and {('sites',),('jobs','local'),('jobs','charges'),('runs','download'),('account','set-default'),('describe',)}<=commands
     assert not any('parameters' in row for row in payload['operations'])
     for words in commands:
         exact=describe(build_parser(),list(words))
@@ -71,6 +71,8 @@ def test_effects_scope_minima_and_readback_do_not_invent_authority():
     assert operation('auth','status')['required_scopes']==[]
     assert operation('runs','download')['effect']=='local_file_write'
     assert operation('runs','cost')['required_scopes']==['sai.billing.read']
+    assert not operation('sites')['site_required'] and not operation('sites')['site_option']
+    assert operation('sites')['required_scopes']==['sai.compute.read']
     assert operation('runs','read')['required_scopes']==['sai.compute.read']
     assert operation('storage','native-quota')['required_scopes']==['sai.storage.read']
     write=operation('account','set-default')

@@ -72,6 +72,13 @@ usability acceptance.
 
 ## Command surface
 
+`sai sites` needs the central profile and ordinary `sai.compute.read`, but no
+site or cluster selection. It lists published site IDs/names from the existing
+Portal directory, excluding disabled entries and operational fields. Keyset
+pages accept `--limit` and the returned `--cursor`. JSON is the default; table
+mode has two columns. The command does not save configuration or probe sites.
+It adds no TUI page and leaves the local native command path unchanged.
+
 The current release exposes read-only job and resource commands:
 
 ```bash
