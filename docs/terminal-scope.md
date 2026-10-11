@@ -285,5 +285,15 @@ The account view loads one authorized selector directly, replacing the separate
 load button. Its label names the account being viewed. Each refresh uses the
 existing directory and overview GETs; a changed choice clears old account facts.
 It does not change the saved default, shell identity, payer or working directory.
-This interaction slice is a source candidate; publication and ordinary-user
-verification are still pending.
+
+Source `053ffffc2ea8` was published on 2026-10-11 through the existing shared
+runtime. Its 955 files and permissions passed exact readback; configuration and
+login-profile hashes stayed unchanged. Ordinary-user candidate and selected
+checks exercised the actual job timer, pause/resume, retained selection, native
+GPU/CPU node details, refreshed detail, 40-column layout and authorized account
+chooser. Node expansion added no query. The selected command entered/exited a
+real PTY with its original terminal settings restored. No job or account setting
+was changed. Source tests passed 1164 checks, builds/public scans passed and
+Python 3.11/3.13 CI succeeded. Previous runtime and guarded rollback remain
+available. This is bounded login-node verification, not fleet or human usability
+acceptance.

@@ -16,9 +16,10 @@ not imply production activation or completion of a paired rollout.
   named CPU socket groups; human usability acceptance remains separate.
 - [ ] Activate the merged Web/Pilot consumer and updated central relay with
   their original release owner; their source merge is not production acceptance.
-- [ ] Publish and verify the focused-query interaction candidate: visible-view
-  polling, inline CPU/GPU node inspection and one direct account chooser.
-  It preserves the delivered per-job topology and existing query authorities.
+- [x] Publish focused-query interaction `053ffffc2ea8`: visible-view polling,
+  inline CPU/GPU node inspection and one direct account chooser. Ordinary-user
+  candidate/selected reads and terminal restoration passed on a login node;
+  human usability acceptance remains separate.
 
 Follow the [task and delivery map](product-delivery.md). It identifies the
 user outcome, existing capability owner, implemented surface and remaining
