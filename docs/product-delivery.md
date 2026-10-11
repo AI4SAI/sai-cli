@@ -20,8 +20,10 @@ product hypothesis to validate, not a result established by publishing source.
 
 The current judgment is a useful internal client with incomplete independent
 onboarding, not a finished public product. The shipped guide still needs an
-operator-supplied wheel and trusted connection profile; additional permissions
-require editing the requested scopes before normal consent. These are concrete
+operator-supplied wheel and trusted connection profile. The current deployed
+client still needs manual scope editing; a candidate `auth login --for` resolves
+operation/readback scopes from installed metadata and preserves the old login
+until consent succeeds, without changing the profile. These are concrete
 distribution and onboarding gaps. More business commands do not close them.
 Linux acceptance also does not establish Windows or macOS support.
 

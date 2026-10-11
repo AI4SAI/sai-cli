@@ -270,6 +270,13 @@ origin/site once and run `sai auth login`. It prints a one-time browser URL and
 device code, then stores only a protected rotating refresh credential. See
 [docs/cli-auth.md](docs/cli-auth.md).
 
+To authorize a supported operation without editing permission strings, use
+`sai auth login --for account set-default` or `sai auth login --for invitations`.
+This source candidate derives permissions from the installed commands and their
+readback. Browser confirmation updates the device login; it runs no business
+action and leaves the profile unchanged. Existing deployed clients may not yet
+support this option.
+
 In capability mode the CLI first exchanges the user Bearer for an opaque,
 operation-bound site-read capability, then calls the matching server-bound CLI
 route. The capability is never decoded by the CLI. It is obtained only from

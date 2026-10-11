@@ -71,6 +71,8 @@ def test_token_cache_rejects_weak_permissions(tmp_path: Path) -> None:
 
     with pytest.raises(AuthenticationError, match="permissions"):
         TokenCache(path).get("missing", now=0)
+    with pytest.raises(AuthenticationError, match="permissions"):
+        TokenCache(path).scope("missing")
 
 
 def test_token_cache_rejects_whitespace_credentials(tmp_path: Path) -> None:
@@ -88,6 +90,8 @@ def test_token_cache_rejects_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(AuthenticationError, match="regular file"):
         TokenCache(link).get("missing", now=0)
+    with pytest.raises(AuthenticationError, match="regular file"):
+        TokenCache(link).scope("missing")
 
 
 def test_token_cache_delete_rejects_dangling_symlink(tmp_path: Path) -> None:
@@ -217,6 +221,7 @@ def test_device_refresh_rotates_and_reuses_protected_cache(
     assert lease.token == "access-new"
     assert lease.source == "cache"
     assert provider.device_refresh(now=1_700_000_000) == ("refresh-new", refresh_expiry)
+    assert provider.device_scope() is None  # Legacy grant scope remains unknown on omission.
     assert oidc.calls == 1
 
 

@@ -390,6 +390,14 @@ at most once after authentication failure.
 
 ## Token and device credential caches
 
+The configured scope baseline stays part of the credential key. Explicit
+`auth login --for` consent can extend the same profile's session without writing
+TOML or selecting a different origin. The existing protected pending/refresh
+records carry requested/granted scope metadata; no extra registry is introduced.
+Pending or under-granted consent preserves the old login. Refresh uses an
+explicit returned scope, or retains the known grant when omitted; legacy scope
+metadata remains unknown. Business permission remains server-owned.
+
 Cache path precedence is:
 
 ```text

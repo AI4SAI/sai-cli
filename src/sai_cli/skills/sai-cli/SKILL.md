@@ -53,9 +53,12 @@ Carry out the user's authorized intent; resolve an ambiguous target or unrequest
 side effect first. Existing read authorization grants no management permission.
 For an additional scope, obtain normal user consent through Identity; never
 borrow an administrator's session or use a business database.
-Scope requests come from `oidc_scope` in the user's unmanaged profile. Add only
-the operation's needed scopes for the requested task, then sign in again for
-consent. Preserve unrelated profile values and the managed cluster configuration.
+Use `sai auth login --for <command words> --no-wait`, then `sai auth login
+--resume` after browser confirmation. For example, `--for account set-default`
+includes its required readback; `--for invitations` covers that command group.
+The installed command metadata owns permission selection. Do not edit the
+profile or run the business action as part of login. Known current permissions
+are retained; pending or insufficient consent leaves the prior login usable.
 
 For the implemented default-account change:
 

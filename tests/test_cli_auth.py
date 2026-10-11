@@ -17,6 +17,10 @@ class _AuthServer(ThreadingHTTPServer):
     requests: list[dict[str, Any]]
     poll_count: int = 0
     account_status_code: int = 200
+    requested_scope: str = ""
+    granted_scope: str | None = None
+    token_suffix: str = ""
+    access_scopes: dict[str, set[str]]
 
 
 class _AuthHandler(BaseHTTPRequestHandler):
@@ -41,6 +45,7 @@ class _AuthHandler(BaseHTTPRequestHandler):
         )
         self.server.requests.append({"path": self.path, "body": body})
         if self.path == "/oauth/device":
+            self.server.requested_scope = body["scope"]
             host, port = self.server.server_address
             self._json(
                 {
@@ -55,14 +60,18 @@ class _AuthHandler(BaseHTTPRequestHandler):
         if self.path == "/oauth/token":
             self.server.poll_count += 1
             now = int(time.time())
+            token = "opaque-access-token" + self.server.token_suffix
+            granted = self.server.granted_scope or self.server.requested_scope
+            self.server.access_scopes[token] = set(granted.split())
             self._json(
                 {
                     "token_type": "Bearer",
-                    "access_token": "opaque-access-token",
+                    "access_token": token,
                     "expires_in": 300,
-                    "refresh_token": "opaque-refresh-token",
+                    "refresh_token": "opaque-refresh-token" + self.server.token_suffix,
                     "subject": "subject-1",
                     "device_id": "device-id-1",
+                    **({"scope": self.server.granted_scope} if self.server.granted_scope is not None else {}),
                 }
             )
             return
@@ -73,6 +82,14 @@ class _AuthHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         self.server.requests.append({"path": self.path, "authorization": self.headers.get("Authorization")})
+        if self.path.startswith("/v1/account/cli/invitations?"):
+            token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+            if "sai.collaboration.invitations.read" not in self.server.access_scopes.get(token, set()):
+                self._json({"detail": {"code": "identity_scope_denied"}}, 403)
+            else:
+                self._json({"schema_version": "collaboration.invitations/v1", "items": [],
+                            "count": 0, "has_more": False, "next_cursor": None})
+            return
         if self.path == "/v1/account/cli/status":
             if self.server.account_status_code != 200:
                 self._json({"detail": {"code": "account_status_unavailable", "message": "Account status unavailable"}}, self.server.account_status_code)
@@ -107,6 +124,7 @@ class _AuthHandler(BaseHTTPRequestHandler):
 def _server() -> Iterator[tuple[str, _AuthServer]]:
     server = _AuthServer(("127.0.0.1", 0), _AuthHandler)
     server.requests = []
+    server.access_scopes = {}
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -246,3 +264,100 @@ def test_status_without_credentials_gives_login_action_without_starting_authoriz
                     environ=_env(tmp_path, identity_issuer=base_url), stdout=StringIO(), stderr=cache_error) == 3
         assert "permissions are not private" in cache_error.getvalue()
         assert "sai auth login" not in cache_error.getvalue()
+
+
+def test_task_consent_preserves_session_until_approved_and_survives_resume_refresh(tmp_path: Path) -> None:
+    from sai_cli.cli import build_parser
+    from sai_cli.config import resolve_settings
+    from sai_cli.auth import TokenProvider
+    from sai_cli.cli import _build_oidc_client, _build_transport
+
+    with _server() as (origin, server):
+        profile = tmp_path / "config.toml"
+        profile.write_text(f'default_profile = "device"\n[profiles.device]\nbase_url = "{origin}"\n'
+                           f'identity_issuer = "{origin}"\noidc_scope = "openid offline_access"\n')
+        profile.chmod(0o600)
+        original_profile = profile.read_bytes()
+        env = _env(tmp_path)
+
+        def call(words, expected=0):
+            out, err = StringIO(), StringIO()
+            assert main(["--config", str(profile), *words], environ=env, stdout=out, stderr=err) == expected, err.getvalue()
+            assert "opaque-access-token" not in out.getvalue() + err.getvalue()
+            assert "opaque-refresh-token" not in out.getvalue() + err.getvalue()
+            assert profile.read_bytes() == original_profile
+            return json.loads(out.getvalue() if expected == 0 else err.getvalue())
+
+        call(["auth", "login"])
+        assert "sai auth login --for invitations list" in call(["invitations", "list"], 4)["error"]["message"]
+        server.token_suffix = "-invitations"
+        pending = call(["auth", "login", "--for", "invitations", "accept", "--no-wait"])
+        required = {"openid", "offline_access", "sai.collaboration.invitations.read", "sai.collaboration.invitations.accept"}
+        assert set(pending["requested_scopes"]) == required
+        # The old session keeps working while browser consent is pending.
+        assert set(call(["auth", "status"])["scopes"]) == {"openid", "offline_access"}
+        assert next(item for item in reversed(server.requests) if "authorization" in item)["authorization"] == "Bearer opaque-access-token"
+        assert set(call(["auth", "login", "--resume"])["scopes"]) == required
+        assert call(["invitations", "list"])["items"] == []
+
+        args = build_parser().parse_args(["--config", str(profile), "auth", "status"])
+        settings = resolve_settings(args, env, require_site=False)
+        provider = TokenProvider(settings=settings, transport=_build_transport(settings), environ=env,
+                                 oidc_client=_build_oidc_client(settings))
+        provider.cache.delete(provider._device_access_key())
+        # Refresh omits scope: retain the original grant, not the profile baseline.
+        assert set(call(["auth", "status"])["scopes"]) == required
+        assert server.requests[-2]["body"]["grant_type"] == "refresh_token"
+        assert call(["invitations", "list"])["items"] == []
+
+        server.token_suffix = "-defaults"
+        granted = call(["auth", "login", "--for", "account", "set-default"])
+        required |= {"sai.compute.read", "sai.compute.defaults.write"}
+        assert set(granted["scopes"]) == required
+        assert set(server.requested_scope.split()) == required
+        assert all(item["path"].startswith(("/oauth/", "/.well-known/", "/v1/account/cli/status", "/v1/account/cli/invitations?")) for item in server.requests)
+
+        server.token_suffix = "-under-granted"
+        server.granted_scope = "openid offline_access"
+        call(["auth", "login", "--for", "jobs", "charges", "--no-wait"])
+        assert call(["auth", "login", "--resume"], 4)["error"]["code"] == "identity_scope_not_granted"
+        assert set(call(["auth", "status"])["scopes"]) == required
+        assert next(item for item in reversed(server.requests) if "authorization" in item)["authorization"] == "Bearer opaque-access-token-defaults"
+        assert provider.pending_device_code() is None
+        # A narrowed refresh grant is authoritative; do not retain removed rights.
+        provider.cache.delete(provider._device_access_key())
+        assert set(call(["auth", "status"])["scopes"]) == {"openid", "offline_access"}
+        call(["invitations", "list"], 4)
+        call(["auth", "logout"])
+        call(["auth", "status"], 3)
+        assert json.loads((tmp_path / "data/sai/credentials.json").read_text())["entries"] == {}
+
+
+def test_task_authorization_rejects_invalid_or_local_target_before_network(tmp_path: Path) -> None:
+    with _server() as (origin, server):
+        for suffix in (["--for", "jobs", "local"], ["--for", "unknown"],
+                       ["--for", "account", "set-default", "--resume"]):
+            out, err = StringIO(), StringIO()
+            assert main(["auth", "login", "--base-url", origin, *suffix],
+                        environ=_env(tmp_path, identity_issuer=origin), stdout=out, stderr=err) == 2
+            assert not out.getvalue() and not server.requests
+
+
+def test_permission_upgrade_keeps_connection_and_baseline_contexts_isolated(tmp_path: Path) -> None:
+    with _server() as (origin, server):
+        env = _env(tmp_path, identity_issuer=origin)
+        env["SAI_API_BASE_URL"] = origin
+        assert main(["auth", "login", "--for", "invitations"], environ=env,
+                    stdout=StringIO(), stderr=StringIO()) == 0
+        for changed in [
+            {"SAI_OIDC_SCOPE": "openid offline_access sai.billing.read"},
+            {"SAI_OIDC_CLIENT_ID": "another-client"},
+            {"SAI_OIDC_RESOURCE": "another-resource"},
+            {"SAI_IDENTITY_ISSUER": origin + "/another-realm"},
+            {"SAI_API_BASE_URL": origin + "/another-portal"},
+        ]:
+            before = len(server.requests)
+            out, err = StringIO(), StringIO()
+            assert main(["auth", "status"], environ={**env, **changed}, stdout=out, stderr=err) == 3
+            assert not out.getvalue() and len(server.requests) == before
+        assert main(["invitations", "list"], environ=env, stdout=StringIO(), stderr=StringIO()) == 0

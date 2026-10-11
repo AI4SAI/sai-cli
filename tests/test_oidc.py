@@ -175,3 +175,14 @@ def test_device_code_with_surrounding_whitespace_is_rejected() -> None:
             device_code=" opaque-device-code",
             now=1_700_000_000,
         )
+
+
+@pytest.mark.parametrize("scope", [None, [], "openid\nadmin", 'openid "admin"', "openid \\admin", "openid 中文", "x" * 1025])
+def test_invalid_token_scope_is_rejected_before_credentials_are_saved(scope):
+    transport = _Transport([
+        JsonResponse(_metadata(), "discovery", 200),
+        JsonResponse({"access_token": "opaque-access", "refresh_token": "opaque-refresh",
+                      "expires_in": 300, "scope": scope}, "token", 200),
+    ])
+    with pytest.raises(ContractError, match="scope"):
+        _client(transport).refresh(refresh_token="opaque-refresh", now=1_700_000_000)
