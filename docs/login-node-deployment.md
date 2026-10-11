@@ -48,6 +48,13 @@ release. The standard isolated PEP 517 backend builds the wheel. Timestamps,
 archive ownership and permissions are deterministic; the manifest records the
 full Git SHA, source/wheel/runtime digests and node-package digest.
 
+The site package version comes from the committed `project.version`, followed by
+the source timestamp and commit. Python prereleases map to Debian's ordering,
+for example `0.2.0a1` becomes `0.2.0~a1+<timestamp>.<commit>` (plus `.tui` when
+bundled). Final, alpha, beta and release-candidate project versions are supported.
+The client keeps its original Python version; the manifest and immutable path
+identify the exact site build. Uncommitted version edits never affect an artifact.
+
 The runtime tar contains only `cli/releases/<version>` with the client and its
 managed entrypoint and thin native job/resource wrappers. The node package contains `/usr/bin/sai`, a generic example
 and its manifest under `/usr/share/sai-cli`. It contains no runtime code, token,

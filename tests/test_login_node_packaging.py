@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tarfile
 import stat
+import tomllib
 import zipfile
 
 import pytest
@@ -57,6 +58,12 @@ def test_login_node_package_is_role_scoped_and_provenance_bound(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert artifact.is_file()
     assert manifest["schema_version"] == "sai-cli-login-package/v2"
+    committed = tomllib.loads(subprocess.check_output(
+        ["git", "show", f"{manifest['git_commit']}:pyproject.toml"], cwd=build_module.REPO_ROOT, text=True))
+    client_version = committed["project"]["version"]
+    assert manifest["version"].startswith(build_module._debian_version(client_version) + "+")
+    assert manifest["wheel_filename"].startswith(f"sai_cli-{client_version}-")
+    assert subprocess.check_output(["dpkg-deb", "-f", str(artifact), "Version"], text=True).strip() == manifest["version"]
     assert len(manifest["git_commit"]) == 40
     assert len(manifest["source_sha256"]) == 64
     assert len(manifest["wheel_sha256"]) == 64
@@ -192,3 +199,37 @@ def test_login_node_config_matches_current_settings_contract() -> None:
     assert 'cluster_id = "cluster-a"' in config
     assert "require_site_capability = true" in config
     assert "site_read_base_url" not in config
+
+
+@pytest.mark.parametrize('project,expected', [
+    ('0.2.0a1','0.2.0~a1'),('0.2.0b2','0.2.0~b2'),('0.2.0rc3','0.2.0~rc3'),('0.2.0','0.2.0'),
+])
+def test_site_package_version_preserves_real_debian_prerelease_upgrade_order(project, expected):
+    converted = build_module._debian_version(project)
+    assert converted == expected
+    assert subprocess.run(['dpkg','--validate-version',converted], capture_output=True).returncode == 0
+    if project != '0.2.0':
+        subprocess.run(['dpkg','--compare-versions',converted+'+20261012000000.example','lt','0.2.0'], check=True)
+    subprocess.run(['dpkg','--compare-versions','0.1.0+20261011000000.example','lt',converted], check=True)
+
+
+@pytest.mark.parametrize('project', ['0.2.0.dev1','0.2.0.post1','0.2.0+private','1!0.2.0'])
+def test_formal_site_package_rejects_non_release_version_forms(project):
+    with pytest.raises(RuntimeError, match='project version'):
+        build_module._debian_version(project)
+
+
+def test_site_version_reads_committed_metadata_not_the_working_tree(monkeypatch):
+    sha = 'a' * 40
+    calls = []
+    def read(*words):
+        calls.append(words)
+        if words == ('git','rev-parse','HEAD'):return sha
+        if words == ('git','status','--porcelain'):return ' M pyproject.toml'
+        if words == ('git','show','-s','--format=%ct','HEAD'):return '1791744000'
+        if words == ('git','show',sha+':pyproject.toml'):return '[project]\nversion="0.3.0rc1"\n'
+        pytest.fail(f'unexpected operation: {words}')
+    monkeypatch.setattr(build_module,'_run',read)
+    _,version,clean,reachable,_ = build_module._git_provenance(allow_dirty=True)
+    assert version.startswith('0.3.0~rc1+') and not clean and not reachable
+    assert ('git','show',sha+':pyproject.toml') in calls
