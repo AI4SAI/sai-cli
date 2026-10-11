@@ -9,6 +9,12 @@ Start with [your first useful task](docs/getting-started.md): existing cluster
 aliases, or a portable installation with normal sign-in and explicit site choice.
 `sai skill --format markdown` supplies the matching Agent guidance offline.
 
+`sai invitations list`, `show INVITATION_ID` and `accept INVITATION_ID` support
+the recipient side of organization, project and shared-directory collaboration.
+They use separate invitation scopes and the existing acceptance/task services.
+The paired API and optional Identity scopes are a source candidate, not yet
+deployed; see [invitation management](docs/portal-management.md#collaboration-invitations).
+
 Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
 `sai jobs local` and `sai resources local` implement native job and resource

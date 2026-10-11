@@ -23,9 +23,9 @@ historical entries are not an automatic new-feature queue.
   existing API/native reads and focused TUI entry/exit on 2026-10-11
 - [ ] Observe independent first-use experience on supported user devices;
   existing-session login-host checks do not prove fresh self-service onboarding
-- [ ] Select and deliver a recurring management task through its existing Portal
-  owner; project collaboration is a candidate, with explicit user scope and
-  durable acceptance/application/retry behavior still to design
+- [ ] Deliver the recipient invitation task through the original collaboration
+  owner; paired list/detail/accept and optional scopes are a tested source
+  candidate, with production registration and actual consent still separate
 - [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
   supported platforms and release policy; license/publication remain unapproved
 

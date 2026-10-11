@@ -18,6 +18,20 @@ Measure these through bounded user journeys before adding telemetry machinery.
 The open client can reduce integration cost; adoption or revenue growth is a
 product hypothesis to validate, not a result established by publishing source.
 
+The current judgment is a useful internal client with incomplete independent
+onboarding, not a finished public product. The shipped guide still needs an
+operator-supplied wheel and trusted connection profile; additional permissions
+require editing the requested scopes before normal consent. These are concrete
+distribution and onboarding gaps. More business commands do not close them.
+Linux acceptance also does not establish Windows or macOS support.
+
+The next acceptance must use the installed client and shipped guidance, without
+an operator supplying missing commands, technical IDs or recovery steps along
+the way. Record task completion, manual inputs and interventions, including
+normal permission denial. Existing native query and management receipts remain
+valid; do not recreate a VM or repeat an account change to produce more evidence
+for an already completed action.
+
 ## User tasks and capability owners
 
 | User task | Existing owner and path | CLI evidence today | Remaining product work |
@@ -26,7 +40,8 @@ product hypothesis to validate, not a result established by publishing source.
 | Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and synthetic independent-Agent workflow verified; shared site discovery and account choices deployed with ordinary-user reads | Observe independent first-use experience on supported devices using shipped guidance |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
-| Understand and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No ordinary OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
+| Receive and accept a collaboration invitation | Portal invitation lifecycle, original acceptance writer and access-task readback | Paired `invitations list/show/accept` source candidate; separate optional scopes, not deployed | Release the paired scope/API/client, then verify a genuinely requested recipient task |
+| Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No inviter-side OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
 | Manage a project's budget | Portal project-budget service, role checks and budget events | No CLI management adapter; cost/overview reads are not this action | Design authorized request, concurrency/replay and exact readback against the existing writer before exposing a write command |
 | Manage storage allocations or compute lifecycle remotely | Existing Portal storage and compute domain services and task receipts | Storage and computation read surfaces exist; broad management is not delivered | Pair each useful user intent with its current authority and durable outcome; native read visibility does not imply remote write rights |
 
@@ -38,13 +53,21 @@ writer `set_project_budget` already owns locks, amount constraints and request
 references; an Agent adapter must inspect its actual replay/concurrency semantics
 rather than assume that a request ID supplies every required guarantee.
 
-Project collaboration is a candidate for the next management task: discover
-current participants and allowed actions, target the intended account with a
-role and validity period, request the change, then read its real application.
-Its priority is provisional until assessed against recurring user needs and the
-other gaps above. Existing endpoints alone are not a reason to select it.
-Retry/concurrency and separate user scope still need design at the original
-owner. No new endpoint, permission or command is claimed here.
+The current management slice covers the recipient's complete invitation task,
+shared by organizations, projects and directories. It reuses the existing
+invitation and task owners. Inviter-side collaboration remains a candidate for
+broader management: inspect people, resolve an intended recipient, select role
+and validity, submit through the original owner and inspect application. Its
+priority still needs comparison with recurring user needs and the other gaps;
+available endpoints alone are not a reason to expand the surface.
+
+One inherited business effect needs particular care: an organization join that
+becomes active selects that organization as the default computing account.
+The invitation description, consent and Agent guidance must expose this before
+acceptance. Reusing the original writer preserves consistency, but does not by
+itself establish that every inherited product rule is desirable. Any change to
+this behavior belongs to the shared membership/default-account owner across
+consumers, not a compensating CLI write after acceptance.
 
 ## A useful first release
 
@@ -129,7 +152,9 @@ not silently relabel upstream material.
 The [official lark-cli](https://github.com/larksuite/cli) demonstrates a cohesive
 product: task shortcuts, typed commands, schema discovery, versioned skill text,
 structured output, auth and diagnostics. Reuse those ideas with the current
-Python implementation. Mechanical API code can be generated from intentionally
+Python implementation. Its guided setup and permission selection also identify
+where SAI's current operator-led first use needs improvement. Mechanical API
+code can be generated from intentionally
 published user contracts; internal/admin APIs remain with their existing owners.
 The Go/npm stack and unrestricted raw-API layer are not prerequisites for SAI.
 
@@ -151,13 +176,15 @@ Before a publication decision, prepare these concrete outputs:
 
 ## Current order of work
 
-1. Observe independent first use with the shipped guide and skill on supported
-   devices. Fix demonstrated installation, context or recovery obstacles without
-   repeating completed default-account change/restore acceptance.
-2. Select and deliver a recurring management task through its original domain;
-   evaluate project collaboration first, including its task/permission/retry
-   boundaries. Keep budget/storage/compute gaps visible in the task map rather
-   than treating one write as complete coverage.
+1. Finish the already-started recipient invitation slice through its original domain,
+   including optional consent and real task/permission/retry boundaries. Keep
+   inviter, budget/storage/compute gaps visible in the task map rather than
+   treating the first management tasks as complete coverage. Source completion
+   is separate from coordinated deployment and an actually requested user task.
+2. Close independent first-use obstacles with the shipped guide and skill on
+   supported devices before broadening management again. Prioritize trusted
+   configuration delivery, understandable permission selection and recovery;
+   preserve existing sessions and do not repeat completed change/restore tests.
 3. Prepare the remaining public distribution, provenance/history and support
    evidence. Present the audited distribution and license choice before public
    release. Do not wait for 3D or require a Pilot migration for these client tasks.

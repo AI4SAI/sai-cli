@@ -52,6 +52,29 @@ def build_parser() -> argparse.ArgumentParser:
                        help="JSON envelope or installable SKILL.md (default: json)")
     _operation(skill, source="client", effect="introspection", site=False)
 
+    invitations = commands.add_parser("invitations", help="read and accept your collaboration invitations")
+    invitation_commands = invitations.add_subparsers(dest="invitations_command", required=True)
+    for name, description in (("list", "list your pending invitations"),
+                              ("show", "show invitation terms and current access-task results"),
+                              ("accept", "accept one invitation addressed to you")):
+        invitation = invitation_commands.add_parser(name, help=description)
+        _add_connection_arguments(invitation, suppress_defaults=True)
+        _add_format_argument(invitation)
+        if name == "list":
+            invitation.add_argument("--limit", type=int, default=50, help="page size, 1–100")
+            invitation.add_argument("--cursor", help="next cursor returned by the previous page")
+        else:
+            invitation.add_argument("invitation_id", help="invitation ID returned by invitations list")
+        _operation(invitation, source="portal", site=False,
+                   effect="business_write" if name == "accept" else "read",
+                   scopes=("sai.collaboration.invitations.accept" if name == "accept" else "sai.collaboration.invitations.read",),
+                   readback=("invitations", "show") if name == "accept" else (),
+                   notes=("Recipient-only; read the invitation's site and current terms. No invitation token is accepted.",)
+                         + (("Acceptance is separate from task completion and current workspace access.",
+                             "The stable invitation ID is the replay key; read it after conflict or an uncertain response. No automatic write retry.",
+                             "Active organization membership selects that organization as the default computing account under Portal's existing rule; inspect account defaults separately.",)
+                            if name == "accept" else ()))
+
     sites = commands.add_parser("sites", help="list published site names before choosing --site")
     _add_connection_arguments(sites, suppress_defaults=True)
     sites.add_argument("--limit", type=int, default=50, help="page size, 1–100 (default: 50)")
@@ -667,7 +690,7 @@ def main(
 
         settings = resolve_settings(
             args, env,
-            require_site=not (args.command in {"auth", "sites"} or
+            require_site=not (args.command in {"auth", "sites", "invitations"} or
                               args.command == "account" and args.account_command == "set-default"),
         )
         transport = _build_transport(settings)
@@ -708,6 +731,14 @@ def main(
             ),
         )
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
+        if args.command == "invitations":
+            from .invitations import render_invitations
+            if args.site is not None or args.cluster is not None:
+                raise ConfigError("invitations fix their own site; --site and --cluster are not selectors")
+            result = (client.invitations(limit=args.limit, cursor=args.cursor) if args.invitations_command == "list"
+                      else client.invitation(args.invitation_id, accept=args.invitations_command == "accept"))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_invitations(result))
+            return 0
         if args.command == "sites":
             from .sites import render_sites
             if args.site is not None or args.cluster is not None:
