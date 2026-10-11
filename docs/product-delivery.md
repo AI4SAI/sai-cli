@@ -23,7 +23,7 @@ product hypothesis to validate, not a result established by publishing source.
 | User task | Existing owner and path | CLI evidence today | Remaining product work |
 | --- | --- | --- | --- |
 | Check local queue, GPU/CPU allocation and path quota | Native Slurm/Linux/Lustre under the actual Unix user | Shared aliases and focused Textual queries deployed; ordinary login/compute checks | Preserve familiar output and latency; broaden real terminal/device usability evidence as needed |
-| Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | Auth and operation discovery work; `sites` is paired-merged, not yet activated; default-account choices deployed | Ship a coherent installation/authorization/first-task guide and matching official Agent skill; verify with an independent caller |
+| Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and installed-wheel synthetic workflow verified; `sites` is paired-merged, not yet activated; default-account choices deployed | Complete the ordinary-user first-use journey on the paired installed release |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Understand and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No ordinary OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
@@ -82,6 +82,14 @@ metadata and domain receipts. Extend the existing `describe` owner when result
 contracts or examples are needed. Official skills should be short task guidance
 bound to the matching CLI version, with detailed syntax obtained from the CLI.
 They must not contain another manually maintained permission or command registry.
+
+The base wheel now provides `sai skill`, with JSON or exportable Markdown.
+An independent Agent used only its bundled guidance and installed operation
+descriptions to resolve synthetic site/account names, perform one requested
+global preference change and distinguish old, pending and applied receipts.
+Fresh installation and device authorization were also exercised against local
+HTTP fixtures. This is client/workflow evidence, not real consent or a production
+release. The guide and skill require no additional runtime dependencies.
 
 Keep three extension points concrete: native readers, business-operation modules
 and Agent skills. A dynamic plugin framework needs real external consumers before

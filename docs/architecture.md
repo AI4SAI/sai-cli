@@ -84,6 +84,11 @@ not in a second dispatcher. It never inspects credentials or probes availability
 current authorization remains with the called operation. The installed base
 package can describe itself without native tools or optional UI dependencies.
 
+The same base wheel contains its official Agent guidance, exported offline by
+`sai skill`. Guidance routes tasks to the installed `describe` metadata; command
+syntax and permission prerequisites retain their existing parser owner. Agent
+hosts can consume the skill without adding a CLI-owned orchestration runtime.
+
 For writes, Portal remains the single domain writer. Reuse supported action
 validation, idempotency/concurrency checks, approval rules and durable site tasks.
 Return their existing identifiers and accepted/executed/failed outcomes; allow

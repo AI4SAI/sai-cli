@@ -53,6 +53,13 @@ runs before config/auth/native initialization and does not authorize a caller.
 [cli.describe/v1](../contracts/cli-description/v1/README.md) owns this offline
 protocol; command handlers retain configuration and semantic validation.
 
+`sai skill` exposes the single official Agent skill bundled as runtime package
+data. Its default `cli.skill/v1` JSON contains the client version, skill name and
+Markdown content; `--format markdown` exports an installable `SKILL.md`. It reads
+only that packaged resource before configuration/authentication initialization.
+There is no skill download, installer, host configuration or separate command
+registry. The [first-use guide](getting-started.md) explains installation and use.
+
 ## Current implementation
 
 The terminal presentation follows [terminal scope](terminal-scope.md).
