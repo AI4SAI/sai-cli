@@ -44,6 +44,9 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+sai_cli = ["skills/sai-cli/SKILL.md"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

@@ -47,6 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_format_argument(discovery)
     _operation(discovery, source="client", effect="introspection", site=False)
 
+    skill = commands.add_parser("skill", help="read the bundled Agent skill without login")
+    skill.add_argument("--format", choices=("json", "markdown"), default="json",
+                       help="JSON envelope or installable SKILL.md (default: json)")
+    _operation(skill, source="client", effect="introspection", site=False)
+
     sites = commands.add_parser("sites", help="list published site names before choosing --site")
     _add_connection_arguments(sites, suppress_defaults=True)
     sites.add_argument("--limit", type=int, default=50, help="page size, 1–100 (default: 50)")
@@ -615,6 +620,11 @@ def main(
             from .discovery import describe, render_description
             result = describe(parser, args.command_path)
             output.write(render_json(result) if output_format == "json" else render_description(result))
+            return 0
+        if args.command == "skill":
+            from .agent_skill import bundled_skill
+            result = bundled_skill()
+            output.write(render_json(result) if output_format == "json" else result["content"])
             return 0
         if args.command == "tui":
             if not output.isatty() or not sys.stdin.isatty():

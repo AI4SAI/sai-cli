@@ -5,6 +5,10 @@ user-controlled agents. Its target covers fast cluster-local queries integrated
 with existing SSH aliases, and authorized Portal queries and management from
 user devices or dedicated isolated SAI user VMs.
 
+Start with [your first useful task](docs/getting-started.md): existing cluster
+aliases, or a portable installation with normal sign-in and explicit site choice.
+`sai skill --format markdown` supplies the matching Agent guidance offline.
+
 Local query integration reuses the `sqm`, `sqa`, `gpu`, `cpu` and `quota` habits
 under the current Unix identity, with no central login or gateway hop.
 `sai jobs local` and `sai resources local` implement native job and resource

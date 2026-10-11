@@ -16,8 +16,10 @@ coverage. The records below preserve their evidence boundaries; unchecked
 historical entries are not an automatic new-feature queue.
 
 - [ ] Finish the paired site-discovery activation and ordinary-user first query
-- [ ] Deliver a coherent portable installation, authorization and first-task
-  guide with matching official Agent skill and independent-caller validation
+- [x] Package portable first-use guidance and an offline official Agent skill;
+  a clean installed wheel and independent Agent task passed against synthetic HTTP
+- [ ] Complete the ordinary-user installed first-use journey after paired site
+  discovery activation; synthetic authorization is not production user consent
 - [ ] Select and deliver a recurring management task through its existing Portal
   owner; project collaboration is a candidate, with explicit user scope and
   durable acceptance/application/retry behavior still to design

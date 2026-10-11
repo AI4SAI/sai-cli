@@ -1,0 +1,118 @@
+# First useful task
+
+The client works for people and independently chosen Agents. A cluster login
+already provides the native environment; a personal device uses normal Identity
+authorization and Portal APIs. A dedicated user VM follows the same device path.
+Pilot is not required.
+
+## Already on a cluster
+
+Use the existing `sqm`, `sqa`, `gpu`, `cpu` and `quota` aliases. These local reads
+need no browser login. `sai tui` offers focused selection and refresh; `q` returns
+to the shell. For scripts and Agents, discover the corresponding batch commands:
+
+```bash
+sai describe jobs local
+sai jobs local
+```
+
+The result is the current Unix user's native view. Use `sai` when you need the
+SAI account summary; its business facts require your normal SAI login separately.
+
+## Install on your device
+
+Python 3.11 or newer is required; independent-client validation currently covers
+Linux. Windows and macOS are not yet qualified. The repository remains private without an approved public
+release: obtain the reviewed wheel and non-secret connection profile from your
+SAI service operator. Do not assume a package with a similar public name is this
+client. Check the supplied artifact checksum before installation.
+
+In a directory you control, with the provided wheel present:
+
+```bash
+python3 -m venv .sai-env
+. .sai-env/bin/activate
+python -m pip install ./sai_cli-0.1.0-py3-none-any.whl
+sai --version
+sai describe --format table
+```
+
+Use the filename supplied for your version. The batch client needs no third-party
+runtime packages, Slurm, Lustre mounts, shared cluster installation or hosted VM.
+The optional TUI has separate dependencies; see [terminal scope](terminal-scope.md).
+
+## Sign in and choose a site
+
+The operator-provided profile contains service addresses and registered client
+settings, never credentials. Store it as `~/.config/sai/config.toml` (or the
+equivalent XDG configuration path), owned by you and not writable by other users.
+Preserve any existing profiles. The [configuration reference](../README.md#configure)
+shows the fields; ask the service operator for missing values rather than guessing
+Identity or Portal addresses. A site is not required for login or discovery.
+
+```bash
+sai auth login
+sai sites --format table
+```
+
+Open the URL printed by login in your browser and confirm the device code. Keep
+the terminal command running until confirmation completes. The CLI stores a
+protected renewable device credential; passwords and tokens are never copied
+into commands. If a valid session already exists, reuse it. For an Agent that
+cannot keep the login command running, use `--no-wait` and later `--resume`.
+
+Choose your site from the returned names. For example, after selecting the
+returned `site-a` ID:
+
+```bash
+sai resources catalog --site site-a --format table
+sai account defaults --site site-a --format table
+```
+
+The first command shows published specifications and prices. The second shows
+your computing account choices and existing site application receipts. Neither
+changes your default. A published site may still require access authorization;
+listing it does not grant access or prove spare capacity.
+
+In the current source, site discovery is implemented; its paired production
+activation is tracked in [the delivery map](product-delivery.md). An older
+deployment may not provide it. Report that version mismatch instead of treating
+an error as an empty directory or guessing IDs. Site choice remains explicit.
+
+## Give your Agent the matching skill
+
+```bash
+sai skill --format markdown
+```
+
+This prints the complete `SKILL.md` shipped with your installed CLI, without
+network access or login. Save it as `sai-cli/SKILL.md` in your Agent host's
+supported skill location, or supply its contents through that host's instruction
+mechanism. Check before replacing an existing customized skill. The command
+does not install into or reconfigure an Agent host. Refresh the copy when you
+upgrade the CLI.
+
+For automation, `sai skill` returns `cli.skill/v1` JSON with `client_version`,
+`name` and `content`. `sai describe` remains the operation/argument authority.
+These offline commands run even without a configured service.
+
+Try a useful read: "Show the published resources and my available computing
+accounts at the site I selected." The Agent should discover names and IDs,
+explain the answer, and preserve your selection. Then an explicitly requested
+management task can use [the existing default-account workflow](portal-management.md).
+It needs separate write authorization and reports central acceptance separately
+from site application. Broader management coverage remains planned.
+
+## Recover or upgrade
+
+A missing session calls for `sai auth login`; a permission denial requires the
+relevant account/site authorization, not a broader native query. An unavailable
+service is different from having no resources. Keep the bounded error code and
+request ID for support, without exporting credentials or raw logs.
+
+Install a reviewed newer wheel with the same environment's `python -m pip install`
+and `--upgrade`. Keep the earlier wheel for `--force-reinstall` rollback. Updating
+the program does not alter your saved profile or grant new scopes. Afterward,
+check `sai --version`, export the matching skill and repeat the same first read.
+Record which artifact was exercised; one successful Linux installation does not
+establish every platform or a live deployment's compatibility.
