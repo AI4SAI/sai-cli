@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from io import StringIO
+from rich import box
 from rich.columns import Columns
 from rich.console import Console, Group
-from rich.table import Table
+from rich.panel import Panel
 from rich.text import Text
 from .native_resource_view import ALLOCATED, UNKNOWN, _gib
+
+SELECTED = "bold bright_white on dark_blue"
 
 
 def ranges(values: list[int]) -> str:
@@ -21,6 +24,22 @@ def ranges(values: list[int]) -> str:
             start = end = value
     parts.append(str(start) if start == end else f"{start}–{end}")
     return ", ".join(parts)
+
+
+def socket_panel(socket: int, *, cores: int, threads: int, occupied: set[int], chinese: bool) -> Panel:
+    start, stop = socket * cores * threads, (socket + 1) * cores * threads
+    text = Text()
+    first = start
+    for index in range(start + 1, stop + 1):
+        if index == stop or (index in occupied) != (first in occupied):
+            if text:
+                text.append("  ")
+            label = str(first) if index == first + 1 else f"{first}–{index - 1}"
+            text.append(" " + label + " ", style=SELECTED if first in occupied else "white")
+            first = index
+    active = any(start <= index < stop for index in occupied)
+    return Panel(text, title=("CPU 插槽 " if chinese else "CPU socket ") + str(socket),
+                 title_align="left", border_style=ALLOCATED if active else "dim", box=box.ROUNDED, padding=(0, 1))
 
 
 def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
@@ -45,42 +64,34 @@ def allocation_view(value: dict, *, language: str = "zh-CN") -> Group:
         if node["gres"] is None and node.get("gpu_total") != 0:
             blocks.append(Text("GPU IDX  ?", style=UNKNOWN))
         for resource in node["gres"] or ():
-            title = resource["name"].upper() + (" · " + resource["type"] if resource["type"] else "")
+            title = resource["name"].upper()
+            model = "  " + resource["type"] if resource["type"] else ""
             indices = resource["indices"]
             if indices is None:
-                blocks.append(Text(f"{title}  ×{resource['count']}  ·  IDX ?"))
+                blocks.append(Text(f"{title}  ×{resource['count']}{model}  ·  " + ("编号未知" if chinese else "IDs unknown")))
                 continue
             total = node.get("gpu_total") if resource["name"] == "gpu" else None
             slots = range(total) if total is not None and (not indices or indices[-1] < total) else indices
             if len(slots) > 64 or gpu_cells > 2048:
-                blocks.append(Text(f"{title}  IDX " + ranges(indices)))
+                blocks.append(Text(f"{title}  " + ranges(indices) + model, style="bold"))
                 continue
             occupied = set(indices)
-            blocks.append(Text(title + "  IDX", style="bold"))
-            blocks.append(Columns([Text(f"[{index}]" if index in occupied else f" {index} ",
-                style="bold " + ALLOCATED if index in occupied else "dim") for index in slots], padding=(0, 1)))
+            selected_ids = ", ".join(map(str, indices)) if len(indices) <= 8 else ranges(indices)
+            blocks.append(Text(f"{title}  " + selected_ids + model, style="bold"))
+            blocks.append(Columns([Text(f" {index:^2} ", style=SELECTED if index in occupied else "white")
+                                   for index in slots], padding=(0, 1), equal=True))
         cpu_ids, topology = node.get("cpu_ids"), node.get("cpu_topology")
         if cpu_ids is None:
-            blocks.append(Text("CPU IDs  ?", style=UNKNOWN))
+            blocks.append(Text("CPU 编号未知" if chinese else "CPU IDs unknown", style=UNKNOWN))
         elif topology is None or topology["sockets"] > 32 or topology["cores_per_socket"] > 256 or cpu_cells > 8192:
-            blocks.append(Text("CPU IDs  " + ranges(cpu_ids)))
+            blocks.append(Text("CPU  " + ranges(cpu_ids), style="bold"))
         else:
-            rows = Table.grid(padding=(0, 1))
-            rows.add_column(no_wrap=True)
-            rows.add_column(overflow="fold")
-            rows.add_column(overflow="fold")
+            blocks.extend((Text(""), Text("CPU  " + ranges(cpu_ids), style="bold")))
             cores, threads = topology["cores_per_socket"], topology["threads_per_core"]
             occupied = set(cpu_ids)
-            for socket in range(topology["sockets"]):
-                start = socket * cores * threads
-                bitmap = Text()
-                for core in range(cores):
-                    selected = start + core * threads in occupied
-                    bitmap.append("■" if selected else "·", style=ALLOCATED if selected else "dim")
-                selected_ids = [index for index in cpu_ids if start <= index < start + cores * threads]
-                rows.add_row(Text(f"CPU S{socket}"), bitmap, Text("IDs " + ranges(selected_ids)))
-            blocks.append(rows)
-    blocks.extend((Text(""), Text("■ 本作业 · Slurm 编号" if chinese else "■ This job · Slurm IDs", style="dim")))
+            blocks.append(Columns([socket_panel(socket, cores=cores, threads=threads, occupied=occupied, chinese=chinese)
+                                   for socket in range(topology["sockets"])], width=18, padding=(0, 1), equal=True))
+    blocks.extend((Text(""), Text("高亮：本作业分配" if chinese else "Highlighted: allocated to this job", style="dim")))
     return Group(*blocks)
 
 

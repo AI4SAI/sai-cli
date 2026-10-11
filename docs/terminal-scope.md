@@ -246,3 +246,12 @@ Old packages/releases are retained for rollback. Task staging and all operator
 connections were closed. Web/Pilot source is merged and awaits its original
 owner's compatible production release. This is bounded site verification,
 not a whole-product or fleet acceptance claim.
+
+### Topology readability correction
+
+The initial dot/core bitmap was rejected as unreadable. The current renderer
+leads with the exact allocated GPU/CPU numbers, names CPU socket groups and
+shows their numbered ranges. Highlighted ranges belong to this job; other
+ranges do not imply idle capacity. Rich Panels/Columns handle wrapping without
+a custom terminal framework. Native parsing and the shared Web/Agent DTO are
+unchanged. Refresh/account-selector feedback remains queued separately.

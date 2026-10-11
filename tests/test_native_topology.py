@@ -92,6 +92,7 @@ def test_position_maps_keep_indices_and_cpu_ranges_at_terminal_width(topology_cl
     code,text,error=invoke(env,'jobs','local','--job-id','42')
     assert code==0,error
     rendered=render_allocation(json.loads(text),width=width)
-    assert '[1]' in rendered and '[3]' in rendered and '[0]' not in rendered
-    assert 'S0' in rendered and 'S1' in rendered and '2–3' in rendered and '14–15' in rendered
+    assert 'GPU  1, 3' in rendered
+    assert '插槽 0' in rendered and '插槽 1' in rendered and '2–3' in rendered and '14–15' in rendered
+    assert 'IDX' not in rendered and 'CPU S' not in rendered and '■' not in rendered
     assert max(Console().measure(line).maximum for line in rendered.splitlines())<=width
