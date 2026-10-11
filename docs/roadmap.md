@@ -7,7 +7,28 @@ Portal repository.
 Checkmarks cover the implementation or evidence stated on that line. They do
 not imply production activation or completion of a paired rollout.
 
-## Current priority: shared human and Agent CLI
+## Current priority: complete human and Agent tasks
+
+Follow the [task and delivery map](product-delivery.md). It identifies the
+user outcome, existing capability owner, implemented surface and remaining
+management gap. Completed commands and tests do not establish complete product
+coverage. The records below preserve their evidence boundaries; unchecked
+historical entries are not an automatic new-feature queue.
+
+- [ ] Finish the paired site-discovery activation and ordinary-user first query
+- [ ] Deliver a coherent portable installation, authorization and first-task
+  guide with matching official Agent skill and independent-caller validation
+- [ ] Select and deliver a recurring management task through its existing Portal
+  owner; project collaboration is a candidate, with explicit user scope and
+  durable acceptance/application/retry behavior still to design
+- [ ] Prepare a reviewed public-alpha surface, dependency/provenance inventory,
+  supported platforms and release policy; license/publication remain unapproved
+
+Broader budget, storage and compute management remain in the capability map.
+Native queries and the first management action are useful foundations, not a
+substitute for those domains. Pilot UI and asset-based 3D keep separate ownership.
+
+## Implemented foundations and their validation
 
 Native aliases now use Rich resource tables, native GPU IDX positions, compact
 CPU partition groups and the original job/quota columns. Shared publication was

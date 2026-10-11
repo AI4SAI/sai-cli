@@ -57,7 +57,8 @@ Device Authorization Grant 是 OAuth 2.0 的授权方式，不是 OAuth 的替�
    issuer/signature/audience/scope 和有效期，再执行
    workspace、membership、site、account、policy 判定。
 5. Portal 通过 `POST /v1/authz/site-read` 签发独立的 `sai-authz` capability，
-   CLI 访问授权的中心 CLI 路由，或配置好的站点读取网关；它不直接查询调度器。
+   远程命令访问授权的中心 CLI 路由，或配置好的站点读取网关。本地原生命令
+   独立使用当前 Unix 权限直接查询，不通过这条认证链，也不作为远程失败的兜底。
 
 Identity 侧必须先注册一个 public CLI client（不保存 client secret），允许
 `urn:ietf:params:oauth:grant-type:device_code` 和 `refresh_token`，并明确

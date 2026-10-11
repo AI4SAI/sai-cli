@@ -414,7 +414,7 @@ git diff --check
   weak permissions, oversized files, and replacement races.
 - Dropping unknown top-level fields is not enough. Every nested job field must
   be typed, bounded, allowlisted, and safe for terminal rendering.
-- A center-authorized API and a future site-local capability gateway are
+- A center-authorized API and a site-local capability gateway are
   different validation levels. Sharing DTOs must not collapse that distinction.
 - An empty repository with successful builds is not automatically ready for
   public release. License selection and release policy require explicit owner

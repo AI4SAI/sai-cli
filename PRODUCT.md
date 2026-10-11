@@ -1,9 +1,5 @@
 # Product
 
-## Register
-
-product
-
 ## Purpose
 
 `sai-cli` is the shared SAI interface for people, scripts and user-controlled
@@ -16,6 +12,21 @@ The 2026-10-09 user clarification supersedes the earlier summary-and-cost-only
 interpretation. Retiring an overloaded full-screen workbench does not remove
 local query integration or Agent management from the product. The existing
 summary and cost commands remain useful delivered parts, not the entire scope.
+
+## Product delivery
+
+The user outcome is a complete useful task: install, authorize when needed,
+discover the relevant operation, act within the user's rights, and inspect the
+result. Local queries stay immediately useful in an existing SSH environment.
+Command count, test count and source merges are supporting evidence, not product
+acceptance. Track task completion, repeated technical input, recovery effort,
+and operating cost.
+
+[The task and delivery map](docs/product-delivery.md) owns the current capability
+gaps, next complete journeys and proposed public distribution strategy. It
+distinguishes the established human/Agent scope from licensing and publication
+decisions that remain unapproved. Historical implementation records do not
+automatically select the next feature.
 
 ## People and agents
 
@@ -96,6 +107,12 @@ independent authorization revocation are verified on a clean Linux container;
 broader business and device coverage remains open. See
 [the management boundary](docs/portal-management.md),
 [runtime plan](docs/runtime-design.md) and [roadmap](docs/roadmap.md).
+
+Settled job-charge reads are also deployed with bounded ordinary-user evidence.
+Published-site discovery is implemented and paired-merged, with production
+activation still separate. Account/member, project/budget, storage and compute
+management beyond the default-account action remain product gaps; a working
+read command does not establish their management coverage.
 
 WebUI/Pilot product modules and the role-based hardware digital twin remain
 with their existing owners. [Hardware design](docs/digital-twin-design.md) records

@@ -17,15 +17,16 @@ the final authorization boundary for account use.
 
 ## Why This Is Separate From The Local Read Gateway
 
-The future site-local read gateway serves `sai-cli` and TUI refreshes over a
-Unix socket after verifying short-lived capabilities. It may tolerate bounded
-source latency, partial results, short caches, and stale display states.
+The site-local read gateway serves remote CLI, Web and Agent reads over HTTPS
+after verifying short-lived capabilities. Its read contract permits bounded
+source latency and short caches with explicit freshness. Local CLI/TUI native
+queries use the caller's Unix authority independently of this gateway.
 
 `job_submit/lua` executes inside `slurmctld`. Slurm 26.05.1 serializes calls
-through a Lua mutex while controller locks may be held. A synchronous Unix
-socket call would therefore turn daemon restarts, queueing, garbage collection,
-cache misses, and timeout tails into scheduler-wide submission stalls. Unix
-sockets remove network routing but not that failure domain.
+through a Lua mutex while controller locks may be held. A synchronous gateway
+call would therefore turn daemon restarts, queueing, garbage collection,
+cache misses, and timeout tails into scheduler-wide submission stalls. Even a
+Unix socket would remove network routing without removing that failure domain.
 
 The two paths share control-plane projections, not a synchronous dependency:
 

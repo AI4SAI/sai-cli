@@ -1,6 +1,7 @@
 # sai-cli Architecture
 
-Status: current HTTP-read baseline and 2026-10-09 human/Agent target correction
+Status: native/API queries and the first Portal management action are implemented;
+broader management remains planned.
 
 ## Purpose
 
@@ -11,6 +12,11 @@ The current implementation provides HTTP reads, explicit local job/resource/quot
 queries, and a default-account management operation. Broader Portal management
 remains a target. It owns neither
 business authorization nor scheduler decisions.
+
+The [product task map](product-delivery.md) connects these boundaries to complete
+human and Agent journeys. Public distribution is a proposed client/contracts/
+skills strategy, with license and publication decisions still separate. API
+coverage and interface symmetry are not substitutes for a useful completed task.
 
 Terminal queries integrate familiar Slurm/Linux helpers and SSH aliases;
 account, access, budget and cost facts come from their existing business owners.
@@ -48,7 +54,8 @@ token. The shared native helpers are the integration starting point. `sai jobs
 local` and the packaged `stat_job`/`stat_job_all` wrappers now share one Slurm JSON
 reader and the existing job presenter. Resource helpers now have a common
 `resources local` implementation over one per-node `sinfo` response; their shared
-activation is a separate migration. Extract/reuse a single implementation
+migration has passed bounded ordinary-user checks documented in
+[terminal scope](terminal-scope.md#local-resource-delivery). Extract/reuse a single implementation
 where machine-readable output needs it; do not parse a rendered table, launch
 an interactive login shell or install a daemon for every query.
 

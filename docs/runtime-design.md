@@ -34,8 +34,9 @@ boundary for one per-node `sinfo` response; its [contract](../contracts/native-r
 separates effective capacities, allocations, blocked resources and reported
 metrics. `storage local-quota [PATH]` uses native path metadata and exact Lustre
 selected fields with the same bounded subprocess runner; see its
-[contract](../contracts/local-quota/v1/README.md). Shared shell activation is a
-separate migration, not an authentication-scope expansion.
+[contract](../contracts/local-quota/v1/README.md). Shared shell migration has
+passed bounded ordinary-user checks in [terminal scope](terminal-scope.md);
+it does not expand authentication scopes.
 Remote errors must not cause a silent source or authority change.
 
 The first management action uses the existing default-account preference:
@@ -79,7 +80,8 @@ pages accept `--limit` and the returned `--cursor`. JSON is the default; table
 mode has two columns. The command does not save configuration or probe sites.
 It adds no TUI page and leaves the local native command path unchanged.
 
-The current release exposes read-only job and resource commands:
+The CLI exposes local queries, authorized reads and explicit domain management.
+Common query examples:
 
 ```bash
 sai
