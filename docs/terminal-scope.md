@@ -23,9 +23,25 @@ IDs. Color plus `*` identifies allocations. These are schematic scheduler
 diagrams, not physical connectivity or Linux/NUMA maps. Resource selection
 preserves the existing allocation colors and uses one compact scope summary.
 
-This slice is included in the portable `0.2.0a1` alpha. Local native-substitute,
-HTTP and rendered checks, and a clean installation of the public wheel, do not
-establish shared-site installation or human acceptance.
+This slice is included in the portable `0.2.0a1` alpha. Shared source
+`d49be4d3ec77` was deployed on 2026-10-12 after an ordinary-user canary. All 962
+runtime files and permissions matched the archive; nine UI dependencies,
+connection configuration and login profile remained unchanged.
+
+The ordinary user's candidate and stable-entry checks discovered six native
+accounts, selected another identity, matched a running job's CPU IDs to Slurm,
+inspected the numbered GPU/CPU map at 100 and 40 columns, refreshed and returned
+to the same row, and selected another real directory for Lustre quota. Existing
+business authorization, account choices and `sqa`/`sqm` also worked. A real PTY
+exited normally and restored terminal settings. One compute node read the same
+shared version, native accounts/jobs and quota under that ordinary UID, launched
+by the operator; no node installation or configuration change was needed.
+
+Source checks passed 1209 tests and hosted Python 3.11/3.13 CI. The previous
+runtime and guarded rollback remain; rollback was not exercised. Staging and
+operator connections were closed. This is bounded site verification, not fleet
+or human visual acceptance; no CPU-only running job was present in the sampled
+scope, and no job or authorization grant was created for the check.
 
 ## Human workflow
 

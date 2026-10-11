@@ -12,8 +12,10 @@ not imply production activation or completion of a paired rollout.
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and readable two-dimensional allocation inspection
   in the portable `0.2.0a1` alpha; see [query usability](terminal-scope.md#query-usability-correction).
-- [ ] Deploy that corrected query slice and check it on the shared ordinary
-  user path. Local synthetic render/interaction checks are not live acceptance.
+- [x] Deploy corrected shared source `d49be4d3ec77` and verify the ordinary-user
+  candidate/stable entry, native identity/CPU-ID/directory reads and PTY exit;
+  one compute node also passed native reads under the ordinary UID. Configuration
+  and profile were preserved. Human visual and fleet acceptance remain separate.
 
 - [x] Deliver shared per-job CPU/GPU topology source across CLI/TUI, the gateway
   and Web/Pilot. Shared CLI readability correction `d9695900cd7a` and gateway
