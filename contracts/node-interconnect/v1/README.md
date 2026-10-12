@@ -43,6 +43,14 @@ current published record; it does not SSH to compute nodes or run `slurmd -G`
 for every refresh. Local CLI may read the same root-published record when it is
 present on the login/compute environment. A missing record is an honest unknown.
 
+`sai_native_topology.py` is the shared consumption boundary: record validation,
+protected local reading, generation checks and job projection. Native capture
+parsers and record construction belong to the operator-only
+`scripts/ops/node_interconnect_capture.py`, used by the existing normalizer below.
+The CLI and read gateway do not package that operator module. Automated collection,
+change detection, publication and expiry alerts belong to site operations; none
+of them is an implicit effect of reading a job.
+
 The first implementation uses an atomic, root-owned file per node under the
 existing `/opt/sai/runtime` publication. A daemon, graph database and new
 per-node mount are not required. Collection tools must be bounded and run by

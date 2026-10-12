@@ -8,6 +8,13 @@ import pytest
 from test_local_jobs import native_client, native_job, invoke
 
 
+def test_shared_reader_does_not_export_operator_capture_builders():
+    import sai_native_topology as topology
+    assert callable(topology.normalize_join) and callable(topology.job_cpu_locality)
+    assert not hasattr(topology, 'build_interconnect')
+    assert not hasattr(topology, 'parse_nvidia_topology')
+
+
 @pytest.fixture
 def topology_client(native_client):
     env, path, payload = native_client
