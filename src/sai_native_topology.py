@@ -216,28 +216,52 @@ def parse_nvidia_topology(text):
     return rows
 
 
+def _gpu_files(value):
+    """The NVIDIA subset of Slurm File hostlists, preserving expansion order."""
+    if not isinstance(value, str) or len(value) > 8192:
+        raise ValueError("invalid GRES files")
+    offset, result = 0, []
+    pattern = re.compile(r"/dev/nvidia(?:([0-9]{1,5})|\[([0-9,-]+)\])(?:,|$)")
+    while offset < len(value):
+        match = pattern.match(value, offset)
+        if match is None:
+            raise ValueError("unsupported GRES file")
+        for item in (match[1] or match[2]).split(','):
+            if re.fullmatch(r'[0-9]{1,5}(?:-[0-9]{1,5})?', item) is None:
+                raise ValueError("invalid GRES file range")
+            ends = [int(part) for part in item.split('-')]
+            if ends[0] > ends[-1] or ends[-1] > 65535 or len(result) + ends[-1] - ends[0] + 1 > 64:
+                raise ValueError("GRES files exceed bound")
+            result.extend(range(ends[0], ends[-1] + 1))
+        offset = match.end()
+    if not result or len(set(result)) != len(result):
+        raise ValueError("duplicate or empty GRES files")
+    return result
+
+
 def parse_gres_diagnostic(text, *, threads):
     """Operator-only slurmd -G capture. Never execute slurmd in a reader."""
     if not isinstance(text, str) or len(text) > 4 * MAX_BYTES or type(threads) is not int or not 1 <= threads <= MAX_CPU_IDS:
         raise ValueError("invalid GRES diagnostic")
-    result = {}
+    result, minors_seen = {}, set()
     for line in text.splitlines():
         if "Gres Name=gpu " not in line:
             continue
         fields = dict(part.split("=", 1) for part in line.split() if "=" in part)
-        index = _number(int(fields["Index"]), 63)
-        device = re.fullmatch(r"/dev/nvidia([0-9]{1,3})", fields["File"])
-        if device is None or fields.get("Count") != "1":
+        # Slurm's diagnostic Index is a filename suffix, not a bitmap index.
+        # gres_node_config_load assigns indices in final File expansion order.
+        minors = _gpu_files(fields["File"])
+        if (int(fields["Count"]) != len(minors) or len(result) + len(minors) > 64 or
+                'HAS_MULT' in fields.get('Flags', '').split(',') or minors_seen.intersection(minors)):
             raise ValueError("unsupported GRES device mapping")
         cores = fields.get("Cores")
         core_ids = None if cores in {None, "(null)"} else _range(cores)
         if core_ids and (len(core_ids) * threads > MAX_CPU_IDS or (core_ids[-1] + 1) * threads > MAX_CPU_IDS):
             raise ValueError("GRES CPU mapping exceeds bound")
         cpus = None if core_ids is None else [core * threads + thread for core in core_ids for thread in range(threads)]
-        row = {"minor": int(device[1]), "cpu_ids": cpus}
-        if index in result and result[index] != row:
-            raise ValueError("conflicting GRES device mapping")
-        result[index] = row
+        for minor in minors:
+            result[len(result)] = {"minor": minor, "cpu_ids": cpus}
+        minors_seen.update(minors)
     if not result or set(result) != set(range(len(result))):
         raise ValueError("incomplete GRES mapping")
     return result
@@ -412,7 +436,7 @@ def parse_fabric_links(text):
             raise ValueError("invalid fabric line")
         match = re.fullmatch(r'(?P<a>0x[0-9a-fA-F]{16})\s+"[^"\x00-\x1f]+"\s+\d+\s+\d+\[[^]]*\]\s+==\([^)]*Active/\s*LinkUp\)==>\s+(?P<b>0x[0-9a-fA-F]{16})\s+\d+\s+\d+\[[^]]*\]\s+"[^"\x00-\x1f]+"\s+\(\s*\)', line.strip())
         if match is None:
-            if "Down/" in line or "Down /" in line:
+            if re.search(r"==\([^)]*\b(?:Down|Initialize|Armed)/\s*[A-Za-z]+\)", line):
                 continue
             raise ValueError("unrecognized fabric link state")
         refs = tuple(sorted("endpoint-" + hashlib.sha256(match[key].lower().encode()).hexdigest()[:24] for key in ("a", "b")))

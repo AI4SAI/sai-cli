@@ -49,6 +49,21 @@ per-node mount are not required. Collection tools must be bounded and run by
 site operations, outside user/runtime readers. Records are timestamped and
 expire so a stale topology cannot masquerade as current hardware.
 
+## Slurm device enumeration
+
+The `Index` printed by `slurmd -G` is the numeric suffix of the device filename,
+not the scheduler's GPU bitmap index. File ranges can therefore print `Index=0`
+for several different records. Assign Slurm GPU indices in final GRES-list and
+ordered File-expansion order, including grouped device records; never sort them
+by NVIDIA index or minor number. Validate count, unique devices and supported
+whole-GPU semantics before joining to NVIDIA PCI/minor identity.
+
+This follows Slurm 26.05.1
+[`d7913fa3`](https://github.com/SchedMD/slurm/blob/d7913fa39ab7b1057e2eb1fc543d039985140a3a/src/interfaces/gres.c):
+`_log_gres_slurmd_conf`, `_foreach_fill_in_gres_devices` and
+`gres_node_config_load`. Inactive fabric ports in Down, Initialize or Armed state
+are valid observations, but do not become active connection edges.
+
 ## Observation and publication contract
 
 Records describe a bounded observation, not current link health. `boot_time` and
@@ -87,7 +102,10 @@ Publish only validated records with reviewed expiry through the existing runtime
 owner: root-owned directory 0755, regular files 0644, atomic replacement and one
 shared publication for login/compute readers. Withdrawal removes the selected
 record; there is no previous-record fallback. The default read location is
-`/opt/sai/runtime/topology/<node>.json`. Site gateway deployment must make the same
-reviewed records available in that role's existing runtime, without per-command
-mounts or a new authorization service. Production publication and update ownership
+`/opt/sai/runtime/topology/<node>.json` for native terminal readers. The separate
+gateway reads `/var/lib/sai-site-read-gateway/topology/<node>.json`, below its
+existing StateDirectory. One operator publication verifies the same record bytes
+at both serving locations. Withdrawal/refresh must cover both; failure in either
+destination is incomplete publication. The gateway needs no shared CLI mount,
+daemon or new authorization service. Production publication and update ownership
 remain separate from local source validation.
