@@ -63,6 +63,8 @@ additional permissions, multiple services and upgrade/rollback.
 The base client has no third-party runtime dependency. For the optional interface, install the downloaded wheel with its UI extra:
 `pipx install './sai_cli-0.2.0a1-py3-none-any.whl[tui]'`. It needs an interactive
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
+The tagged alpha predates the interconnect correction in current source and
+qualified shared deployments; its release assets have not been replaced.
 
 ## With your Agent
 
