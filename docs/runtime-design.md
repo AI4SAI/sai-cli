@@ -608,7 +608,7 @@ an ordinary user. The paired Web/Pilot source is merged; its production
 activation remains with the original Pilot release. Focused polling and account
 selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).
 
-Hardware interconnect is a separate candidate fact, `node.interconnect/v1`.
+Hardware interconnect is a separate recorded fact, `node.interconnect/v1`.
 It is joined only when `sai jobs local --job-id ID --with-interconnect` is
 requested, so ordinary allocation JSON remains stable and a missing mapping
 cannot look like an empty topology. The record is site-published and time-bound;

@@ -100,7 +100,8 @@ GPL terms and is excluded from Python distributions. The repository's site
 integration artifacts have their own deployment roles; installing the Python
 client never installs or changes a scheduler, login profile or storage service.
 
-The [interconnect candidate](contracts/node-interconnect/v1/README.md) joins recorded CPU/NUMA, PCIe, GPU and fabric
+The [interconnect contract](contracts/node-interconnect/v1/README.md) joins recorded CPU/NUMA, PCIe, GPU and fabric
 relationships to an exact live allocation via `--with-interconnect`. Local reads
-stay native; the existing site gateway uses `include_interconnect=true`. This
-source candidate has not been deployed.
+stay native; the existing site gateway uses `include_interconnect=true`.
+Deployment and its validation boundary are recorded in
+[terminal scope](docs/terminal-scope.md#interconnect-correction-2026-10-12).

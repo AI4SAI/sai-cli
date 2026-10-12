@@ -28,10 +28,13 @@ not imply production activation or completion of a paired rollout.
   inline CPU/GPU node inspection and one direct account chooser. Ordinary-user
   candidate/selected reads and terminal restoration passed on a login node;
   human usability acceptance remains separate.
-- [ ] Pair and publish `node.interconnect/v1`: verified CPU/NUMA↔GPU, GPU↔GPU
-  and node-fabric relationships must feed CLI/TUI, gateway, Web and Pilot from
-  one parser. The compact renderer is a candidate; no deployment or physical
-  topology acceptance is claimed yet.
+- [x] Publish `node.interconnect/v1` in the shared CLI and read gateway:
+  recorded CPU/NUMA↔GPU, GPU↔GPU and node-fabric relationships use one parser.
+  Compact default views replace per-thread panels; `i` expands hardware detail.
+  Ordinary-user native/API equality and 40/100-column native TUI checks passed.
+  See [the deployment boundary](terminal-scope.md#interconnect-correction-2026-10-12).
+- [ ] Complete standard-user multi-node job acceptance and Web/Pilot adoption
+  with the existing owner. Unrecorded hardware remains unavailable.
 
 Follow the [task and delivery map](product-delivery.md). It identifies the
 user outcome, existing capability owner, implemented surface and remaining

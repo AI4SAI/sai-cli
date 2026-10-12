@@ -478,7 +478,8 @@ an ordinary user. The paired Web/Pilot source is merged; its production
 activation remains with the original Pilot release. Focused polling and account
 selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).
 
-The [interconnect candidate](../contracts/node-interconnect/v1/README.md) joins recorded CPU/NUMA, PCIe, GPU and fabric
+The [interconnect contract](../contracts/node-interconnect/v1/README.md) joins recorded CPU/NUMA, PCIe, GPU and fabric
 relationships to an exact live allocation via `--with-interconnect`. Local reads
-stay native; the existing site gateway uses `include_interconnect=true`. This
-source candidate has not been deployed.
+stay native; the existing site gateway uses `include_interconnect=true`.
+Deployment and its validation boundary are recorded in
+[terminal scope](terminal-scope.md#interconnect-correction-2026-10-12).

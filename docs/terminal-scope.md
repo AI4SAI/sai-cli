@@ -20,8 +20,8 @@ allocation detail keyboard focus; arrows/page keys scroll, `r` refreshes that
 detail and Escape restores the selected list row. The published alpha displayed
 numbered GPU grids and per-thread CPU panels. Those were scheduler allocation
 maps; the user rejected their readability and missing physical connections.
-The interconnect correction below supersedes that presentation in candidate
-source. Resource selection preserves its existing allocation colors.
+The interconnect correction below supersedes that presentation in the shared
+runtime. Resource selection preserves its existing allocation colors.
 
 This slice is included in the portable `0.2.0a1` alpha. Shared source
 `d49be4d3ec77` was deployed on 2026-10-12 after an ordinary-user canary. All 962
@@ -306,7 +306,7 @@ do not constitute the user's visual acceptance.
 ### Interconnect correction, 2026-10-12
 
 The numbered CPU/GPU layout was a scheduler allocation map, not an interconnect
-view. The candidate contract `node.interconnect/v1` keeps one fact source for
+view. The contract `node.interconnect/v1` keeps one fact source for
 CLI/TUI, site gateway, Web and Pilot. It records verified CPU/NUMA-to-GPU
 relationships, the complete GPU path matrix and safe node-fabric peers with an
 observation interval. The compact renderer gives those relationships visual
@@ -316,9 +316,17 @@ edges from index order, GPU model, hostname or a count.
 The producer reads native NVIDIA, Slurm GRES, Linux NUMA and site fabric
 evidence during a bounded operator publication. Readers use the existing
 root-published runtime path or authorized gateway projection; they do not SSH to
-nodes or execute `slurmd -G` on every refresh. This candidate is not merged or
-deployed, and no physical topology is claimed until the site record is published
-and ordinary-user reads are paired across the consumers.
+nodes or execute `slurmd -G` on every refresh.
+
+Shared CLI `17a8343ac2cf` and the paired read gateway `146d85359e6e` were
+published on 2026-10-12 with root-owned, time-bound records. Ordinary-user
+local/API allocation and interconnect equality, real native TUI at 40/100
+columns, and selected-entry terminal restoration passed. Gateway journal pairs,
+protected inputs and runtime permissions were checked. Native observations
+cover CPU-only and multiple GPU configurations; missing or unverified records
+remain explicitly unavailable. The previous packages remain rollback inputs.
+This is bounded live evidence, not human visual acceptance or multi-node job
+acceptance. Web/Pilot adoption remains with its existing release owner.
 
 ## Focused query interaction
 
