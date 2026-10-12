@@ -107,6 +107,19 @@ def normalize_interconnect(value):
         if overlap:
             raise ValueError("NUMA CPU domains overlap")
         seen_cpus.update(row["linux_cpu_ids"])
+    mapping = value.get("cpu_mapping")
+    if mapping is not None:
+        if not isinstance(mapping, dict):
+            raise ValueError("invalid CPU mapping")
+        mapped = mapping.get("slurm_to_linux")
+        if not isinstance(mapped, list) or len(mapped) != total:
+            raise ValueError("incomplete CPU mapping")
+        mapped = [_number(cpu) for cpu in mapped]
+        if len(set(mapped)) != total or not set(mapped).issubset(seen_cpus):
+            raise ValueError("CPU mapping is outside Linux topology")
+        if not start <= _time(mapping.get("observed_at")) < end:
+            raise ValueError("CPU mapping observation is outside record interval")
+        result["cpu_mapping"] = {"observed_at": mapping["observed_at"], "slurm_to_linux": mapped}
     result["gpus"] = []
     for row in gpus:
         index = _number(row["index"], 63)
@@ -280,6 +293,50 @@ def _cpu_domains(cpu_json):
     domains = [{**row, "packages": sorted(row["packages"]), "linux_cpu_ids": sorted(row["linux_cpu_ids"])}
                for _, row in sorted(domains.items())]
     return domains
+
+
+def parse_slurm_cpu_mapping(text, *, dimensions, linux_cpu_ids):
+    """Read Slurm's native abstract-to-machine map, never infer Linux ordering."""
+    if not isinstance(text, str) or len(text) > 4 * MAX_BYTES:
+        raise ValueError("invalid CPU mapping capture")
+    headers = re.findall(r"^NodeName=[^\s]+ CPUs=([0-9]+) Boards=[0-9]+ SocketsPerBoard=[0-9]+ CoresPerSocket=[0-9]+ ThreadsPerCore=([0-9]+)\b", text, re.M)
+    if len(headers) != 1:
+        raise ValueError("missing native CPU dimensions")
+    native_total, native_threads = (_number(int(item), MAX_CPU_IDS) for item in headers[0])
+    threads = _number(dimensions["threads_per_core"])
+    total = _number(dimensions["sockets"]) * _number(dimensions["cores_per_socket"]) * threads
+    if not 1 <= total <= MAX_CPU_IDS or not 1 <= threads <= native_threads or not 1 <= native_total <= MAX_CPU_IDS:
+        raise ValueError("CPU dimensions cannot be mapped")
+    rows = [line for line in text.splitlines() if "CPU map[" in line]
+    if len(rows) != native_total:
+        raise ValueError("incomplete native CPU map")
+    mapping = {}
+    for line in rows:
+        match = re.search(r"CPU map\[([0-9]+)\]=>([0-9]+) S:C:T [0-9]+:[0-9]+:([0-9]+)$", line.strip())
+        if match is None:
+            raise ValueError("invalid native CPU map row")
+        abstract, machine, thread = (_number(int(item)) for item in match.groups())
+        if abstract in mapping or thread != abstract % native_threads:
+            raise ValueError("inconsistent native CPU map")
+        mapping[abstract] = machine
+    if set(mapping) != set(range(native_total)) or len(set(mapping.values())) != native_total or set(mapping.values()) != set(_ids(linux_cpu_ids)):
+        raise ValueError("native CPU map differs from Linux topology")
+    # scontrol expands the core bitmap by configured threads; Slurm's native
+    # binding indexes the block map with the actual hardware thread stride.
+    indices = [cpu // threads * native_threads + cpu % threads for cpu in range(total)]
+    if indices[-1] >= native_total:
+        raise ValueError("configured CPUs exceed native CPU map")
+    return [mapping[index] for index in indices]
+
+
+def job_cpu_locality(record, cpu_ids):
+    """Project allocation onto NUMA using only the recorded native CPU map."""
+    mapping = record.get("cpu_mapping")
+    if mapping is None or cpu_ids is None:
+        return None
+    cpus = _ids(cpu_ids, len(mapping["slurm_to_linux"]) - 1)
+    machine = {mapping["slurm_to_linux"][cpu] for cpu in cpus}
+    return {row["id"]: sorted(machine.intersection(row["linux_cpu_ids"])) for row in record["numa"]}
 
 
 def build_interconnect(*, node, cluster, observed_at, expires_at, dimensions, gpu_total, gpu_csv, gpu_xml, gpu_matrix,
@@ -475,7 +532,8 @@ def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT
     current = now or datetime.now(timezone.utc)
     if value["node"] != name or value["cluster"] != cluster:
         raise ValueError("topology identity differs")
-    if not _time(value["observed_at"]) <= current < _time(value["expires_at"]):
+    newest = value.get("cpu_mapping", {}).get("observed_at", value["observed_at"])
+    if not _time(newest) <= current < _time(value["expires_at"]):
         return {"status": "unavailable", "reason": "expired"}
     if value["cpu_topology"] != dimensions or len(value["gpus"]) != gpu_total:
         return {"status": "unavailable", "reason": "configuration_changed"}
@@ -575,7 +633,8 @@ def normalize_join(value, allocation, *, cluster, now=None):
     for row in clean:
         if row["status"] == "recorded" and any(edge["a"] not in published_peers or edge["b"] not in published_peers for edge in row["value"]["fabric_links"]):
             raise ValueError("fabric connection is outside the job projection")
-        if row["status"] == "recorded" and not _time(row["value"]["observed_at"]) <= current < _time(row["value"]["expires_at"]):
+        newest = row.get("value", {}).get("cpu_mapping", {}).get("observed_at", row.get("value", {}).get("observed_at"))
+        if row["status"] == "recorded" and not _time(newest) <= current < _time(row["value"]["expires_at"]):
             row.pop("value")
             row.update(status="unavailable", reason="expired")
     peers = {nic["peer"] for row in clean if row["status"] == "recorded" for nic in row["value"]["nics"] if nic["peer"] is not None}

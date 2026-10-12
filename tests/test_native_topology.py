@@ -190,3 +190,43 @@ def test_sparse_nvlink_cycle_is_not_drawn_as_all_to_all():
     value['links'] += [{'a':0,'b':2,'kind':'NV2'},{'a':1,'b':3,'kind':'NV2'}]
     out=StringIO();Console(file=out,width=80).print(nvlink_summary(value,{0,1,2,3},chinese=True))
     assert 'NVLink ×2 全互联' in out.getvalue()
+
+
+def test_cpu_locality_view_uses_native_mapping_across_numa_and_stays_compact():
+    from io import StringIO
+    from rich.console import Console
+    from sai_cli.interconnect_view import node_interconnect
+    value = {'numa': [
+        {'id': 0, 'packages': [0], 'linux_cpu_ids': [0, 1, 2, 3]},
+        {'id': 1, 'packages': [1], 'linux_cpu_ids': [4, 5, 6, 7]}],
+        'gpus': [], 'links': [], 'observed_at': '2026-01-01T00:00:00Z',
+        'cpu_mapping': {'observed_at': '2026-01-01T00:00:00Z', 'slurm_to_linux': [0, 4, 1, 5, 2, 6, 3, 7]}}
+    for width in (40, 100):
+        out = StringIO()
+        Console(file=out, width=width).print(node_interconnect(value, occupied=set(), cpu_ids=[0, 1], chinese=True, width=width))
+        text = out.getvalue()
+        assert 'NUMA 0 · 1/4 CPU*' in text and 'NUMA 1 · 1/4 CPU*' in text
+        assert 'Linux CPU' not in text and len(text.splitlines()) < 10
+    del value['cpu_mapping']
+    out = StringIO()
+    Console(file=out, width=40).print(node_interconnect(value, occupied=set(), cpu_ids=[0, 1], chinese=True, width=40))
+    assert 'CPU*' not in out.getvalue() and 'CPU 落点未记录' in out.getvalue()
+
+
+def test_interconnect_layout_handles_sparse_domains_and_partial_gpu_groups():
+    from io import StringIO
+    from rich.console import Console
+    from sai_cli.interconnect_view import node_interconnect, nvlink_summary
+    value = {'numa': [
+        {'id': 7, 'packages': [12], 'linux_cpu_ids': [0, 32]},
+        {'id': 21, 'packages': [12], 'linux_cpu_ids': [2, 34]},
+        {'id': 99, 'packages': [40], 'linux_cpu_ids': [8, 40]}],
+        'gpus': [], 'links': [], 'cpu_mapping': {'slurm_to_linux': [0, 32, 2, 34, 8, 40]}}
+    out = StringIO()
+    Console(file=out, width=40).print(node_interconnect(value, occupied=set(), cpu_ids=[1, 4], chinese=True, width=40))
+    assert 'NUMA 7 · 1/2 CPU*' in out.getvalue() and 'NUMA 99 · 1/2 CPU*' in out.getvalue()
+    assert 'CPU 12' in out.getvalue() and 'CPU 40' in out.getvalue()
+    value = {'links': [{'a': a, 'b': b, 'kind': 'NV2'} for a, b in [(0, 1), (0, 2), (1, 2)]]}
+    out = StringIO()
+    Console(file=out, width=40).print(nvlink_summary(value, {0, 2}, chinese=True))
+    assert 'GPU 0, 2' in out.getvalue() and '0–2' not in out.getvalue()

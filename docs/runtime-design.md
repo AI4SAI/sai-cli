@@ -618,3 +618,9 @@ the Portal producer for the CLI and gateway. Pilot adoption remains with its
 existing owner. It never runs
 remote SSH, treats Slurm IDX as a physical identity, or falls back from an
 expired record to a guessed layout.
+
+Optional `cpu_mapping` records Slurm abstract CPU IDs in their native order and
+their corresponding Linux CPU IDs, with an observation time. The same normalizer
+checks its interval, node dimensions and membership in Linux NUMA domains. A
+shared locality projection drives compact job CPU highlighting; missing mappings
+do not imply local allocation. The mapping does not measure task execution.

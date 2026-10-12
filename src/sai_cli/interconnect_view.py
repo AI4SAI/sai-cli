@@ -19,7 +19,8 @@ def gpu_label(index: int, occupied: set[int]) -> Text:
 def nvlink_summary(value: dict, occupied: set[int], *, chinese: bool) -> Group:
     """Collapse only proven complete cliques; rings remain explicit edges."""
     from .allocation_view import ranges
-    links = {(row['a'],row['b']):row['kind'] for row in value['links'] if row['kind'].startswith('NV')}
+    links = {(row['a'],row['b']):row['kind'] for row in value['links']
+             if row['kind'].startswith('NV') and {row['a'], row['b']}.issubset(occupied)}
     remaining = {index for edge in links for index in edge}
     parts = []
     while remaining:
@@ -46,8 +47,11 @@ def nvlink_summary(value: dict, occupied: set[int], *, chinese: bool) -> Group:
 
 
 def node_interconnect(value: dict, *, occupied: set[int],
-                      chinese: bool, width: int, expanded: bool = False) -> Group:
+                      chinese: bool, width: int, expanded: bool = False,
+                      cpu_ids: list[int] | None = None) -> Group:
     from .allocation_view import ranges
+    from sai_native_topology import job_cpu_locality
+    locality = job_cpu_locality(value, cpu_ids)
     groups = defaultdict(list)
     for gpu in value["gpus"]:
         groups[gpu["numa"]].append(gpu)
@@ -60,6 +64,11 @@ def node_interconnect(value: dict, *, occupied: set[int],
         if packages not in packages_seen:
             packages_seen[packages] = tree.add(Text("CPU " + ranges(list(packages))))
         label = Text(f"NUMA {domain['id']}")
+        assigned = None if locality is None else locality[domain["id"]]
+        if assigned:
+            label.append(f" · {len(assigned)}/{len(domain['linux_cpu_ids'])} CPU*", style=ALLOCATED)
+        elif not gpus:
+            label.append(f" · {len(domain['linux_cpu_ids'])} CPU", style="dim" if locality is not None else "default")
         devices = Text()
         if gpus:
             devices.append("PCIe → GPU" if all(gpu.get("pcie_path") for gpu in gpus) else "GPU")
@@ -77,10 +86,10 @@ def node_interconnect(value: dict, *, occupied: set[int],
             branch.add(devices)
         if expanded and local:
             branch.add(Text(("Slurm 亲和 CPU  " if chinese else "Slurm affinity CPUs  ") + ranges(local)))
-        if not gpus:
-            label.append(f" · {len(domain['linux_cpu_ids'])} CPU")
-            if expanded:
-                branch.add(Text("Linux CPU  " + ranges(domain["linux_cpu_ids"])))
+        if expanded and assigned:
+            branch.add(Text("Linux CPU  " + ranges(assigned), style=ALLOCATED))
+        elif expanded and not gpus:
+            branch.add(Text("Linux CPU  " + ranges(domain["linux_cpu_ids"])))
         if expanded:
             branches = {}
             for gpu in gpus:
@@ -97,6 +106,8 @@ def node_interconnect(value: dict, *, occupied: set[int],
         for gpu in groups[None]:
             branch.add(gpu_label(gpu["index"], occupied))
     blocks = [tree]
+    if locality is None and cpu_ids:
+        blocks.append(Text("CPU 落点未记录" if chinese else "CPU locality not recorded", style=UNKNOWN))
     selected_gpus = sorted(occupied.intersection(gpu["index"] for gpu in value["gpus"]))
     # Small default matrix answers how THIS job's GPUs connect. Expanded view
     # exposes the complete matrix in column blocks, keeping terminal width.
@@ -109,11 +120,16 @@ def node_interconnect(value: dict, *, occupied: set[int],
         if len(indices) == 2 and not expanded:
             a,b = indices
             kind = paths[a,b]
-            route = 'NVLink ×' + kind[2:] if kind.startswith('NV') else kind
+            labels = {
+                'PIX': ('PCIe', 'PCIe'), 'PXB': ('多级 PCIe', 'PCIe bridges'),
+                'PHB': ('经 CPU 桥', 'Host bridge'), 'NODE': ('同 NUMA', 'Within NUMA'),
+                'SYS': ('跨 NUMA', 'Across NUMA'),
+            }
+            route = 'NVLink ×' + kind[2:] if kind.startswith('NV') else labels[kind][0 if chinese else 1]
             line = gpu_label(a,occupied)
             line.append(' ── ' + route + ' ── ',style='cyan')
             line.append_text(gpu_label(b,occupied))
-            return Group(tree, Text(''), line)
+            return Group(*blocks, Text(''), line)
         count = max(2, min(8, (width - 8) // 6))
         for offset in range(0, len(indices), count):
             columns = indices[offset:offset + count]

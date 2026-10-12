@@ -352,6 +352,22 @@
               }
             }
           }
+        },
+        "cpu_mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observed_at",
+            "slurm_to_linux"
+          ],
+          "properties": {
+            "observed_at": {
+              "$ref": "#/$defs/hardware_record/$defs/timestamp"
+            },
+            "slurm_to_linux": {
+              "$ref": "#/$defs/hardware_record/$defs/cpuIds"
+            }
+          }
         }
       }
     }

@@ -84,6 +84,10 @@ groups and are not labeled as physical CPU packages. Draw PCIe and fabric edges
 only when the recorded native observation supplies them. Keep missing, expired
 and replaced observations distinct from an idle device.
 
+When a recorded Slurm-to-Linux CPU mapping is available, mark the job's logical
+CPU count on the corresponding NUMA rows. Show exact Linux IDs only on expansion.
+Absent mapping means unknown locality; GPU affinity never substitutes for it.
+
 
 ## Information hierarchy
 
