@@ -121,6 +121,15 @@ Fresh installation and device authorization were also exercised against local
 HTTP fixtures. This is client/workflow evidence, not real consent or a production
 release. The guide and skill require no additional runtime dependencies.
 
+Shared client `594ef8089fad`, published on 2026-10-13, adds matching local/remote
+allocation explanations and a hardware-query task in the bundled skill.
+An ordinary user verified the installed descriptions, skill export and one
+existing job's native CPU mapping/GPU indices before and after selection.
+The 964-file runtime, unchanged dependencies/configuration, 1217 tests and
+Python 3.11/3.13 CI passed. Staging and sessions were cleaned up; rollback remains.
+This is bounded batch-client evidence, not independent Agent decision-making or
+Web/Pilot interconnect adoption.
+
 ## Shared first-use delivery
 
 On 2026-10-11, shared CLI source `9a51836dc880` was selected after the existing
