@@ -45,7 +45,7 @@ def nvlink_summary(value: dict, occupied: set[int], *, chinese: bool) -> Group:
     return Group(*parts)
 
 
-def node_interconnect(value: dict, *, cpu_ids: list[int] | None, occupied: set[int],
+def node_interconnect(value: dict, *, occupied: set[int],
                       chinese: bool, width: int, expanded: bool = False) -> Group:
     from .allocation_view import ranges
     groups = defaultdict(list)
@@ -56,13 +56,10 @@ def node_interconnect(value: dict, *, cpu_ids: list[int] | None, occupied: set[i
     for domain in value["numa"]:
         gpus = groups.get(domain["id"], [])
         local = sorted({cpu for gpu in gpus for cpu in gpu["cpu_ids"] or ()})
-        selected = set(cpu_ids or ()).intersection(local)
         packages = tuple(domain["packages"])
         if packages not in packages_seen:
             packages_seen[packages] = tree.add(Text("CPU " + ranges(list(packages))))
         label = Text(f"NUMA {domain['id']}")
-        if selected:
-            label.append(f" · {len(selected)} CPU*", style=ALLOCATED)
         devices = Text()
         if gpus:
             devices.append("PCIe → GPU" if all(gpu.get("pcie_path") for gpu in gpus) else "GPU")
@@ -79,7 +76,7 @@ def node_interconnect(value: dict, *, cpu_ids: list[int] | None, occupied: set[i
         if gpus and width < 64:
             branch.add(devices)
         if expanded and local:
-            branch.add(Text("Slurm CPU  " + ranges(local)))
+            branch.add(Text(("Slurm 亲和 CPU  " if chinese else "Slurm affinity CPUs  ") + ranges(local)))
         if not gpus:
             label.append(f" · {len(domain['linux_cpu_ids'])} CPU")
             if expanded:

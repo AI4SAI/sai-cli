@@ -61,7 +61,11 @@ must also stop displaying a current mapping once the record expires while open.
 Linux CPU/package IDs are an independent namespace and may be sparse. Slurm can
 be configured to treat NUMA domains as sockets; consumers must not label Slurm
 socket dimensions as physical CPU packages. GRES CPU IDs are Slurm IDs, whereas
-`numa[].linux_cpu_ids` are Linux IDs. The two are never joined by numeric equality.
+`numa[].linux_cpu_ids` are Linux IDs. The two are never joined by numeric equality. GPU `cpu_ids` reports the
+scheduler GRES affinity, which can be configured by the operator; it is not
+proof that the job CPU threads execute in that physical NUMA domain. Renderers
+keep job CPU IDs separate and do not derive NUMA allocation highlighting from
+GRES affinity.
 
 GPU `pcie_path` is optional, and contains only observed root/bridge ancestry.
 NIC peers use opaque `endpoint-*` references. No device type is inferred from an

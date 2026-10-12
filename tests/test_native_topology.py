@@ -177,3 +177,16 @@ def test_multi_node_fabric_keeps_only_observed_connection_without_hash_labels():
     text=out.getvalue()
     assert 'compute-a' in text and 'compute-b' in text and '── IB ──' in text
     assert 'endpoint-' not in text and '交换机' not in text
+
+
+def test_sparse_nvlink_cycle_is_not_drawn_as_all_to_all():
+    from sai_cli.interconnect_view import nvlink_summary
+    from rich.console import Console
+    from io import StringIO
+    value={'links':[{'a':a,'b':b,'kind':'NV2'} for a,b in [(0,1),(1,2),(2,3),(0,3)]]}
+    out=StringIO();Console(file=out,width=80).print(nvlink_summary(value,{0,1,2,3},chinese=True))
+    text=out.getvalue()
+    assert '全互联' not in text and 'GPU 0 ─ NV2 ─ GPU 2' not in text
+    value['links'] += [{'a':0,'b':2,'kind':'NV2'},{'a':1,'b':3,'kind':'NV2'}]
+    out=StringIO();Console(file=out,width=80).print(nvlink_summary(value,{0,1,2,3},chinese=True))
+    assert 'NVLink ×2 全互联' in out.getvalue()

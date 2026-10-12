@@ -81,7 +81,7 @@ def _allocation_view(value: dict, *, language: str, width: int, expanded: bool =
             blocks.append(Text("CPU  " + ranges(cpu_ids), style="bold"))
         record = records.get(node["name"])
         if record is not None:
-            blocks.append(node_interconnect(record, cpu_ids=cpu_ids, occupied=occupied,
+            blocks.append(node_interconnect(record, occupied=occupied,
                 chinese=chinese, width=width, expanded=expanded))
         else:
             if topology and cpu_ids:
