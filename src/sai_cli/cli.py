@@ -22,6 +22,14 @@ if TYPE_CHECKING:
     from .transport import JsonTransport
 
 
+_ALLOCATION_NOTES = (
+    "allocation.nodes[].cpu_ids and GPU gres[].indices are Slurm IDs, not Linux CPU or task CUDA IDs. Slurm sockets may represent NUMA groups.",
+    "--with-interconnect adds per-node recorded hardware or an unavailable reason. Match records to allocation nodes by name and respect observed_at/expires_at.",
+    "For recorded CPU locality, cpu_mapping.slurm_to_linux[slurm_cpu_id] gives the Linux CPU ID; locate it in numa[].linux_cpu_ids. Missing mapping means unknown locality; never sort the mapping or substitute GPU affinity.",
+    "Recorded gpus[].index and links[].a/b use Slurm GPU indices. NIC peers and fabric_links describe observed adjacency. Paths and link rates do not measure utilization, available bandwidth or application traffic.",
+)
+
+
 def _operation(parser: argparse.ArgumentParser, *, source: str, scopes: tuple[str, ...] = (),
                effect: str = "read", site: bool = True, site_option: bool | None = None, cluster: bool = False,
                interaction: str = "none", executables: tuple[str, ...] = (),
@@ -181,16 +189,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_local_job_arguments(local_parser)
     local_parser.add_argument("--job-id", help="inspect one native job allocation, including CPU/GPU IDs")
     local_parser.add_argument("--with-interconnect", action="store_true",
-                              help="join the published node CPU/GPU/fabric topology when available")
-    local_parser.add_argument("--details", action="store_true", help="expand hardware details for --job-id")
+                              help="include recorded CPU/GPU/fabric connections; requires --job-id")
+    local_parser.add_argument("--details", action="store_true", help="expand human hardware output; requires --job-id")
     _add_format_argument(local_parser)
     _operation(local_parser, source="native", site=False, executables=(),
                requirements=({"when": "listing jobs without --job-id", "executables": ["squeue"]},
                              {"when": "--job-id", "executables": ["scontrol"]},
                              {"when": "--job-id has allocated nodes", "executables": ["sinfo"]},
+                             {"when": "--with-interconnect or --details", "parameters": ["job_id"]},
                              {"when": "--with-subaccounts", "executables": ["scontrol", "sacctmgr"], "parameters": ["accounts"]}),
                notes=("Current Unix/native authority; unfiltered reads select the current user.",
-                      "--with-interconnect joins only root-published /opt/sai/runtime topology records; missing records remain unknown."))
+                      "--job-id selects one job or array task and cannot be combined with queue filters. --details changes human output only.",
+                      "--with-interconnect joins only root-published /opt/sai/runtime topology records; missing records remain unknown.") + _ALLOCATION_NOTES)
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
     _add_connection_arguments(list_parser, suppress_defaults=True)
@@ -215,7 +225,8 @@ def build_parser() -> argparse.ArgumentParser:
         _operation(detail_parser, source="configured_site_read" if command == "show" else "site_gateway",
                    scopes=("sai.compute.read",), cluster=True,
                    notes=(("Requires protected site_read_base_url, cluster and capability mode.",) if command != "show" else ())
-                         + (("Requires separately enabled site placement disclosure.",) if command == "placement" else ()))
+                         + (("Requires separately enabled site placement disclosure.",) if command == "placement" else ())
+                         + (_ALLOCATION_NOTES if command == "allocation" else ()))
 
     cost_parser = job_commands.add_parser("cost", help="show non-final running job cost estimates")
     cost_parser.add_argument("job_id", nargs="?", help="current job ID; omit to read the authorized scope")

@@ -19,6 +19,20 @@ sai jobs local
 The result is the current Unix user's native view. Use `sai` when you need the
 SAI account summary; its business facts require your normal SAI login separately.
 
+For a job returned by the local queue, read its allocation and available hardware
+connections using its exact job ID (including an array task suffix):
+
+```bash
+sai jobs local --job-id JOB_ID --with-interconnect
+```
+
+Replace `JOB_ID` with the returned value. This exact read takes no queue filters.
+JSON includes the job's Slurm allocation and separately recorded hardware;
+`sai describe jobs local` explains their identifier spaces and unknown values.
+On a remote device, use the independently authorized `jobs allocation` operation
+with the configured site gateway and the selected job's scope. Neither path
+reports measured utilization or promises communication performance.
+
 ## Install on your device
 
 Python 3.11 or newer is required; independent-client validation currently covers
