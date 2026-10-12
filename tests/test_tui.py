@@ -166,6 +166,7 @@ def test_selected_native_cost_reauthorizes_over_real_http_and_rejects_reused_job
     def reply(call,_):
         assert call['method']=='GET' and '/jobs/12345?' in call['path']
         assert 'include_estimate=true' in call['path']
+        assert 'cluster_id=cluster-a' in call['path']
         return (403,{'detail':{'code':'job_cost_read_denied'}}) if denied[0] else (200,job_cost_payload)
     with http_endpoint(reply) as (origin,calls):
         args=build_parser().parse_args(['tui','--site','site-a','--cluster','cluster-a','--base-url',origin])
@@ -173,6 +174,9 @@ def test_selected_native_cost_reauthorizes_over_real_http_and_rejects_reused_job
         item=JobItem.from_payload(job_cost_payload['items'][0],request_id='native')
         request=Read('cost','mine',{'cluster':'cluster-a','item':item})
         assert asyncio.run(queries.read(request)).estimate.values['gross_cny']=='2.00000000'
+        args.cluster = None
+        assert asyncio.run(queries.read(request)).estimate.values['gross_cny']=='2.00000000'
+        args.cluster = 'cluster-a'
         # A reused native job number must not acquire the predecessor's price.
         changed=JobItem({**item.values,'submit_time':'2026-08-01T00:00:00Z'})
         with pytest.raises(ContractError):asyncio.run(queries.read(Read('cost','mine',{'cluster':'cluster-a','item':changed})))

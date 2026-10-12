@@ -94,3 +94,26 @@ def test_native_quota_without_direct_transport_does_not_query_portal(tmp_path):
         result = main(["storage", "native-quota", "--workspace-key", "project:example", "--base-url", url, "--site", "site-a"],
                       environ=_env(tmp_path), stdout=output, stderr=errors)
         assert result != 0 and server.requests == [] and output.getvalue() == ""
+
+
+def test_portable_native_quota_uses_the_same_site_connection_and_its_own_capability(tmp_path):
+    from test_site_transport import http_endpoint, invoke
+    with http_endpoint(lambda *_: (200, native_payload())) as (gateway, reads):
+        def respond(call, _):
+            if call['path'].endswith('/connection'):
+                return 200, {'schema_version': 'site.connection/v1', 'site_id': 'site-a', 'cluster_id': 'cluster-a',
+                             'site_read_base_url': gateway}
+            assert call['path'] == '/v1/authz/storage-read' and call['method'] == 'POST'
+            assert call['body'] == {'site_id': 'site-a', 'workspace_key': 'project:example'}
+            return 200, {'schema_version': 'sai-storage-read-capability/v1', 'capability': 'opaque-storage-token',
+                'expires_at': int(time.time())+120, 'audience': 'sai-site-read', 'surface': 'site-read',
+                'operation': 'storage.quota.read', 'site_id': 'site-a', 'workspace_key': 'project:example'}
+        with http_endpoint(respond) as (portal, calls):
+            config = tmp_path/'config.toml'
+            config.write_text('[profiles.default]\nrequire_site_capability=true\n'+f'base_url={json.dumps(portal)}\n')
+            config.chmod(0o600)
+            code, text, error = invoke(config, tmp_path, ['storage', 'native-quota', '--workspace-key', 'project:example', '--site', 'site-a'])
+            assert code == 0, error
+            assert json.loads(text) == native_payload()
+    assert len(calls) == 2 and all(call['bearer'] == 'Bearer identity-session-token' and call['capability'] is None for call in calls)
+    assert len(reads) == 1 and reads[0]['bearer'] is None and reads[0]['capability'] == 'opaque-storage-token'

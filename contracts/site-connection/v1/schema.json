@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "site.connection/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Site Id",
+      "type": "string"
+    },
+    "cluster_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,63}$",
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "site_read_base_url": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Site Read Base Url"
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "cluster_id",
+    "site_read_base_url"
+  ],
+  "title": "SiteConnectionOut",
+  "type": "object"
+}

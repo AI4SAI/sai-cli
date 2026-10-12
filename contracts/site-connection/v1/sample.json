@@ -1,0 +1,6 @@
+{
+  "schema_version": "site.connection/v1",
+  "site_id": "site-a",
+  "cluster_id": "cluster-a",
+  "site_read_base_url": "https://site-a.api.example.org"
+}

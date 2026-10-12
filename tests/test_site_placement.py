@@ -200,12 +200,3 @@ def test_placement_permission_and_source_errors_never_fallback(tmp_path, monkeyp
         result, output, error = invoke(config, tmp_path, ["jobs", "placement", "12345"])
         assert result != 0 and output == "" and "not-for-output" not in error
     assert len(issued) == 1 and len(reads) == (0 if failure == "wrong-operation" else 1)
-
-
-def test_placement_requires_explicit_gateway_before_any_request(tmp_path):
-    with http_endpoint(issuer) as (portal, calls):
-        config = tmp_path / "config.toml"
-        config.write_text(f'[profiles.default]\nsite_id="site-a"\ncluster_id="cluster-a"\nbase_url={json.dumps(portal)}\nrequire_site_capability=true\n')
-        config.chmod(0o600)
-        result, output, _ = invoke(config, tmp_path, ["jobs", "placement", "12345"])
-        assert result == 2 and output == "" and calls == []

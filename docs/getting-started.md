@@ -95,6 +95,21 @@ your computing account choices and existing site application receipts. Neither
 changes your default. A published site may still require access authorization;
 listing it does not grant access or prove spare capacity.
 
+With the paired site-connection service, remote native reads also use your site
+choice to obtain its cluster and published gateway address:
+
+```bash
+sai jobs list --site site-a
+sai jobs allocation JOB_ID --site site-a --with-interconnect
+```
+
+Use the exact job ID from the returned queue. The current client resolves missing
+connection fields without editing the profile; deployment configuration owns the
+addresses. Native quota uses the same connection metadata and its independent
+storage permission. An unavailable or unpublished endpoint is an explicit error.
+This requires the paired client/server version; the initial tagged alpha predates
+site-connection discovery. Complete existing profiles continue to work.
+
 The paired site directory and shared client are deployed; the
 [delivery map](product-delivery.md#shared-first-use-delivery) records the validation scope.
 An older deployment may not provide discovery. Report that mismatch instead of treating

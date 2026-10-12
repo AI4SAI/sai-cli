@@ -693,11 +693,19 @@ availability. This catalog does not implement hardware topology or utilization.
 
 Optional `site_read_base_url` in the existing TOML profile selects a fixed
 trusted gateway origin for `jobs list/show`. It requires
-`require_site_capability=true` and an explicit `cluster_id`. The address must
+`require_site_capability=true` and a site-bound `cluster_id`. The address must
 be an HTTPS origin without a path, query, fragment or user information.
 Unmanaged local tests may use loopback HTTP; the broad insecure-development
 switch cannot enable a non-loopback HTTP gateway. There is no argv or
-`SAI_SITE_READ_BASE_URL` override, and Portal responses cannot change the origin.
+`SAI_SITE_READ_BASE_URL` override. A configured origin is not replaced by a response.
+
+When native-read connection facts are missing, the paired
+[site connection contract](../contracts/site-connection/v1/README.md) resolves
+the selected site's cluster and published client origin. The client uses this
+typed Identity-authenticated metadata before issuing the original capability;
+it never consumes the internal relay address or a URL from job data. This adds
+no authorization scope, site selection, config rewrite or transport fallback.
+Complete existing central-relay profiles retain their current JSON contract.
 
 ```toml
 [profiles.default]
@@ -759,8 +767,8 @@ The v2 migration must pair the gateway, Portal relay, CLI and Pilot consumers.
 It replaces v1 without interpreting an older response as complete v2 evidence.
 Paired Portal producer: `3cf695ad8e9c6fe8f05fe00ed72d1f81e4dbf782`.
 
-`sai jobs allocation JOB_ID` requires the explicit gateway configuration above;
-without it the command fails before making any request. It requests the exact
+`sai jobs allocation JOB_ID` requires the protected gateway configuration above
+or the selected site's published connection metadata. It requests the exact
 `jobs.allocation` capability with the same grant constraints as `jobs.detail`,
 then calls `GET /v1/site-read/jobs/{job_id}/allocation` through the same transport
 and bounded capability renewal. No central job endpoint is an alternative.

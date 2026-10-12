@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from sai_cli.cli import main
-from sai_cli.errors import ContractError
+from sai_cli.errors import ConfigError, ContractError
 from sai_cli.sites import SiteDirectory, render_sites
 from test_site_transport import http_endpoint
 
@@ -74,3 +74,19 @@ def test_sites_rejects_explicit_site_and_propagates_denial_without_fallback(tmp_
         assert main(["sites"], environ=env, stdout=out, stderr=err) == 4
         assert len(calls) == 1 and not out.getvalue()
         assert "identity_scope_denied" in err.getvalue() and "never-output" not in err.getvalue()
+
+
+def test_site_connection_preserves_pinned_origin_cluster_constraints_and_https(tmp_path):
+    from dataclasses import replace
+    from sai_cli.config import Settings
+    from sai_cli.sites import SiteConnection, resolve_site_settings
+    settings = Settings(base_url='https://portal.example.org', site_id='site-a', timeout_seconds=5,
+                        allow_insecure_http=False, cache_path=tmp_path/'cache', use_cache=True, profile='default')
+    value = {'schema_version':'site.connection/v1', 'site_id':'site-a', 'cluster_id':'cluster-a',
+             'site_read_base_url':'http://127.0.0.1:9180'}
+    connection = SiteConnection.from_payload(value, site_id='site-a', request_id='test')
+    with pytest.raises(ContractError): resolve_site_settings(settings, connection, gateway=True)
+    pinned = replace(settings, site_read_base_url='https://pinned.example.org')
+    assert resolve_site_settings(pinned, connection, gateway=True).site_read_base_url == pinned.site_read_base_url
+    with pytest.raises(ConfigError): resolve_site_settings(replace(pinned, cluster_id='cluster-b'), connection, gateway=True)
+    assert resolve_site_settings(settings, connection, gateway=False).site_read_base_url is None

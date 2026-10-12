@@ -210,9 +210,11 @@ including from the shared login fragment. Neither command starts device login
 automatically. JSON and plain output remain independent of optional UI packages.
 
 Optional TOML `site_read_base_url` selects direct site reads for `jobs list`,
-`jobs show` and `storage native-quota`. `jobs allocation JOB_ID` also requires
-this setting and returns the versioned allocation snapshot without a central
-fallback. These reads require capability mode and an explicit cluster.
+`jobs show` and `storage native-quota`. Missing connection settings for native
+reads can instead come from the selected site's `site.connection/v1` metadata.
+`jobs allocation JOB_ID` returns the versioned allocation snapshot without a
+central fallback. These reads require capability mode; jobs bind the configured
+or discovered cluster, while native quota retains its separate workspace grant.
 The origin is HTTPS (unmanaged loopback HTTP for local tests); no argv or
 environment override is accepted. Managed installations use the existing
 protected configuration, not a new per-command mount or file hierarchy.
@@ -597,6 +599,13 @@ authorization. Deploy gateway and CLI/Pilot readers before the Center issuer;
 exact Run, self, personal and project contracts remain unchanged.
 
 ## Shared job topology
+
+For a capability-based remote query, missing cluster or required gateway settings
+are resolved through `site.connection/v1` for the explicit site. Existing fixed
+profiles bypass discovery. The same initialization covers native quota; running
+cost may resolve a cluster while keeping its central route. Discovery changes
+neither the profile nor permissions, and failure does not select another source.
+Local commands return before this connection initialization.
 
 Local `jobs local --job-id ID`, TUI Enter and gateway job allocation share the
 canonical native Slurm projection. Node CPU IDs, socket/core/thread dimensions

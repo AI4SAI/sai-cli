@@ -451,14 +451,18 @@ private network/VPN to a shared ingress that accepts inbound HTTPS.
 
 Reuse two mappings in existing protected configuration: site ID to client read
 origin, and ingress hostname to gateway upstream. No new discovery service is
-required. A future authorized site directory may publish the first mapping,
-but accepting it requires a coordinated client contract; arbitrary user URLs
-and response redirects cannot choose credential destinations.
+required. The [site connection contract](../contracts/site-connection/v1/README.md)
+publishes the first mapping from the same selected site's protected configuration.
+It needs paired producer/client activation; arbitrary user URLs and response
+redirects cannot choose credential destinations.
 
 The implemented `sai sites` directory is narrower: it reads published names
 and IDs from Portal before explicit selection. It exposes no network origins,
 adds no gateway request and makes no claim about the caller's site permissions.
-The future routing-directory contract above remains separate.
+The exact-site connection read is separate from this name directory. It returns
+only the cluster and explicitly configured client origin, never the internal
+relay address. Current account admission is required; native read permissions
+are checked independently by the original capability issuer.
 
 Site-local TUI/Agent reads should use the local route. Prefer site-local DNS
 for the same stable hostname where available; otherwise select a protected
@@ -493,8 +497,11 @@ cluster and profile overrides. Explicit managed multi-site selection therefore
 needs a reviewed site-to-origin binding, not simply removal of wrapper checks.
 Capability caches already bind site/cluster/request and read origin; Identity
 credentials remain bound to their central issuer/resource, not each site.
-There is no client endpoint discovery, multi-site ingress rendering or
-direct-browser CORS contract; current ingress rejects OPTIONS. The deployed
+Portable clients with missing cluster/origin settings resolve the exact selected
+site once during command initialization. This in-memory resolution needs the
+central metadata endpoint; it adds no persistent route cache. Complete protected
+profiles retain their existing cached-capability behavior. There is no multi-site
+ingress rendering or direct-browser CORS contract; current ingress rejects OPTIONS. The deployed
 center ingress is the first site's connection, not a required global hub.
 CDN, automatic region selection, service mesh and a replicated facts database
 are not prerequisites.

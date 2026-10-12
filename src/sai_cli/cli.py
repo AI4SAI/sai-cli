@@ -792,6 +792,21 @@ def main(
         from .client import PortalClient
         from .transport import JsonTransport
 
+        native_jobs = args.command == "jobs" and args.jobs_command != "charges"
+        native_quota = args.command == "storage" and args.storage_command == "native-quota"
+        if settings.require_site_capability and (native_jobs or native_quota):
+            if native_jobs:
+                _job_query(args, settings=settings).validated(detail=args.jobs_command in {"show", "allocation", "placement"})
+            else:
+                from .storage_summary import clean_workspace_key
+                clean_workspace_key(args.workspace_key)
+            gateway = native_quota or args.jobs_command != "cost" and (
+                args.jobs_command in {"allocation", "placement"} or settings.cluster_id is None)
+            if (native_jobs and settings.cluster_id is None) or (gateway and settings.site_read_base_url is None):
+                from .sites import resolve_site_settings
+                metadata = PortalClient(transport=transport, token_provider=provider).site_connection(settings.site_id)
+                settings = resolve_site_settings(settings, metadata, gateway=gateway)
+
         capability_provider = (
             CapabilityProvider(
                 settings=settings,

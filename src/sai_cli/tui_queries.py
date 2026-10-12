@@ -131,12 +131,12 @@ class Queries:
                                                      site_id=settings.site_id, request_id="account-directory")
         if request.view == "cost":
             from .contracts import JobCostResult
-            if settings.cluster_id != request.job["cluster"]:
+            if settings.cluster_id is not None and settings.cluster_id != request.job["cluster"]:
                 raise ConfigError("The configured remote cluster differs from this local job.")
             job = request.job["item"]
             command = ["jobs", "cost", job.canonical_id]
             if not settings.managed_login_node:
-                command += ["--cluster", settings.cluster_id]
+                command += ["--cluster", request.job["cluster"]]
             if request.selection == "identity" or request.selection.startswith("account:"):
                 choices = (await self.read(Read("accounts"))).values["choices"]
                 selected = self.account if request.selection == "identity" else request.selection.removeprefix("account:")

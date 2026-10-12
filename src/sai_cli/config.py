@@ -449,8 +449,8 @@ def resolve_settings(
         raise ConfigError("site-read capability is required in production")
 
     site_read_base_url = _site_read_origin(values.get("site_read_base_url"), managed=managed)
-    if site_read_base_url is not None and (not require_capability or not cluster_id):
-        raise ConfigError("site_read_base_url requires site-read capability mode and an explicit cluster")
+    if site_read_base_url is not None and not require_capability:
+        raise ConfigError("site_read_base_url requires site-read capability mode")
 
     return Settings(
         base_url=base_url.rstrip("/"),

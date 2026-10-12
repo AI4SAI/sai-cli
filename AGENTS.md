@@ -126,7 +126,9 @@
 - Resource catalogs are site-scoped published data. Managed reads use the
   Identity-only `/v1/account/cli/sites/{site_id}/resource-catalog` route without
   a site-read capability. Catalog visibility does not grant site/job/file access.
-- Direct job reads use TOML-only `site_read_base_url`, require capability mode,
+- Direct job reads use a protected TOML `site_read_base_url` or the selected
+  site's typed `site.connection/v1` metadata to fill missing connection fields,
+  require capability mode,
   and send only `X-SAI-Capability` to that origin. The versioned gateway jobs/v1
   DTO differs from the default Portal JSON; no transport failure may trigger a
   fallback. Cost, catalog and authentication remain on their central routes.

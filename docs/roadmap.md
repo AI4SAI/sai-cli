@@ -63,6 +63,10 @@ historical entries are not an automatic new-feature queue.
   and ordinary-user existing-session/native compatibility passed
 - [ ] Observe independent first-use experience on supported user devices;
   anonymous setup and existing-session checks do not prove a fresh browser grant
+- [ ] Activate the paired `site.connection/v1` read so a portable client's native
+  job/quota queries need only the selected site, with no manual cluster/origin
+  configuration. The source candidate preserves fixed profiles and original
+  capability authorization; local HTTP validation is separate from deployment.
 - [ ] Deliver the recipient invitation task through the original collaboration
   owner; paired list/detail/accept, shared client and optional scopes are deployed;
   actual new consent, recipient acceptance and site application remain open
