@@ -613,8 +613,11 @@ It is joined only when `sai jobs local --job-id ID --with-interconnect` is
 requested, so ordinary allocation JSON remains stable and a missing mapping
 cannot look like an empty topology. The record is site-published and time-bound;
 it contains verified CPU/NUMA-to-GPU affinity, GPU path classes and safe
-node-fabric peer references. The same standard-library parser is exported from
-the Portal producer for the CLI and gateway. Pilot adoption remains with its
+node-fabric peer references. The same standard-library record reader and validator
+is exported from the Portal producer for the CLI and gateway. Capture parsing
+and record construction remain in its operator-only module, excluded from both
+read runtimes. Automated collection, refresh, publication and expiry alerts
+belong to the separate infrastructure operations project. Pilot adoption remains with its
 existing owner. It never runs
 remote SSH, treats Slurm IDX as a physical identity, or falls back from an
 expired record to a guessed layout.
