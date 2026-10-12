@@ -78,6 +78,13 @@ native visibility from a Portal-scoped read; report that scope instead of
 equating the two. A remote denial cannot silently fall back to a local read.
 Native cluster visibility grants no Portal management, file or financial right.
 
+Portable native reads can resolve missing connection facts through the selected
+site's Identity-authenticated `site.connection/v1` metadata. Portal publishes an
+explicit client origin from its existing site configuration, separately from
+the internal relay URL. The original capability and site DTO remain unchanged.
+Complete protected profiles bypass discovery; resolution adds no persistent
+route state and cannot replace a selected site or an explicitly configured origin.
+
 Personal devices and user VMs use the same CLI and user/delegated Identity flow.
 An isolated VM does not imply Slurm credentials, a filesystem mount or extra
 rights. Agent operation discovery, JSON and noninteractive invocation do not

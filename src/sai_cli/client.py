@@ -421,6 +421,12 @@ class PortalClient:
             lease = self.token_provider.get(force_exchange=True)
             return self._get_with_lease(path, query=query, lease=lease)
 
+    def site_connection(self, site_id: str):
+        from .sites import SiteConnection
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        response = self._central_get("/v1/account/cli/sites/" + quote(site, safe="") + "/connection", query={})
+        return SiteConnection.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
     def invitations(self, *, limit: int = 50, cursor: str | None = None) -> Invitations:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ConfigError("invitation page limit must be between 1 and 100")

@@ -155,12 +155,15 @@ def test_gateway_rejects_untrusted_origins_even_with_http_override(tmp_path: Pat
 
 
 @pytest.mark.parametrize("removed", ["cluster_id", "require_site_capability"])
-def test_gateway_requires_cluster_and_capability(tmp_path: Path, removed: str) -> None:
+def test_gateway_requires_capability_but_cluster_can_be_resolved(tmp_path: Path, removed: str) -> None:
     config = _gateway_config(tmp_path)
     config.write_text("\n".join(line for line in config.read_text().splitlines()
                                if not line.startswith(removed)), encoding="utf-8")
-    with pytest.raises(ConfigError, match="explicit cluster"):
-        resolve_settings(_args("--config", str(config)), {})
+    if removed == 'cluster_id':
+        assert resolve_settings(_args('--config', str(config)), {}).cluster_id is None
+    else:
+        with pytest.raises(ConfigError, match="capability mode"):
+            resolve_settings(_args("--config", str(config)), {})
 
 
 @pytest.mark.parametrize("managed", [False, True])

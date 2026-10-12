@@ -38,6 +38,9 @@ password or pass credentials as command arguments.
 For a remote site-specific task, `sai sites` discovers published site names and
 IDs. Match the user's chosen name; clarify ambiguity instead of choosing another
 site. Pass the returned ID with `--site`. Directory presence grants no access.
+For remote native reads, the paired service supplies missing cluster and gateway
+settings for that selected site. Do not guess addresses or ask the user to copy
+internal deployment settings. An unpublished endpoint remains unavailable.
 Managed cluster installations fix their connection context and reject overrides;
 use that context or the user's separately configured device client.
 Use discovery operations for account/workspace choices before requiring the user

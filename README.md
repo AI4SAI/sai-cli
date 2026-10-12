@@ -65,6 +65,7 @@ The base client has no third-party runtime dependency. For the optional interfac
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
 The tagged alpha predates the interconnect correction in current source and
 qualified shared deployments; its release assets have not been replaced.
+It also predates the paired site-connection discovery described in the first-use guide.
 
 ## With your Agent
 

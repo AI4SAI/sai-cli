@@ -215,15 +215,68 @@ def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tm
 
 
 @pytest.mark.parametrize("capability", [False, True])
-def test_allocation_requires_explicit_gateway_without_central_calls(tmp_path, capability):
-    with http_endpoint(issuer) as (portal, calls):
+@pytest.mark.parametrize("command", ["allocation", "placement"])
+def test_native_detail_requires_capability_and_an_available_site_endpoint(tmp_path, capability, command):
+    connection = {"schema_version": "site.connection/v1", "site_id": "site-a", "cluster_id": "cluster-a",
+                  "site_read_base_url": None}
+    with http_endpoint(lambda *_: (200, connection)) as (portal, calls):
         config = tmp_path / "config.toml"
         config.write_text('[profiles.default]\nsite_id="site-a"\ncluster_id="cluster-a"\n'
                           f'base_url={json.dumps(portal)}\nrequire_site_capability={str(capability).lower()}\n')
         config.chmod(0o600)
-        result, output, errors = invoke(config, tmp_path, ["jobs", "allocation", "12345"])
-    assert result == 2 and output == "" and "site_read_base_url" in errors
-    assert calls == []
+        result, output, errors = invoke(config, tmp_path, ["jobs", command, "12345"])
+    assert result == (6 if capability else 2) and output == ""
+    assert [call["path"] for call in calls] == (["/v1/account/cli/sites/site-a/connection"] if capability else [])
+
+
+@pytest.mark.parametrize('command', [['jobs', 'allocation', '12345'], ['jobs', 'list']])
+def test_portable_job_reads_resolve_the_selected_site_without_rewriting_profile(tmp_path, site_allocation_payload, site_payload, command):
+    payload = site_allocation_payload if command[1] == 'allocation' else site_payload
+    second_payload = {**deepcopy(payload), 'site_id': 'site-b', 'cluster_id': 'cluster-b'}
+    with http_endpoint(lambda *_: (200, payload)) as (gateway, reads), http_endpoint(lambda *_: (200, second_payload)) as (second_gateway, second_reads):
+        def central(call, count):
+            if call['method'] == 'POST':
+                return issuer(call, count)
+            assert call['path'] in ['/v1/account/cli/sites/site-a/connection', '/v1/account/cli/sites/site-b/connection']
+            assert call['bearer'] == 'Bearer identity-session-token' and call['capability'] is None
+            selected = 'b' if '/site-b/' in call['path'] else 'a'
+            return 200, {'schema_version': 'site.connection/v1', 'site_id': 'site-'+selected, 'cluster_id': 'cluster-'+selected,
+                         'site_read_base_url': second_gateway if selected == 'b' else gateway, 'site_agent_secret': 'excluded'}
+        with http_endpoint(central) as (portal, calls):
+            config = tmp_path/'config.toml'
+            config.write_text('[profiles.default]\nrequire_site_capability=true\n'+f'base_url={json.dumps(portal)}\n')
+            config.chmod(0o600)
+            original = config.read_bytes()
+            for selected, expected in [('site-a', payload), ('site-b', second_payload)]:
+                code, text, error = invoke(config, tmp_path, [*command, '--site', selected])
+                assert code == 0, error
+                assert json.loads(text) == expected
+            assert config.read_bytes() == original
+            assert len(calls) == 4 and calls[1]['body']['cluster_id'] == 'cluster-a' and calls[3]['body']['cluster_id'] == 'cluster-b'
+            assert calls[1]['body']['site_id'] == 'site-a' and calls[3]['body']['site_id'] == 'site-b'
+            assert len(reads) == 1 and reads[0]['bearer'] is None
+            assert reads[0]['capability'] == 'opaque-capability-2'
+            assert len(second_reads) == 1 and second_reads[0]['bearer'] is None
+            assert second_reads[0]['capability'] == 'opaque-capability-4'
+
+
+@pytest.mark.parametrize('change', [
+    {'site_id': 'site-b'}, {'cluster_id': 'unsafe cluster'},
+    {'site_read_base_url': 'http://read.example.org'}, {'site_read_base_url': 'https://user@read.example.org'},
+    {'site_read_base_url': 'https://read.example.org/?'}, {'site_read_base_url': 'https://read.example.org/proxy'},
+    {'site_read_base_url': 'https://read.example.org:bad'},
+])
+def test_bad_site_connection_never_issues_or_forwards_a_capability(tmp_path, change):
+    payload = {'schema_version': 'site.connection/v1', 'site_id': 'site-a', 'cluster_id': 'cluster-a',
+               'site_read_base_url': 'https://read.example.org', **change}
+    with http_endpoint(lambda *_: (200, payload)) as (portal, calls):
+        config = tmp_path/'config.toml'
+        config.write_text('[profiles.default]\nrequire_site_capability=true\n'+f'base_url={json.dumps(portal)}\n')
+        config.chmod(0o600)
+        code, text, error = invoke(config, tmp_path, ['jobs', 'allocation', '12345', '--site', 'site-a'])
+    assert code == 7 and text == ''
+    assert len(calls) == 1 and calls[0]['method'] == 'GET'
+    assert 'read.example.org' not in error
 
 
 def test_cost_and_catalog_stay_central_when_native_job_origin_is_configured(tmp_path, running_estimate_payload):
@@ -236,6 +289,9 @@ def test_cost_and_catalog_stay_central_when_native_job_origin_is_configured(tmp_
         if "resource-catalog" in call["path"]:
             assert call["capability"] is None
             return 200, catalog
+        if call['path'] == '/v1/account/cli/sites/site-a/connection':
+            return 200, {'schema_version': 'site.connection/v1', 'site_id': 'site-a', 'cluster_id': 'cluster-a',
+                         'site_read_base_url': None}
         assert call["path"].startswith("/v1/billing/cli/running-estimates?")
         return 200, running_estimate_payload
 
@@ -244,6 +300,9 @@ def test_cost_and_catalog_stay_central_when_native_job_origin_is_configured(tmp_
         for command in (["jobs", "cost"], ["resources", "catalog"]):
             result, _, errors = invoke(config, tmp_path, command)
             assert result == 0, errors
+        config.write_text(config.read_text().replace('cluster_id="cluster-a"\n', ''))
+        result, _, errors = invoke(config, tmp_path, ['jobs', 'cost'])
+        assert result == 0, errors
     assert not reads
     assert all(c["bearer"] == "Bearer identity-session-token" for c in central)
 
