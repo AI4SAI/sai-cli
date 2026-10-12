@@ -318,15 +318,28 @@ evidence during a bounded operator publication. Readers use the existing
 root-published runtime path or authorized gateway projection; they do not SSH to
 nodes or execute `slurmd -G` on every refresh.
 
-Shared CLI `17a8343ac2cf` and the paired read gateway `146d85359e6e` were
-published on 2026-10-12 with root-owned, time-bound records. Ordinary-user
-local/API allocation and interconnect equality, real native TUI at 40/100
-columns, and selected-entry terminal restoration passed. Gateway journal pairs,
-protected inputs and runtime permissions were checked. Native observations
-cover CPU-only and multiple GPU configurations; missing or unverified records
-remain explicitly unavailable. The previous packages remain rollback inputs.
-This is bounded live evidence, not human visual acceptance or multi-node job
-acceptance. Web/Pilot adoption remains with its existing release owner.
+Shared CLI `8f165a8637db` and the paired read gateway `27c312e593b5` were
+published on 2026-10-12 with root-owned, time-bound records. The optional native
+Slurm-to-Linux CPU map now highlights the job's CPU allocation on NUMA rows;
+exact Linux IDs appear on expansion. GPU summaries include only the selected
+devices. Counts, sparse IDs and package groups come from the record, without
+machine-model layout branches. Mapping validity uses the stable Slurm daemon
+start time; the recomputed machine boot-time estimate is observation metadata.
+
+Ordinary-user candidate and selected-entry checks passed local/API allocation
+and interconnect equality, CPU locality, real native TUI at 40/100 columns and
+terminal restoration. The shared runtime's 964 files and permissions matched;
+nine UI dependencies, connection configuration and login profile were unchanged.
+The real gateway UID read all published records, and its current process journal
+contained paired successful allocation reads. Native observations cover CPU-only
+and multiple GPU configurations; this user check exercised a running GPU job.
+
+Some registered nodes still have no current record or CPU mapping. Their
+relationships remain unknown. Prior programs and hardware records remain
+rollback inputs; test staging and the unused intermediate runtime were removed.
+The source suite passed 1215 tests and Python 3.11/3.13 CI. This is bounded live
+evidence, not human visual acceptance or multi-node job acceptance. Web/Pilot
+interconnect adoption remains with its existing release owner.
 
 ## Focused query interaction
 

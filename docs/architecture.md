@@ -14,9 +14,10 @@ remains a target. It owns neither
 business authorization nor scheduler decisions.
 
 The [product task map](product-delivery.md) connects these boundaries to complete
-human and Agent journeys. Public distribution is a proposed client/contracts/
-skills strategy, with license and publication decisions still separate. API
-coverage and interface symmetry are not substitutes for a useful completed task.
+human and Agent journeys. The public client, contracts and bundled Agent guidance
+use Apache-2.0 with separately identified upstream licenses; each release retains
+its artifact and approval gates. API coverage and interface symmetry are not
+substitutes for a useful completed task.
 
 Terminal queries integrate familiar Slurm/Linux helpers and SSH aliases;
 account, access, budget and cost facts come from their existing business owners.

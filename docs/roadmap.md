@@ -33,6 +33,11 @@ not imply production activation or completion of a paired rollout.
   Compact default views replace per-thread panels; `i` expands hardware detail.
   Ordinary-user native/API equality and 40/100-column native TUI checks passed.
   See [the deployment boundary](terminal-scope.md#interconnect-correction-2026-10-12).
+- [x] Publish the paired native CPU mapping and compact NUMA allocation
+  highlights in CLI `8f165a8637db` and gateway `27c312e593b5`. Ordinary-user
+  candidate/selected local and API agreement, 40/100-column native TUI and
+  terminal restoration passed. Missing mappings remain unknown; Slurm's stable
+  daemon start time binds the recorded hardware generation.
 - [ ] Complete standard-user multi-node job acceptance and Web/Pilot adoption
   with the existing owner. Unrecorded hardware remains unavailable.
 
