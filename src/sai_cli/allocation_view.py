@@ -82,7 +82,7 @@ def _allocation_view(value: dict, *, language: str, width: int, expanded: bool =
         record = records.get(node["name"])
         if record is not None:
             blocks.append(node_interconnect(record, occupied=occupied,
-                chinese=chinese, width=width, expanded=expanded))
+                chinese=chinese, width=width, expanded=expanded, cpu_ids=cpu_ids))
         else:
             if topology and cpu_ids:
                 group_size = topology["cores_per_socket"] * topology["threads_per_core"]

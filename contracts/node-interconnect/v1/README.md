@@ -82,6 +82,26 @@ proof that the job CPU threads execute in that physical NUMA domain. Renderers
 keep job CPU IDs separate and do not derive NUMA allocation highlighting from
 GRES affinity.
 
+An optional `cpu_mapping` carries its own `observed_at` and an ordered
+`slurm_to_linux` array: the array position is a Slurm CPU ID, and its value is
+the corresponding Linux CPU ID. The producer reads Slurm's native
+`CPU map[abstract]=>machine` diagnostic, validates a complete one-to-one map
+against Linux topology, then applies Slurm's configured-versus-hardware thread
+stride. It never sorts the map or derives it from GRES affinity. Missing maps
+leave job CPU locality unknown; the hardware relationship remains useful.
+
+The operator capture must use both effective global and node Slurmd parameters:
+`slurmd -C` deliberately does not read the running configuration. Bind the
+capture to the same node generation and configured CPU dimensions, and use
+`normalize_node_interconnect.py --cpu-map` to join it. The command still probes
+native hardware and belongs outside user or gateway refreshes. The mapping
+describes scheduler allocation locality, not task affinity, actual execution,
+CPU load or application communication.
+For a reviewed record, `--record RECORD --cpu-map CAPTURE` preserves its
+observation and expiry and rejects a different node generation or dimensions.
+It adds CPU locality without repeating GPU/fabric collection or extending stale
+hardware evidence.
+
 GPU `pcie_path` is optional, and contains only observed root/bridge ancestry.
 NIC peers use opaque `endpoint-*` references. No device type is inferred from an
 IB GUID or display name. Optional `fabric_links` contains observed active edges;
