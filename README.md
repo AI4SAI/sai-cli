@@ -23,9 +23,10 @@ through your authorized SAI account. Allocation is distinct from utilization;
 running estimates are distinct from settled charges.
 
 The job selector discovers your native Slurm accounts; quota lets you choose an
-actual directory. Job details show a two-dimensional GPU grid and CPU
-socket/core/ID map. Arrow/page keys scroll, `r` refreshes the same detail, and
-Escape returns to the selected row. Native account names are also available as
+actual directory. Job details lead with the allocation and a compact CPU/NUMA
+and GPU connection view when a current hardware record is available. `i` expands
+hardware details; arrow/page keys scroll, `r` refreshes, and Escape returns to the
+selected row. Native account names are also available as
 JSON through `sai account local`. These reads do not change your shell or defaults.
 
 Native adapters have been exercised with Slurm 26.05.1 and Lustre 2.17;
