@@ -80,7 +80,8 @@ The default detail uses a compact CPU/NUMA tree and the selected GPUs' connectio
 matrix. `i` expands PCIe ancestry and the complete GPU matrix from the same
 observation, without another read. Exact Slurm CPU ranges remain concise;
 per-thread panels are removed. Native Slurm sockets may be configured NUMA
-groups and are not labeled as physical CPU packages. Draw PCIe and fabric edges
+groups and are not labeled as physical CPU packages. Resource tables and node
+details label these dimensions as Slurm configuration too. Draw PCIe and fabric edges
 only when the recorded native observation supplies them. Keep missing, expired
 and replaced observations distinct from an idle device.
 
