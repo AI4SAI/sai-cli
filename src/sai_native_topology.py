@@ -540,6 +540,21 @@ def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT
     return {"status": "recorded", "value": value}
 
 
+def same_node_generation(expected, observed):
+    """SlurmdStartTime is stable; BootTime is recomputed from reported uptime."""
+    starts = []
+    for row in (expected, observed):
+        if not isinstance(row, dict):
+            return False
+        value = row.get("slurmd_start_time")
+        if isinstance(value, dict):
+            value = value.get("number") if value.get("set") is True and value.get("infinite") is False else None
+        if type(value) is not int or not 0 < value <= 2**63 - 1:
+            return False
+        starts.append(value)
+    return starts[0] == starts[1]
+
+
 def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT, clock=None, trusted_uid=0):
     """Same bounded optional layer for native callers and authorized gateways."""
     nodes = allocation["nodes"] or []
@@ -576,13 +591,7 @@ def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT
             raise ValueError("native node state differs")
         for record in available:
             native = by_name[record["node"]]
-            matches = True
-            for key in ("boot_time", "slurmd_start_time"):
-                current = native.get(key)
-                if isinstance(current, dict):
-                    current = current.get("number") if current.get("set") is True and current.get("infinite") is False else None
-                matches = matches and type(current) is int and current > 0 and current == record["value"][key]
-            if not matches:
+            if not same_node_generation(record["value"], native):
                 record.pop("value")
                 record.update(status="unavailable", reason="node_restarted")
         finished = clock()
