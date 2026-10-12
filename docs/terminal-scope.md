@@ -350,6 +350,19 @@ Python 3.11/3.13 CI, ordinary-user candidate and selected CPU/GPU views at
 was verified with configuration and dependencies unchanged; prior runtime and
 rollback remain, while test staging and operator sessions were cleaned up.
 
+Shared CLI `86b76ca8ed65` and read gateway `87928eea6866` were published on
+2026-10-13 with the same topology consumer, excluding capture parsers and record
+builders. The preceding resource layout correction keeps each allocation count
+beside its bar. The actual service UID produced identical results for all existing
+records; an ordinary user's existing job passed native/API allocation and
+interconnect equality before and after selection. Native TUI inspection at
+40/100 columns, expansion/return and real-terminal restoration passed. CLI 1218
+tests, Python 3.11/3.13 CI and 68 related backend/packaging checks passed.
+Configuration, dependency runtimes and hardware records were preserved. Both
+previous programs remain available for rollback; staging and operator sessions
+were cleaned up. Automated topology collection and expiry alerts remain work
+for the separate operations project; this release does not implement them.
+
 ## Focused query interaction
 
 The current source adds automatic refresh of the visible view: jobs every 5

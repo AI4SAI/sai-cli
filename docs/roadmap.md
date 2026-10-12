@@ -40,6 +40,11 @@ not imply production activation or completion of a paired rollout.
   daemon start time binds the recorded hardware generation.
 - [ ] Complete standard-user multi-node job acceptance and Web/Pilot adoption
   with the existing owner. Unrecorded hardware remains unavailable.
+- [x] Publish the shared topology consumer separately from operator capture
+  parsing and record construction. CLI `86b76ca8ed65` and gateway `87928eea6866`
+  passed existing-record parity and ordinary-user native/API readback. Automated
+  collection, publication and expiry alerts belong to the separate operations
+  project and are not deployed by this client release.
 
 Follow the [task and delivery map](product-delivery.md). It identifies the
 user outcome, existing capability owner, implemented surface and remaining
