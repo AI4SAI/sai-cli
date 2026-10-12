@@ -25,6 +25,8 @@ async def loaded(app, pilot):
         await pilot.pause(.02)
         if (not app._reading and app.view == app.query_one(Tabs).active
                 and app.selection == app.query_one(Select).value):
+            # Read completion can precede Textual's layout and scroll geometry.
+            await asyncio.wait_for(app.wait_for_refresh(), 3)
             return
     pytest.fail('read did not finish')
 
