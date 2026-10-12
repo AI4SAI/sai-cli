@@ -24,7 +24,7 @@ The native helper visuals are an existing product contract: job rows retain
 their fixed columns and local timestamps; GPU rows retain the native Slurm IDX
 positions with blue allocated and green idle cells, followed by a partition
 table. Blocked nodes use red. CPU rows group by partition, with CPU/memory
-allocation bars and separate reported load/free memory; quota retains aligned native
+allocation bars with adjacent counts and separate reported load/free memory; quota retains aligned native
 usage, soft/hard limit and grace columns. `gpu` and `cpu` include node rows by
 default. Use the existing Rich Table, Text, Columns and ProgressBar components,
 not a custom ANSI/layout engine. GPU slots follow Slurm IDX order; unavailable

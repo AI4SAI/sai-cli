@@ -56,11 +56,11 @@ def _table(*headers: str) -> Table:
 def _allocation(used: int | None, total: int | None, *, memory: bool = False, bars: int = 10,
                 ready: bool | None = True) -> Table:
     label = _gib if memory else _number
-    row = Table.grid(padding=(0, 1), expand=True)
+    row = Table.grid(padding=(0, 1))
     if bars and total is not None and used is not None and 0 <= used <= total and total > 0:
         style = FREE if ready is True else BLOCKED if ready is False else UNKNOWN
         row.add_column(width=bars)
-        row.add_column(no_wrap=True, justify="right", ratio=1)
+        row.add_column(no_wrap=True, justify="right")
         row.add_row(ProgressBar(total=total, completed=used, width=bars, style=style,
                                 complete_style=ALLOCATED, finished_style=ALLOCATED),
                     Text(f"{label(used)}/{label(total)}"))
