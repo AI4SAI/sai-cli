@@ -65,8 +65,17 @@ def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, s
                 allocation = bind_job_topology(raw, allocation, names, nodes)
     except (ValueError, UnicodeError) as exc:
         raise invalid_native() from exc
-    return NativeTopology({"schema_version": "native.job-allocation/v1", "source": "scontrol", "authority": "native",
+    result = {"schema_version": "native.job-allocation/v1", "source": "scontrol", "authority": "native",
         "cluster": cluster, "actor": {"user": native_user(), "uid": os.geteuid()}, "job": job.as_dict(),
         "observed_at": observed.isoformat().replace("+00:00", "Z"), "warning_count": warnings,
         "scheduler_states": allocation["scheduler_states"], "restart_count": allocation["restart_count"],
-        "allocation": {key: allocation[key] for key in ("status", "nodes")}})
+        "allocation": {key: allocation[key] for key in ("status", "nodes")}}
+    if getattr(args, "with_interconnect", False):
+        from sai_native_topology import join_interconnect
+        try:
+            result["interconnect"] = join_interconnect(allocation, cluster=cluster,
+                read_node_state=lambda names: read_native_json(
+                    ["scontrol", "--local", "show", "node", ",".join(names), "--json"], environ=env, timeout=timeout))
+        except (ValueError, KeyError, TypeError) as exc:
+            raise invalid_native() from exc
+    return NativeTopology(result)

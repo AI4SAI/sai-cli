@@ -16,12 +16,12 @@ directory chooser; it does not invent an account-to-path mapping. Selections
 survive switching queries, without changing shell or saved defaults.
 
 Selected jobs show node/pending-reason context directly. Enter gives the
-allocation map keyboard focus and the content area; arrows/page keys scroll,
-`r` refreshes that detail and Escape restores the selected list row. GPU slots
-form a two-dimensional grid; CPU sockets contain core groups and exact Slurm CPU
-IDs. Color plus `*` identifies allocations. These are schematic scheduler
-diagrams, not physical connectivity or Linux/NUMA maps. Resource selection
-preserves the existing allocation colors and uses one compact scope summary.
+allocation detail keyboard focus; arrows/page keys scroll, `r` refreshes that
+detail and Escape restores the selected list row. The published alpha displayed
+numbered GPU grids and per-thread CPU panels. Those were scheduler allocation
+maps; the user rejected their readability and missing physical connections.
+The interconnect correction below supersedes that presentation in candidate
+source. Resource selection preserves its existing allocation colors.
 
 This slice is included in the portable `0.2.0a1` alpha. Shared source
 `d49be4d3ec77` was deployed on 2026-10-12 after an ordinary-user canary. All 962
@@ -302,6 +302,23 @@ or removed and both SSH/SFTP pairs closed. The Web presentation correction is
 merged but still follows its original owner's production release. The gateway
 and native DTO did not change in this display-only publication. These checks
 do not constitute the user's visual acceptance.
+
+### Interconnect correction, 2026-10-12
+
+The numbered CPU/GPU layout was a scheduler allocation map, not an interconnect
+view. The candidate contract `node.interconnect/v1` keeps one fact source for
+CLI/TUI, site gateway, Web and Pilot. It records verified CPU/NUMA-to-GPU
+relationships, the complete GPU path matrix and safe node-fabric peers with an
+observation interval. The compact renderer gives those relationships visual
+priority and keeps exact thread IDs in one bounded range line. It does not infer
+edges from index order, GPU model, hostname or a count.
+
+The producer reads native NVIDIA, Slurm GRES, Linux NUMA and site fabric
+evidence during a bounded operator publication. Readers use the existing
+root-published runtime path or authorized gateway projection; they do not SSH to
+nodes or execute `slurmd -G` on every refresh. This candidate is not merged or
+deployed, and no physical topology is claimed until the site record is published
+and ordinary-user reads are paired across the consumers.
 
 ## Focused query interaction
 

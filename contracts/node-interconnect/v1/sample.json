@@ -1,0 +1,98 @@
+{
+  "schema_version": "node.interconnect/v1",
+  "node": "node-a",
+  "cluster": "cluster-a",
+  "observed_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-02T00:00:00Z",
+  "cpu_topology": {
+    "sockets": 2,
+    "cores_per_socket": 4,
+    "threads_per_core": 2
+  },
+  "numa": [
+    {
+      "id": 0,
+      "packages": [
+        0
+      ],
+      "linux_cpu_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "id": 1,
+      "packages": [
+        1
+      ],
+      "linux_cpu_ids": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    }
+  ],
+  "gpus": [
+    {
+      "index": 0,
+      "numa": 0,
+      "cpu_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "index": 1,
+      "numa": 1,
+      "cpu_ids": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    }
+  ],
+  "links": [
+    {
+      "a": 0,
+      "b": 1,
+      "kind": "NV2"
+    }
+  ],
+  "nics": [
+    {
+      "index": 0,
+      "gpu_paths": [
+        {
+          "gpu": 0,
+          "kind": "PIX"
+        }
+      ],
+      "peer": "endpoint-0123456789abcdef01234567",
+      "rate_gbps": 100
+    }
+  ],
+  "boot_time": 1767210000,
+  "slurmd_start_time": 1767211000
+}

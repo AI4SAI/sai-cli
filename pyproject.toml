@@ -44,7 +44,7 @@ sai = "sai_cli.cli:entrypoint"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-py-modules = ["sai_native_slurm"]
+py-modules = ["sai_native_slurm", "sai_native_topology"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -180,13 +180,17 @@ def build_parser() -> argparse.ArgumentParser:
                               help="native query deadline in seconds (default: 10)")
     _add_local_job_arguments(local_parser)
     local_parser.add_argument("--job-id", help="inspect one native job allocation, including CPU/GPU IDs")
+    local_parser.add_argument("--with-interconnect", action="store_true",
+                              help="join the published node CPU/GPU/fabric topology when available")
+    local_parser.add_argument("--details", action="store_true", help="expand hardware details for --job-id")
     _add_format_argument(local_parser)
     _operation(local_parser, source="native", site=False, executables=(),
                requirements=({"when": "listing jobs without --job-id", "executables": ["squeue"]},
                              {"when": "--job-id", "executables": ["scontrol"]},
                              {"when": "--job-id has allocated nodes", "executables": ["sinfo"]},
                              {"when": "--with-subaccounts", "executables": ["scontrol", "sacctmgr"], "parameters": ["accounts"]}),
-               notes=("Current Unix/native authority; unfiltered reads select the current user.",))
+               notes=("Current Unix/native authority; unfiltered reads select the current user.",
+                      "--with-interconnect joins only root-published /opt/sai/runtime topology records; missing records remain unknown."))
 
     list_parser = job_commands.add_parser("list", help="list jobs in an authorized scope")
     _add_connection_arguments(list_parser, suppress_defaults=True)
@@ -204,6 +208,8 @@ def build_parser() -> argparse.ArgumentParser:
         detail_parser = job_commands.add_parser(command, help=description)
         _add_connection_arguments(detail_parser, suppress_defaults=True)
         detail_parser.add_argument("job_id", help="job identifier, including an array task suffix")
+        if command == "allocation":
+            detail_parser.add_argument("--with-interconnect", action="store_true", help="include recorded hardware connections")
         _add_job_scope_arguments(detail_parser)
         _add_format_argument(detail_parser)
         _operation(detail_parser, source="configured_site_read" if command == "show" else "site_gateway",
@@ -721,6 +727,8 @@ def main(
                 output.write(render_local_resources(result, details=details, width=width, color=color))
             return 0
         if args.command == "jobs" and args.jobs_command == "local":
+            if args.job_id is None and (args.with_interconnect or args.details):
+                raise ConfigError("--with-interconnect and --details require --job-id")
             if args.job_id is not None:
                 from .native_topology import read_local_job_topology
                 result = read_local_job_topology(args, environ=env)
@@ -730,7 +738,7 @@ def main(
                     _load_ui_console()
                     from .allocation_view import render_allocation
                     output.write(render_allocation(result.as_dict(), width=shutil.get_terminal_size().columns if output.isatty() else 100,
-                        color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb"))
+                        color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb", expanded=args.details))
             else:
                 from .local_jobs import read_local_jobs, render_local_jobs
                 result = read_local_jobs(args, environ=env)
@@ -935,7 +943,7 @@ def main(
         elif args.command == "jobs" and args.jobs_command == "show":
             result = client.show_job(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "allocation":
-            result = client.job_allocation(args.job_id, query)
+            result = client.job_allocation(args.job_id, query, interconnect=args.with_interconnect)
         elif args.command == "jobs" and args.jobs_command == "placement":
             result = client.job_placement(args.job_id, query)
         elif args.command == "jobs" and args.jobs_command == "cost":
@@ -957,7 +965,13 @@ def main(
         elif isinstance(result, SiteJobPlacementResult):
             output.write(render_site_placement(result))
         elif isinstance(result, SiteJobAllocationResult):
-            output.write(render_site_allocation(result))
+            if args.with_interconnect:
+                _load_ui_console()
+                from .allocation_view import render_allocation
+                output.write(render_allocation(result.as_dict(), width=shutil.get_terminal_size().columns if output.isatty() else 100,
+                    color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb"))
+            else:
+                output.write(render_site_allocation(result))
         elif isinstance(result, SiteJobResult):
             output.write(render_site_jobs(result))
         else:

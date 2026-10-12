@@ -76,6 +76,11 @@ def test_topology_detail_scrolls_refreshes_and_returns_without_changing_job(job_
             detail = app.query_one('#detail', VerticalScroll)
             assert detail.has_focus and not app.query_one('#body').display
             assert detail.max_scroll_y > 0
+            await pilot.press('i')
+            await pilot.pause()
+            assert app._expanded_allocation and calls == ['jobs','allocation']
+            await pilot.press('i')
+            assert not app._expanded_allocation
             await pilot.press('pagedown', 'down')
             await pilot.pause()
             assert detail.scroll_y > 0 and app._selected_job == '43'

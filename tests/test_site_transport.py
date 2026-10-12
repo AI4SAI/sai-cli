@@ -199,6 +199,21 @@ def test_allocation_uses_exact_operation_and_gateway_path(tmp_path, site_allocat
     assert all(c["path"] == "/v1/site-read/jobs/12345_7/allocation" and c["bearer"] is None for c in reads)
 
 
+def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tmp_path, site_allocation_payload):
+    nodes = site_allocation_payload['allocation']['nodes']
+    site_allocation_payload['interconnect']={'schema_version':'node-interconnect-join/v1','nodes':[
+        {'node':row['name'],'status':'unavailable','reason':'not_recorded'} for row in nodes]}
+    with http_endpoint(issuer) as (portal,issued), http_endpoint(lambda *_:(200,site_allocation_payload)) as (gateway,reads):
+        config=profile(tmp_path,portal,gateway)
+        code,text,error=invoke(config,tmp_path,['jobs','allocation','12345','--with-interconnect'])
+        assert code==0,error
+        assert json.loads(text)['interconnect']==site_allocation_payload['interconnect']
+        assert reads[0]['path']=='/v1/site-read/jobs/12345/allocation?include_interconnect=true'
+        assert issued[0]['body']['operation']=='jobs.allocation' and reads[0]['bearer'] is None
+        del site_allocation_payload['interconnect']
+        assert invoke(config,tmp_path,['jobs','allocation','12345','--with-interconnect'])[0]==7
+
+
 @pytest.mark.parametrize("capability", [False, True])
 def test_allocation_requires_explicit_gateway_without_central_calls(tmp_path, capability):
     with http_endpoint(issuer) as (portal, calls):
