@@ -126,6 +126,8 @@ class QueryApp(App):
         self.set_interval(1, self._poll_current_view)
 
     def _poll_current_view(self) -> None:
+        if not self.is_running:
+            return
         if self._allocation_detail is not None:
             value = self._allocation_detail
             joined = value.get("interconnect")

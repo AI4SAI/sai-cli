@@ -60,9 +60,9 @@ def node_detail(node: dict, partitions: list[dict], *, language: str, width: int
                  _allocation(memory["allocated_mib"], memory["effective_mib"], memory=True, bars=bars, ready=ready))
     topology = node.get("cpu_topology")
     if topology is not None:
-        dimensions = (f"{topology['sockets']} 插槽 × {topology['cores_per_socket']} 核 × {topology['threads_per_core']} 线程"
-                      if chinese else f"{topology['sockets']} sockets × {topology['cores_per_socket']} cores × {topology['threads_per_core']} threads")
-        grid.add_row("CPU 结构" if chinese else "CPU layout", dimensions)
+        dimensions = (f"{topology['sockets']} 组 × {topology['cores_per_socket']} 核 × {topology['threads_per_core']} 线程"
+                      if chinese else f"{topology['sockets']} groups × {topology['cores_per_socket']} cores × {topology['threads_per_core']} threads")
+        grid.add_row("Slurm CPU", dimensions)
     load = reported["cpu_load_hundredths"]
     grid.add_row("系统负载" if chinese else "System load", "?" if load is None else format_decimal(str(Decimal(load) / 100), 1, trim=True))
     grid.add_row("系统空闲 GiB" if chinese else "System free GiB", _gib(reported["free_memory_mib"]))

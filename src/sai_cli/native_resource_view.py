@@ -114,7 +114,7 @@ def _cpu_nodes(value: dict[str, Any], width: int) -> Group:
         table = _table("Node" if width < 64 else "NodeName", "State" if width < 64 else "Status",
                        "CPU\nalloc/total" if width < 64 else "CPU\nalloc / total",
                        "GiB\nalloc/total" if width < 64 else "Mem GiB\nalloc / total",
-                       *(["S×C×T", "Load", "Free GiB"] if reports else []))
+                       *(["Slurm\nS×C×T", "Load", "Free GiB"] if reports else []))
         if reports:
             table.columns[-2].justify = table.columns[-1].justify = "right"
         for node in members:

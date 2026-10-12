@@ -17,6 +17,29 @@ from test_native_topology import topology_client as job_client
 from test_local_resources import native_client as resource_client
 
 
+def test_refresh_tick_during_shutdown_never_uses_removed_widgets(job_client):
+    env, _, _ = job_client
+    closing_ticks = []
+
+    class ClosingApp(QueryApp):
+        async def _close_all(self):
+            await super()._close_all()
+            assert not self.is_running
+            self._poll_current_view()
+            closing_ticks.append(True)
+
+    async def run():
+        app = ClosingApp(Queries(build_parser().parse_args(['tui']), env))
+        async with app.run_test(size=(80, 24)) as pilot:
+            await loaded(app, pilot)
+            await pilot.press('enter')
+            await loaded(app, pilot)
+            assert app._allocation_detail is not None
+
+    asyncio.run(run())
+    assert closing_ticks == [True]
+
+
 def test_background_refresh_preserves_rows_selection_scroll_and_focus(job_client):
     env, path, payload = job_client
     payload['jobs'] = [{**deepcopy(payload['jobs'][0]), 'job_id': number} for number in range(100,180)]
