@@ -293,6 +293,21 @@ def test_long_qos_does_not_displace_gpu_counts_in_a_normal_terminal(native_clien
     assert all(len(line)<=80 for line in table.splitlines())
 
 
+def test_node_detail_labels_slurm_dimensions_without_claiming_physical_sockets(native_client):
+    from io import StringIO
+    from rich.console import Console
+    from sai_cli.tui_resources import node_detail
+
+    value = result(native_client, '--kind', 'cpu')
+    node_value = next(node for node in value['nodes'] if node['kind'] == 'cpu')
+    node_value['cpu_topology'] = {'sockets': 2, 'cores_per_socket': 16, 'threads_per_core': 2}
+    output = StringIO()
+    Console(file=output, width=100).print(node_detail(node_value, value['partitions'], language='zh-CN', width=100))
+    text = output.getvalue()
+    assert 'Slurm CPU' in text and '2 组 × 16 核 × 2 线程' in text
+    assert '插槽' not in text
+
+
 def test_empty_native_data_is_not_a_source_failure(native_client):
     env,path,payload=native_client;payload['sinfo']=[];path.write_text(json.dumps(payload))
     value=result(native_client)
