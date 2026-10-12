@@ -341,6 +341,15 @@ The source suite passed 1215 tests and Python 3.11/3.13 CI. This is bounded live
 evidence, not human visual acceptance or multi-node job acceptance. Web/Pilot
 interconnect adoption remains with its existing release owner.
 
+Shared client `62adfb627112` followed on 2026-10-13. CPU tables and both node
+detail views now identify scheduler dimensions as Slurm groups, avoiding a
+physical-socket claim. Periodic callbacks also stop when Textual begins shutdown;
+a deterministic regression reproduced the former access to removed widgets.
+Python 3.11/3.13 CI, ordinary-user candidate and selected CPU/GPU views at
+40/100 columns, and real-terminal exit/restoration passed. The 964-file runtime
+was verified with configuration and dependencies unchanged; prior runtime and
+rollback remain, while test staging and operator sessions were cleaned up.
+
 ## Focused query interaction
 
 The current source adds automatic refresh of the visible view: jobs every 5
