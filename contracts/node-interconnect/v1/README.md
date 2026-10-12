@@ -66,8 +66,11 @@ are valid observations, but do not become active connection edges.
 
 ## Observation and publication contract
 
-Records describe a bounded observation, not current link health. `boot_time` and
-`slurmd_start_time` bind the device mapping to one native generation. They cannot
+Records describe a bounded observation, not current link health.
+`slurmd_start_time` binds the device mapping to one native daemon generation.
+Slurm recomputes `boot_time` from message arrival time minus reported uptime;
+it is observation metadata, not an exact generation key. A new daemon start
+invalidates the mapping, including after a machine reboot. This cannot
 detect an in-place cable move or a configuration rewrite; the site publisher must
 withdraw or replace the record after those changes. Expiry is checked when the
 file is read, after generation lookup and on each consumer arrival. GUI consumers
