@@ -212,6 +212,18 @@ consumers before it becomes a supported platform.
 
 ## Current order of work
 
+Selected-site connection discovery was paired and deployed on 2026-10-13:
+CLI `e93932a6bb46`, Center `cb4f5217791b`. An ordinary user's temporary connection
+profile omitted site, cluster and gateway settings; explicit site selection
+resolved the latter two and read the organization queue and an existing job's
+allocation/interconnect, matching the local native observation. The same check
+passed before and after shared runtime selection. The existing grant and profile
+were preserved, and the terminal restored normally on exit. Source coverage
+also includes independent site origins and the quota/cost paths; this live check
+does not establish independent-device onboarding, fresh browser consent or
+another production site's ingress. The prior programs/configuration remain
+rollback inputs; remote staging and all operator sessions were cleaned up.
+
 1. Close independent first-use obstacles with the shipped guide and skill on
    supported devices before broadening management again. Prioritize trusted
    configuration delivery, understandable permission selection and recovery;
