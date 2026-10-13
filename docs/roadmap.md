@@ -94,8 +94,10 @@ historical entries are not an automatic new-feature queue.
   guidance and readable single-color/narrow-terminal states. Local source
   validation passed 1,272 tests; focused architecture and actual terminal-render
   reviews closed their findings. This is not a production or human acceptance.
-- [x] Build and qualify the corrected `0.2.0a2` source from PR #14, including
-  installed CLI processes, base-to-TUI installation and PTY restoration.
+- [x] Freeze the final `0.2.0a2` candidate at `b2154b086692`, including PR #14
+  corrections and PR #15 job-focused presentation. Final source validation
+  passed 1,273 tests and Python 3.11/3.13 CI; the final wheel passed installed
+  CLI processes, base-to-TUI installation, PTY restoration and upgrade/rollback.
 - [ ] Publish the corrected artifact after maintainer authorization. Retain its
   exact source and checksum manifest. Independent human first use and shared
   production activation are separate from public distribution.
@@ -155,8 +157,9 @@ does not return. Pilot delivery and hardware assets do not block this work.
 - [ ] Verify noninteractive Agent use on a user device and dedicated isolated VM,
   with explicit local/remote prerequisites; the independent Linux-container
   default-account flow below is verified, not the whole device/platform matrix
-- [ ] Pair normal user/delegated authorization with existing Portal query and
-  management services; begin with an existing preferences action and its receipt
+- [x] Pair normal-user authorization with existing Portal queries and the first
+  preference writer and receipt. Broader management remains in the
+  [task and delivery map](product-delivery.md#user-tasks-and-capability-owners).
 - [x] Implement the default-account source contract: independent write scope,
   expected saved value, existing idempotency/projection records and explicit
   accepted versus applied results; paired Center/CLI/Identity components are

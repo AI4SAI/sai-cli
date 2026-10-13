@@ -1,6 +1,6 @@
 # Human and Agent product delivery
 
-Status: established product scope and current delivery map, reviewed 2026-10-11.
+Status: established product scope and current delivery map, reviewed 2026-10-14.
 Publishing still requires the maintainer release process. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
 remains the executable operation catalogue.
 
@@ -231,8 +231,17 @@ independent human first-use or multi-site acceptance.
 The later presentation refinement `1bfb4cb18523` is also deployed through the
 shared runtime. Ordinary-user native checks show a small job's CPU/GPU placement
 and GPU connection directly on the first narrow screen, with full hardware on
-expansion. This adds no read or JSON change and does not replace the frozen
-public alpha candidate. See [the topology delivery boundary](terminal-scope.md#interconnect-correction-2026-10-12).
+expansion. This adds no read or JSON change.
+See [the topology delivery boundary](terminal-scope.md#interconnect-correction-2026-10-12).
+
+The final `0.2.0a2` candidate is frozen at
+`b2154b0866923f90f627038977790017d496b6bd`, including both PR #14 and the PR #15
+job-focused presentation. Its runtime files match the deployed `1bfb4cb18523`
+source. The final source passed 1,273 tests and Python 3.11/3.13 CI; the final
+wheel passed independent Linux installation, synthetic authorization/recovery,
+TUI installation, PTY restoration and upgrade/rollback checks. Public tag and
+release publication remain pending maintainer authorization. Later documentation
+updates do not change that frozen source or its reviewed artifact checksums.
 
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
