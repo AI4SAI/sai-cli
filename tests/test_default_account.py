@@ -1,5 +1,6 @@
 from copy import deepcopy
 from io import StringIO
+import os
 import shlex
 import json
 
@@ -62,7 +63,8 @@ def test_real_http_read_and_explicit_global_write(tmp_path, monkeypatch, prefix)
         assert len(calls) == 2
 
 
-def test_printed_default_account_readback_keeps_service_and_affected_site(tmp_path):
+@pytest.mark.parametrize('managed', [False, True])
+def test_printed_default_account_readback_keeps_service_and_affected_site(tmp_path, monkeypatch, managed):
     def respond(call, count):
         if count == 1:
             assert call['method'] == 'PUT'
@@ -70,13 +72,23 @@ def test_printed_default_account_readback_keeps_service_and_affected_site(tmp_pa
         assert call['method'] == 'GET' and call['path'] == '/v1/account/cli/defaults?site_id=site-a'
         return 200, state()
     with http_endpoint(respond) as (origin, calls):
-        code, text, error = invoke(tmp_path, origin, ['account','set-default','account-research','--if-current','auto',
-                                   '--request-id','request-example-one','--format','table'])
-        assert code == 0, error
-        command = shlex.split(text.split('查看站点结果：')[1])[1:]
+        from sai_cli import config as config_module
+        config = tmp_path/'config.toml'
+        config.write_text('[profiles.default]\n'+f'base_url={json.dumps(origin)}\nsite_id="site-a"\nrequire_site_capability=true\n')
+        config.chmod(0o600)
+        monkeypatch.setattr(config_module, '_MANAGED_CONFIG_PATH', config)
+        monkeypatch.setattr(config_module, '_MANAGED_CONFIG_OWNER_UID', os.getuid())
+        env = {'SAI_TOKEN':'identity-user-token','XDG_CONFIG_HOME':str(tmp_path/'missing')}
+        if managed:
+            env['SAI_MANAGED_LOGIN_NODE'] = '1'
         out, err = StringIO(), StringIO()
-        assert main(command,environ={'SAI_TOKEN':'identity-user-token','XDG_CONFIG_HOME':str(tmp_path/'missing')},
-                    stdout=out,stderr=err) == 0, err.getvalue()
+        options = [] if managed else ['--config',str(config)]
+        assert main(['account','set-default','account-research','--if-current','auto',
+                     '--request-id','request-example-one','--format','table',*options],
+                    environ=env,stdout=out,stderr=err) == 0, err.getvalue()
+        command = shlex.split(out.getvalue().split('结果：')[1])[1:]
+        out, err = StringIO(), StringIO()
+        assert main(command,environ=env,stdout=out,stderr=err) == 0, err.getvalue()
         assert json.loads(out.getvalue()) == state() and len(calls) == 2
 
 

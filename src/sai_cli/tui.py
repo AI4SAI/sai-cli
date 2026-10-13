@@ -59,7 +59,7 @@ class QueryApp(App):
     #content { height: auto; }
     #detail { height: auto; max-height: 60%; display: none; padding: 1 2; overflow-y: auto; }
     #detail.job-detail { height: 1fr; max-height: 100%; }
-    #notice { height: auto; max-height: 3; margin: 0 2; }
+    #notice { height: auto; margin: 0 2; }
     Footer { background: $surface; }
     """
     BINDINGS = [Binding("1", "view('jobs')", show=False), Binding("2", "view('gpu')", show=False),
