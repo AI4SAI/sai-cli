@@ -77,7 +77,11 @@ Job inspection gives the map the content area and keyboard focus. Arrow and
 page keys scroll; Escape restores the original list position. Refresh rereads
 the selected detail, preserving its position; rejection clears the old detail.
 The default detail uses a compact CPU/NUMA tree and the selected GPUs' connection
-matrix. `i` expands PCIe ancestry and the complete GPU matrix from the same
+matrix. Where placement is known, the tree includes only NUMA domains with this
+job's mapped CPUs or GPUs, and only its selected GPUs. CPU and GPU assignments
+may span different domains; keep both. The title identifies this job projection,
+and unknown CPU locality stays explicit. `i` expands all domains, PCIe ancestry
+and the complete GPU matrix from the same
 observation, without another read. Exact Slurm CPU ranges remain concise;
 per-thread panels are removed. Native Slurm sockets may be configured NUMA
 groups and are not labeled as physical CPU packages. Resource tables and node

@@ -189,7 +189,10 @@ and page keys scroll without changing the selected job. `r` rereads that exact
 detail, and Escape restores the original list without a new query. Allocation
 details share the batch Rich renderer. The current candidate prioritizes a compact
 CPU/NUMA and GPU relationship view, selected-GPU paths and optional hardware
-details; exact Slurm IDs remain available without per-thread panels.
+details; exact Slurm IDs remain available without per-thread panels. The compact
+tree shows the job's mapped CPU domains and selected GPUs, keeping its placement
+ahead of unrelated node hardware. Expansion restores the complete recorded
+domains and devices from the same response; unknown locality is never inferred.
 Outstanding reads are bounded and serialized; repeated requests retain only
 the newest pending query.
 Changing view/scope clears stale facts before loading. Account names come from

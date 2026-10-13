@@ -59,19 +59,25 @@ def node_interconnect(value: dict, *, occupied: set[int],
     from .allocation_view import ranges
     from sai_native_topology import job_cpu_locality
     locality = job_cpu_locality(value, cpu_ids)
+    focused = not expanded and (bool(occupied) or bool(locality and any(locality.values())))
     groups = defaultdict(list)
     for gpu in value["gpus"]:
-        groups[gpu["numa"]].append(gpu)
-    tree = Tree(Text("CPU ↔ GPU" if value["gpus"] else "CPU / NUMA", style="bold"), guide_style="dim")
+        if not focused or gpu["index"] in occupied:
+            groups[gpu["numa"]].append(gpu)
+    title = ("作业落点" if chinese else "Job placement") if focused else (
+        "CPU ↔ GPU" if value["gpus"] else "CPU / NUMA")
+    tree = Tree(Text(title, style="bold"), guide_style="dim")
     packages_seen = {}
     for domain in value["numa"]:
         gpus = groups.get(domain["id"], [])
+        assigned = None if locality is None else locality[domain["id"]]
+        if focused and not gpus and not assigned:
+            continue
         local = sorted({cpu for gpu in gpus for cpu in gpu["cpu_ids"] or ()})
         packages = tuple(domain["packages"])
         if packages not in packages_seen:
             packages_seen[packages] = tree.add(Text("CPU " + ranges(list(packages))))
         label = Text(f"NUMA {domain['id']}")
-        assigned = None if locality is None else locality[domain["id"]]
         if assigned:
             label.append(f" · {len(assigned)}/{len(domain['linux_cpu_ids'])} CPU*", style=ALLOCATED)
         elif not gpus:
