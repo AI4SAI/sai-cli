@@ -10,7 +10,10 @@ The base Python wheel contains the SAI client and its official Agent skill,
 with no third-party runtime dependency. `src/sai_native_slurm.py` is an exact
 export of the SAI Portal native projection. Its originating path, revision and
 digest are recorded in [the source manifest](contracts/native-slurm-source.json).
-This shared export is included in the first-party Apache-2.0 license.
+The topology reader in `src/sai_native_topology.py` is likewise an exact export;
+its source and digest are recorded in
+[the topology source manifest](contracts/native-topology-source.json).
+Both shared exports are included in the first-party Apache-2.0 license.
 Portal services, databases and their other code are not part of this client.
 
 Slurm and Lustre commands are external native programs. The wheel includes

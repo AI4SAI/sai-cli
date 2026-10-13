@@ -47,7 +47,7 @@ In a directory you control, with the provided wheel present:
 ```bash
 python3 -m venv .sai-env
 . .sai-env/bin/activate
-python -m pip install ./sai_cli-0.2.0a1-py3-none-any.whl
+python -m pip install ./sai_cli-0.2.0a2-py3-none-any.whl
 sai --version
 sai describe --format table
 ```

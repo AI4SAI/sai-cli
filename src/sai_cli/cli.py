@@ -858,7 +858,7 @@ def main(
                     expected_account_id=None if args.if_current == "auto" else args.if_current,
                     idempotency_key=args.request_id,
                 )
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_default_account(result, args=args))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_default_account(result, args=args, managed=settings.managed_login_node))
             return 0
         if args.command == "status":
             from .overview_view import render_overview
