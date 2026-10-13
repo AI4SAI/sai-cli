@@ -39,8 +39,9 @@ class SaiCliError(Exception):
 
 
 class ConfigError(SaiCliError):
-    def __init__(self, message: str, *, code: str = "configuration_invalid") -> None:
-        super().__init__(code=code, message=message, exit_code=EXIT_USAGE)
+    def __init__(self, message: str, *, code: str = "configuration_invalid",
+                 recovery_command: tuple[str, ...] = ()) -> None:
+        super().__init__(code=code, message=message, exit_code=EXIT_USAGE, recovery_command=recovery_command)
 
 
 class AuthenticationError(SaiCliError):

@@ -229,9 +229,12 @@ def test_native_detail_requires_capability_and_an_available_site_endpoint(tmp_pa
     assert [call["path"] for call in calls] == (["/v1/account/cli/sites/site-a/connection"] if capability else [])
 
 
-@pytest.mark.parametrize('command', [['jobs', 'allocation', '12345'], ['jobs', 'list']])
-def test_portable_job_reads_resolve_the_selected_site_without_rewriting_profile(tmp_path, site_allocation_payload, site_payload, command):
+@pytest.mark.parametrize('cluster_selection', [None, 'before', 'after', 'environment'])
+@pytest.mark.parametrize('command', [['jobs', 'allocation', '12345'], ['jobs', 'list'], ['jobs', 'show', '12345']])
+def test_portable_job_reads_resolve_the_selected_site_without_rewriting_profile(tmp_path, site_allocation_payload, site_payload, command, cluster_selection):
     payload = site_allocation_payload if command[1] == 'allocation' else site_payload
+    if command[1] == 'show':
+        payload['freshness']['source'] = 'scontrol'
     second_payload = {**deepcopy(payload), 'site_id': 'site-b', 'cluster_id': 'cluster-b'}
     with http_endpoint(lambda *_: (200, payload)) as (gateway, reads), http_endpoint(lambda *_: (200, second_payload)) as (second_gateway, second_reads):
         def central(call, count):
@@ -248,9 +251,19 @@ def test_portable_job_reads_resolve_the_selected_site_without_rewriting_profile(
             config.chmod(0o600)
             original = config.read_bytes()
             for selected, expected in [('site-a', payload), ('site-b', second_payload)]:
-                code, text, error = invoke(config, tmp_path, [*command, '--site', selected])
-                assert code == 0, error
-                assert json.loads(text) == expected
+                words = [*command, '--site', selected]
+                cluster = expected['cluster_id']
+                if cluster_selection == 'before':
+                    words = ['--cluster', cluster, *words]
+                elif cluster_selection == 'after':
+                    words += ['--cluster', cluster]
+                env = {'SAI_TOKEN': 'identity-session-token', 'XDG_CACHE_HOME': str(tmp_path / 'cache')}
+                if cluster_selection == 'environment':
+                    env['SAI_CLUSTER_ID'] = cluster
+                output, error = StringIO(), StringIO()
+                code = main(['--config', str(config), *words], environ=env, stdout=output, stderr=error)
+                assert code == 0, error.getvalue()
+                assert json.loads(output.getvalue()) == expected
             assert config.read_bytes() == original
             assert len(calls) == 4 and calls[1]['body']['cluster_id'] == 'cluster-a' and calls[3]['body']['cluster_id'] == 'cluster-b'
             assert calls[1]['body']['site_id'] == 'site-a' and calls[3]['body']['site_id'] == 'site-b'
@@ -258,6 +271,36 @@ def test_portable_job_reads_resolve_the_selected_site_without_rewriting_profile(
             assert reads[0]['capability'] == 'opaque-capability-2'
             assert len(second_reads) == 1 and second_reads[0]['bearer'] is None
             assert second_reads[0]['capability'] == 'opaque-capability-4'
+
+
+def test_portable_cluster_constraint_rejects_mismatch_before_a_native_read(tmp_path):
+    metadata = {'schema_version': 'site.connection/v1', 'site_id': 'site-a', 'cluster_id': 'cluster-a',
+                'site_read_base_url': 'https://read.example.org'}
+    with http_endpoint(lambda *_: (200, metadata)) as (portal, calls):
+        config = tmp_path / 'config.toml'
+        config.write_text('[profiles.default]\nrequire_site_capability=true\n' + f'base_url={json.dumps(portal)}\n')
+        config.chmod(0o600)
+        code, output, error = invoke(config, tmp_path, ['jobs', 'list', '--site', 'site-a', '--cluster', 'cluster-b'])
+    assert code == 2 and output == '' and 'does not match' in error
+    assert [call['path'] for call in calls] == ['/v1/account/cli/sites/site-a/connection']
+
+
+def test_fixed_central_profile_retains_its_route_with_or_without_cluster_filter(tmp_path, job_payload):
+    def reply(call, count):
+        if call['method'] == 'POST':
+            return issuer(call, count)
+        assert call['path'].startswith('/v1/slurm/cli/jobs?')
+        return 200, job_payload
+    with http_endpoint(reply) as (portal, calls):
+        config = tmp_path / 'config.toml'
+        config.write_text('[profiles.default]\nsite_id="site-a"\ncluster_id="cluster-a"\n'
+                          f'base_url={json.dumps(portal)}\nrequire_site_capability=true\n')
+        config.chmod(0o600)
+        for flags in ([], ['--cluster', 'cluster-a']):
+            code, output, error = invoke(config, tmp_path, ['jobs', 'list', *flags])
+            assert code == 0, error
+            assert json.loads(output) == job_payload
+    assert all('/connection' not in call['path'] for call in calls)
 
 
 @pytest.mark.parametrize('change', [

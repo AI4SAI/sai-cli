@@ -237,3 +237,25 @@ def test_interconnect_layout_handles_sparse_domains_and_partial_gpu_groups():
     out = StringIO()
     Console(file=out, width=40).print(nvlink_summary(value, {0, 2}, chinese=True))
     assert 'GPU 0, 2' in out.getvalue() and '0–2' not in out.getvalue()
+
+
+@pytest.mark.parametrize('width', [40, 100])
+def test_gpu_connection_matrix_explains_only_displayed_paths(width):
+    from itertools import combinations
+    from io import StringIO
+    from rich.console import Console
+    from sai_cli.interconnect_view import node_interconnect
+    indices = [0, 2, 5, 7]
+    value = {'numa': [{'id': 0, 'packages': [0], 'linux_cpu_ids': [0, 1]}],
+             'gpus': [{'index': index, 'numa': 0, 'cpu_ids': [0, 1]} for index in indices],
+             'links': [{'a': a, 'b': b, 'kind': kind} for (a, b), kind in zip(
+                 combinations(indices, 2), ['PIX', 'PXB', 'PHB', 'NODE', 'SYS', 'NV2'])]}
+    output = StringIO()
+    Console(file=output, width=width).print(node_interconnect(value, occupied=set(indices), chinese=True, width=width))
+    text = output.getvalue()
+    for explanation in ['PIX：单级 PCIe', 'PXB：多级 PCIe', 'PHB：经 CPU 桥', 'NODE：同 NUMA', 'SYS：跨 NUMA', 'NV#：NVLink 条数']:
+        assert explanation in text.replace('\n', ' ')
+    output = StringIO()
+    Console(file=output, width=width).print(node_interconnect(value, occupied={0, 2, 5}, chinese=True, width=width))
+    text = output.getvalue()
+    assert 'NV#' not in text and 'SYS：' not in text and 'PHB：' not in text

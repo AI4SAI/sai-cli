@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.text import Text
 
 from .local_resources import _available, _ready
-from .native_resource_view import ALLOCATED, BLOCKED, FREE, _allocation, _gib, _gpu_matrix, _number, _state, _qos
+from .native_resource_view import ALLOCATED, BLOCKED, FREE, _allocation, _gib, _gpu_matrix, _number, _state, _qos, gpu_legend
 from .render import format_decimal
 
 
@@ -38,7 +38,7 @@ def compact_summary(value: dict, kind: str, language: str) -> Group:
         line.append((" · 不可用 " if chinese else " · Unavailable ") + _number(capacity["blocked_unallocated"]), style=BLOCKED)
     rows = [line]
     if kind == "gpu":
-        rows.append(Text("[#] 已分配  [_] 空闲  ? 未知" if chinese else "[#] Allocated  [_] Idle  ? Unknown"))
+        rows.append(gpu_legend(chinese=chinese))
     if value["unclassified_nodes"]:
         rows.append(Text(("GPU 配置未知的节点：" if chinese else "Unknown GPU configuration: ") + str(value["unclassified_nodes"])))
     return Group(*rows)
@@ -75,6 +75,5 @@ def node_detail(node: dict, partitions: list[dict], *, language: str, width: int
         blocks.extend((Text(("GPU 已分配编号  " if chinese else "Allocated GPU indices  ") +
                             ("?" if indices is None else ranges(indices)), style="bold"),
                        _gpu_matrix(node, ready, numbered=True),
-                       Text("蓝色：已分配  绿色：空闲  红色：不可用" if chinese else
-                            "Blue: allocated  Green: idle  Red: unavailable", style="dim")))
+                       gpu_legend(chinese=chinese, numbered=True)))
     return Group(*blocks)

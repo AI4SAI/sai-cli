@@ -10,7 +10,7 @@ from urllib.parse import quote, urljoin
 from .auth import TokenLease, TokenProvider
 from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
-from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateResult, short_job_state
+from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateResult
 from .errors import AuthenticationError, ConfigError, ContractError
 from .overview import AccountOverview
 from .default_account import DefaultAccountChange, DefaultAccountState
@@ -728,6 +728,8 @@ class PortalClient:
             cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope],
             request_id=response.request_id,
+            account_name=request.account_name, states=request.states,
+            partition=request.partition, limit=request.limit,
         )
         return result
 
@@ -757,12 +759,8 @@ class PortalClient:
             cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope],
             request_id=response.request_id,
+            account_name=request.account_name, states=request.states, job_id=clean_job_id,
         )
-        if len(result.items) != 1 or result.items[0].canonical_id != clean_job_id:
-            raise ContractError(
-                "the job detail response must contain the requested job",
-                request_id=response.request_id,
-            )
         return result
 
     def job_cost(self, job_id: str, query: JobQuery) -> JobCostResult:
@@ -779,13 +777,8 @@ class PortalClient:
         result.observation.require_request_binding(
             site_id=request.site_id, cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope], request_id=response.request_id,
+            account_name=request.account_name, states=request.states, job_id=clean_job_id,
         )
-        job = result.observation.items[0]
-        if (job.canonical_id != clean_job_id
-                or (request.account_name is not None and result.observation.slurm_account != request.account_name)
-                or (request.states and short_job_state(job.values["state"]) not in
-                    {short_job_state(state) for state in request.states})):
-            raise ContractError("the cost response must contain the requested job", request_id=response.request_id)
         return result
 
     def running_estimates(self, query: JobQuery) -> RunningEstimateResult:
@@ -815,6 +808,7 @@ class PortalClient:
             cluster_id=request.cluster_id,
             scope=_SCOPES[request.scope],
             request_id=response.request_id,
+            account_name=request.account_name, states=request.states, partition=request.partition,
         )
         return result
 

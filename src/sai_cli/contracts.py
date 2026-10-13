@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Iterable
 from datetime import datetime
 import re
 from typing import Any
@@ -21,6 +22,18 @@ _STATE_SHORT = {
 
 def short_job_state(value: str | None) -> str | None:
     return _STATE_SHORT.get(value, value)
+
+
+def require_job_filters(
+    observations: Iterable[tuple[str | None, str | None]], *,
+    states: tuple[str, ...] = (), partition: str | None = None, request_id: str,
+) -> None:
+    """Apply the same state/partition constraints to native and priced rows."""
+    allowed_states = {short_job_state(state) for state in states}
+    if any((partition is not None and observed_partition != partition)
+           or (allowed_states and short_job_state(state) not in allowed_states)
+           for state, observed_partition in observations):
+        raise ContractError(request_id=request_id)
 
 
 JOB_ITEM_FIELDS = (
@@ -543,13 +556,23 @@ class JobResult:
         cluster_id: object,
         scope: object,
         request_id: str,
+        account_name: str | None = None,
+        states: tuple[str, ...] = (),
+        partition: str | None = None,
+        limit: int | None = None,
+        job_id: str | None = None,
     ) -> None:
         if (
             self.site_id != site_id
             or self.scope != scope
             or (cluster_id is not None and self.cluster_id != cluster_id)
+            or (account_name is not None and self.slurm_account != account_name)
+            or (limit is not None and len(self.items) > limit)
+            or (job_id is not None and (len(self.items) != 1 or self.items[0].canonical_id != job_id))
         ):
             raise ContractError(request_id=request_id)
+        require_job_filters(((item.values["state"], item.values["partition"]) for item in self.items),
+                            states=states, partition=partition, request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -947,10 +970,17 @@ class RunningEstimateResult:
         cluster_id: object,
         scope: object,
         request_id: str,
+        account_name: str | None = None,
+        states: tuple[str, ...] = (),
+        partition: str | None = None,
     ) -> None:
         if (
             self.site_id != site_id
             or self.scope != scope
             or (cluster_id is not None and self.cluster_id != cluster_id)
+            or (account_name is not None and self.slurm_account != account_name)
         ):
             raise ContractError(request_id=request_id)
+        require_job_filters(((item.values["state"], item.values["resources"]["partition"])
+                             for item in self.items),
+                            states=states, partition=partition, request_id=request_id)

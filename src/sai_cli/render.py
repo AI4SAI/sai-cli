@@ -26,7 +26,9 @@ def follow_up_command(args: Namespace | None, *words: str) -> str:
     command = ["sai", *words]
     if words == ("auth", "login") and getattr(args, "authorization_path", None):
         command += ["--for", *args.authorization_path]
-    for name in ("config", "profile", "base_url", "cache", "timeout", "allow_insecure_http"):
+    options = (("config", "profile", "timeout") if words[:1] == ("configure",) else
+               ("config", "profile", "base_url", "cache", "timeout", "allow_insecure_http"))
+    for name in options:
         value = getattr(args, name, None)
         if value not in (None, False):
             if name in {"config", "cache"}:

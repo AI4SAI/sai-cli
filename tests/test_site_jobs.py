@@ -173,7 +173,7 @@ def test_detail_binding_uses_canonical_array_identity(site_jobs_payload, task):
     )
 
 
-@pytest.mark.parametrize("requested,returned", [("RUNNING", "R"), ("PENDING", "PD"), ("CONFIGURING", "CONFIGURING")])
+@pytest.mark.parametrize("requested,returned", [("RUNNING", "R"), ("R", "RUNNING"), ("PENDING", "PD"), ("CONFIGURING", "CONFIGURING")])
 def test_state_binding_accepts_documented_native_aliases_only(site_jobs_payload, requested, returned):
     site_jobs_payload["items"][0]["state"] = returned
     result = SiteJobResult.from_payload(site_jobs_payload, request_id="states")

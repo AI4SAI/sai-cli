@@ -1,6 +1,7 @@
 from copy import deepcopy
 from io import StringIO
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -93,3 +94,30 @@ def test_invitation_references_reject_shell_syntax_and_contract_overflow(value):
 def test_invitation_sites_are_canonical(site):
     detail=sample();detail["invitation"]["site_id"]=site
     with pytest.raises(ContractError): Invitations.detail(detail,invitation_id="invitation-example",request_id="r")
+
+
+@pytest.mark.parametrize('connection', ['profile', 'base-url'])
+@pytest.mark.parametrize('prefix', [False, True])
+def test_following_invitation_page_keeps_service_profile_and_page_size(tmp_path, connection, prefix):
+    from urllib.parse import parse_qs, urlsplit
+    page = sample('collaboration-invitations')
+    page.update(has_more=True, next_cursor='invitation-example')
+    def selected_reply(call, count):
+        query = parse_qs(urlsplit(call['path']).query)
+        assert query == {'limit': ['1'], **({'cursor': ['invitation-example']} if count > 1 else {})}
+        return 200, page if count == 1 else {**page, 'items': [], 'count': 0, 'has_more': False, 'next_cursor': None}
+    with http_endpoint(lambda *_: (200, page)) as (default, default_calls), http_endpoint(selected_reply) as (selected, calls):
+        config = tmp_path / 'connection with spaces.toml'
+        config.write_text(f'[profiles.default]\nbase_url={json.dumps(default)}\n'
+                          f'[profiles.chosen]\nbase_url={json.dumps(selected)}\n')
+        config.chmod(0o600)
+        flags = ['--config', str(config), '--profile', 'chosen'] if connection == 'profile' else [
+            '--config', str(config), '--base-url', selected]
+        command = ['invitations', 'list', '--limit', '1', '--format', 'table']
+        env = {'SAI_TOKEN': 'test-user', 'XDG_CACHE_HOME': str(tmp_path / 'cache')}
+        output, error = StringIO(), StringIO()
+        assert main([*flags, *command] if prefix else [*command, *flags],
+                    environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        following = shlex.split(output.getvalue().split('下一页：')[1])[1:]
+        assert main(following, environ=env, stdout=StringIO(), stderr=error) == 0, error.getvalue()
+        assert len(calls) == 2 and not default_calls

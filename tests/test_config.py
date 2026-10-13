@@ -209,7 +209,7 @@ def test_managed_gateway_uses_protected_config_and_requires_https(
 
 
 def test_missing_base_url_is_bounded(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="missing SAI API base URL"):
+    with pytest.raises(ConfigError, match="No SAI service is configured"):
         resolve_settings(
             _args("--config", str(tmp_path / "missing.toml"), "--site", "site-a"),
             {},

@@ -94,5 +94,6 @@ def render_sites(result: SiteDirectory, *, args: Namespace | None = None) -> str
     lines = [_line(("Site", "Name"), widths), *(_line(row, widths) for row in rows)]
     if result.values["has_more"]:
         from .managed_runs import terminal_log
-        lines.append("Next: " + terminal_log(follow_up_command(args, "sites", "--cursor", result.values['next_cursor'], "--format", "table")))
+        lines.append("Next: " + terminal_log(follow_up_command(args, "sites", "--cursor", result.values['next_cursor'],
+            "--limit", str(getattr(args, "limit", 50)), "--format", "table")))
     return "\n".join(lines) + "\n"

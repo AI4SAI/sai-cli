@@ -79,6 +79,7 @@ class Settings:
     require_site_capability: bool = False
     cluster_id: str | None = None
     site_read_base_url: str | None = None
+    fixed_site_connection: bool = False
 
 
 def default_config_path(environ: Mapping[str, str]) -> Path:
@@ -381,14 +382,20 @@ def resolve_settings(
         values.get("base_url"),
     )
     if not base_url:
-        raise ConfigError("missing SAI API base URL; set --base-url or SAI_API_BASE_URL")
+        raise ConfigError(
+            "No SAI service is configured; replace SERVICE_URL with your service's trusted console URL",
+            recovery_command=("configure", "SERVICE_URL"),
+        )
     site_id = _first_text(
         None if managed else args.site,
         None if managed else env.get("SAI_SITE_ID"),
         values.get("site_id"),
     )
     if not site_id and require_site:
-        raise ConfigError("missing SAI site; set --site or SAI_SITE_ID")
+        raise ConfigError(
+            "No site selected; choose a site ID, then repeat with --site",
+            recovery_command=("sites", "--format", "table"),
+        )
     cluster_id = _first_text(
         None if managed else getattr(args, "cluster", None),
         None if managed else env.get("SAI_CLUSTER_ID"),
@@ -472,4 +479,10 @@ def resolve_settings(
         require_site_capability=require_capability,
         cluster_id=cluster_id,
         site_read_base_url=site_read_base_url,
+        # A saved site/cluster pair preserves the existing relay contract.
+        # Invocation filters must not select a transport or response schema.
+        fixed_site_connection=bool(
+            _first_text(values.get("cluster_id"))
+            and site_id == _first_text(values.get("site_id"))
+        ),
     )

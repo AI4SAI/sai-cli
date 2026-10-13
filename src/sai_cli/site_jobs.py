@@ -10,6 +10,7 @@ from sai_native_slurm import normalize_node_topology, MAX_OBSERVATION_CPU_IDS
 from .contracts import (
     JobItem,
     short_job_state,
+    require_job_filters,
     _nullable_int,
     _nullable_nonempty_text,
     _nullable_sha256_text,
@@ -175,13 +176,10 @@ class SiteJobResult(_SiteJobContext):
         if ((limit is not None and len(self.items) > limit)
                 or (job_id is not None and (len(self.items) != 1 or self.has_more))):
             raise ContractError(request_id=request_id)
-        allowed_states = {short_job_state(state) for state in states}
-        for item in self.items:
-            values = item.values
-            if ((partition is not None and values["partition"] != partition)
-                    or (allowed_states and values["state"] not in allowed_states)
-                    or (job_id is not None and item.canonical_id != job_id)):
-                raise ContractError(request_id=request_id)
+        if job_id is not None and self.items[0].canonical_id != job_id:
+            raise ContractError(request_id=request_id)
+        require_job_filters(((item.values["state"], item.values["partition"]) for item in self.items),
+                            states=states, partition=partition, request_id=request_id)
 
     def as_dict(self) -> dict[str, Any]:
         return {"schema_version": "jobs/v2" if self.subaccounts else "jobs/v1", **super().as_dict(),
@@ -334,9 +332,10 @@ class SiteJobAllocationResult(_SiteJobContext):
     ) -> None:
         super().require_request_binding(expected_source="scontrol", **context)
         values = self.job.values
-        allowed_states = {short_job_state(state) for state in states}
-        if self.job.canonical_id != job_id or (allowed_states and values["state"] not in allowed_states):
+        if self.job.canonical_id != job_id:
             raise ContractError(request_id=context["request_id"])
+        require_job_filters(((values["state"], values["partition"]),),
+                            states=states, request_id=context["request_id"])
 
     def as_dict(self) -> dict[str, Any]:
         return {"schema_version": "jobs.allocation/v3" if self.subaccounts else "jobs.allocation/v2", **super().as_dict(),
