@@ -121,8 +121,8 @@ def test_retired_authentication_environment_fails_before_any_request(
         assert server.requests == []
     assert result == 2 and output.getvalue() == ""
     assert json.loads(errors.getvalue())["error"]["code"] == "configuration_invalid"
-    assert f"unset {name}, then run" in errors.getvalue()
-    assert "sai auth login" in errors.getvalue() and "retired-auth-value" not in errors.getvalue()
+    assert f"unset {name} and retry" in errors.getvalue()
+    assert "retired-auth-value" not in errors.getvalue()
 
 
 def test_missing_identity_session_fails_before_any_request(tmp_path: Path, job_payload) -> None:

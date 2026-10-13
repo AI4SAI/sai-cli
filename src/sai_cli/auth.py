@@ -179,8 +179,9 @@ class TokenProvider:
             return self._refresh_device(now=now)
 
         raise AuthenticationError(
-            "no SAI Identity device session is available; run `sai auth login`",
+            "no SAI Identity device session is available",
             code="credentials_unavailable",
+            recovery_command=("auth", "login"),
         )
 
     def invalidate(self, lease: TokenLease) -> None:
@@ -336,7 +337,7 @@ class TokenProvider:
         if self.oidc_client is None:
             self.clear_device_credentials()
             raise AuthenticationError(
-                "the SAI Identity issuer is not configured; run `sai auth login`",
+                "the SAI Identity issuer is not configured",
                 code="credentials_unavailable",
             )
         try:
@@ -369,8 +370,9 @@ class TokenProvider:
         except (AuthenticationError, ContractError):
             self.clear_device_credentials()
             raise AuthenticationError(
-                "the SAI Identity device session is no longer valid; run `sai auth login`",
+                "the SAI Identity device session is no longer valid",
                 code="credentials_unavailable",
+                recovery_command=("auth", "login"),
             )
 
 

@@ -1,6 +1,7 @@
 from copy import deepcopy
 from io import StringIO
 import json
+import shlex
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -90,3 +91,19 @@ def test_site_connection_preserves_pinned_origin_cluster_constraints_and_https(t
     assert resolve_site_settings(pinned, connection, gateway=True).site_read_base_url == pinned.site_read_base_url
     with pytest.raises(ConfigError): resolve_site_settings(replace(pinned, cluster_id='cluster-b'), connection, gateway=True)
     assert resolve_site_settings(settings, connection, gateway=False).site_read_base_url is None
+
+
+def test_following_the_site_page_hint_keeps_the_selected_service(tmp_path):
+    body = sample();body.update(has_more=True, next_cursor='site-a')
+    def reply(call, count):
+        if count == 1:
+            return 200, body
+        assert parse_qs(urlsplit(call['path']).query) == {'limit':['50'], 'cursor':['site-a']}
+        return 200, {**body, 'items':[], 'count':0, 'has_more':False, 'next_cursor':None}
+    with http_endpoint(reply) as (origin, calls):
+        env = {'SAI_TOKEN':'test-user', 'XDG_CONFIG_HOME':str(tmp_path/'missing')}
+        out, err = StringIO(), StringIO()
+        assert main(['sites','--format','table','--base-url',origin],environ=env,stdout=out,stderr=err) == 0
+        command = shlex.split(out.getvalue().split('Next: ')[1])[1:]
+        assert main(command,environ=env,stdout=StringIO(),stderr=err) == 0, err.getvalue()
+        assert len(calls) == 2

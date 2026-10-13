@@ -394,6 +394,12 @@ Relevant environment variables:
 
 ## Authentication
 
+Follow-up commands retain explicitly selected config/profile, service origin and
+connection options at the CLI presentation boundary. Missing-session and scope
+errors, device resume, site pagination, account readback and the focused TUI
+reuse this renderer. Domain errors describe the recovery action without owning
+shell syntax. JSON error codes and authentication requests remain unchanged.
+
 Token selection order is:
 
 1. use an explicit Identity `SAI_TOKEN` for the current process without writing it to disk;

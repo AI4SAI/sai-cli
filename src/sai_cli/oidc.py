@@ -271,9 +271,10 @@ class OidcClient:
                 raise OidcSlowDown from exc
             if exc.code in {"expired_token", "access_denied", "invalid_grant"}:
                 raise AuthenticationError(
-                    "Identity device authorization is no longer valid; start login again",
+                    "Identity device authorization is no longer valid",
                     code="credentials_unavailable",
                     request_id=exc.request_id,
+                    recovery_command=("auth", "login"),
                 ) from exc
             raise
         return self._parse_token_response(response.payload, now=now, request_id=response.request_id)
@@ -292,9 +293,10 @@ class OidcClient:
         except SaiCliError as exc:
             if exc.code in {"invalid_grant", "invalid_token", "unauthorized_client"}:
                 raise AuthenticationError(
-                    "the Identity device session is no longer valid; run `sai auth login`",
+                    "the Identity device session is no longer valid",
                     code="credentials_unavailable",
                     request_id=exc.request_id,
+                    recovery_command=("auth", "login"),
                 ) from exc
             raise
         return self._parse_token_response(response.payload, now=now, request_id=response.request_id)

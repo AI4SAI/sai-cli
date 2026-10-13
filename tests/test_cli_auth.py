@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import StringIO
 import json
+import shlex
 from pathlib import Path
 import threading
 import time
@@ -251,7 +252,7 @@ def test_status_without_credentials_gives_login_action_without_starting_authoriz
                         environ=_env(tmp_path, identity_issuer=base_url), stdout=out, stderr=err) == 3
             assert out.getvalue() == ""
             if output_format == "table":
-                assert err.getvalue() == f"请运行 sai auth login 完成 CLI 登录。\n身份认证：{base_url}/portal/#/portal/account/identity-assurance\n"
+                assert err.getvalue() == f"请运行 sai auth login --base-url {base_url} 完成 CLI 登录。\n身份认证：{base_url}/portal/#/portal/account/identity-assurance\n"
             else:
                 assert json.loads(err.getvalue())["error"]["code"] == "credentials_unavailable"
         assert server.requests == []
@@ -341,6 +342,39 @@ def test_task_authorization_rejects_invalid_or_local_target_before_network(tmp_p
             assert main(["auth", "login", "--base-url", origin, *suffix],
                         environ=_env(tmp_path, identity_issuer=origin), stdout=out, stderr=err) == 2
             assert not out.getvalue() and not server.requests
+
+
+def test_emitted_login_permission_and_resume_commands_keep_the_selected_profile(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv('NO_PROXY', '127.0.0.1,localhost')
+    with _server() as (selected, server), _server() as (other, untouched):
+        config = tmp_path / "research $(untrusted) profile.toml"
+        config.write_text(f'default_profile="other"\n[profiles.other]\nbase_url="{other}"\nidentity_issuer="{other}"\n'
+                          f'[profiles.research]\nbase_url="{selected}"\nidentity_issuer="{selected}"\n'
+                          'oidc_scope="openid offline_access"\n')
+        config.chmod(0o600)
+        original = config.read_bytes()
+        env = {**_env(tmp_path), 'XDG_CONFIG_HOME':str(tmp_path/'unconfigured')}
+        selection = ['--config', str(config), '--profile', 'research']
+        def call(words, expected=0):
+            out, err = StringIO(), StringIO()
+            assert main(words, environ=env, stdout=out, stderr=err) == expected, err.getvalue()
+            assert not untouched.requests and config.read_bytes() == original
+            return json.loads(out.getvalue() if expected == 0 else err.getvalue())
+        def follow(message):
+            return shlex.split(message.split('`')[1])[1:]
+        missing = call(['auth', 'status', *selection], 3)
+        login = follow(missing['error']['message'])
+        pending = call([*login, '--no-wait'])
+        resume = shlex.split(pending['resume'])[1:]
+        assert '--for' not in resume
+        call(resume)
+        denied = call([*selection, 'invitations', 'list'], 4)
+        consent = follow(denied['error']['message'])
+        pending = call([*consent, '--no-wait'])
+        assert 'sai.collaboration.invitations.read' in pending['requested_scopes']
+        call(shlex.split(pending['resume'])[1:])
+        assert call(['invitations', 'list', *selection])['items'] == []
+        assert server.poll_count == 2
 
 
 def test_permission_upgrade_keeps_connection_and_baseline_contexts_isolated(tmp_path: Path) -> None:

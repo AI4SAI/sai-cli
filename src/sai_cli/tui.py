@@ -12,6 +12,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import DataTable, Footer, Select, Static, Tab, Tabs
 
 from .errors import AuthenticationError, SaiCliError
+from .render import follow_up_command
 from .tui_queries import Queries, Read
 
 
@@ -22,7 +23,7 @@ LABELS = {
         "pause": "暂停刷新", "resume": "继续刷新", "paused": "已暂停", "auto": "自动 {seconds}s",
         "gpu_free": "GPU\n空闲/总", "gpu_slots": "GPU\n卡位", "cpu_count": "CPU\n分配/总", "memory": "GiB\n分配/总", "no_nodes": "当前分区没有节点", "node_name": "节点",
         "loading": "读取中…", "empty": "当前范围没有作业", "local": "本站", "central": "SAI 账户",
-        "login": "账户查询需要登录：退出后运行 sai auth login", "failure": "读取失败，按 r 重试",
+        "login": "账户查询需要登录：退出后运行 {command}", "failure": "读取失败，按 r 重试",
         "time": "运行 / 等待", "name": "名称", "state": "状态", "partition": "分区", "node": "节点 / 原因",
         "truncated": "仅显示前 500 条", "detail": "详情", "back": "返回", "snapshot": "更新", "read_only": "查看账户", "estimate_title": "预估费用 · 未结算", "standard_price": "标准价", "cash_price": "现金价", "unknown": "暂不可用", "stale": "旧观察，请刷新", "partial": "部分预估", "not_started": "尚未开始", "unavailable": "预估暂不可用"},
     "en-US": {"jobs": "Jobs", "gpu": "GPU", "cpu": "CPU", "quota": "Quota", "account": "Account",
@@ -31,7 +32,7 @@ LABELS = {
         "pause": "Pause", "resume": "Resume", "paused": "Paused", "auto": "Auto {seconds}s",
         "gpu_free": "GPU\nfree/all", "gpu_slots": "GPU\nslots", "cpu_count": "CPU\nalloc/all", "memory": "GiB\nalloc/all", "no_nodes": "No nodes in this partition", "node_name": "Node",
         "loading": "Reading…", "empty": "No jobs in this scope", "local": "Local", "central": "SAI account",
-        "login": "Sign in after exiting: sai auth login", "failure": "Read failed; press r to retry",
+        "login": "Sign in after exiting: {command}", "failure": "Read failed; press r to retry",
         "time": "Run / wait", "name": "Name", "state": "State", "partition": "Partition", "node": "Nodes / reason",
         "truncated": "First 500 jobs only", "detail": "Details", "back": "Back", "snapshot": "Updated", "read_only": "Viewing account", "estimate_title": "Estimate · not settled", "standard_price": "Standard", "cash_price": "Cash", "unknown": "Unavailable", "stale": "Stale observation; refresh", "partial": "Partial estimate", "not_started": "Not started", "unavailable": "Estimate unavailable"},
 }
@@ -346,9 +347,10 @@ class QueryApp(App):
                         if request.view == "account" and not directory_ready:
                             self._set_options([(self.words["current"], self.selection)], self.selection)
                             self.query_one("#selection").disabled = True
-                        message = self.words["login"] if isinstance(exc, AuthenticationError) else (
+                        from .managed_runs import terminal_log
+                        message = self.words["login"].format(command=follow_up_command(self.queries.args, "auth", "login")) if isinstance(exc, AuthenticationError) else (
                             exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
-                        error = Text(message, style="bold yellow")
+                        error = Text(terminal_log(message), style="bold yellow")
                         if request.view in {"cost", "allocation"}:
                             self._allocation_detail = None
                             self.query_one("#notice", Static).update("")

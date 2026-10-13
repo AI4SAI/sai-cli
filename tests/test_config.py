@@ -92,7 +92,7 @@ def test_profile_rejects_retired_authentication_fields(tmp_path: Path, key: str)
     config = tmp_path / "config.toml"
     config.write_text(f'[profiles.default]\n{key} = "old-setting"\n')
     config.chmod(0o600)
-    with pytest.raises(ConfigError, match="retired.*sai auth login") as error:
+    with pytest.raises(ConfigError, match="retired") as error:
         resolve_settings(_args("--config", str(config)), {"SAI_TOKEN": "identity-access"})
     assert f"remove {key} from the selected TOML profile" in str(error.value)
     assert "old-setting" not in str(error.value)
@@ -382,7 +382,7 @@ def test_managed_login_node_rejects_connection_overrides() -> None:
             _args("--base-url", "https://attacker.example.org"),
             {"SAI_MANAGED_LOGIN_NODE": "1"},
         )
-    with pytest.raises(ConfigError, match="retired.*sai auth login"):
+    with pytest.raises(ConfigError, match="retired") as error:
         resolve_settings(
             _args(),
             {

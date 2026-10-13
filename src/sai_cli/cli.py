@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from . import __version__
 from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
-from .render import render_json
+from .render import follow_up_command, render_json
 
 if TYPE_CHECKING:
     from .auth import DeviceAuthorization, OidcClient, TokenProvider
@@ -452,8 +452,9 @@ def _auth_result_output(
     if output_format == "json":
         output.write(json.dumps(dict(payload), ensure_ascii=False, sort_keys=True) + "\n")
         return
+    from .managed_runs import terminal_log
     for key, value in payload.items():
-        output.write(f"{key}: {value}\n")
+        output.write(terminal_log(f"{key}: {value}") + "\n")
 
 
 def _poll_device_authorization(
@@ -502,8 +503,9 @@ def _poll_device_authorization(
         time.sleep(min(interval, remaining))
         now = int(provider.clock())
     raise AuthenticationError(
-        "device authorization expired; run `sai auth login` again",
+        "device authorization expired",
         code="credentials_unavailable",
+        recovery_command=("auth", "login"),
     )
 
 
@@ -533,8 +535,9 @@ def _handle_auth_command(
             pending = provider.resume_device_authorization()
             if not pending:
                 raise AuthenticationError(
-                    "no pending device authorization; run `sai auth login`",
+                    "no pending device authorization",
                     code="credentials_unavailable",
+                    recovery_command=("auth", "login"),
                 )
             device_code, expires_at = pending
             authorization = DeviceAuthorization(
@@ -559,7 +562,7 @@ def _handle_auth_command(
                 "user_code": authorization.user_code,
                 "expires_at": authorization.expires_at,
                 "interval_seconds": authorization.interval_seconds,
-                "resume": "sai auth login --resume",
+                "resume": follow_up_command(args, "auth", "login", "--resume"),
                 "requested_scopes": oidc_client.scope.split(),
             }
             _auth_result_output(return_value, output_format=output_format, output=output)
@@ -650,8 +653,9 @@ def _emit_error(error: SaiCliError, *, output_format: str, stderr: TextIO) -> No
     if output_format == "json":
         stderr.write(json.dumps(error.as_dict(), ensure_ascii=False) + "\n")
         return
+    from .managed_runs import terminal_log
     suffix = f" (request {error.request_id})" if error.request_id else ""
-    stderr.write(f"ERROR [{error.code}]: {error.message}{suffix}\n")
+    stderr.write(terminal_log(f"ERROR [{error.code}]: {error.message}{suffix}") + "\n")
 
 
 def _load_ui_console() -> type:
@@ -838,7 +842,7 @@ def main(
             if args.site is not None or args.cluster is not None:
                 raise ConfigError("sites lists the published directory; --site and --cluster are not filters")
             result = client.sites(limit=args.limit, cursor=args.cursor)
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_sites(result))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_sites(result, args=args))
             return 0
         if args.command == "account":
             from .default_account import render_default_account
@@ -854,7 +858,7 @@ def main(
                     expected_account_id=None if args.if_current == "auto" else args.if_current,
                     idempotency_key=args.request_id,
                 )
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_default_account(result))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_default_account(result, args=args))
             return 0
         if args.command == "status":
             from .overview_view import render_overview
@@ -1009,16 +1013,23 @@ def main(
             subcommand = getattr(args, args.command + "_command", None)
             if subcommand:
                 path.append(subcommand)
-            exc.message = "Permission is missing; authorize this operation with `sai auth login --for " + " ".join(path) + "`."
+            exc.message = "Permission is missing"
+            exc.recovery_command = ("auth", "login", "--for", *path)
+        if exc.recovery_command:
+            exc.message += "; run `" + follow_up_command(args, *exc.recovery_command) + "`"
         if (args.command == "status" and output_format in {"table", "tui"}
                 and isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"):
-            errors.write("SAI account information: run sai auth login to sign in.\n" if args.language == "en-US"
-                         else "SAI 账户信息：运行 sai auth login 后可查看。\n")
+            from .managed_runs import terminal_log
+            login = terminal_log(follow_up_command(args, "auth", "login"))
+            errors.write(f"SAI account information: run {login} to sign in.\n" if args.language == "en-US"
+                         else f"SAI 账户信息：运行 {login} 后可查看。\n")
         elif (args.command == "auth" and args.auth_command == "status"
                 and output_format == "table" and isinstance(exc, AuthenticationError)
                 and (exc.code == "credentials_unavailable" or exc.request_id is not None)):
             from .contracts import ACCOUNT_VERIFICATION_PATH
-            errors.write("请运行 sai auth login 完成 CLI 登录。\n"
+            from .managed_runs import terminal_log
+            login = terminal_log(follow_up_command(args, "auth", "login"))
+            errors.write(f"请运行 {login} 完成 CLI 登录。\n"
                          f"身份认证：{urljoin(transport.base_url, ACCOUNT_VERIFICATION_PATH)}\n")
         else:
             _emit_error(exc, output_format=output_format, stderr=errors)

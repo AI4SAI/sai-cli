@@ -224,8 +224,7 @@ def _profile(config: dict[str, Any], requested: str | None) -> tuple[str, dict[s
     if retired_keys:
         raise ConfigError(
             "legacy authentication settings are retired; remove "
-            f"{', '.join(sorted(retired_keys))} from the selected TOML profile, "
-            "then run `sai auth login`"
+            f"{', '.join(sorted(retired_keys))} from the selected TOML profile and retry",
         )
     if keys & _FORBIDDEN_PROFILE_KEYS:
         raise ConfigError("tokens and secrets are not allowed in the SAI config file")
@@ -324,7 +323,7 @@ def resolve_settings(
     if retired_names:
         raise ConfigError(
             "legacy HMAC authentication settings are retired; unset "
-            f"{', '.join(retired_names)}, then run `sai auth login`"
+            f"{', '.join(retired_names)} and retry",
         )
     if "SAI_SITE_READ_BASE_URL" in env:
         raise ConfigError("site_read_base_url must be configured in TOML, not the environment")

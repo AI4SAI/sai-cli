@@ -1,12 +1,13 @@
 """Published site names and explicit-site connection metadata, without access grants."""
 from dataclasses import replace
+from argparse import Namespace
 import re
 from urllib.parse import urlsplit
 
 from .config import Settings, _site_read_origin
 from .errors import ConfigError, ContractError, UnavailableError
 from .managed_runs import ManagedReadResult, _boolean, _integer, _object, _text, _time
-from .render import _line
+from .render import _line, follow_up_command
 
 
 _SITE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}")
@@ -85,12 +86,13 @@ class SiteDirectory(ManagedReadResult):
                     "has_more": more, "next_cursor": following})
 
 
-def render_sites(result: SiteDirectory) -> str:
+def render_sites(result: SiteDirectory, *, args: Namespace | None = None) -> str:
     rows = [(row["site_id"], row["display_name"]) for row in result.values["items"]]
     if not rows:
         return "No published sites on this page.\n"
     widths = [max(len("Site"), *(len(row[0]) for row in rows)), 0]
     lines = [_line(("Site", "Name"), widths), *(_line(row, widths) for row in rows)]
     if result.values["has_more"]:
-        lines.append(f"Next: sai sites --cursor {result.values['next_cursor']} --format table")
+        from .managed_runs import terminal_log
+        lines.append("Next: " + terminal_log(follow_up_command(args, "sites", "--cursor", result.values['next_cursor'], "--format", "table")))
     return "\n".join(lines) + "\n"

@@ -23,6 +23,7 @@ class SaiCliError(Exception):
     message: str
     exit_code: int
     request_id: str | None = None
+    recovery_command: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         super().__init__(self.message)
@@ -49,8 +50,10 @@ class AuthenticationError(SaiCliError):
         *,
         code: str = "authentication_failed",
         request_id: str | None = None,
+        recovery_command: tuple[str, ...] = (),
     ) -> None:
-        super().__init__(code=code, message=message, exit_code=EXIT_AUTH, request_id=request_id)
+        super().__init__(code=code, message=message, exit_code=EXIT_AUTH, request_id=request_id,
+                         recovery_command=recovery_command)
 
 
 class ForbiddenError(SaiCliError):
