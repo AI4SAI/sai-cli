@@ -81,6 +81,10 @@ historical entries are not an automatic new-feature queue.
   wheel/source/checksum assets, anonymous download verification and clean
   base/TUI installations. This does not update the shared cluster installation
 - [ ] Qualify additional supported platforms and independent human first use
+- [x] Prepare `0.2.0a2` from a frozen source with current topology, site connection
+  and contextual recovery; verify clean Linux installations, upgrade/rollback
+  and the shared cluster runtime. Public tag/release publication is pending
+  maintainer authorization; see [distribution status](product-delivery.md#open-source-distribution).
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a
