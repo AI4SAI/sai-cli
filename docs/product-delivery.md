@@ -234,14 +234,20 @@ and GPU connection directly on the first narrow screen, with full hardware on
 expansion. This adds no read or JSON change.
 See [the topology delivery boundary](terminal-scope.md#interconnect-correction-2026-10-12).
 
-The final `0.2.0a2` candidate is frozen at
+The final `0.2.0a2` release is frozen at
 `b2154b0866923f90f627038977790017d496b6bd`, including both PR #14 and the PR #15
 job-focused presentation. Its runtime files match the deployed `1bfb4cb18523`
 source. The final source passed 1,273 tests and Python 3.11/3.13 CI; the final
 wheel passed independent Linux installation, synthetic authorization/recovery,
-TUI installation, PTY restoration and upgrade/rollback checks. Public tag and
-release publication remain pending maintainer authorization. Later documentation
-updates do not change that frozen source or its reviewed artifact checksums.
+TUI installation, PTY restoration and upgrade/rollback checks.
+
+The [a2 prerelease](https://github.com/AI4SAI/sai-cli/releases/tag/v0.2.0a2)
+was published on 2026-10-14. Its tag points to that exact source; anonymous
+downloads of the wheel, source distribution and checksum file matched the
+reviewed artifacts. The public release page and tagged first-use guide were
+also verified without a login. The a1 release and assets were preserved.
+This GitHub publication did not change the shared installation or publish to
+PyPI. Later documentation updates do not change the frozen source or artifacts.
 
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired

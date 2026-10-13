@@ -87,8 +87,8 @@ historical entries are not an automatic new-feature queue.
 - [ ] Qualify additional supported platforms and independent human first use
 - [x] Prepare `0.2.0a2` from a frozen source with current topology, site connection
   and contextual recovery; verify clean Linux installations, upgrade/rollback
-  and the shared cluster runtime. Public tag/release publication is pending
-  maintainer authorization; see [distribution status](product-delivery.md#open-source-distribution).
+  and the shared cluster runtime; see
+  [distribution status](product-delivery.md#open-source-distribution).
 - [x] Correct the independent `0.2.0a2` review findings: stable selected-site
   routing, matching response filters, contextual pagination, base-to-TUI install
   guidance and readable single-color/narrow-terminal states. Local source
@@ -98,9 +98,10 @@ historical entries are not an automatic new-feature queue.
   corrections and PR #15 job-focused presentation. Final source validation
   passed 1,273 tests and Python 3.11/3.13 CI; the final wheel passed installed
   CLI processes, base-to-TUI installation, PTY restoration and upgrade/rollback.
-- [ ] Publish the corrected artifact after maintainer authorization. Retain its
-  exact source and checksum manifest. Independent human first use and shared
-  production activation are separate from public distribution.
+- [x] Publish `v0.2.0a2` from reviewed `b2154b086692`, verifying the exact tag,
+  public page, tagged guide and anonymous downloads of all three assets against
+  the approved checksums. Preserve the a1 release and assets. Independent human
+  first use and shared production activation remain separate from distribution.
 - [x] Activate PR #14 through shared source `4a3d794aee12`: ordinary-user
   candidate/selected native views, existing authorization/account/job/cost reads
   and actual PTY restoration passed; dependencies/configuration were preserved,
