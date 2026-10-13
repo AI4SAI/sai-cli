@@ -90,9 +90,11 @@ historical entries are not an automatic new-feature queue.
   guidance and readable single-color/narrow-terminal states. Local source
   validation passed 1,272 tests; focused architecture and actual terminal-render
   reviews closed their findings. This is not a production or human acceptance.
-- [ ] Freeze and qualify the corrected public artifact, then obtain release
-  authorization. The earlier frozen candidate does not cover changed code;
-  independent human first use remains a separate requirement.
+- [x] Build and qualify the corrected `0.2.0a2` source from PR #14, including
+  installed CLI processes, base-to-TUI installation and PTY restoration.
+- [ ] Publish the corrected artifact after maintainer authorization. Retain its
+  exact source and checksum manifest. Independent human first use and shared
+  production activation of PR #14 remain separate requirements.
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a

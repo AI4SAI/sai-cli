@@ -193,17 +193,28 @@ base/TUI installs exposed the matching skill and 39 operations, verified public
 connection metadata and reported missing login normally. No new device consent,
 business mutation or shared-site installation was performed by this release.
 
-The `0.2.0a2` candidate is frozen at `5c5066a7475f8e9325eea1f1b5df5f12ee06319e`.
-It includes recorded interconnects and CPU locality, selected-site connection
-discovery and follow-up commands that retain the chosen profile. Its wheel and
-source distribution passed 1234 tests, Python 3.11/3.13 CI, provenance/package
-checks and disclosure scans. Clean Linux pipx base/TUI installations, anonymous
-connection setup and a1 upgrade/rollback preserved the configuration; installed
-CLI processes followed synthetic login/consent/resume prompts without contacting
-an unselected service. Public tag and release publication still await maintainer
-authorization; the existing a1 assets remain unchanged.
+The revised `0.2.0a2` candidate includes recorded interconnects, CPU locality and
+selected-site connection discovery. Independent product, delivery, architecture
+and visual review led to correction `f08b38702639`, merged in PR #14. It keeps
+portable routing stable when adding a cluster constraint, binds returned job
+and estimate rows to the requested filters, and preserves connection context
+when paging. First-use guidance, adding TUI to a base install, resolved account
+selection and narrow/single-color terminal states were also corrected.
 
-The same a2 source was published through the existing shared cluster runtime.
+The corrected source passed 1272 tests and GitHub-hosted Python 3.11/3.13 CI.
+Frozen packages passed provenance, content and disclosure checks. Independent
+Linux pipx installation exercised configure, synthetic login/consent/resume,
+selected-site reads and invitation paging through actual CLI processes.
+Adding TUI with the documented command, entering/exiting a real PTY and a1
+upgrade/rollback preserved the configuration. Architecture review checked the
+existing policy/grant/consumer chain; visual review checked actual rendered
+Chinese/English actions and states at 40/100 columns. These checks do not prove
+new human browser consent, production activation or complete product usability.
+Public tag/release publication still requires maintainer authorization; the a1
+assets remain unchanged. Release provenance must identify the exact final commit
+and artifact hashes, rather than treating the earlier candidate as current.
+
+The earlier a2 source `5c5066a7475f` was published through the shared cluster runtime.
 An ordinary user's candidate and selected CPU/GPU views at 40/100 columns,
 offline recovery instructions and actual terminal exit/restoration passed.
 The 964-file runtime matched its inventory; dependencies and managed configuration
@@ -212,6 +223,7 @@ then observed the new version normally; final checks used the new selected entry
 No remount or repeated selector change was needed. Previous runtime and rollback
 inputs remain, while staging and operator sessions were cleaned up. These checks
 do not establish independent human first-use or universal terminal usability.
+PR #14's corrections are not included in that recorded shared deployment.
 
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
