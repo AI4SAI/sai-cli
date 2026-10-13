@@ -94,7 +94,12 @@ historical entries are not an automatic new-feature queue.
   installed CLI processes, base-to-TUI installation and PTY restoration.
 - [ ] Publish the corrected artifact after maintainer authorization. Retain its
   exact source and checksum manifest. Independent human first use and shared
-  production activation of PR #14 remain separate requirements.
+  production activation are separate from public distribution.
+- [x] Activate PR #14 through shared source `4a3d794aee12`: ordinary-user
+  candidate/selected native views, existing authorization/account/job/cost reads
+  and actual PTY restoration passed; dependencies/configuration were preserved,
+  staging and sessions cleaned up. Retain independent human and broader site
+  acceptance as separate requirements.
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a

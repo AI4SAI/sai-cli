@@ -214,16 +214,19 @@ Public tag/release publication still requires maintainer authorization; the a1
 assets remain unchanged. Release provenance must identify the exact final commit
 and artifact hashes, rather than treating the earlier candidate as current.
 
-The earlier a2 source `5c5066a7475f` was published through the shared cluster runtime.
-An ordinary user's candidate and selected CPU/GPU views at 40/100 columns,
-offline recovery instructions and actual terminal exit/restoration passed.
-The 964-file runtime matched its inventory; dependencies and managed configuration
-were preserved. The login node initially retained the previous NFS selector,
-then observed the new version normally; final checks used the new selected entry.
-No remount or repeated selector change was needed. Previous runtime and rollback
-inputs remain, while staging and operator sessions were cleaned up. These checks
-do not establish independent human first-use or universal terminal usability.
-PR #14's corrections are not included in that recorded shared deployment.
+Shared runtime `4a3d794aee12` was selected on 2026-10-14. An ordinary user passed
+candidate and selected-entry CPU/GPU views at 40/100 columns, an
+existing job's bilingual topology/resize controls, six authorized account choices,
+remote job list/detail/allocation/interconnect and non-final cost reads. A real
+PTY exited normally and restored terminal settings. One job timed out between
+the running list and detail requests; the native observation confirmed that
+transition, and a fresh bounded query completed against a current running job.
+No client fallback or scope relaxation was used. All 964 runtime files and permissions
+matched the inventory; dependencies, configuration, login profile and existing
+authorization were preserved. Staging and operator sessions were cleaned up;
+the previous `5c5066a7475f` release and rollback inputs remain, without a rollback
+drill in this window. This does not establish
+independent human first-use or multi-site acceptance.
 
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
