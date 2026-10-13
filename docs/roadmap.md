@@ -40,6 +40,10 @@ not imply production activation or completion of a paired rollout.
   daemon start time binds the recorded hardware generation.
 - [ ] Complete standard-user multi-node job acceptance and Web/Pilot adoption
   with the existing owner. Unrecorded hardware remains unavailable.
+- [x] Publish the job-focused default tree through shared `1bfb4cb18523`:
+  ordinary-user candidate/selected queries show the allocated CPU/GPU paths
+  directly, with full hardware on expansion. Native views and actual PTY
+  restoration passed; data, dependencies and configuration were preserved.
 - [x] Publish the shared topology consumer separately from operator capture
   parsing and record construction. CLI `86b76ca8ed65` and gateway `87928eea6866`
   passed existing-record parity and ordinary-user native/API readback. Automated

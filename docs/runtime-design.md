@@ -187,7 +187,7 @@ Escape closes the current detail/selection and `q` exits. Job detail holds
 keyboard focus and the available content area; arrows
 and page keys scroll without changing the selected job. `r` rereads that exact
 detail, and Escape restores the original list without a new query. Allocation
-details share the batch Rich renderer. The current candidate prioritizes a compact
+details share the batch Rich renderer. The view prioritizes a compact
 CPU/NUMA and GPU relationship view, selected-GPU paths and optional hardware
 details; exact Slurm IDs remain available without per-thread panels. The compact
 tree shows the job's mapped CPU domains and selected GPUs, keeping its placement

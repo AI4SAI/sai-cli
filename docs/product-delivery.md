@@ -228,6 +228,12 @@ the previous `5c5066a7475f` release and rollback inputs remain, without a rollba
 drill in this window. This does not establish
 independent human first-use or multi-site acceptance.
 
+The later presentation refinement `1bfb4cb18523` is also deployed through the
+shared runtime. Ordinary-user native checks show a small job's CPU/GPU placement
+and GPU connection directly on the first narrow screen, with full hardware on
+expansion. This adds no read or JSON change and does not replace the frozen
+public alpha candidate. See [the topology delivery boundary](terminal-scope.md#interconnect-correction-2026-10-12).
+
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
 consumer/producer changes. The installed `describe` output owns command syntax.
