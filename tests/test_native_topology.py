@@ -259,3 +259,47 @@ def test_gpu_connection_matrix_explains_only_displayed_paths(width):
     Console(file=output, width=width).print(node_interconnect(value, occupied={0, 2, 5}, chinese=True, width=width))
     text = output.getvalue()
     assert 'NV#' not in text and 'SYS：' not in text and 'PHB：' not in text
+
+
+def test_job_tree_keeps_only_allocated_cpu_and_gpu_domains_without_changing_record():
+    from copy import deepcopy
+    from io import StringIO
+    from rich.console import Console
+    from sai_cli.interconnect_view import node_interconnect
+    value = {
+        'numa': [{'id': 7, 'packages': [2], 'linux_cpu_ids': [10, 11]},
+                 {'id': 19, 'packages': [2], 'linux_cpu_ids': [20, 21]},
+                 {'id': 83, 'packages': [5], 'linux_cpu_ids': [30, 31]}],
+        'gpus': [{'index': 0, 'numa': 83, 'cpu_ids': [4, 5]},
+                 {'index': 2, 'numa': 83, 'cpu_ids': [4, 5]},
+                 {'index': 5, 'numa': 19, 'cpu_ids': [2, 3]}],
+        'links': [{'a': 0, 'b': 2, 'kind': 'NV2'}, {'a': 0, 'b': 5, 'kind': 'SYS'},
+                  {'a': 2, 'b': 5, 'kind': 'SYS'}],
+        'cpu_mapping': {'slurm_to_linux': [10, 11, 20, 21, 30, 31]},
+        'observed_at': '2026-10-01T00:00:00Z',
+    }
+    original = deepcopy(value)
+    def rendered(*, expanded=False, cpu_ids=None, occupied=None):
+        out = StringIO()
+        Console(file=out, width=40).print(node_interconnect(value, occupied=occupied or set(),
+            cpu_ids=cpu_ids, chinese=True, width=40, expanded=expanded))
+        return out.getvalue()
+    # The CPUs are on another domain from the GPUs; retain both exact locations.
+    compact = rendered(cpu_ids=[0, 1], occupied={0, 2})
+    assert '作业落点' in compact and 'NUMA 7 · 2/2 CPU*' in compact
+    assert 'NUMA 83' in compact and 'GPU 0*' in compact and 'GPU 2*' in compact
+    assert 'NVLink ×2' in compact and 'NUMA 19' not in compact and 'GPU 5' not in compact
+    complete = rendered(expanded=True, cpu_ids=[0, 1], occupied={0, 2})
+    assert all(f'NUMA {index}' in complete for index in (7, 19, 83))
+    assert 'GPU 5' in complete and 'Linux CPU  10–11' in complete
+    # CPU-only placement on a GPU host must not display unallocated cards.
+    cpu = rendered(cpu_ids=[4, 5])
+    assert 'NUMA 83 · 2/2 CPU*' in cpu and 'NUMA 7' not in cpu and 'GPU' not in cpu
+    assert value == original
+    del value['cpu_mapping']
+    unknown = rendered(cpu_ids=[0, 1], occupied={0, 2})
+    assert 'CPU 落点未记录' in unknown and 'CPU*' not in unknown and 'NUMA 7' not in unknown
+    value['gpus'][0]['numa'] = None
+    unknown_gpu = rendered(cpu_ids=[0, 1], occupied={0, 2})
+    assert 'CPU 亲和未知' in unknown_gpu and 'GPU 0*' in unknown_gpu
+    assert 'NUMA 83' in unknown_gpu and 'GPU 2*' in unknown_gpu

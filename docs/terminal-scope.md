@@ -326,6 +326,13 @@ devices. Counts, sparse IDs and package groups come from the record, without
 machine-model layout branches. Mapping validity uses the stable Slurm daemon
 start time; the recomputed machine boot-time estimate is observation metadata.
 
+A subsequent source refinement keeps the default tree on domains occupied by
+the job's mapped CPUs or selected GPUs, so unrelated hardware cannot push the
+allocation off the first screen. `i` restores the complete record. Saved-data
+replay at 40/100 columns verifies this presentation; the frozen public alpha
+candidate and shared `4a3d794aee12` release predate this refinement. No additional
+native/HTTP read or change to the JSON observation is involved.
+
 Ordinary-user candidate and selected-entry checks passed local/API allocation
 and interconnect equality, CPU locality, real native TUI at 40/100 columns and
 terminal restoration. The shared runtime's 964 files and permissions matched;
