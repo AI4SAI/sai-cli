@@ -43,9 +43,9 @@ def test_missing_optional_account_session_is_a_hint_for_people_not_fake_success(
     if output_format == 'json':
         assert json.loads(err.getvalue())['error']['code'] == 'credentials_unavailable'
     elif language == 'zh-CN':
-        assert err.getvalue() == 'SAI 账户信息：运行 sai auth login 后可查看。\n'
+        assert err.getvalue() == f'SAI 账户信息：运行 sai auth login --base-url {origin} 后可查看。\n'
     else:
-        assert err.getvalue() == 'SAI account information: run sai auth login to sign in.\n'
+        assert err.getvalue() == f'SAI account information: run sai auth login --base-url {origin} to sign in.\n'
 
 
 def test_overview_keeps_money_scope_and_sensitive_field_allowlist():

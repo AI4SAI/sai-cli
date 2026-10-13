@@ -81,6 +81,9 @@ the terminal command running until confirmation completes. The CLI stores a
 protected renewable device credential; passwords and tokens are never copied
 into commands. If a valid session already exists, reuse it. For an Agent that
 cannot keep the login command running, use `--no-wait` and later `--resume`.
+Use the printed resume command when a config path or profile was selected; it
+keeps that connection. Login and permission-recovery hints retain the same
+selectors, including paths containing spaces.
 
 Choose your site from the returned names. For example, after selecting the
 returned `site-a` ID:

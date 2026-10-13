@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from argparse import Namespace
+from pathlib import Path
+import shlex
 from typing import TYPE_CHECKING, Any, Iterable
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, localcontext
@@ -16,6 +19,20 @@ if TYPE_CHECKING:
     from .site_placement import SiteJobPlacementResult
     from .storage_summary import StorageQuotaSummary
     from .native_quota import NativeQuotaResult
+
+
+def follow_up_command(args: Namespace | None, *words: str) -> str:
+    """Keep the caller's explicit connection choices in a copyable command."""
+    command = ["sai", *words]
+    if words == ("auth", "login") and getattr(args, "authorization_path", None):
+        command += ["--for", *args.authorization_path]
+    for name in ("config", "profile", "base_url", "cache", "timeout", "allow_insecure_http"):
+        value = getattr(args, name, None)
+        if value not in (None, False):
+            if name in {"config", "cache"}:
+                value = str(Path(value).expanduser().absolute())
+            command += ["--" + name.replace("_", "-")] + ([] if value is True else [str(value)])
+    return shlex.join(command)
 
 
 _COLUMNS = (

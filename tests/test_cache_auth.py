@@ -150,8 +150,9 @@ def test_missing_credentials_requires_identity_login(tmp_path: Path, managed: bo
         environ={},
     )
 
-    with pytest.raises(AuthenticationError, match="sai auth login") as error:
+    with pytest.raises(AuthenticationError, match="no SAI Identity device session") as error:
         provider.get()
+    assert error.value.recovery_command == ("auth", "login")
     assert error.value.code == "credentials_unavailable"
 
 
@@ -166,8 +167,9 @@ def test_legacy_cached_bearer_cannot_authenticate(tmp_path: Path, managed: bool)
     provider.cache.put(legacy_key, token="old-portal-bearer", expires_at=1_700_000_300)
     original_cache = settings.cache_path.read_bytes()
 
-    with pytest.raises(AuthenticationError, match="sai auth login"):
+    with pytest.raises(AuthenticationError, match="no SAI Identity device session") as error:
         provider.get()
+    assert error.value.recovery_command == ("auth", "login")
     assert settings.cache_path.read_bytes() == original_cache
 
 

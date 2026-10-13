@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from argparse import Namespace
 from dataclasses import dataclass
 import re
 from typing import Any
@@ -100,12 +101,17 @@ class DefaultAccountChange:
         return deepcopy(self.values)
 
 
-def render_default_account(result: DefaultAccountState | DefaultAccountChange) -> str:
+def render_default_account(result: DefaultAccountState | DefaultAccountChange, *, args: Namespace | None = None) -> str:
     value = result.values
     target = value["default_account_id"]
     if isinstance(result, DefaultAccountChange):
-        return (f"默认计算账户修改请求已受理：{target or '自动选择'}（全局）\n"
-                f"请求：{value['request_id']}\n查看当前设置与站点结果：sai account defaults\n")
+        from .render import follow_up_command
+        from .managed_runs import terminal_log
+        lines = [f"默认计算账户修改请求已受理：{target or '自动选择'}（全局）", f"请求：{value['request_id']}"]
+        for projection in value['site_projections']:
+            command = follow_up_command(args, "account", "defaults", "--site", projection['site_id'])
+            lines.append("查看站点结果：" + terminal_log(command))
+        return "\n".join(lines) + "\n"
     names = {row["id"]: row["name"] for row in value["choices"]}
     lines = [f"默认计算账户：{names.get(target, target) if target else '自动选择'}（全局）",
              f"本站可选：{', '.join(row['name'] for row in value['choices']) or '暂无'}"]
