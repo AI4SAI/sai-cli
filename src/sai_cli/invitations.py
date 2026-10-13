@@ -1,12 +1,15 @@
 """Recipient invitation and access-task views, independent of native queries."""
 
 from dataclasses import dataclass
+from argparse import Namespace
 import re
 from typing import Any
 
 from .catalog import _boolean, _count, _items, _object, _text, _token
 from .contracts import _timestamp_text
 from .errors import ContractError
+from .render import follow_up_command
+from .managed_runs import terminal_log
 
 
 def invitation_reference(value: object, *, site: bool = False) -> str:
@@ -103,7 +106,7 @@ class Invitations:
         return deepcopy(self.values)
 
 
-def render_invitations(result: Invitations) -> str:
+def render_invitations(result: Invitations, *, args: Namespace | None = None) -> str:
     value = result.values
     roles = {"member": "成员", "admin": "管理员", "read": "只读", "write": "可编辑"}
     states = {"pending": "待接受", "accepted": "已接受", "expired": "已过期", "revoked": "已撤回"}
@@ -111,7 +114,9 @@ def render_invitations(result: Invitations) -> str:
         lines = [f"{row['target_label']} · {roles[row['role']]} · {row['site_label']}\n"
                  f"  接受截止 {row['expires_at'] or '未指定'} · {row['invitation_id']}" for row in value["items"]]
         if value["has_more"]:
-            lines.append(f"下一页：sai invitations list --cursor {value['next_cursor']} --format table")
+            command = follow_up_command(args, "invitations", "list", "--cursor", value["next_cursor"],
+                                        "--limit", str(getattr(args, "limit", 50)), "--format", "table")
+            lines.append("下一页：" + terminal_log(command))
         return "\n".join(lines or ["暂无待接受邀请"]) + "\n"
     row = value["invitation"]
     sites = ", ".join(row["directory_site_labels"]) if row["target_kind"] == "directory" else row["site_label"]

@@ -115,6 +115,6 @@ out.isatty=lambda:True
 sys.stdin.isatty=lambda:True
 rc=main(['tui'],environ={},stdout=out,stderr=err)
 assert rc==2 and not out.getvalue()
-assert 'install sai-cli[tui]' in err.getvalue(),err.getvalue()
+assert "pipx install --force 'WHEEL_PATH[tui]'" in err.getvalue(),err.getvalue()
 '''
     subprocess.run([sys.executable,'-I','-B','-c',code,source,missing],check=True,timeout=10)

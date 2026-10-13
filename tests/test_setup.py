@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import shlex
 import tomllib
 
 import pytest
@@ -156,3 +157,34 @@ def test_first_use_never_claims_success_with_another_effective_connection(tmp_pa
         original=destination.read_bytes()
         assert invoke(tmp_path,'configure',service,env={'SAI_API_BASE_URL':'https://previous.example.org'})[0]==2
         assert destination.read_bytes()==original
+
+
+def test_first_use_errors_lead_through_configure_and_site_discovery(tmp_path):
+    config = tmp_path / 'selected service.toml'
+    flags = ['--config', str(config), '--profile', 'work', '--cache', str(tmp_path / 'tokens.json')]
+    code, output, error = invoke(tmp_path, 'status', *flags)
+    assert code == 2 and not output
+    configure = shlex.split(json.loads(error)['error']['message'].split('`')[1])
+    assert configure[:3] == ['sai', 'configure', 'SERVICE_URL'] and '--cache' not in configure
+    assert configure[configure.index('--config') + 1] == str(config)
+    assert configure[configure.index('--profile') + 1] == 'work'
+    directory = {'schema_version': 'site.directory/v1', 'source': 'portal_published_sites',
+                 'queried_at': '2026-10-01T00:00:00Z', 'items': [{'site_id': 'site-a', 'display_name': 'Research'}],
+                 'count': 1, 'has_more': False, 'next_cursor': None}
+    with _server() as (identity, _):
+        def reply(call, _):
+            if call['path'] == '/v1/auth/config?client=sai-cli':
+                assert call['bearer'] is None
+                return 200, settings(identity)
+            assert call['path'] == '/v1/account/cli/sites?limit=50'
+            return 200, directory
+        with http_endpoint(reply) as (origin, calls):
+            configure[2] = origin
+            assert invoke(tmp_path, *configure[1:])[0] == 0
+            env = {'SAI_TOKEN': 'test-user'}
+            code, output, error = invoke(tmp_path, 'status', *flags, env=env)
+            assert code == 2 and not output and len(calls) == 1
+            sites = shlex.split(json.loads(error)['error']['message'].split('`')[1])
+            code, output, error = invoke(tmp_path, *sites[1:], env=env)
+            assert code == 0 and 'Research' in output, error
+            assert len(calls) == 2

@@ -54,7 +54,14 @@ sai describe --format table
 
 Use the filename supplied for your version. The batch client needs no third-party
 runtime packages, Slurm, Lustre mounts, shared cluster installation or hosted VM.
-The optional TUI has separate dependencies; see [terminal scope](terminal-scope.md).
+To add the optional TUI in this environment, install the same reviewed wheel
+with its extra: `python -m pip install './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`.
+If you used pipx instead, use
+`pipx install --force './sai_cli-0.2.0a2-py3-none-any.whl[tui]'` to add it to the
+existing installation. Plain `pipx install` leaves an existing base installation
+unchanged. These commands preserve user configuration and credentials.
+The interface needs an interactive terminal; local views require Slurm or Lustre
+on that host. See [terminal scope](terminal-scope.md).
 
 ## Sign in and choose a site
 

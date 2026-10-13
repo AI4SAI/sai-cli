@@ -115,6 +115,7 @@ def render_default_account(result: DefaultAccountState | DefaultAccountChange, *
         return "\n".join(lines) + "\n"
     names = {row["id"]: row["name"] for row in value["choices"]}
     lines = [f"默认计算账户：{names.get(target, target) if target else '自动选择'}（全局）",
+             f"本站选择结果：{names.get(value['effective_account_id'], '暂不可用')}",
              f"本站可选：{', '.join(row['name'] for row in value['choices']) or '暂无'}"]
     states = {"not_requested": "尚无应用记录", "pending": "等待站点应用", "applied": "已收到应用回执",
               "failed": "站点应用失败", "unavailable": "暂无法确认"}

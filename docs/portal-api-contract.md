@@ -706,6 +706,13 @@ typed Identity-authenticated metadata before issuing the original capability;
 it never consumes the internal relay address or a URL from job data. This adds
 no authorization scope, site selection, config rewrite or transport fallback.
 Complete existing central-relay profiles retain their current JSON contract.
+That compatibility is selected by the saved TOML site/cluster pair, not by
+`--cluster` or its environment equivalent. Those remain narrowing constraints.
+For both routes, the client rejects a response outside its known account name,
+state, partition or job-list limit, as well as a mismatched detail job ID.
+Account IDs and workspace selectors remain server-resolved; the client does not
+guess their native mapping. Running estimates bind account/state/partition
+without truncating their complete authorized snapshot.
 
 ```toml
 [profiles.default]

@@ -75,10 +75,22 @@ def _gpu_matrix(node: dict[str, Any], ready: bool | None, *, numbered: bool = Fa
     if indices is None or total is None:
         return Text("?", style=UNKNOWN)
     idle = FREE if ready is True else BLOCKED if ready is False else UNKNOWN
+    unallocated = "_" if ready is True else "x" if ready is False else "?"
     occupied = set(indices)
-    return Columns([Text(f"[{index}]" if numbered else "[#]" if index in occupied else "[_]",
+    return Columns([Text(f"[{index if numbered else ''}{'#' if index in occupied else unallocated}]",
                          style=ALLOCATED if index in occupied else idle)
                     for index in range(total)], padding=0, equal=True)
+
+
+def gpu_legend(*, chinese: bool = False, numbered: bool = False) -> Text:
+    legend = Text()
+    for symbol, style, zh, en in (("#", ALLOCATED, "已分配", "Allocated"), ("_", FREE, "空闲", "Idle"),
+                                  ("x", BLOCKED, "不可用", "Unavailable"), ("?", UNKNOWN, "未知", "Unknown")):
+        if legend:
+            legend.append("  ")
+        legend.append(symbol if numbered else f"[{symbol}]", style=style)
+        legend.append(" " + (zh if chinese else en))
+    return legend
 
 
 def _gpu_nodes(value: dict[str, Any], width: int = 120) -> Table:
@@ -175,7 +187,7 @@ def resource_view(result: LocalResources, *, details: bool = False, width: int =
     kind = value["filters"]["kind"]
     if kind != "cpu" and any(node["kind"] == "gpu" for node in value["nodes"]):
         if details:
-            blocks.extend((_gpu_nodes(value, width), Text.assemble("GPU: Free/Total  ", ("[_] Idle", FREE), "  ", ("[#] Alloc", ALLOCATED), "  ? Unknown"), Text("")))
+            blocks.extend((_gpu_nodes(value, width), Text("GPU: Free/Total"), gpu_legend(), Text("")))
         blocks.append(_summary(value, "gpu", width))
     if kind != "gpu":
         blocks.append(_cpu_nodes(value, width) if details else _summary(value, "cpu", width))

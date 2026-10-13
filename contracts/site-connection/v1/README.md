@@ -19,6 +19,9 @@ their central route. Complete existing profiles need no discovery request.
 Explicit cluster constraints must match; an explicit protected read origin is
 preserved. Local native commands and central account/catalog reads do not use
 this endpoint. Existing complete central-relay profiles keep their JSON contract.
+A fixed relay profile contains both the selected `site_id` and `cluster_id` in
+TOML. A cluster supplied through a command option or environment is a filter;
+it cannot disable portable discovery or change the response envelope.
 
 Origins are bounded HTTPS origins without userinfo, paths, query, fragment or
 terminal controls. Loopback HTTP supports local tests; HTTPS discovery cannot

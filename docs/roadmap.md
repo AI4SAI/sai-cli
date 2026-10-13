@@ -85,6 +85,14 @@ historical entries are not an automatic new-feature queue.
   and contextual recovery; verify clean Linux installations, upgrade/rollback
   and the shared cluster runtime. Public tag/release publication is pending
   maintainer authorization; see [distribution status](product-delivery.md#open-source-distribution).
+- [x] Correct the independent `0.2.0a2` review findings: stable selected-site
+  routing, matching response filters, contextual pagination, base-to-TUI install
+  guidance and readable single-color/narrow-terminal states. Local source
+  validation passed 1,272 tests; focused architecture and actual terminal-render
+  reviews closed their findings. This is not a production or human acceptance.
+- [ ] Freeze and qualify the corrected public artifact, then obtain release
+  authorization. The earlier frozen candidate does not cover changed code;
+  independent human first use remains a separate requirement.
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a

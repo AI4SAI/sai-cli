@@ -271,7 +271,7 @@ def test_native_resource_colors_and_literal_labels(native_client):
     down=next(line for line in table.splitlines() if line.startswith('node-b'))
     assert '\x1b[91m' in down and '0/4' in down
     plain=Text.from_ansi(table).plain
-    assert '[_][_][_][_]' in next(line for line in plain.splitlines() if line.startswith('node-b'))
+    assert '[x][x][x][x]' in next(line for line in plain.splitlines() if line.startswith('node-b'))
     value['nodes'][0]['name']='[link=https://example.test]node[/link]'
     assert '[link=https://example.test]node[/link]' in render_local_resources(LocalResources(value),details=True,width=160)
     class Terminal(StringIO):
@@ -281,6 +281,22 @@ def test_native_resource_colors_and_literal_labels(native_client):
         assert main(['resources','local','--kind','gpu','--details','--format','table'],
                     environ={**native_client[0],**environment},stdout=out,stderr=err)==0
         assert ('\x1b[' in out.getvalue())==colored
+
+
+@pytest.mark.parametrize('ready,marker', [(True, '_'), (False, 'x'), (None, '?')])
+@pytest.mark.parametrize('numbered', [False, True])
+def test_gpu_card_states_keep_position_and_meaning_without_color(ready, marker, numbered):
+    from rich.console import Console
+    from sai_cli.native_resource_view import _gpu_matrix, gpu_legend
+    node = {'gpu': {'allocated_indices': [0, 3], 'configured_units': 4}}
+    output = StringIO()
+    console = Console(file=output, width=40, no_color=True)
+    console.print(_gpu_matrix(node, ready, numbered=numbered))
+    cards = output.getvalue().strip()
+    assert cards == (f'[0#][1{marker}][2{marker}][3#]' if numbered else f'[#][{marker}][{marker}][#]')
+    output.seek(0); output.truncate()
+    console.print(gpu_legend(chinese=True, numbered=numbered))
+    assert all(word in output.getvalue() for word in ('已分配', '空闲', '不可用', '未知'))
 
 
 def test_long_qos_does_not_displace_gpu_counts_in_a_normal_terminal(native_client):

@@ -11,6 +11,13 @@ from rich.tree import Tree
 from .native_resource_view import ALLOCATED, UNKNOWN
 
 
+_GPU_PATH_LABELS = {
+    "PIX": ("单级 PCIe", "Single PCIe bridge"), "PXB": ("多级 PCIe", "PCIe bridges"),
+    "PHB": ("经 CPU 桥", "Host bridge"), "NODE": ("同 NUMA", "Within NUMA"),
+    "SYS": ("跨 NUMA", "Across NUMA"),
+}
+
+
 def gpu_label(index: int, occupied: set[int]) -> Text:
     return Text(f"GPU {index}{'*' if index in occupied else ''}",
                 style=ALLOCATED if index in occupied else "default")
@@ -120,12 +127,7 @@ def node_interconnect(value: dict, *, occupied: set[int],
         if len(indices) == 2 and not expanded:
             a,b = indices
             kind = paths[a,b]
-            labels = {
-                'PIX': ('PCIe', 'PCIe'), 'PXB': ('多级 PCIe', 'PCIe bridges'),
-                'PHB': ('经 CPU 桥', 'Host bridge'), 'NODE': ('同 NUMA', 'Within NUMA'),
-                'SYS': ('跨 NUMA', 'Across NUMA'),
-            }
-            route = 'NVLink ×' + kind[2:] if kind.startswith('NV') else labels[kind][0 if chinese else 1]
+            route = 'NVLink ×' + kind[2:] if kind.startswith('NV') else _GPU_PATH_LABELS[kind][0 if chinese else 1]
             line = gpu_label(a,occupied)
             line.append(' ── ' + route + ' ── ',style='cyan')
             line.append_text(gpu_label(b,occupied))
@@ -144,8 +146,12 @@ def node_interconnect(value: dict, *, occupied: set[int],
                     cells.append(Text(kind, style="cyan" if kind.startswith("NV") else "default"))
                 matrix.add_row(Text(f"{index}{'*' if index in occupied else ''}", style=ALLOCATED if index in occupied else "default"), *cells)
             blocks.extend((Text(""), matrix))
-        blocks.append(Text("NV#：NVLink 条数 · SYS：跨 NUMA" if chinese else
-                           "NV#: NVLink count · SYS: across NUMA", style="dim"))
+        kinds = {paths[a, b] for a in indices for b in indices if a < b}
+        legend = (["NV#：NVLink 条数" if chinese else "NV#: NVLink count"]
+                  if any(kind.startswith("NV") for kind in kinds) else [])
+        legend.extend(kind + ("：" if chinese else ": ") + labels[0 if chinese else 1]
+                      for kind, labels in _GPU_PATH_LABELS.items() if kind in kinds)
+        blocks.append(Text(" · ".join(legend), style="dim"))
     if expanded:
         blocks.append(Text(("硬件记录 " if chinese else "Hardware recorded ") + value["observed_at"], style="dim"))
     return Group(*blocks)

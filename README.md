@@ -60,8 +60,10 @@ site access. Configuration preserves existing profiles and credentials.
 See [first use and recovery](docs/getting-started.md) for wheel installation,
 additional permissions, multiple services and upgrade/rollback.
 
-The base client has no third-party runtime dependency. For the optional interface, install the downloaded wheel with its UI extra:
-`pipx install './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`. It needs an interactive
+The base client has no third-party runtime dependency. To add the optional
+interface, including to an existing base installation, use
+`pipx install --force './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`. This preserves
+your user configuration and credentials. It needs an interactive
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
 The `0.2.0a2` candidate includes recorded hardware connections, CPU locality and
 selected-site connection discovery. Use the wheel filename from the reviewed

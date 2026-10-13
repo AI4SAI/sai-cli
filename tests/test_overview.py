@@ -217,7 +217,7 @@ def test_panel_overlaps_import_with_http_and_joins_before_return(tmp_path, monke
     assert bool(out.getvalue()) is (expected_exit == 0)
     assert bool(err.getvalue()) is (expected_exit != 0)
     if expected_exit == 2:
-        assert "install sai-cli[tui]" in err.getvalue()
+        assert "pipx install --force 'WHEEL_PATH[tui]'" in err.getvalue()
 
 
 @pytest.mark.parametrize("width", [40, 80, 120])

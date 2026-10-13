@@ -22,6 +22,17 @@ if TYPE_CHECKING:
     from .transport import JsonTransport
 
 
+_UI_INSTALL_MESSAGE = (
+    "Terminal UI is not installed. Add the [tui] extra from your reviewed wheel; "
+    "with pipx, run pipx install --force 'WHEEL_PATH[tui]' using that wheel's path."
+)
+
+_SITE_CONNECTION_NOTE = (
+    "Choose --site from sai sites; the paired service resolves missing cluster and native-read connection settings. "
+    "Existing protected profiles remain supported."
+)
+
+
 _ALLOCATION_NOTES = (
     "allocation.nodes[].cpu_ids and GPU gres[].indices are Slurm IDs, not Linux CPU or task CUDA IDs. Slurm sockets may represent NUMA groups.",
     "--with-interconnect adds per-node recorded hardware or an unavailable reason. Match records to allocation nodes by name and respect observed_at/expires_at.",
@@ -224,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
         _add_format_argument(detail_parser)
         _operation(detail_parser, source="configured_site_read" if command == "show" else "site_gateway",
                    scopes=("sai.compute.read",), cluster=True,
-                   notes=(("Requires protected site_read_base_url, cluster and capability mode.",) if command != "show" else ())
+                   notes=((_SITE_CONNECTION_NOTE,) if command != "show" else ())
                          + (("Requires separately enabled site placement disclosure.",) if command == "placement" else ())
                          + (_ALLOCATION_NOTES if command == "allocation" else ()))
 
@@ -293,7 +304,7 @@ def build_parser() -> argparse.ArgumentParser:
             quota_parser.add_argument("--cursor", help="next cursor returned by the previous page")
         _add_format_argument(quota_parser)
         _operation(quota_parser, source="site_gateway" if command == "native-quota" else "portal", scopes=("sai.storage.read",),
-                   notes=(("Requires a protected site origin and storage.quota.read capability; no cluster argument.",)
+                   notes=((_SITE_CONNECTION_NOTE, "Quota uses its separate storage.quota.read capability; no cluster argument.")
                           if command == "native-quota" else ()))
 
     auth = commands.add_parser("auth", help="manage the SAI CLI device session")
@@ -664,7 +675,7 @@ def _load_ui_console() -> type:
     except ModuleNotFoundError as exc:
         if exc.name != "rich":
             raise
-        raise ConfigError("Terminal UI dependencies are unavailable; install sai-cli[tui].") from None
+        raise ConfigError(_UI_INSTALL_MESSAGE) from None
     return Console
 
 
@@ -712,7 +723,7 @@ def main(
             except ModuleNotFoundError as exc:
                 if exc.name not in {"textual", "rich"}:
                     raise
-                raise ConfigError("Interactive UI dependencies are unavailable; install sai-cli[tui].") from None
+                raise ConfigError(_UI_INSTALL_MESSAGE) from None
             from .tui_queries import Queries
             QueryApp(Queries(args, env), language=args.language, initial=args.view).run()
             return 0
@@ -805,7 +816,7 @@ def main(
                 from .storage_summary import clean_workspace_key
                 clean_workspace_key(args.workspace_key)
             gateway = native_quota or args.jobs_command != "cost" and (
-                args.jobs_command in {"allocation", "placement"} or settings.cluster_id is None)
+                args.jobs_command in {"allocation", "placement"} or not settings.fixed_site_connection)
             if (native_jobs and settings.cluster_id is None) or (gateway and settings.site_read_base_url is None):
                 from .sites import resolve_site_settings
                 metadata = PortalClient(transport=transport, token_provider=provider).site_connection(settings.site_id)
@@ -835,7 +846,7 @@ def main(
                 raise ConfigError("invitations fix their own site; --site and --cluster are not selectors")
             result = (client.invitations(limit=args.limit, cursor=args.cursor) if args.invitations_command == "list"
                       else client.invitation(args.invitation_id, accept=args.invitations_command == "accept"))
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_invitations(result))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_invitations(result, args=args))
             return 0
         if args.command == "sites":
             from .sites import render_sites

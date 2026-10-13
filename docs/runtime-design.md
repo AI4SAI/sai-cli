@@ -228,6 +228,12 @@ stays at Portal. Results use the explicit `jobs/v1` envelope, including subject,
 observation time, freshness, ETag and `has_more`, without a fabricated visibility
 role. Gateway failures stop the request. The cost/catalog/auth commands keep
 their existing central contracts; they do not test a gateway and fall back.
+A fixed central-relay profile supplies the selected site and cluster together
+in TOML. Supplying a cluster filter to a portable query cannot select that route.
+Both job transports bind known account names, state aliases and partitions to
+the response before rendering; job lists also enforce their requested limit.
+Central running estimates share those filters but retain their complete snapshot
+contract without a list limit.
 
 `resources catalog` returns published compute specifications, QOS names,
 storage products and prices. It accepts a site and output format, not job

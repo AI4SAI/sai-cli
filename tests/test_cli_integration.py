@@ -196,7 +196,7 @@ def test_jobs_list_maps_scope_and_emits_allowlisted_json(tmp_path: Path, job_pay
     }
 
 
-def test_managed_capability_mode_uses_server_bound_cli_route(
+def test_fixed_capability_profile_uses_server_bound_cli_route(
     tmp_path: Path,
     job_payload,
 ) -> None:
@@ -213,8 +213,13 @@ def test_managed_capability_mode_uses_server_bound_cli_route(
     stdout = StringIO()
     stderr = StringIO()
     with _server(job_payload, capability_payload=capability) as (base_url, server):
+        config = tmp_path / "fixed.toml"
+        config.write_text('[profiles.default]\nsite_id="site-a"\ncluster_id="cluster-a"\n')
+        config.chmod(0o600)
         result = main(
             [
+                "--config",
+                str(config),
                 "jobs",
                 "list",
                 "--base-url",
@@ -370,6 +375,7 @@ def test_jobs_cost_uses_independent_endpoint_and_allowlisted_json(
     payload["slurm_account"] = "project-example"
     for item in payload["items"]:
         item["slurm_account"] = "project-example"
+        item["resources"]["partition"] = "gpu-standard"
     payload["items"][0]["raw_scheduler"] = {"token": "must-not-leak"}
     stdout = StringIO()
     stderr = StringIO()

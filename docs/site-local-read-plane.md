@@ -282,8 +282,10 @@ explicit gateway `jobs/v1` envelope documented in
 default Portal job envelope remains unchanged. Direct jobs include site/cluster,
 resolved subject, source freshness, truncation and an ETag; no Portal membership
 role is inferred. Unknown additive fields may be
-ignored only after recursive allowlist validation. Paths, scripts,
-environments, raw scheduler data, wallet, ledger, and provider diagnostics are
+ignored only after recursive allowlist validation. Both supported job transports
+also check the caller's known account name, states, partition and job-list limit;
+a client rejects an expanded response rather than trimming it into success.
+Paths, scripts, environments, raw scheduler data, wallet, ledger, and provider diagnostics are
 never returned.
 
 The reusable site runtime adapter supports these bounded native reads:

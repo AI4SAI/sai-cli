@@ -146,7 +146,7 @@ def test_node_expansion_updates_from_same_observation_without_extra_queries(reso
             await pilot.press('enter')
             assert count() == 1 and app.query_one('#detail').display
             assert app._detail_node == 'node-a'
-            assert '[1]' in html.unescape(app.export_screenshot())
+            assert '[1#]' in html.unescape(app.export_screenshot())
             payload['sinfo'][0]['gres']['used'] = 'gpu:example:2(IDX:0,2)'
             path.write_text(json.dumps(payload))
             app._last_read_at -= 11

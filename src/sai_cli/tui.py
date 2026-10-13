@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from dataclasses import replace
 import time
 
 from rich.text import Text
 from textual import on
+from textual.events import Resize
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -20,7 +22,7 @@ LABELS = {
     "zh-CN": {"jobs": "作业", "gpu": "GPU", "cpu": "CPU", "quota": "配额", "account": "账户",
         "mine": "我的作业", "identity": "当前身份", "all": "全部分区", "here": "当前目录", "home": "Home",
         "current": "当前账户", "refresh": "刷新", "cost": "费用", "quit": "退出",
-        "pause": "暂停刷新", "resume": "继续刷新", "paused": "已暂停", "auto": "自动 {seconds}s",
+        "pause": "暂停", "resume": "继续", "paused": "已暂停", "auto": "自动 {seconds}s", "allocated_total": "分配/总",
         "gpu_free": "GPU\n空闲/总", "gpu_slots": "GPU\n卡位", "cpu_count": "CPU\n分配/总", "memory": "GiB\n分配/总", "no_nodes": "当前分区没有节点", "node_name": "节点",
         "loading": "读取中…", "empty": "当前范围没有作业", "local": "本站", "central": "SAI 账户",
         "login": "账户查询需要登录：退出后运行 {command}", "failure": "读取失败，按 r 重试",
@@ -29,7 +31,7 @@ LABELS = {
     "en-US": {"jobs": "Jobs", "gpu": "GPU", "cpu": "CPU", "quota": "Quota", "account": "Account",
         "mine": "My jobs", "identity": "Login account", "all": "All partitions", "here": "Working directory", "home": "Home",
         "current": "Current account", "refresh": "Refresh", "cost": "Estimate", "quit": "Quit",
-        "pause": "Pause", "resume": "Resume", "paused": "Paused", "auto": "Auto {seconds}s",
+        "pause": "Pause", "resume": "Resume", "paused": "Paused", "auto": "Auto {seconds}s", "allocated_total": "alloc/all",
         "gpu_free": "GPU\nfree/all", "gpu_slots": "GPU\nslots", "cpu_count": "CPU\nalloc/all", "memory": "GiB\nalloc/all", "no_nodes": "No nodes in this partition", "node_name": "Node",
         "loading": "Reading…", "empty": "No jobs in this scope", "local": "Local", "central": "SAI account",
         "login": "Sign in after exiting: {command}", "failure": "Read failed; press r to retry",
@@ -97,6 +99,11 @@ class QueryApp(App):
         self._focus_after_read = False
         self._focus_before_read = None
         self._options: list[tuple[str, str]] = []
+        self._bindings.bind("enter", "inspect", self.words["detail"], priority=True)
+        for key in ("refresh", "cost", "back", "quit"):
+            self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key])
+        self.bind("p", "pause", description=self.words["pause"])
+        self.bind("i", "allocation_details", description="硬件" if self.language == "zh-CN" else "Hardware")
 
     def compose(self) -> ComposeResult:
         yield Static("SAI", id="heading", markup=False)
@@ -116,11 +123,7 @@ class QueryApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self._bindings.bind("enter", "inspect", self.words["detail"], priority=True)
-        for key in ("refresh", "cost", "back", "quit"):
-            self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key])
-        self.bind("p", "pause", description=self.words["pause"])
-        self.bind("i", "allocation_details", description="硬件" if self.language == "zh-CN" else "Hardware")
+        self._refresh_footer()
         self._configure()
         self.action_refresh()
         self.watch(self.query_one("#selection", Select), "expanded", self._selector_opened, init=False)
@@ -148,7 +151,7 @@ class QueryApp(App):
 
     def action_pause(self) -> None:
         self._paused = not self._paused
-        self._bindings.bind("p", "pause", self.words["resume" if self._paused else "pause"])
+        self._refresh_footer()
         self.refresh_bindings()
         if self.snapshot is not None:
             self._stamp(self.snapshot.as_dict()["observed_at"])
@@ -157,8 +160,7 @@ class QueryApp(App):
         if self._allocation_detail is not None and self.query_one("#detail").display:
             from .allocation_view import allocation_view
             self._expanded_allocation = not self._expanded_allocation
-            self._bindings.bind("i", "allocation_details", ("收起" if self._expanded_allocation else "硬件")
-                                if self.language == "zh-CN" else ("Collapse" if self._expanded_allocation else "Hardware"))
+            self._refresh_footer()
             self._show_detail(allocation_view(self._allocation_detail, language=self.language,
                 expanded=self._expanded_allocation), focus=False)
             self.query_one("#detail", VerticalScroll).scroll_home(animate=False)
@@ -498,7 +500,7 @@ class QueryApp(App):
         if partition_width:
             columns.append(("partition", partition_width))
         if width < 60:
-            columns = [("node_name", (width - 4) // 2), ("gpu_free" if self.view == "gpu" else "detail", (width - 4) // 2)]
+            columns = [("node_name", (width - 4) // 2), ("gpu_free" if self.view == "gpu" else "allocated_total", (width - 4) // 2)]
         else:
             columns += list(zip(labels, sizes))
         for label, size in columns:
@@ -570,11 +572,28 @@ class QueryApp(App):
         context += " · " + (self.words["paused"] if paused else self.words["auto"].format(seconds=self.REFRESH_SECONDS[self.view]))
         self.query_one("#heading", Static).update(Text(f"SAI  ·  {source}{context}  ·  {stamp}"))
 
-    def on_resize(self) -> None:
+    def on_resize(self, event: Resize) -> None:
         if self.is_mounted:
-            self._bindings.bind("c", "cost", self.words["cost"], show=self.size.width >= 60)
-            self.refresh_bindings()
-            self._render()
+            self._refresh_footer(width=event.size.width)
+            self.call_after_refresh(self._render)
+
+    def _refresh_footer(self, *, width: int | None = None) -> None:
+        compact = (self.size.width if width is None else width) < 60
+        self.query_one(Footer).compact = compact
+        if self.language == "zh-CN":
+            hardware = "收起" if self._expanded_allocation else "硬件"
+        elif compact:
+            hardware = "Less" if self._expanded_allocation else "More"
+        else:
+            hardware = "Collapse" if self._expanded_allocation else "Hardware"
+        labels = {"enter": "Open" if compact and self.language == "en-US" else self.words["detail"],
+                  "c": "Cost" if compact and self.language == "en-US" else self.words["cost"],
+                  "i": hardware, "p": self.words["resume" if self._paused else "pause"]}
+        for key, label in labels.items():
+            # Textual.bind appends alternatives; update our existing binding.
+            bindings = self._bindings.get_bindings_for_key(key)
+            bindings[:] = [replace(binding, description=label) for binding in bindings]
+        self.refresh_bindings()
 
     @on(DataTable.RowHighlighted, "#job-table")
     def highlight(self, event: DataTable.RowHighlighted) -> None:

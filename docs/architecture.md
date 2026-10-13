@@ -84,6 +84,9 @@ explicit client origin from its existing site configuration, separately from
 the internal relay URL. The original capability and site DTO remain unchanged.
 Complete protected profiles bypass discovery; resolution adds no persistent
 route state and cannot replace a selected site or an explicitly configured origin.
+The saved site/cluster pair identifies an existing central-relay profile.
+Command-line and environment cluster constraints only narrow the query; they
+never switch a portable client's transport or JSON contract.
 
 Personal devices and user VMs use the same CLI and user/delegated Identity flow.
 An isolated VM does not imply Slurm credentials, a filesystem mount or extra

@@ -97,6 +97,37 @@ def test_topology_detail_scrolls_refreshes_and_returns_without_changing_job(job_
     asyncio.run(run())
 
 
+@pytest.mark.parametrize('language', ['zh-CN', 'en-US'])
+def test_footer_draws_current_actions_after_expansion_and_resize(job_client, language):
+    env, _, _ = job_client
+    async def run():
+        app = QueryApp(Queries(build_parser().parse_args(['tui']), env), language=language)
+        async with app.run_test(size=(40, 20)) as pilot:
+            await loaded(app, pilot)
+            async def footer():
+                await pilot.pause(.1)
+                await app.wait_for_refresh()
+                return app.screen._compositor.render_strips()[-1].text
+            await pilot.press('p')
+            assert ('继续' if language == 'zh-CN' else 'Resume') in await footer()
+            await pilot.press('p', 'enter')
+            await loaded(app, pilot)
+            for width, toggle, chinese, english in (
+                (40, False, '硬件', 'More'), (40, True, '收起', 'Less'),
+                (100, False, '收起', 'Collapse'), (100, True, '硬件', 'Hardware'),
+                (40, False, '硬件', 'More'),
+            ):
+                await pilot.resize_terminal(width, 20)
+                if toggle:
+                    await pilot.press('i')
+                drawn = await footer()
+                labels = ('费用', '返回', '退出', chinese) if language == 'zh-CN' else (
+                    'Cost' if width < 60 else 'Estimate', 'Back', 'Quit', english)
+                assert all(label in drawn for label in labels), drawn
+                assert all(len(app._bindings.get_bindings_for_key(key)) == 1 for key in ('c', 'i', 'p'))
+    asyncio.run(run())
+
+
 def test_partition_choice_survives_view_switch_and_no_extra_read_for_selection(resource_client):
     env, _, _ = resource_client
     async def run():
