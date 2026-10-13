@@ -36,11 +36,11 @@ other native versions are not yet qualified.
 
 Python 3.11+ is required. This alpha is qualified on Linux; macOS and Windows
 are not yet qualified. Download the wheel and SHA-256 checksum from the
-[versioned release](https://github.com/AI4SAI/sai-cli/releases/tag/v0.2.0a1), verify
+[versioned releases](https://github.com/AI4SAI/sai-cli/releases), verify
 the checksum, then install in an isolated environment with pipx:
 
 ```bash
-pipx install ./sai_cli-0.2.0a1-py3-none-any.whl
+pipx install ./sai_cli-0.2.0a2-py3-none-any.whl
 sai configure https://console.example.org --format table
 sai auth login
 sai sites --format table
@@ -61,11 +61,11 @@ See [first use and recovery](docs/getting-started.md) for wheel installation,
 additional permissions, multiple services and upgrade/rollback.
 
 The base client has no third-party runtime dependency. For the optional interface, install the downloaded wheel with its UI extra:
-`pipx install './sai_cli-0.2.0a1-py3-none-any.whl[tui]'`. It needs an interactive
+`pipx install './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`. It needs an interactive
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
-The tagged alpha predates the interconnect correction in current source and
-qualified shared deployments; its release assets have not been replaced.
-It also predates the paired site-connection discovery described in the first-use guide.
+The `0.2.0a2` candidate includes recorded hardware connections, CPU locality and
+selected-site connection discovery. Use the wheel filename from the reviewed
+release you downloaded; older release assets are retained unchanged.
 
 ## With your Agent
 
