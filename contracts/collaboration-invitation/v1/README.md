@@ -24,12 +24,13 @@ owner's currently linked access-task group through its authorized presenter; it 
 generation and site. A completed task is historical execution evidence.
 `workspace_available` is the original presenter's separate current access result,
 not a permission inferred from invitation acceptance. Unknown times remain null.
-When an organization membership becomes active, the existing business rule
-selects that organization as the default computing account and queues site
-synchronization. Acceptance permission includes this bounded domain effect;
-it is not permission to choose an arbitrary default account. Inspect the
-independently authorized account-default read to observe it. No client computes
-grants or queries Slurm/filesystems for this workflow.
+When an organization membership becomes active, Portal preserves an existing
+valid default computing account and initializes the new organization as default
+only when no valid default exists. A valid global choice remains unchanged when
+it is unavailable at the new site; association delivery is separate. Acceptance
+does not authorize an arbitrary preference change. Inspect the independently
+authorized account-default read for the saved choice and site application state.
+No client computes grants or queries Slurm/filesystems for this workflow.
 
 The optional scopes, API and client must be released together. Source/schema
 validation is not proof of live consent, actual site application or every client

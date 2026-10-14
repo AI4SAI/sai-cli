@@ -110,10 +110,11 @@ After a conflict or uncertain response, read that same invitation before decidin
 whether to retry. Acceptance time, currently linked task results and current
 workspace access are separate facts. Administrators can change an accepted directory invitation
 later; a repeat acceptance is not fresh consent to those changed terms.
-Organization membership becoming active also selects that organization as the
-default computing account under the existing business rule. Explain that effect
-before accepting an organization invitation; inspect `account defaults` with
-its separate read permission when the user needs the resulting account state.
+Organization membership becoming active preserves an existing valid default
+computing account. Portal selects the new organization only when no valid default
+exists; joining another site does not replace a valid global choice. Inspect
+`account defaults` with its separate read permission for the saved choice and
+site application state.
 
 ## Return a useful answer
 

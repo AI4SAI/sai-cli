@@ -94,11 +94,11 @@ invitation's role, validity and linked task; `accepted_at` is historical and doe
 not prove acceptance of those later terms. A completed task alone never grants
 current access.
 
-When organization membership becomes active, the original business rule selects
-that organization as the user's default computing account and synchronizes it
-to sites. Explain this effect before accepting an organization invitation. The
-accept scope covers that existing effect, not arbitrary preference changes.
-Use the separately authorized `account defaults` read to inspect the result.
+When organization membership becomes active, Portal preserves an existing valid
+default computing account and selects the new organization only when no valid
+default exists. Joining another site does not replace a valid global choice.
+Acceptance does not authorize an arbitrary preference change. Use the separately
+authorized `account defaults` read for the saved choice and site application state.
 
 Contracts: [page](../contracts/collaboration-invitations/v1/README.md) and
 [detail/accept](../contracts/collaboration-invitation/v1/README.md).

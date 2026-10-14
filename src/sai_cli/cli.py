@@ -99,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
                    notes=("Recipient-only; read the invitation's site and current terms. No invitation token is accepted.",)
                          + (("Acceptance is separate from task completion and current workspace access.",
                              "The stable invitation ID is the replay key; read it after conflict or an uncertain response. No automatic write retry.",
-                             "Active organization membership selects that organization as the default computing account under Portal's existing rule; inspect account defaults separately.",)
+                             "Active organization membership preserves an existing valid default computing account and selects this organization only when no valid default exists; inspect account defaults separately.",)
                             if name == "accept" else ()))
 
     sites = commands.add_parser("sites", help="list published site names before choosing --site")
