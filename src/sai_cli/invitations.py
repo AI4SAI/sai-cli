@@ -132,5 +132,5 @@ def render_invitations(result: Invitations, *, args: Namespace | None = None) ->
     elif value["next_action"] == "accept":
         lines.append(f"接受截止：{row['expires_at'] or '未指定'}")
         if row["target_kind"] == "organization":
-            lines.append("加入生效后将设为默认计算账户")
+            lines.append("保留已有有效的默认计算账户；没有时才将本组织设为默认")
     return "\n".join(lines) + "\n"

@@ -68,13 +68,11 @@ and validity, submit through the original owner and inspect application. Its
 priority still needs comparison with recurring user needs and the other gaps;
 available endpoints alone are not a reason to expand the surface.
 
-One inherited business effect needs particular care: an organization join that
-becomes active selects that organization as the default computing account.
-The invitation description, consent and Agent guidance must expose this before
-acceptance. Reusing the original writer preserves consistency, but does not by
-itself establish that every inherited product rule is desirable. Any change to
-this behavior belongs to the shared membership/default-account owner across
-consumers, not a compensating CLI write after acceptance.
+An organization join preserves an existing valid default computing account;
+Portal selects the new organization only when no valid default exists. This
+global choice is independent of the new site's association delivery. Invitation
+copy and Agent guidance follow the shared membership/default-account owner;
+the CLI never issues a compensating preference write after acceptance.
 
 ## A useful first release
 
