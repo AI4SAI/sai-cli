@@ -17,18 +17,20 @@ from sai_cli.render import render_running_estimate_table
 from test_site_transport import http_endpoint, issuer
 
 
-def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cost_payload):
+@pytest.mark.parametrize("database_index", [None, str(2**53 + 1), str(2**63), str(2**64 - 1), 2**60])
+def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cost_payload, database_index):
     job = job_cost_payload["items"][0]
     job.update(array_task_id="0", state="S", submit_time="2026-07-31T00:00:00.123456Z")
     job["running_estimate"].update(job_id_raw="12345_0", state="SUSPENDED",
-                                   submit_time=job["submit_time"], slurm_job_db_index=2**60)
+                                   submit_time=job["submit_time"], slurm_job_db_index=database_index)
     result = JobCostResult.from_payload(job_cost_payload, request_id="test")
     assert result.observation.items[0].canonical_id == "12345_0"
     assert result.observation.items[0].values["state"] == "S"
     assert result.estimate.values["gross_cny"] == "2.00000000"
-    assert result.estimate.values["slurm_job_db_index"] == 2**60
+    expected_index = str(database_index) if database_index is not None else None
+    assert result.estimate.values["slurm_job_db_index"] == expected_index
     assert JobCostResult.from_payload(result.as_dict(), request_id="roundtrip") == result
-    assert result.as_dict()["items"][0]["running_estimate"]["slurm_job_db_index"] == 2**60
+    assert result.as_dict()["items"][0]["running_estimate"]["slurm_job_db_index"] == expected_index
     assert "running_estimate" not in JobResult.from_payload(job_cost_payload, request_id="test").as_dict()["items"][0]
 
 
@@ -36,6 +38,9 @@ def test_one_cost_observation_binds_array_task_and_preserves_exact_price(job_cos
     ("job_id_raw", "12345_1"), ("slurm_user", "bob"), ("slurm_account", "org-other"),
     ("submit_time", "2026-07-31T00:00:00.000001Z"), ("start_time", None),
     ("gross_cny", "\x1b[31m2.00000000"), ("final", True), ("state", "PENDING"),
+    *[("slurm_job_db_index", value) for value in (
+        True, 1.5, -1, 0, "", "01", " 42", "42\n", "42.0", "\u0661", 2**64, str(2**64),
+    )],
 ])
 def test_cost_rejects_mismatched_identity_and_invalid_price(job_cost_payload, key, value):
     job_cost_payload["items"][0]["running_estimate"][key] = value
@@ -143,6 +148,7 @@ def test_cost_command_reads_exact_array_job_and_preserves_billing_denial(tmp_pat
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
     job_cost_payload["items"][0]["array_task_id"] = "0"
     job_cost_payload["items"][0]["running_estimate"]["job_id_raw"] = "12345_0"
+    job_cost_payload["items"][0]["running_estimate"]["slurm_job_db_index"] = str(2**64 - 1)
     denied = False
     def reply(call, count):
         if call["method"] == "POST":
@@ -167,6 +173,7 @@ def test_cost_command_reads_exact_array_job_and_preserves_billing_denial(tmp_pat
         if output_format == "json":
             estimate = json.loads(out.getvalue())["items"][0]["running_estimate"]
             assert estimate["gross_cny"] == "2.00000000" and estimate["final"] is False
+            assert estimate["slurm_job_db_index"] == str(2**64 - 1)
         else:
             assert "12345_0" in out.getvalue() and "2.00" in out.getvalue()
             assert "not settled" in out.getvalue() and "+00:00" in out.getvalue()

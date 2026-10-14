@@ -655,6 +655,18 @@ class RunningEstimateItem:
         estimate_status = _required_text(payload, "estimate_status", request_id=request_id)
         if estimate_status not in _ESTIMATE_STATUSES:
             raise ContractError(request_id=request_id)
+        database_index = payload.get("slurm_job_db_index")
+        # Older deployed Portal producers emit this field as an exact JSON integer.
+        if type(database_index) is int and 0 < database_index <= 2**64 - 1:
+            database_index = str(database_index)
+        if "slurm_job_db_index" not in payload or (
+            database_index is not None and (
+                not isinstance(database_index, str)
+                or re.fullmatch(r"[1-9][0-9]{0,19}", database_index) is None
+                or int(database_index) > 2**64 - 1
+            )
+        ):
+            raise ContractError(request_id=request_id)
         values: dict[str, Any] = {
             "job_key": _nullable_nonempty_text(
                 payload,
@@ -668,7 +680,7 @@ class RunningEstimateItem:
                 request_id=request_id,
                 maximum=128,
             ),
-            "slurm_job_db_index": _nullable_int(payload, "slurm_job_db_index", request_id=request_id),
+            "slurm_job_db_index": database_index,
             "slurm_user": _nullable_nonempty_text(
                 payload,
                 "slurm_user",
