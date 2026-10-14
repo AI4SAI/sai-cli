@@ -581,6 +581,16 @@ Each item contains only:
 }
 ```
 
+`slurm_job_db_index` is null or a canonical positive decimal string in Slurm's
+unsigned 64-bit range (1 through 18446744073709551615). It identifies the native
+accounting record independently of `job_id_raw`; JSON retains every digit.
+For the paired upgrade, `RunningEstimateItem` also accepts exact positive JSON
+integers from currently deployed older Portal estimate producers and normalizes
+them to the same string output. The CLI contract owner removes this input-only
+bridge once all supported Portal producers emit strings and their integer
+rollback versions are retired. Booleans, floats, noncanonical strings and
+out-of-range values remain contract errors.
+
 `estimate_status` is `estimated`, `partial`, `not_started`, or `unavailable`.
 `cash_before_credit_cny` is the contract or activity cash-price estimate before
 SAI Credit, allowances, reservations, or other coverage. It is neither an
