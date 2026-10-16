@@ -127,6 +127,9 @@
               "when": {
                 "type": "string"
               },
+              "effect": {
+                "enum": ["business_write"]
+              },
               "scopes": {
                 "type": "array",
                 "items": {

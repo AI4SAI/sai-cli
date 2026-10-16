@@ -13,7 +13,7 @@ from test_site_transport import http_endpoint
 
 
 def sample(name="collaboration-invitation"):
-    return json.loads((Path(__file__).resolve().parents[1]/"contracts"/name/"v1/sample.json").read_text())
+    return json.loads((Path(__file__).resolve().parents[1]/"contracts"/name/"v2/sample.json").read_text())
 
 
 @pytest.mark.parametrize("prefix", [False, True])
@@ -27,7 +27,7 @@ def test_real_http_recipient_list_accept_and_readback_without_site_or_native_too
             return 200, sample("collaboration-invitations")
         if call["method"] == "POST":
             assert call["path"] == "/v1/account/cli/invitations/invitation-example/accept"
-            assert call["body"] == {}
+            assert call["body"] == {"schema_version": "collaboration.invitation-accept/v2", "compute_enabled": False}
             detail["invitation"].update(status="accepted", accepted_at="2030-01-01T00:00:00Z")
             detail["next_action"] = "observe"
             detail["deliveries"] = [{"task_id":"task-example","generation":1,"site_id":"site-a",
@@ -36,14 +36,16 @@ def test_real_http_recipient_list_accept_and_readback_without_site_or_native_too
     with http_endpoint(reply) as (origin, calls):
         env = {"SAI_TOKEN":"test-user","XDG_CONFIG_HOME":str(tmp_path/"config"),"PATH":"","SAI_REQUIRE_SITE_CAPABILITY":"1"}
         for command in [["invitations","list"],["invitations","show","invitation-example"],
-                        ["invitations","accept","invitation-example"],["invitations","show","invitation-example"]]:
+                        ["invitations","accept","invitation-example"],
+                        ["invitations","accept","invitation-example","--apply"],
+                        ["invitations","show","invitation-example"]]:
             connection = ["--base-url",origin]
             output, error = StringIO(), StringIO()
             args = connection+command if prefix else command+connection
             assert main(args,environ=env,stdout=output,stderr=error) == 0,error.getvalue()
             assert not error.getvalue()
             result = json.loads(output.getvalue())
-        assert [call["method"] for call in calls] == ["GET","GET","POST","GET"]
+        assert [call["method"] for call in calls] == ["GET","GET","GET","GET","POST","GET"]
         assert result["invitation"]["status"] == "accepted" and result["deliveries"][0]["status"] == "queued"
         assert "等待执行" in render_invitations(Invitations(result))
 
@@ -51,15 +53,19 @@ def test_real_http_recipient_list_accept_and_readback_without_site_or_native_too
 @pytest.mark.parametrize("status", [401,403,409,503])
 def test_accept_failure_is_not_retried_and_extra_scope_selectors_make_no_request(tmp_path,status,monkeypatch):
     monkeypatch.setenv("NO_PROXY","127.0.0.1,localhost")
-    with http_endpoint(lambda *_:(status,{"detail":{"code":"invitation_not_accepting","token":"never-output"}})) as (origin,calls):
+    def reply(call, count):
+        return ((200, sample()) if call["method"] == "GET" else
+                (status, {"detail":{"code":"invitation_permissions_changed","token":"never-output"}}))
+    with http_endpoint(reply) as (origin,calls):
         env={"SAI_TOKEN":"test-user","SAI_API_BASE_URL":origin,"XDG_CONFIG_HOME":str(tmp_path/"config")}
         for flags in [["--site","site-a"],["--cluster","cluster-a"]]:
             output,error=StringIO(),StringIO()
-            assert main(["invitations","accept","invitation-example",*flags],environ=env,stdout=output,stderr=error)==2
+            assert main(["invitations","accept","invitation-example","--apply",*flags],environ=env,stdout=output,stderr=error)==2
             assert not output.getvalue() and not calls
         output,error=StringIO(),StringIO()
-        assert main(["invitations","accept","invitation-example"],environ=env,stdout=output,stderr=error)!=0
-        assert not output.getvalue() and len(calls)==1 and "never-output" not in error.getvalue()
+        assert main(["invitations","accept","invitation-example","--apply"],environ=env,stdout=output,stderr=error)!=0
+        assert not output.getvalue() and [call["method"] for call in calls]==["GET","POST"]
+        assert "never-output" not in error.getvalue()
 
 
 def test_invitation_allowlist_binding_pagination_and_terminal_controls():
@@ -68,7 +74,8 @@ def test_invitation_allowlist_binding_pagination_and_terminal_controls():
     result=Invitations.detail(value,invitation_id="invitation-example",request_id="r")
     assert all(word not in json.dumps(result.as_dict()) for word in ["never-output","private-path","email"])
     with pytest.raises(ContractError): Invitations.detail(value,invitation_id="other",request_id="r")
-    for target,bad in [("target_label","fake\nrow"),("site_label","unsafe\x1b[31m"),("role","owner"),("has_compute_resources",1)]:
+    for target,bad in [("target_label","fake\nrow"),("site_label","unsafe\x1b[31m"),("role","owner"),
+                       ("has_compute_resources",1),("compute_enabled",1)]:
         malformed=deepcopy(value);malformed["invitation"][target]=bad
         with pytest.raises(ContractError): Invitations.detail(malformed,invitation_id="invitation-example",request_id="r")
     page=sample("collaboration-invitations")
@@ -121,3 +128,66 @@ def test_following_invitation_page_keeps_service_profile_and_page_size(tmp_path,
         following = shlex.split(output.getvalue().split('下一页：')[1])[1:]
         assert main(following, environ=env, stdout=StringIO(), stderr=error) == 0, error.getvalue()
         assert len(calls) == 2 and not default_calls
+
+
+@pytest.mark.parametrize("failure", ["v1", "missing-compute"])
+def test_incompatible_preflight_never_accepts(tmp_path, failure):
+    detail = sample()
+    del detail["invitation"]["compute_enabled"]
+    if failure == "v1":
+        detail["schema_version"] = "collaboration.invitation/v1"
+    with http_endpoint(lambda *_: (200, detail)) as (origin, calls):
+        output, error = StringIO(), StringIO()
+        env = {"SAI_API_BASE_URL": origin, "SAI_TOKEN": "test-user", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        assert main(["invitations", "accept", "invitation-example", "--apply"],
+                    environ=env, stdout=output, stderr=error) == 7
+        assert not output.getvalue() and [call["method"] for call in calls] == ["GET"]
+        if failure == "v1":
+            assert "Update the paired Portal and CLI" in error.getvalue()
+
+
+def test_preview_requires_only_read_and_confirmation_keeps_selected_service(tmp_path):
+    def reply(call, count):
+        if call["method"] == "POST":
+            return 403, {"detail": {"code": "identity_scope_insufficient"}}
+        return 200, sample()
+    with http_endpoint(reply) as (origin, calls):
+        config = tmp_path / "chosen service.toml"
+        config.write_text(f'[profiles.chosen]\nbase_url={json.dumps(origin)}\n')
+        config.chmod(0o600)
+        env = {"SAI_TOKEN": "read-only-user", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        output, error = StringIO(), StringIO()
+        assert main(["invitations", "accept", "invitation-example", "--format", "table",
+                     "--config", str(config), "--profile", "chosen"],
+                    environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        assert [call["method"] for call in calls] == ["GET"]
+        assert "编辑文件 · 不含计算权限" in output.getvalue()
+        confirmation = shlex.split(output.getvalue().split("确认接受：")[1])[1:]
+        assert "--apply" in confirmation
+        assert main(confirmation, environ=env, stdout=StringIO(), stderr=error) == 4
+        assert [call["method"] for call in calls] == ["GET", "GET", "POST"]
+
+
+@pytest.mark.parametrize("kind, role, compute, project_budget, expected", [
+    ("project", "read", False, False, "查看文件 · 不含计算权限"),
+    ("project", "write", False, True, "编辑文件 · 不含计算权限"),
+    ("project", "write", True, False, "编辑文件 · 使用项目账户计算 · 计算费用由所属组织承担"),
+    ("project", "write", True, True, "编辑文件 · 使用项目账户计算 · 计算费用由所属组织承担，并受本项目预算限制"),
+    ("project", "admin", False, True, "项目管理员 · 编辑文件 · 不含计算权限"),
+    ("organization", "admin", True, False, "组织管理员 · 使用组织账户计算 · 计算费用由本组织承担"),
+    ("directory", "write", False, False, "编辑文件 · 不含计算权限"),
+])
+def test_capability_and_payer_rendering_are_independent_of_governance_and_project_resources(
+    kind, role, compute, project_budget, expected,
+):
+    detail = sample()
+    detail["invitation"].update(target_kind=kind, role=role, compute_enabled=compute,
+        uses_project_budget=project_budget, relationship_scope="directory" if kind == "directory" else "global",
+        has_compute_resources=kind != "directory")
+    result = Invitations.detail(detail, invitation_id="invitation-example", request_id="r")
+    assert expected in render_invitations(result)
+    page = sample("collaboration-invitations")
+    page["items"] = [detail["invitation"]]
+    assert expected in render_invitations(Invitations.page(page, limit=1, cursor=None, request_id="r"))
+    if not compute:
+        assert "计算费用由" not in render_invitations(result)

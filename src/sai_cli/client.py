@@ -443,13 +443,17 @@ class PortalClient:
         except ValueError as exc:
             raise ConfigError("invitation ID is invalid") from exc
         path = "/v1/account/cli/invitations/" + quote(identifier, safe="")
+        response = self._central_get(path, query={})
+        invitation = Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
         if accept:
             lease = self.token_provider.get()
             response = self.transport.request("POST", path + "/accept",
-                headers={"Authorization": f"Bearer {lease.token}"}, json_body={})
-        else:
-            response = self._central_get(path, query={})
-        return Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+                headers={"Authorization": f"Bearer {lease.token}"}, json_body={
+                    "schema_version": "collaboration.invitation-accept/v2",
+                    "compute_enabled": invitation.values["invitation"]["compute_enabled"],
+                })
+            return Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+        return invitation
 
     def list_run_workspaces(self, *, site_id: str, limit: int = 50,
                             cursor: str | None = None, workspace_key: str | None = None) -> ManagedRunWorkspaces:

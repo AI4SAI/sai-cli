@@ -90,6 +90,9 @@ def render_description(value: dict) -> str:
     for operation in value["operations"]:
         lines.append(f"sai {' '.join(operation['command'])}  [{operation['effect']}; {operation['source']}]")
         lines.append("  " + operation["summary"])
+        for condition in operation.get("conditional_requirements", []):
+            if "effect" in condition:
+                lines.append(f"  {condition['when']}: {condition['effect']}")
         for parameter in operation.get("parameters", []):
             name = ", ".join(parameter["flags"]) or parameter["name"]
             lines.append(f"  {name}: {parameter['type']}" + (" (required)" if parameter["required"] else ""))

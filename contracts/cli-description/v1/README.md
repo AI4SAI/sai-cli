@@ -38,6 +38,9 @@ Declared effects exclude incidental authorization audit and protected cache
 refresh; `local_file_write`, `business_write` and `session_write` distinguish
 output downloads, Portal mutations and Identity/credential operations. An
 interactive terminal or browser-consent operation is labeled explicitly.
+`effect` describes default behavior. An optional mutation such as
+`invitations accept --apply` declares `business_write` and its extra scope in
+`conditional_requirements`; without that flag the command remains a read.
 
 For `account set-default`, `readback` is `account defaults`: read valid choices
 and the saved value, submit that expectation with a stable request key, then read

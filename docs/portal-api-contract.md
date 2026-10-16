@@ -79,17 +79,25 @@ deployment; source compatibility is not production activation.
 exclusive invitation-ID `cursor`. `GET /v1/account/cli/invitations/{id}` reads
 that recipient's invitation and access-task results. Both require
 `sai.collaboration.invitations.read`. `POST /v1/account/cli/invitations/{id}/accept`
-requires `sai.collaboration.invitations.accept` and an empty JSON object; it
-reuses the original acceptance operation. The invitation ID is the natural
+requires `sai.collaboration.invitations.accept` and exactly
+`schema_version: "collaboration.invitation-accept/v2"` plus the invitation's
+explicit `compute_enabled` boolean. It reuses the original acceptance operation.
+Old/empty bodies are rejected before writing; a changed compute permission
+returns `409/invitation_permissions_changed`. The invitation ID is the natural
 replay key. No automatic client retry, site capability, scheduler query or
 extra writer is introduced. Unknown/duplicate query fields are rejected.
 
-Paired [page](../contracts/collaboration-invitations/v1/README.md) and
-[detail](../contracts/collaboration-invitation/v1/README.md) contracts allowlist
+Paired [page](../contracts/collaboration-invitations/v2/README.md) and
+[detail](../contracts/collaboration-invitation/v2/README.md) contracts allowlist
 terms and current original task presentations, excluding tokens, contacts,
-provider data and raw filesystem paths. The paired API, shared client and optional
-Identity scopes are deployed; actual recipient consent and applied access remain
-separate. Existing browser invitation routes retain their live consumers.
+provider data and raw filesystem paths. `compute_enabled` is independent of
+`has_compute_resources` and governance roles. File editing alone does not grant
+use of the computing account. `invitations accept ID` previews the same detail;
+`--apply` rereads v2 and sends one POST. Preview needs only read scope, while
+apply additionally needs acceptance scope. V1 responses fail with a paired
+upgrade diagnostic before writing. V2 activation requires the matching Portal
+and CLI; existing optional scopes stay unchanged. Actual recipient consent and
+applied access remain separate. Browser routes retain their live consumers.
 
 ### Published site discovery
 

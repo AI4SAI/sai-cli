@@ -83,13 +83,16 @@ class _AuthHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         self.server.requests.append({"path": self.path, "authorization": self.headers.get("Authorization")})
-        if self.path.startswith("/v1/account/cli/invitations?"):
+        if self.path.startswith("/v1/account/cli/invitations"):
             token = self.headers.get("Authorization", "").removeprefix("Bearer ")
             if "sai.collaboration.invitations.read" not in self.server.access_scopes.get(token, set()):
                 self._json({"detail": {"code": "identity_scope_denied"}}, 403)
-            else:
-                self._json({"schema_version": "collaboration.invitations/v1", "items": [],
+            elif self.path.startswith("/v1/account/cli/invitations?"):
+                self._json({"schema_version": "collaboration.invitations/v2", "items": [],
                             "count": 0, "has_more": False, "next_cursor": None})
+            else:
+                from test_invitations import sample
+                self._json(sample())
             return
         if self.path == "/v1/account/cli/status":
             if self.server.account_status_code != 200:
@@ -291,13 +294,18 @@ def test_task_consent_preserves_session_until_approved_and_survives_resume_refre
 
         call(["auth", "login"])
         assert "sai auth login --for invitations list" in call(["invitations", "list"], 4)["error"]["message"]
+        assert "sai auth login --for invitations show" in call(["invitations", "accept", "invitation-example"], 4)["error"]["message"]
+        server.token_suffix = "-invitation-reads"
+        read_scopes = {"openid", "offline_access", "sai.collaboration.invitations.read"}
+        assert set(call(["auth", "login", "--for", "invitations", "show"])["scopes"]) == read_scopes
+        assert call(["invitations", "accept", "invitation-example"])["invitation"]["status"] == "pending"
         server.token_suffix = "-invitations"
         pending = call(["auth", "login", "--for", "invitations", "accept", "--no-wait"])
         required = {"openid", "offline_access", "sai.collaboration.invitations.read", "sai.collaboration.invitations.accept"}
         assert set(pending["requested_scopes"]) == required
         # The old session keeps working while browser consent is pending.
-        assert set(call(["auth", "status"])["scopes"]) == {"openid", "offline_access"}
-        assert next(item for item in reversed(server.requests) if "authorization" in item)["authorization"] == "Bearer opaque-access-token"
+        assert set(call(["auth", "status"])["scopes"]) == read_scopes
+        assert next(item for item in reversed(server.requests) if "authorization" in item)["authorization"] == "Bearer opaque-access-token-invitation-reads"
         assert set(call(["auth", "login", "--resume"])["scopes"]) == required
         assert call(["invitations", "list"])["items"] == []
 
@@ -316,7 +324,7 @@ def test_task_consent_preserves_session_until_approved_and_survives_resume_refre
         required |= {"sai.compute.read", "sai.compute.defaults.write"}
         assert set(granted["scopes"]) == required
         assert set(server.requested_scope.split()) == required
-        assert all(item["path"].startswith(("/oauth/", "/.well-known/", "/v1/account/cli/status", "/v1/account/cli/invitations?")) for item in server.requests)
+        assert all(item["path"].startswith(("/oauth/", "/.well-known/", "/v1/account/cli/status", "/v1/account/cli/invitations")) for item in server.requests)
 
         server.token_suffix = "-under-granted"
         server.granted_scope = "openid offline_access"

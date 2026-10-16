@@ -88,6 +88,8 @@ job allocation and recorded-run outputs, default-account changes and recipient
 invitation acceptance. Broader project, storage and compute management is not
 implemented. Read permission does not grant write permission. The called service
 owns authorization and reports whether a change was accepted or applied.
+`invitations accept ID` previews file and computation permissions and the payer;
+add `--apply` to accept. This v2 workflow requires the paired Portal update.
 
 ## Learn more
 

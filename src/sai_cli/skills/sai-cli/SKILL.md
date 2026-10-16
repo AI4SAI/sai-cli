@@ -102,10 +102,16 @@ Follow each future operation's own receipt/retry contract rather than applying
 this preference-specific procedure to unrelated writes.
 
 For received collaboration invitations, discover your pending invitations and
-read the selected invitation's target, role, validity and scope before accepting
-the user's requested one. The invitation carries its target site and current
+read the selected invitation's target, file access, explicit computation
+permission, payer, validity and scope before accepting the user's requested one.
+`invitations accept ID` only previews; use `--apply` for the requested acceptance.
+Computation is independent of editing files, target resources and administrator
+roles. The invitation carries its target site and current
 terms; do not send a site override or an invitation-link secret. Its ID is the
 replay identity.
+Apply requires the acceptance scope in addition to read scope; the CLI rereads
+the v2 invitation before one POST. A version mismatch requires the paired
+Portal/CLI update, never a guessed permission or an unversioned write.
 After a conflict or uncertain response, read that same invitation before deciding
 whether to retry. Acceptance time, currently linked task results and current
 workspace access are separate facts. Administrators can change an accepted directory invitation
