@@ -111,6 +111,9 @@ For writes, Portal remains the single domain writer. Reuse supported action
 validation, idempotency/concurrency checks, approval rules and durable site tasks.
 Return their existing identifiers and accepted/executed/failed outcomes; allow
 the caller to inspect completion without creating a second workflow engine.
+Recipient invitation acceptance previews the original detail by default;
+`--apply` adds the original acceptance scope and writer. Explicit computation
+permission stays separate from file editing, target resources and governance.
 An available browser route is not automatically an OAuth Agent endpoint.
 Local source availability and remote management do not depend on 3D deployment.
 

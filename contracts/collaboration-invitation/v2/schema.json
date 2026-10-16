@@ -190,6 +190,10 @@
           "title": "Has Compute Resources",
           "type": "boolean"
         },
+        "compute_enabled": {
+          "title": "Compute Enabled",
+          "type": "boolean"
+        },
         "uses_project_budget": {
           "title": "Uses Project Budget",
           "type": "boolean"
@@ -210,6 +214,7 @@
         "expires_at",
         "accepted_at",
         "has_compute_resources",
+        "compute_enabled",
         "uses_project_budget"
       ],
       "title": "InvitationItem",
@@ -218,7 +223,7 @@
   },
   "properties": {
     "schema_version": {
-      "const": "collaboration.invitation/v1",
+      "const": "collaboration.invitation/v2",
       "title": "Schema Version",
       "type": "string"
     },

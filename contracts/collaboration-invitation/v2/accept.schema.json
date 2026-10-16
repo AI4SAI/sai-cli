@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "collaboration.invitation-accept/v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "compute_enabled": {
+      "title": "Compute Enabled",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "compute_enabled"
+  ],
+  "title": "InvitationAcceptIn",
+  "type": "object"
+}

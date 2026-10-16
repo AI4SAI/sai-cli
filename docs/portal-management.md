@@ -68,6 +68,11 @@ understand its target, role, validity and site scope, accept that exact invitati
 and inspect the owner's currently linked access-task result. The three commands are
 `invitations list`, `invitations show INVITATION_ID` and
 `invitations accept INVITATION_ID`. They add no TUI page or invitation database.
+`accept` defaults to a read-only preview. Add `--apply` to accept; it first reads
+that exact invitation again, then submits its explicit v2 computation permission.
+File viewing, file editing and use of a computing account are shown separately
+from administrator roles. When computation is included, the view identifies the
+organization as payer and any project-budget constraint, without estimating an amount.
 
 Portal reuses `OrgInvitation`, the canonical recipient and expiry predicates,
 `accept_workspace_invitation_by_id`, and the existing task readback service.
@@ -77,7 +82,7 @@ paged by immutable invitation ID. Detail remains an exact recipient-bound read
 after the invitation leaves the pending list. Shared-directory site labels
 preserve the original namespace scope rather than implying a single-site grant.
 
-Read/show require `sai.collaboration.invitations.read`; acceptance requires
+List/show/preview require `sai.collaboration.invitations.read`; `--apply` also requires
 `sai.collaboration.invitations.accept`. Both are optional user-consent scopes.
 Existing compute, storage, billing and default-account grants stay unchanged.
 Normal account eligibility and current inviter authority still apply. A claimed
@@ -100,12 +105,13 @@ default exists. Joining another site does not replace a valid global choice.
 Acceptance does not authorize an arbitrary preference change. Use the separately
 authorized `account defaults` read for the saved choice and site application state.
 
-Contracts: [page](../contracts/collaboration-invitations/v1/README.md) and
-[detail/accept](../contracts/collaboration-invitation/v1/README.md).
-The paired API, shared CLI and optional Identity scopes are deployed. An
-ordinary user's existing session retained its reads and correctly lacked the
-new invitation permissions. Actual additional consent, recipient acceptance
-and applied site access remain separate acceptance work.
+Contracts: [page](../contracts/collaboration-invitations/v2/README.md) and
+[detail/accept](../contracts/collaboration-invitation/v2/README.md).
+The previous invitation workflow and optional Identity scopes were deployed.
+The v2 capability contract and preview/apply command now require a paired
+Portal/CLI activation. An old response fails before writing; an old empty
+acceptance body is rejected by the paired server. Actual additional consent,
+recipient acceptance and applied site access remain separate acceptance work.
 Inviter-side member/role management and broader budgets/storage/compute remain
 separate gaps; this recipient workflow does not complete those domains.
 

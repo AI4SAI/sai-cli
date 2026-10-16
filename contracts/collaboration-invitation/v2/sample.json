@@ -1,11 +1,11 @@
 {
-  "schema_version": "collaboration.invitation/v1",
+  "schema_version": "collaboration.invitation/v2",
   "invitation": {
     "invitation_id": "invitation-example",
     "status": "pending",
     "target_kind": "project",
     "target_label": "Research project",
-    "role": "read",
+    "role": "write",
     "site_id": "site-a",
     "site_label": "Research Station",
     "relationship_scope": "global",
@@ -13,9 +13,10 @@
     "membership_expires_at": "2030-12-31T00:00:00Z",
     "expires_at": "2030-01-03T00:00:00Z",
     "accepted_at": null,
-    "has_compute_resources": false,
+    "has_compute_resources": true,
     "uses_project_budget": false,
-    "directory_site_labels": []
+    "directory_site_labels": [],
+    "compute_enabled": false
   },
   "next_action": "accept",
   "deliveries": []

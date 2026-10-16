@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     invitation_commands = invitations.add_subparsers(dest="invitations_command", required=True)
     for name, description in (("list", "list your pending invitations"),
                               ("show", "show invitation terms and current access-task results"),
-                              ("accept", "accept one invitation addressed to you")):
+                              ("accept", "preview one invitation; --apply accepts it")):
         invitation = invitation_commands.add_parser(name, help=description)
         _add_connection_arguments(invitation, suppress_defaults=True)
         _add_format_argument(invitation)
@@ -92,12 +92,16 @@ def build_parser() -> argparse.ArgumentParser:
             invitation.add_argument("--cursor", help="next cursor returned by the previous page")
         else:
             invitation.add_argument("invitation_id", help="invitation ID returned by invitations list")
+        if name == "accept":
+            invitation.add_argument("--apply", action="store_true", help="accept the invitation; without this flag, only preview its terms")
         _operation(invitation, source="portal", site=False,
-                   effect="business_write" if name == "accept" else "read",
-                   scopes=("sai.collaboration.invitations.accept" if name == "accept" else "sai.collaboration.invitations.read",),
+                   scopes=("sai.collaboration.invitations.read",),
+                   requirements=({"when": "--apply is supplied", "effect": "business_write",
+                                  "scopes": ["sai.collaboration.invitations.accept"]},) if name == "accept" else (),
                    readback=("invitations", "show") if name == "accept" else (),
                    notes=("Recipient-only; read the invitation's site and current terms. No invitation token is accepted.",)
-                         + (("Acceptance is separate from task completion and current workspace access.",
+                         + (("Without --apply this command only previews; --apply rereads the v2 terms and accepts their explicit compute permission.",
+                             "Acceptance is separate from task completion and current workspace access.",
                              "The stable invitation ID is the replay key; read it after conflict or an uncertain response. No automatic write retry.",
                              "Active organization membership preserves an existing valid default computing account and selects this organization only when no valid default exists; inspect account defaults separately.",)
                             if name == "accept" else ()))
@@ -845,7 +849,7 @@ def main(
             if args.site is not None or args.cluster is not None:
                 raise ConfigError("invitations fix their own site; --site and --cluster are not selectors")
             result = (client.invitations(limit=args.limit, cursor=args.cursor) if args.invitations_command == "list"
-                      else client.invitation(args.invitation_id, accept=args.invitations_command == "accept"))
+                      else client.invitation(args.invitation_id, accept=args.invitations_command == "accept" and args.apply))
             output.write(render_json(result.as_dict()) if output_format == "json" else render_invitations(result, args=args))
             return 0
         if args.command == "sites":
@@ -1022,6 +1026,8 @@ def main(
         if exc.code == "identity_scope_denied" and args.command != "auth" and not env.get("SAI_TOKEN"):
             path = [args.command]
             subcommand = getattr(args, args.command + "_command", None)
+            if args.command == "invitations" and subcommand == "accept" and not args.apply:
+                subcommand = "show"
             if subcommand:
                 path.append(subcommand)
             exc.message = "Permission is missing"

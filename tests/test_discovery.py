@@ -82,6 +82,11 @@ def test_effects_scope_minima_and_readback_do_not_invent_authority():
     assert not {'site','cluster'}&{row['name'] for row in write['parameters']}
     assert any('accepted does not mean applied' in note for note in write['notes'])
     assert operation('jobs','cost')['conditional_requirements']==[{'when':'job_id is supplied','scopes':['sai.compute.read']}]
+    invitation = operation('invitations', 'accept')
+    assert invitation['effect'] == 'read' and invitation['required_scopes'] == ['sai.collaboration.invitations.read']
+    assert invitation['conditional_requirements'] == [{'when': '--apply is supplied', 'effect': 'business_write',
+                                                      'scopes': ['sai.collaboration.invitations.accept']}]
+    assert not next(row for row in invitation['parameters'] if row['name'] == 'apply')['default']
 
 
 def test_group_filter_unknown_path_and_table_output():

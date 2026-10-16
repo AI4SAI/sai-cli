@@ -1,4 +1,4 @@
-# Recipient collaboration invitations v1
+# Recipient collaboration invitations v2
 
 Portal owns invitation identity, recipient binding, expiry, acceptance and access
 tasks. This contract exposes only invitations addressed to the current Identity
@@ -12,8 +12,27 @@ List/detail require `sai.collaboration.invitations.read`. Accept requires the
 independent `sai.collaboration.invitations.accept` scope and the original domain's
 current eligibility checks. The stable invitation ID identifies the acceptance operation. Repeating that ID follows the original locked
 acceptance behavior; it does not create another invitation or reset a later
-revocation. The client never automatically retries a write. No request body
-fields, site override, recipient selector or invitation secret are accepted.
+revocation. The client never automatically retries a write. Acceptance requires exactly `schema_version: "collaboration.invitation-accept/v2"`
+and the boolean `compute_enabled` read from this invitation. Missing/old bodies
+are rejected before the writer runs; a changed compute permission returns
+`409/invitation_permissions_changed`. No site override, recipient selector or
+invitation secret is accepted.
+
+`compute_enabled` is the explicit computation permission. It is independent of
+`has_compute_resources`, which describes the target's resources, and `role`,
+which also carries governance. For project invitations, `read` plus false means
+view files; `write` plus false means edit files; `write` plus true adds use of the
+project's computing account. An `admin` role does not imply computation by itself.
+Organization invitations include organization-account computation; directory
+invitations do not. The organization pays for computation; `uses_project_budget`
+adds the project's budget constraint, not a separate payer. These are
+responsibility labels, not a price or an immediate charge.
+
+`invitations accept ID` only previews this detail response and requires read
+permission. `--apply` rereads the exact invitation, validates v2, then sends one
+POST with its explicit compute permission. The response uses this same detail
+schema. Old v1 responses fail with an upgrade diagnostic before any POST; there
+is no inferred permission, extra consent record or automatic retry.
 
 `accepted_at` records historical acceptance. An accepted directory invitation
 can later acquire updated roles/validity and a replacement linked task through
@@ -32,6 +51,6 @@ does not authorize an arbitrary preference change. Inspect the independently
 authorized account-default read for the saved choice and site application state.
 No client computes grants or queries Slurm/filesystems for this workflow.
 
-The optional scopes, API and client must be released together. Source/schema
+The v2 API and client require a coordinated release; existing optional scopes are unchanged. Source/schema
 validation is not proof of live consent, actual site application or every client
 platform. Existing browser invitation routes keep their current consumers.
