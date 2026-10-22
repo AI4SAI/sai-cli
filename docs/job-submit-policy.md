@@ -208,13 +208,22 @@ element's Account when updating an array with different existing accounts.
 ## Job Modifications
 
 Use native `scontrol update`. The Lua hook adds no account or QOS permission
-system and does not lock fields merely because they were set at submission.
+system. Reservation binding can change only before allocation; changing its
+name does not move already allocated resources.
 
 | Job state | Product rule |
 | --- | --- |
-| Pending | Permit authorized account, QOS, partition and resource changes that satisfy native limits and the same site GPU policy as submission. |
-| Running or suspended | Preserve native restrictions on resource, account and QOS changes. Ordinary users can shorten time limits; increasing them requires native privilege. |
+| Pending | Permit reservation changes once no nodes or completing flag remain. Authorized account, QOS, partition and resource changes retain native limits and the site GPU policy. |
+| Running or suspended | Keep reservation binding fixed and preserve native restrictions on resource, account and QOS changes. Ordinary users can shorten time limits; increasing them requires native privilege. |
 | Finished | Keep execution and billing history unchanged; a new execution requires a new submission. |
+
+The reservation check uses the native job state and allocated nodes. A pending
+job's estimated start time does not imply allocation, and a completed requeue
+cycle can select another reservation. Requeue cleanup must finish first.
+Same-value reservation requests and unrelated modifications remain unchanged;
+an unavailable native state cannot authorize a binding change. Rejected changes
+give a short Chinese/English resubmission message. The hook does not look up
+prices, entitlements or financial records.
 
 For a relevant update, merge only the four GPU request fields with the existing
 job record and validate the effective QOS and GPU count together. For example,
@@ -226,8 +235,9 @@ Explicit CPU/memory overrides on GPU jobs retain the submission restriction.
 Do not treat CPU/memory values that Slurm already assigned as new user overrides.
 CPU-only updates, names, dependencies, time limits and other native operations
 remain subject to Slurm permissions and state rules. An unrelated update does
-not revalidate a legacy GPU request. The existing root maintenance exemption is
-retained; no new mutation privileges are granted.
+not revalidate a legacy GPU request. The existing UID 0 maintenance exemption is
+retained; non-root operators follow the same reservation rule. The hook does not
+infer administrator status from a different caller UID or grant new privileges.
 
 Switching between CPU-only and GPU jobs requires resubmission. On the matched
 Slurm version, clearing `TRESPerNode` can succeed while leaving GPU `ReqTRES`

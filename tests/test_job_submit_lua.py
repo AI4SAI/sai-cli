@@ -294,6 +294,50 @@ assert(slurm_job_modify({tres_per_node = "gres/gpu:3"}, gpu, {}, 0) == slurm.SUC
     )
 
 
+def test_modify_reservation_requires_an_unallocated_pending_job(tmp_path: Path) -> None:
+    run_lua(
+        _prelude(_snapshot(tmp_path))
+        + """
+-- A pending start time can be a scheduler estimate, including after requeue.
+local pending = {job_state = 0, start_time = 2000000000, resv_name = "res-a"}
+for _, reservation in ipairs({"res-b", ""}) do
+    local change = {reservation = reservation}
+    assert(slurm_job_modify(change, pending, {}, 1000) == slurm.SUCCESS)
+    assert(change.reservation == reservation and pending.resv_name == "res-a")
+end
+local requeued = {job_state = 2048, restart_cnt = 2, nodes = "", start_time = 2000000000}
+assert(slurm_job_modify({reservation = "res-b"}, requeued, {}, 1000) == slurm.SUCCESS)
+
+-- RUNNING, SUSPENDED, CONFIGURING, retained nodes and requeue cleanup are
+-- allocations or old-generation transitions, not an unallocated pending job.
+for _, current in ipairs({
+    {job_state = 1, nodes = "node-a"},
+    {job_state = 2, nodes = "node-a", resv_name = "res-a"},
+    {job_state = 16385, nodes = "node-a"},
+    {job_state = 0, nodes = "node-a"},
+    {job_state = 32768},
+    {}, -- An unavailable native state must not become pending.
+}) do
+    messages = {}
+    local change = {reservation = "res-b"}
+    assert(slurm_job_modify(change, current, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
+    assert(change.reservation == "res-b")
+    assert(message_contains("请重新提交") and message_contains("Resubmit"))
+end
+
+local running = {job_state = 1, nodes = "node-a", resv_name = "res-a", user_id = 1000}
+assert(slurm_job_modify({reservation = "res-a"}, running, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({name = "renamed"}, running, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({reservation = ""}, {}, {}, 1000) == slurm.SUCCESS)
+assert(slurm_job_modify({reservation = ""}, running, {}, 1000) == slurm.ESLURM_ACCOUNTING_POLICY)
+-- A different caller is not proof of administrator authority; keep only the
+-- existing root maintenance exemption and leave native authorization to Slurm.
+assert(slurm_job_modify({reservation = "res-b"}, running, {}, 2000) == slurm.ESLURM_ACCOUNTING_POLICY)
+assert(slurm_job_modify({reservation = "res-b"}, running, {}, 0) == slurm.SUCCESS)
+"""
+    )
+
+
 def test_modify_uses_submission_account_precedence_for_workdir_and_account(tmp_path: Path) -> None:
     run_lua(
         _prelude(_snapshot(tmp_path))
