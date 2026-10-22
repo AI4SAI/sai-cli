@@ -223,6 +223,17 @@ end
 
 function slurm_job_modify(job_desc, job_ptr, part_list, modify_uid)
     if modify_uid == 0 then return slurm.SUCCESS end
+    if job_desc.reservation ~= nil and job_desc.reservation ~= (job_ptr.resv_name or "") then
+        -- Native JOB_PENDING=0, JOB_STATE_BASE=0xff, JOB_COMPLETING=0x8000.
+        -- start_time can be an estimate; requeue can retain an old allocation.
+        local state = job_ptr.job_state
+        if type(state) ~= "number" or state % 256 ~= 0
+            or math.floor(state / 32768) % 2 ~= 0 or nonempty(job_ptr.nodes) then
+            slurm.user_msg("ERROR: 仅未分配资源的排队作业可更改预约，请重新提交 / "
+                .. "Resubmit to change this job's reservation.")
+            return policy_error
+        end
+    end
     if not apply_account_policy(job_desc, job_ptr) then return policy_error end
     local effective = {}
     local changed = job_desc.qos ~= nil or resource_override_error(job_desc) ~= nil
