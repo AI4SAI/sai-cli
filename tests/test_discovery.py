@@ -69,6 +69,8 @@ def test_effects_scope_minima_and_readback_do_not_invent_authority():
     assert operation('tui')['interaction']=='terminal'
     assert operation('auth','login')['interaction']=='browser_consent'
     assert operation('auth','logout')['effect']=='session_write'
+    assert operation('tui')['effect']=='session_write'
+    assert operation('tui')['required_scopes']==[]
     assert operation('auth','status')['required_scopes']==[]
     assert operation('runs','download')['effect']=='local_file_write'
     assert operation('runs','cost')['required_scopes']==['sai.billing.read']

@@ -91,7 +91,7 @@ def test_slow_native_read_coalesces_refresh_and_never_overwrites_new_view(job_cl
         calls.append(request.view)
         if len(calls)==1:
             started.set();await asyncio.wait_for(release.wait(),3)
-        if request.view=='accounts':raise AuthenticationError('private test marker', code='credentials_unavailable')
+        if request.view=='accounts':raise AuthenticationError('private test marker', code='credentials_unavailable', recovery_command=('auth','login'))
         return await original(request)
     queries.read=read
     async def run():
@@ -107,8 +107,9 @@ def test_slow_native_read_coalesces_refresh_and_never_overwrites_new_view(job_cl
             assert app.view=='account' and app.snapshot is None
             release.set();await loaded(app,pilot)
             assert calls==['jobs','accounts']
-            assert 'sai auth login' in str(app.query_one('#notice',Static).render())
-            assert 'private test marker' not in str(app.query_one('#notice',Static).render())
+            assert 'sai auth login' in str(app.query_one('#content',Static).render())
+            assert 'private test marker' not in str(app.query_one('#content',Static).render())
+            assert not app.query_one('#controls').display
             assert app.snapshot is None
     asyncio.run(run())
 
@@ -144,7 +145,7 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
                 fail[0]=True
                 await pilot.press('r');await loaded(app,pilot)
                 assert app.snapshot is None
-                assert not str(app.query_one('#content',Static).render())
+                assert 'Denied' in str(app.query_one('#content',Static).render())
                 assert not app.query_one(Select).disabled
                 fail[0]=False
                 app.query_one(Select).value='personal-alice'
@@ -153,6 +154,7 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
                 directory_denied[0]=True
                 await pilot.press('r');await loaded(app,pilot)
                 assert app.snapshot is None and app.query_one(Select).disabled
+                assert not app.query_one('#controls').display
                 assert len(app._options)==1
                 assert all(call['method']=='GET' for call in calls)
         asyncio.run(run())

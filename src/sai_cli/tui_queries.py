@@ -15,6 +15,8 @@ from typing import Any
 
 from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, SaiCliError, UnavailableError
 
+_MAX_AUTH_OUTPUT = 65536
+
 
 @dataclass(frozen=True)
 class Read:
@@ -36,6 +38,15 @@ class Queries:
             ("jobs", "squeue"), ("gpu", "sinfo"), ("cpu", "sinfo"), ("quota", "lfs"),
         ) if shutil.which(binary, path=environ.get("PATH", os.defpath))) + ("account",)
 
+    async def _spawn(self, arguments: list[str]) -> asyncio.subprocess.Process:
+        source = str(Path(__file__).resolve().parent.parent)
+        entry = "import sys;sys.path.insert(0,sys.argv.pop(1));from sai_cli.cli import entrypoint;entrypoint()"
+        return await asyncio.create_subprocess_exec(
+            sys.executable, "-I", "-P", "-B", "-c", entry, source, *arguments,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE, env=self.environ, start_new_session=True,
+        )
+
     async def _command(self, arguments: list[str], *, remote: bool = False) -> dict:
         from .cancellation import refresh_cancel_grace
         cancellation_grace = refresh_cancel_grace(self.settings().timeout_seconds) if remote else 1
@@ -47,15 +58,9 @@ class Queries:
                     arguments += ["--" + name.replace("_", "-")] + ([] if value is True else [str(value)])
         elif self.args.timeout is not None:
             arguments += ["--timeout", str(self.args.timeout)]
-        source = str(Path(__file__).resolve().parent.parent)
         # Separate process group lets cancellation terminate only this read and
         # its native children. No Shell, interactive login or alternate authority.
-        entry = "import sys;sys.path.insert(0,sys.argv.pop(1));from sai_cli.cli import entrypoint;entrypoint()"
-        process = await asyncio.create_subprocess_exec(
-            sys.executable, "-I", "-P", "-B", "-c", entry, source, *arguments,
-            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE, env=self.environ, start_new_session=True,
-        )
+        process = await self._spawn(arguments)
         try:
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(), cancellation_grace if remote else 2 * (self.args.timeout or 30) + 5,
@@ -74,22 +79,89 @@ class Queries:
                     os.killpg(process.pid, signal.SIGKILL)
                     await process.communicate()
         if process.returncode != 0:
-            try:
-                error = json.loads(stderr)["error"]
-                code, message = error["code"], error["message"]
-                if not all(isinstance(value, str) and len(value) <= 4096 and value.isprintable() for value in (code, message)):
-                    raise ValueError("invalid diagnostic")
-            except (ValueError, KeyError, TypeError):
-                raise UnavailableError("The query failed; retry with the corresponding CLI command.") from None
-            if process.returncode == 3:
-                raise AuthenticationError(message, code=code)
-            if process.returncode == 4:
-                raise ForbiddenError(message, code=code)
-            raise SaiCliError(code=code, message=message, exit_code=process.returncode)
+            raise self._process_error(process.returncode, stderr)
         try:
             return json.loads(stdout)
         except ValueError as exc:
             raise ContractError("The query did not return a valid result.") from exc
+
+    @staticmethod
+    def _process_error(returncode: int, stderr: bytes) -> SaiCliError:
+        try:
+            error = json.loads(stderr)["error"]
+            code, message = error["code"], error["message"]
+            if (not isinstance(code, str) or len(code) > 4096 or not code.isprintable()
+                    or not isinstance(message, str) or not 1 <= len(message) <= 4096):
+                raise ValueError("invalid diagnostic")
+            request_id = error.get("request_id")
+            if request_id is not None and not (isinstance(request_id, str) and len(request_id) <= 4096 and request_id.isprintable()):
+                raise ValueError("invalid request ID")
+            argv = error.get("recovery", {}).get("argv", [])
+            if (not isinstance(argv, list) or len(argv) > 64
+                    or any(not isinstance(word, str) or len(word) > 4096 or "\0" in word for word in argv)
+                    or (argv and argv[0] != "sai")):
+                raise ValueError("invalid recovery arguments")
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return UnavailableError("The command failed; retry with the corresponding CLI command.")
+        if returncode == 3:
+            failure = AuthenticationError(message, code=code, request_id=request_id)
+        elif returncode == 4:
+            failure = ForbiddenError(message, code=code, request_id=request_id)
+        else:
+            failure = SaiCliError(code=code, message=message, exit_code=returncode, request_id=request_id)
+        failure.recovery_argv = tuple(argv)
+        return failure
+
+    async def authorize(self, argv: tuple[str, ...]) -> None:
+        """Run only the installed login command after the person's explicit action."""
+        if argv[:3] != ("sai", "auth", "login"):
+            raise ConfigError("This recovery action requires the CLI.")
+        from .cancellation import refresh_cancel_grace
+        grace = refresh_cancel_grace(self.settings().timeout_seconds)
+        process = await self._spawn([*argv[1:], "--format", "json"])
+        stderr = bytearray()
+
+        async def show_login():
+            while chunk := await process.stderr.read(4096):
+                stderr.extend(chunk)
+                del stderr[:-_MAX_AUTH_OUTPUT]
+                sys.__stderr__.buffer.write(chunk)
+                sys.__stderr__.buffer.flush()
+
+        def interrupt(signum, frame):
+            if process.returncode is None:
+                try:
+                    os.killpg(process.pid, signum)
+                except ProcessLookupError:
+                    pass
+
+        display = asyncio.create_task(show_login())
+        previous = signal.signal(signal.SIGINT, interrupt)
+        try:
+            stdout = await process.stdout.read(_MAX_AUTH_OUTPUT + 1)
+            if len(stdout) > _MAX_AUTH_OUTPUT:
+                raise ContractError("The login response is too large.")
+            await process.wait()
+        finally:
+            signal.signal(signal.SIGINT, previous)
+            if process.returncode is None:
+                interrupt(signal.SIGTERM, None)
+                try:
+                    await asyncio.wait_for(process.wait(), grace)
+                except TimeoutError:
+                    interrupt(signal.SIGKILL, None)
+                    await process.wait()
+            await display
+        if process.returncode != 0:
+            # Device prompts precede the CLI's final single-line JSON diagnostic.
+            lines = bytes(stderr).splitlines()
+            raise self._process_error(process.returncode, lines[-1] if lines else b"")
+        try:
+            authenticated = json.loads(stdout).get("authenticated") is True
+        except (ValueError, AttributeError):
+            authenticated = False
+        if not authenticated:
+            raise ContractError("The login did not return a completed authorization.")
 
     def settings(self):
         from .config import resolve_settings

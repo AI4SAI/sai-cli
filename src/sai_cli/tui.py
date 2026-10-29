@@ -1,8 +1,10 @@
 """One native and one business read at a time, without blocking local navigation."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from dataclasses import replace
+import shlex
 import time
 
 from rich.text import Text
@@ -12,10 +14,10 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import DataTable, Footer, Select, Static, Tab, Tabs
-from textual.worker import WorkerCancelled
+from textual.worker import Worker, WorkerCancelled
 
-from .errors import AuthenticationError, SaiCliError
-from .render import follow_up_command
+from .errors import AuthenticationError, SaiCliError, UnavailableError
+from .render import prepare_error_recovery
 from .tui_queries import Queries, Read
 
 
@@ -27,6 +29,7 @@ LABELS = {
         "gpu_free": "GPU\n空闲/总", "gpu_slots": "GPU\n卡位", "cpu_count": "CPU\n分配/总", "memory": "GiB\n分配/总", "no_nodes": "当前分区没有节点", "node_name": "节点",
         "loading": "读取中…", "empty": "当前范围没有作业", "local": "本站", "central": "SAI 账户",
         "login": "账户查询需要登录：退出后运行 {command}", "failure": "读取失败，按 r 重试",
+        "authorize": "授权", "login_required": "需要登录", "consent_required": "需要补充授权", "login_cancelled": "已取消登录",
         "time": "运行 / 等待", "name": "名称", "state": "状态", "partition": "分区", "node": "节点 / 原因",
         "truncated": "仅显示前 500 条", "detail": "详情", "back": "返回", "snapshot": "更新", "read_only": "查看账户", "estimate_title": "预估费用 · 未结算", "standard_price": "标准价", "cash_price": "现金价", "unknown": "暂不可用", "stale": "旧观察，请刷新", "partial": "部分预估", "not_started": "尚未开始", "unavailable": "预估暂不可用"},
     "en-US": {"jobs": "Jobs", "gpu": "GPU", "cpu": "CPU", "quota": "Quota", "account": "Account",
@@ -36,6 +39,7 @@ LABELS = {
         "gpu_free": "GPU\nfree/all", "gpu_slots": "GPU\nslots", "cpu_count": "CPU\nalloc/all", "memory": "GiB\nalloc/all", "no_nodes": "No nodes in this partition", "node_name": "Node",
         "loading": "Reading…", "empty": "No jobs in this scope", "local": "Local", "central": "SAI account",
         "login": "Sign in after exiting: {command}", "failure": "Read failed; press r to retry",
+        "authorize": "Sign in", "login_required": "Sign in required", "consent_required": "Additional permission required", "login_cancelled": "Sign-in cancelled",
         "time": "Run / wait", "name": "Name", "state": "State", "partition": "Partition", "node": "Nodes / reason",
         "truncated": "First 500 jobs only", "detail": "Details", "back": "Back", "snapshot": "Updated", "read_only": "Viewing account", "estimate_title": "Estimate · not settled", "standard_price": "Standard", "cash_price": "Cash", "unknown": "Unavailable", "stale": "Stale observation; refresh", "partial": "Partial estimate", "not_started": "Not started", "unavailable": "Estimate unavailable"},
 }
@@ -83,6 +87,8 @@ class QueryApp(App):
         self._version = 0
         self._pending: tuple[int, Read] | None = None
         self._active_reads: dict[bool, tuple[int, Read]] = {}
+        self._recovery_error: SaiCliError | None = None
+        self._authorizing = False
         self._job_ids: list[str] = []
         self._selected_job = None
         self._selected_node = None
@@ -104,6 +110,7 @@ class QueryApp(App):
             self.bind({"refresh": "r", "cost": "c", "back": "escape", "quit": "q"}[key], key, description=self.words[key])
         self.bind("p", "pause", description=self.words["pause"])
         self.bind("i", "allocation_details", description="硬件" if self.language == "zh-CN" else "Hardware")
+        self.bind("l", "authorize", description=self.words["authorize"])
 
     def compose(self) -> ComposeResult:
         yield Static("SAI", id="heading", markup=False)
@@ -146,7 +153,7 @@ class QueryApp(App):
                 pass
 
     def _poll_current_view(self) -> None:
-        if not self.is_running:
+        if not self.is_running or self._authorizing:
             return
         if self._allocation_detail is not None:
             value = self._allocation_detail
@@ -307,11 +314,12 @@ class QueryApp(App):
         self.refresh_bindings()
 
     def _close_detail(self, *, focus: bool = True) -> None:
+        self._recovery_error = None
         self._allocation_detail = None
         self._expanded_allocation = False
         self.query_one("#detail").display = False
         self.query_one("#body").display = True
-        self.query_one("#controls").display = True
+        self.query_one("#controls").display = self.view != "account" or not self.query_one("#selection").disabled
         self._detail_node = self._detail_request = self._detail_observed_at = None
         if self.view in {"gpu", "cpu"}:
             self.query_one("#answer").display = True
@@ -320,6 +328,7 @@ class QueryApp(App):
         self.refresh_bindings()
 
     def _request(self, request: Read) -> None:
+        self._recovery_error = None
         self._version += 1
         self._pending = self._version, request
         self._focus_after_read = self.snapshot is None
@@ -338,7 +347,11 @@ class QueryApp(App):
                 self._show_detail(Text(request.job["item"].canonical_id + " · " + self.words["loading"]))
         self.refresh_bindings()
         if self.snapshot is None or request.view in {"job_accounts", "cost", "allocation"}:
-            self.query_one("#notice", Static).update(self.words["loading"])
+            if request.view == "account":
+                self.query_one("#content", Static).update(self.words["loading"])
+                self.query_one("#notice", Static).update("")
+            else:
+                self.query_one("#notice", Static).update(self.words["loading"])
         if request.remote not in self._active_reads:
             self._active_reads[request.remote] = self._version, request
             self.run_worker(self._drain(request.remote), exit_on_error=False)
@@ -360,22 +373,7 @@ class QueryApp(App):
                     result = await self.queries.read(request)
                 except Exception as exc:
                     if version == self._version and self._matches_job(request):
-                        if request.view not in {"cost", "allocation", "job_accounts"}:
-                            self._clear_snapshot()
-                        if request.view == "account" and not directory_ready:
-                            self._set_options([(self.words["current"], self.selection)], self.selection)
-                            self.query_one("#selection").disabled = True
-                        from .managed_runs import terminal_log
-                        message = self.words["login"].format(command=follow_up_command(self.queries.args, "auth", "login")) if (
-                            isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable") else (
-                            exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
-                        error = Text(terminal_log(message), style="bold yellow")
-                        if request.view in {"cost", "allocation"}:
-                            self._allocation_detail = None
-                            self.query_one("#notice", Static).update("")
-                            self._show_detail(error, focus=False)
-                        else:
-                            self.query_one("#notice", Static).update(error)
+                        self._show_failure(request, exc, directory_ready=directory_ready)
                     continue
                 if version != self._version or not self._matches_job(request):
                     continue
@@ -406,10 +404,97 @@ class QueryApp(App):
             finished = self._active_reads.pop(remote)
             if finished[0] == self._version:
                 self._last_read_at = time.monotonic()
-            if self._discover_accounts and self.is_running and not self._reading:
+            if self._discover_accounts and self.is_running and not self._reading and not self._authorizing:
                 self._discover_accounts = False
                 if self.view == "jobs" and self.query_one("#selection", Select).expanded:
                     self._request(Read("job_accounts"))
+
+    def _can_authorize(self, error: SaiCliError | None) -> bool:
+        return bool(error is not None and error.recovery_argv[:3] == ("sai", "auth", "login")
+                    and self._driver is not None and self._driver.can_suspend and not self._authorizing)
+
+    def _show_failure(self, request: Read, exc: Exception, *, directory_ready: bool) -> None:
+        if request.view not in {"cost", "allocation", "job_accounts"}:
+            self._clear_snapshot()
+        if request.view == "account" and not directory_ready:
+            self._set_options([(self.words["current"], self.selection)], self.selection)
+            self.query_one("#selection").disabled = True
+            self.query_one("#controls").display = False
+        from .managed_runs import terminal_log
+        if isinstance(exc, SaiCliError):
+            prepare_error_recovery(exc, None if self.queries.environ.get("SAI_MANAGED_LOGIN_NODE") == "1" else self.queries.args)
+            self._recovery_error = exc
+        direct = self._can_authorize(self._recovery_error)
+        recovery = shlex.join(exc.recovery_argv) if isinstance(exc, SaiCliError) and exc.recovery_argv else ""
+        if isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable" and recovery:
+            message = self.words["login_required"] if direct else self.words["login"].format(command=recovery)
+        elif isinstance(exc, SaiCliError):
+            message = self.words["consent_required"] if direct and exc.code == "identity_scope_denied" else exc.message
+            if direct:
+                message = message.removesuffix("; run `" + recovery + "`")
+        else:
+            message = self.words["failure"]
+        error = Text(terminal_log(message), style="bold yellow")
+        if (isinstance(exc, SaiCliError) and exc.request_id
+                and not (direct and exc.code in {"credentials_unavailable", "identity_scope_denied"})):
+            label = "请求编号" if self.language == "zh-CN" else "Request ID"
+            error.append(terminal_log(f"\n{label}: {exc.request_id}"), style="dim")
+        if request.view in {"cost", "allocation"}:
+            self._allocation_detail = None
+            self.query_one("#notice", Static).update("")
+            self._show_detail(error, focus=False)
+        elif request.view == "account":
+            self.query_one("#content", Static).update(error)
+            self.query_one("#notice", Static).update("")
+        else:
+            self.query_one("#notice", Static).update(error)
+        self.refresh_bindings()
+
+    def action_authorize(self) -> None:
+        error = self._recovery_error
+        if not self._can_authorize(error):
+            return
+        self._authorizing = True
+        self._version += 1
+        self._pending = None
+        readers = list(self.workers)
+        for worker in readers:
+            worker.cancel()
+        self.run_worker(self._authorize(error, readers), exit_on_error=False)
+
+    async def _authorize(self, error: SaiCliError, readers: list[Worker]) -> None:
+        failure = None
+        try:
+            for worker in readers:
+                try:
+                    await worker.wait()
+                except WorkerCancelled:
+                    pass
+            if not self.is_running:
+                return
+            with self.suspend():
+                try:
+                    await self.queries.authorize(error.recovery_argv)
+                except SaiCliError as exc:
+                    failure = exc
+                except OSError:
+                    failure = UnavailableError("The login command could not be started.")
+                except asyncio.CancelledError:
+                    failure = SaiCliError(code="interrupted", message=self.words["login_cancelled"], exit_code=130)
+        finally:
+            self._authorizing = False
+        if not self.is_running:
+            return
+        self._last_read_at = time.monotonic()
+        if failure is None:
+            self.action_refresh()
+        else:
+            if failure.code == "interrupted":
+                failure.message = self.words["login_cancelled"]
+            if not failure.recovery_argv:
+                failure.recovery_argv = error.recovery_argv
+            self._show_failure(self._detail_request or Read(self.view, self.selection), failure,
+                               directory_ready=not self.query_one("#selection").disabled)
 
     def _account_options(self, directory: dict, *, overview: dict | None = None) -> None:
         options = [(row["name"], row["name"]) for row in directory["choices"]]
@@ -418,7 +503,8 @@ class QueryApp(App):
         if self.selection not in {value for _, value in options}:
             options.insert(0, (self.selection or self.words["current"], self.selection))
         self._set_options(options, self.selection)
-        self.query_one("#selection").disabled = False
+        self.query_one("#selection").disabled = not bool(directory["choices"])
+        self.query_one("#controls").display = bool(directory["choices"])
 
     def _matches_job(self, request: Read) -> bool:
         return request.view not in {"cost", "allocation"} or request.job["item"].canonical_id == self._selected_job
@@ -643,6 +729,8 @@ class QueryApp(App):
         self._request(Read("allocation", self.selection, {"cluster": self.snapshot.cluster, "item": item}))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "authorize":
+            return self._can_authorize(self._recovery_error)
         if action == "allocation_details":
             return self._allocation_detail is not None and self.query_one("#detail").has_focus
         if action == "inspect":
