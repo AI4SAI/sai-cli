@@ -322,7 +322,7 @@ def test_combined_summary_keeps_memory_per_node_limits_and_unique_node_totals(na
     assert 'Max free' in text and '/node' in text and 'Mem GiB' in text
     assert '2/8' in text and '48/96' in text and '96/192' in text
     assert 'TOTAL' in text and 'Ready 2/3' in text
-    assert 'Alloc/blocked' in text and '2/4' in text
+    assert 'Alloc/' in text and 'blocked' in text and '2/4' in text
     assert value['summary']['memory']['largest_free_on_one_node'] == 49152
     assert len(Path(env['NATIVE_CALL']).read_text().splitlines()) == 1
 
@@ -345,6 +345,21 @@ def test_filtered_empty_resource_view_does_not_hide_unclassified_nodes(native_cl
     text = render_local_resources(LocalResources(value), details=True, width=40)
     assert 'No native nodes matched' in text
     assert 'Unknown GPU configuration: 1 nodes' in text
+
+
+@pytest.mark.parametrize('width', [40, 80, 100, 120])
+@pytest.mark.parametrize('color', [False, True])
+def test_resource_summary_keeps_large_fractional_memory_quantities_whole(native_client, width, color):
+    from rich.text import Text
+    _, path, payload = native_client
+    payload['sinfo'][0]['memory'].update(minimum=98765432, maximum=98765432, allocated=86419754)
+    path.write_text(json.dumps(payload))
+    value = result(native_client)
+    text = Text.from_ansi(render_local_resources(LocalResources(value), width=width, color=color)).plain
+    assert '12,056.3/96,514.6' in text
+    assert '84,394.3/64' in text
+    assert 'Alloc/' in text and 'blocked' in text
+    assert all(len(line) <= width for line in text.splitlines())
 
 
 def test_node_detail_labels_slurm_dimensions_without_claiming_physical_sockets(native_client):

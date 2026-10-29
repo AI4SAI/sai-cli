@@ -179,9 +179,7 @@ def _summary(value: dict[str, Any], family: str, width: int) -> Table:
     return table
 
 
-def _resource_summary(value: dict[str, Any], width: int) -> Table:
-    wide = width >= 80
-    show_qos = width >= 100
+def _resource_summary_table(value: dict[str, Any], *, wide: bool, show_qos: bool, width: int) -> Table:
     table = _table(*(("Partition", "GPU\nfree/total", "Max free\n/node", "CPU\nfree/total", "Max free\n/node",
                       "Mem GiB\nfree/total", "Max free\n/node", *(["QOS"] if show_qos else []))
                     if wide else ("Resource", "Free/total", "Max free\n/node")))
@@ -191,6 +189,7 @@ def _resource_summary(value: dict[str, Any], width: int) -> Table:
         table.columns[-1].overflow = "ellipsis"
     for column in table.columns[1:7 if wide else 3]:
         column.justify = "right"
+        column.no_wrap = True
     parts = [*value["partitions"], {"name": "TOTAL", "summary": value["summary"]}]
     for index, part in enumerate(parts):
         total = index == len(parts) - 1
@@ -224,12 +223,25 @@ def _resource_summary(value: dict[str, Any], width: int) -> Table:
             elif not absent:
                 table.add_row(Text("  " + name), available, maximum)
                 if unavailable:
-                    table.add_row(Text("  Alloc/blocked"), allocation, Text(""))
+                    table.add_row(Text("Alloc/\nblocked"), allocation, Text(""))
         if wide:
             table.add_row(label, *cells, *([Text("" if total else _qos(part))] if show_qos else []))
             if has_unavailable:
                 table.add_row(Text("Alloc/blocked"), *unavailable_cells, *([Text("")] if show_qos else []))
     return table
+
+
+def _resource_summary(value: dict[str, Any], width: int) -> Table:
+    console = Console(width=width, height=25)
+    if width >= 80:
+        for show_qos in (True, False):
+            if show_qos and width < 100:
+                continue
+            table = _resource_summary_table(value, wide=True, show_qos=show_qos, width=width)
+            # The Rich protocol retains natural cell widths; Console.measure clamps to the viewport.
+            if table.__rich_measure__(console, console.options).maximum <= width:
+                return table
+    return _resource_summary_table(value, wide=False, show_qos=False, width=width)
 
 
 def resource_view(result: LocalResources, *, details: bool = False, width: int = 120) -> Group:
