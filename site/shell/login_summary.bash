@@ -4,7 +4,7 @@ if [[ $HOSTNAME =~ login && $- == *i* && $EUID != 0 && -z ${SLURM_JOB_ID:-} \
     export _SAI_LOGIN_SUMMARY_SHOWN=1
     cat /opt/sai/shell/aliases.txt
     source /opt/sai/shell/rules.bash
-    source /opt/sai/shell/status.bash
+    source /opt/sai/shell/status.bash --summary
     source /opt/sai/shell/notes.bash
     _sai_summary_args=(status --format tui --timeout 3)
     if [[ -n ${_SAI_LOGIN_ACCOUNT:-} ]]; then

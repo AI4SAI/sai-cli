@@ -309,6 +309,44 @@ def test_long_qos_does_not_displace_gpu_counts_in_a_normal_terminal(native_clien
     assert all(len(line)<=80 for line in table.splitlines())
 
 
+@pytest.mark.parametrize('width', [40, 80, 100])
+def test_combined_summary_keeps_memory_per_node_limits_and_unique_node_totals(native_client, width):
+    env, path, payload = native_client
+    duplicate = deepcopy(payload['sinfo'][0])
+    duplicate['partition']['name'] = 'gpu-alternate'
+    payload['sinfo'].append(duplicate)
+    path.write_text(json.dumps(payload))
+    value = result(native_client)
+    text = render_local_resources(LocalResources(value), width=width)
+    assert all(len(line) <= width for line in text.splitlines())
+    assert 'Max free' in text and '/node' in text and 'Mem GiB' in text
+    assert '2/8' in text and '48/96' in text and '96/192' in text
+    assert 'TOTAL' in text and 'Ready 2/3' in text
+    assert 'Alloc/blocked' in text and '2/4' in text
+    assert value['summary']['memory']['largest_free_on_one_node'] == 49152
+    assert len(Path(env['NATIVE_CALL']).read_text().splitlines()) == 1
+
+
+def test_combined_summary_preserves_unknown_hardware_without_zero_capacity(native_client):
+    _, path, payload = native_client
+    payload['sinfo'][0]['gres']['total'] = None
+    path.write_text(json.dumps(payload))
+    value = result(native_client)
+    text = render_local_resources(LocalResources(value), width=100)
+    assert '?/?' in text and 'Unknown GPU configuration: 1 nodes' in text
+
+
+def test_filtered_empty_resource_view_does_not_hide_unclassified_nodes(native_client):
+    _, path, payload = native_client
+    payload['sinfo'] = [node()]
+    payload['sinfo'][0]['gres']['total'] = None
+    path.write_text(json.dumps(payload))
+    value = result(native_client, '--kind', 'cpu')
+    text = render_local_resources(LocalResources(value), details=True, width=40)
+    assert 'No native nodes matched' in text
+    assert 'Unknown GPU configuration: 1 nodes' in text
+
+
 def test_node_detail_labels_slurm_dimensions_without_claiming_physical_sockets(native_client):
     from io import StringIO
     from rich.console import Console

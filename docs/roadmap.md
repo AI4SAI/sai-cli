@@ -354,7 +354,10 @@ and notes, and reuses the existing account overview and permissions.
 - [x] Coordinated Portal/CLI overview contract and local role/scope validation
 - [x] `sai status` JSON/plain/Rich summary and `sai tui` presentation entry,
   with one shared login fragment; focused Textual interaction is a separate entry
-- [ ] Live login latency, privacy, cleanup and user-comprehension validation
+- [x] Shared session and recovery delivery: ordinary-user summary reads,
+  automatic renewal on new SSH sessions, scoped rejection, retained TUI context
+  and actual PTY exit verified; staging and operator sessions cleaned up
+- [ ] Independent user-comprehension and broader site acceptance
 
 Implementation and target deployment coverage are tracked separately; live
 acceptance and remaining consumers are recorded in the operations plan.

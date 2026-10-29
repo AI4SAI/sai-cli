@@ -179,17 +179,72 @@ def _summary(value: dict[str, Any], family: str, width: int) -> Table:
     return table
 
 
+def _resource_summary(value: dict[str, Any], width: int) -> Table:
+    wide = width >= 80
+    show_qos = width >= 100
+    table = _table(*(("Partition", "GPU\nfree/total", "Max free\n/node", "CPU\nfree/total", "Max free\n/node",
+                      "Mem GiB\nfree/total", "Max free\n/node", *(["QOS"] if show_qos else []))
+                    if wide else ("Resource", "Free/total", "Max free\n/node")))
+    if show_qos:
+        table.columns[-1].max_width = max(10, width // 6)
+        table.columns[-1].no_wrap = True
+        table.columns[-1].overflow = "ellipsis"
+    for column in table.columns[1:7 if wide else 3]:
+        column.justify = "right"
+    parts = [*value["partitions"], {"name": "TOTAL", "summary": value["summary"]}]
+    for index, part in enumerate(parts):
+        total = index == len(parts) - 1
+        if total or (not wide and index):
+            table.add_section()
+        label = Text(part["name"], style="bold bright_magenta" if total or not wide else "")
+        if not total and part["partition_ready"] is not True:
+            label.append(" · " + ("+".join(part["states"]) or "UNKNOWN"), style=BLOCKED if part["partition_ready"] is False else UNKNOWN)
+        summary = part["summary"]
+        if summary["ready_nodes"] < summary["nodes"]:
+            label.append(f"\nReady {summary['ready_nodes']}/{summary['nodes']}", style=UNKNOWN)
+        cells, unavailable_cells = [], []
+        has_unavailable = False
+        if not wide:
+            table.add_row(label, Text(""), Text(""))
+        for family, name in (("gpu", "GPU"), ("cpu", "CPU"), ("memory", "Mem GiB")):
+            resource = summary[family]
+            number = _gib if family == "memory" else _number
+            free, capacity, largest = (resource[key] for key in ("free_on_ready_nodes", "capacity", "largest_free_on_one_node"))
+            absent = family == "gpu" and capacity == 0
+            available = Text("-" if absent else f"{number(free)}/{number(capacity)}", style=UNKNOWN if free is None else "")
+            maximum = Text("-" if absent else number(largest), style=UNKNOWN if largest is None else "")
+            blocked = resource["blocked_unallocated"]
+            unavailable = blocked is None or blocked > 0
+            allocation = Text(f"{number(resource['allocated'])}/{number(blocked)}" if unavailable else "",
+                              style=UNKNOWN if blocked is None else BLOCKED)
+            if wide:
+                cells.extend((available, maximum))
+                unavailable_cells.extend((allocation, Text("")))
+                has_unavailable |= unavailable
+            elif not absent:
+                table.add_row(Text("  " + name), available, maximum)
+                if unavailable:
+                    table.add_row(Text("  Alloc/blocked"), allocation, Text(""))
+        if wide:
+            table.add_row(label, *cells, *([Text("" if total else _qos(part))] if show_qos else []))
+            if has_unavailable:
+                table.add_row(Text("Alloc/blocked"), *unavailable_cells, *([Text("")] if show_qos else []))
+    return table
+
+
 def resource_view(result: LocalResources, *, details: bool = False, width: int = 120) -> Group:
     value = result.values
-    if not value["nodes"]:
-        return Group(Text("No native nodes matched this query."))
     blocks = []
     kind = value["filters"]["kind"]
-    if kind != "cpu" and any(node["kind"] == "gpu" for node in value["nodes"]):
+    if not value["nodes"]:
+        blocks.append(Text("No native nodes matched this query."))
+    elif kind == "all" and not details:
+        blocks.append(_resource_summary(value, width))
+    elif kind != "cpu" and any(node["kind"] == "gpu" for node in value["nodes"]):
         if details:
             blocks.extend((_gpu_nodes(value, width), Text("GPU: Free/Total"), gpu_legend(), Text("")))
         blocks.append(_summary(value, "gpu", width))
-    if kind != "gpu":
+    if value["nodes"] and kind != "gpu" and (kind != "all" or details):
         blocks.append(_cpu_nodes(value, width) if details else _summary(value, "cpu", width))
     if value["unclassified_nodes"]:
         blocks.append(Text(f"Unknown GPU configuration: {value['unclassified_nodes']} nodes", style=UNKNOWN))
