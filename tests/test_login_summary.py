@@ -11,7 +11,8 @@ def test_login_summary_runs_once_preserves_shell_and_passes_applied_account(tmp_
     command.write_text('#!/bin/bash\nprintf "CALL:%s\\n" "$*"\nexit 3\n')
     command.chmod(0o755)
     for name in ("aliases.txt", "rules.bash", "status.bash", "notes.bash"):
-        (tmp_path / name).write_text("HELP\n" if name.endswith(".txt") else f"echo {name}\n")
+        (tmp_path / name).write_text("HELP\n" if name.endswith(".txt") else
+                                    f'echo {name} "$@"\n' if name == "status.bash" else f'echo {name}\n')
     fragment = tmp_path / "login.bash"
     fragment.write_text(FRAGMENT.read_text().replace('/opt/sai/bin/sai', str(command))
                         .replace('/opt/sai/shell', str(tmp_path)))
@@ -25,7 +26,7 @@ def test_login_summary_runs_once_preserves_shell_and_passes_applied_account(tmp_
         'bash', str(fragment)], env=env, text=True, capture_output=True, timeout=6)
     assert result.returncode == 0 and result.stdout.count('CALL:') == 1, result.stderr
     assert 'status --format tui --timeout 3 --account org-example' in result.stdout
-    assert result.stdout.startswith('HELP\nrules.bash\nstatus.bash\nnotes.bash\nCALL:')
+    assert result.stdout.startswith('HELP\nrules.bash\nstatus.bash --summary\nnotes.bash\nCALL:')
     assert result.stdout.count('status.bash') == 1
     assert 'Slurm Account  org-example\n' in result.stdout
     assert '当前目录  ' in result.stdout

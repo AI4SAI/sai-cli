@@ -68,6 +68,12 @@ native GPU IDX cells and partition bars, CPU/memory allocation bars grouped by
 partition, and quota usage/limit/grace columns. `stat_gpu` and `stat_cpu` include
 nodes by default. Resource tables use the existing optional Rich UI dependency;
 JSON/native readers remain dependency-free, with no additional native query.
+The combined resource summary shows each partition's free/total GPU, CPU and
+memory and each resource's largest free amount on one node. These independent
+maxima do not describe one combined allocation. Totals deduplicate shared nodes;
+CPU totals include the CPUs on GPU nodes. The shared login status fragment uses
+this summary from one native observation, followed by the current-directory
+quota. Explicit GPU/CPU helpers and the native status alias keep node details.
 With no subcommand, `sai` uses the same central account read: plain text when
 stdout is a terminal, JSON when redirected. It returns without prompting and
 needs no optional UI package. This changes presentation only; it adds no native
