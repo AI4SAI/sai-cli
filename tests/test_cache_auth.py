@@ -164,7 +164,7 @@ def test_legacy_cached_bearer_cannot_authenticate(tmp_path: Path, managed: bool)
     ).hexdigest()
     provider = TokenProvider(settings=settings, transport=FakeTransport(), environ={},
                              clock=lambda: 1_700_000_000)
-    provider.cache.put(legacy_key, token="old-portal-bearer", expires_at=1_700_000_300)
+    TokenCache(settings.cache_path).put(legacy_key, token="old-portal-bearer", expires_at=1_700_000_300)
     original_cache = settings.cache_path.read_bytes()
 
     with pytest.raises(AuthenticationError, match="no SAI Identity device session") as error:

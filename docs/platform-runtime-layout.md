@@ -122,10 +122,15 @@ not a claim that FHS mandates these exact category names.
 ### Login status in the existing shared profile
 
 The shared interactive login `bash.profile` runs
-`timeout -k 1s 2s /opt/sai/bin/sai status --format tui` once per top-level user
+`timeout -k 11s 5s /opt/sai/bin/sai status --format tui --timeout 3` once per top-level user
 login. Skip root, batch jobs, noninteractive shells and nested login shells;
 export the once marker before invoking it. A failed or unauthenticated status
-read must never block login or launch device authorization automatically. This
+read returns to the shell and does not launch device authorization automatically.
+The requested three-second HTTP limit is capped by the site's configured limit.
+Five seconds starts cancellation; an in-flight credential update may finish
+during the eleven-second grace. This is not a five-second shell-ready guarantee.
+Failure preserves the already-known native account and actual directory, without
+claiming cached funds or business authorization. This
 uses the existing financial and inbox services through the account overview DTO; do not add a separate MOTD service,
 credential cache, permission resolver or per-node command installation.
 

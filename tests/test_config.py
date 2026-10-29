@@ -375,6 +375,14 @@ def test_managed_login_node_uses_root_config_and_allows_identity_profile(
     assert settings.oidc_client_id == "sai-cli"
     assert settings.oidc_resource == "https://portal.example.org"
 
+    env = {"SAI_MANAGED_LOGIN_NODE": "1", "SAI_CONFIG": str(config)}
+    assert resolve_settings(_args("--timeout", "3"), env).timeout_seconds == 3
+    assert resolve_settings(_args("--timeout", "11"), env).timeout_seconds == 10
+    for site_limit in (1, 2, 3, 10):
+        config.write_text(config.read_text() + f"\ntimeout_seconds = {site_limit}\n")
+        assert resolve_settings(_args("--timeout", "3"), env).timeout_seconds == min(3, site_limit)
+        config.write_text(config.read_text().rsplit("\ntimeout_seconds =", 1)[0])
+
 
 def test_managed_login_node_rejects_connection_overrides() -> None:
     with pytest.raises(ConfigError, match="cannot be overridden"):

@@ -1,4 +1,4 @@
-"""One native query at a time, with optional SAI business reads on demand."""
+"""One native and one business read at a time, without blocking local navigation."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,6 +12,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import DataTable, Footer, Select, Static, Tab, Tabs
+from textual.worker import WorkerCancelled
 
 from .errors import AuthenticationError, SaiCliError
 from .render import follow_up_command
@@ -81,8 +82,7 @@ class QueryApp(App):
         self.snapshot = None
         self._version = 0
         self._pending: tuple[int, Read] | None = None
-        self._reading = False
-        self._active_request: Read | None = None
+        self._active_reads: dict[bool, tuple[int, Read]] = {}
         self._job_ids: list[str] = []
         self._selected_job = None
         self._selected_node = None
@@ -122,12 +122,28 @@ class QueryApp(App):
         yield Static(id="notice", markup=False)
         yield Footer()
 
+    @property
+    def _active_request(self) -> Read | None:
+        return next((request for version, request in self._active_reads.values() if version == self._version), None)
+
+    @property
+    def _reading(self) -> bool:
+        return self._pending is not None or self._active_request is not None
+
     def on_mount(self) -> None:
         self._refresh_footer()
         self._configure()
         self.action_refresh()
         self.watch(self.query_one("#selection", Select), "expanded", self._selector_opened, init=False)
         self.set_interval(1, self._poll_current_view)
+
+    async def on_unmount(self) -> None:
+        # Textual cancels workers but does not wait for their subprocess cleanup.
+        for worker in list(self.workers):
+            try:
+                await worker.wait()
+            except WorkerCancelled:
+                pass
 
     def _poll_current_view(self) -> None:
         if not self.is_running:
@@ -323,16 +339,16 @@ class QueryApp(App):
         self.refresh_bindings()
         if self.snapshot is None or request.view in {"job_accounts", "cost", "allocation"}:
             self.query_one("#notice", Static).update(self.words["loading"])
-        if not self._reading:
-            self._reading = True
-            self.run_worker(self._drain(), exit_on_error=False)
+        if request.remote not in self._active_reads:
+            self._active_reads[request.remote] = self._version, request
+            self.run_worker(self._drain(request.remote), exit_on_error=False)
 
-    async def _drain(self) -> None:
+    async def _drain(self, remote: bool) -> None:
         try:
-            while self._pending is not None:
+            while self._pending is not None and self._pending[1].remote == remote:
                 version, request = self._pending
                 self._pending = None
-                self._active_request = request
+                self._active_reads[remote] = version, request
                 directory_ready = False
                 try:
                     if request.view == "account":
@@ -350,7 +366,8 @@ class QueryApp(App):
                             self._set_options([(self.words["current"], self.selection)], self.selection)
                             self.query_one("#selection").disabled = True
                         from .managed_runs import terminal_log
-                        message = self.words["login"].format(command=follow_up_command(self.queries.args, "auth", "login")) if isinstance(exc, AuthenticationError) else (
+                        message = self.words["login"].format(command=follow_up_command(self.queries.args, "auth", "login")) if (
+                            isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable") else (
                             exc.message if isinstance(exc, SaiCliError) else self.words["failure"])
                         error = Text(terminal_log(message), style="bold yellow")
                         if request.view in {"cost", "allocation"}:
@@ -386,10 +403,10 @@ class QueryApp(App):
                         if self.view in {"jobs", "gpu", "cpu"}:
                             self.query_one("#job-table" if self.view == "jobs" else "#resource-table").focus()
         finally:
-            self._reading = False
-            self._active_request = None
-            self._last_read_at = time.monotonic()
-            if self._discover_accounts:
+            finished = self._active_reads.pop(remote)
+            if finished[0] == self._version:
+                self._last_read_at = time.monotonic()
+            if self._discover_accounts and self.is_running and not self._reading:
                 self._discover_accounts = False
                 if self.view == "jobs" and self.query_one("#selection", Select).expanded:
                     self._request(Read("job_accounts"))
@@ -673,6 +690,7 @@ class QueryApp(App):
             self._version += 1
             self._pending = None
             self._close_detail()
+            self.query_one("#notice", Static).update("")
             if self.snapshot is not None:
                 self._stamp(self.snapshot.as_dict()["observed_at"])
         else:

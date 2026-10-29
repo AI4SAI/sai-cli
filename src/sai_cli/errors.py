@@ -62,6 +62,15 @@ class ForbiddenError(SaiCliError):
         super().__init__(code=code, message=message, exit_code=EXIT_FORBIDDEN, request_id=request_id)
 
 
+class RefreshRejected(AuthenticationError):
+    """The issuer explicitly rejected the refresh credential used in this request."""
+
+    def __init__(self, *, request_id: str | None = None) -> None:
+        super().__init__("the SAI Identity device session is no longer valid",
+                         code="credentials_unavailable", request_id=request_id,
+                         recovery_command=("auth", "login"))
+
+
 class NotFoundError(SaiCliError):
     def __init__(self, message: str, *, code: str = "not_found", request_id: str | None = None) -> None:
         super().__init__(code=code, message=message, exit_code=EXIT_NOT_FOUND, request_id=request_id)
