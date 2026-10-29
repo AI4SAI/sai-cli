@@ -1,9 +1,8 @@
 """Protected on-disk cache for opaque SAI credentials.
 
-The same hardened store is used for the short-lived access token cache and
-the separately located, longer-lived device refresh credential.  Callers keep
-the two namespaces/files separate; this module only owns filesystem safety and
-atomic replacement.
+The device session and disposable site capabilities use separate stores.
+This module owns filesystem safety and atomic replacement; the caller owns
+the credential namespace and serialization lock.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ from pathlib import Path
 import stat
 import tempfile
 import time
-from typing import Any, Callable, Literal, overload
+from typing import Any, Callable, Literal, Mapping, overload
 
 from .errors import AuthenticationError
 
@@ -251,19 +250,27 @@ class TokenCache:
         allow_unknown_expiry: bool = False,
         scope: str | None = None,
     ) -> None:
+        self.put_many({key: (token, expires_at)}, allow_unknown_expiry=allow_unknown_expiry, scope=scope)
+
+    def put_many(
+        self, entries: Mapping[str, tuple[str, int | None]], *,
+        allow_unknown_expiry: bool = False, scope: str | None = None,
+    ) -> None:
+        """Replace related credentials together under the caller's lock."""
         if not self.enabled:
             return
-        if (
-            not isinstance(token, str)
-            or not token
-            or len(token) > 16_384
-            or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
-            or not (
-                (allow_unknown_expiry and expires_at is None)
-                or (type(expires_at) is int and expires_at > 0)
-            )
-        ):
-            raise AuthenticationError("the token cache entry is invalid")
+        for token, expires_at in entries.values():
+            if (
+                not isinstance(token, str)
+                or not token
+                or len(token) > 16_384
+                or any(char.isspace() or ord(char) < 33 or ord(char) == 127 for char in token)
+                or not (
+                    (allow_unknown_expiry and expires_at is None)
+                    or (type(expires_at) is int and expires_at > 0)
+                )
+            ):
+                raise AuthenticationError("the token cache entry is invalid")
         self._validate_scope(scope)
         self._secure_parent()
         payload = self._read()
@@ -278,9 +285,10 @@ class TokenCache:
                 or (type(entry["expires_at"]) is int and entry["expires_at"] > now)
             )
         }
-        payload["entries"][key] = {"token": token, "expires_at": expires_at}
-        if scope is not None:
-            payload["entries"][key]["scope"] = scope
+        for key, (token, expires_at) in entries.items():
+            payload["entries"][key] = {"token": token, "expires_at": expires_at}
+            if scope is not None:
+                payload["entries"][key]["scope"] = scope
         encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
         if len(encoded) > _MAX_CACHE_BYTES:
             raise AuthenticationError("the token cache is too large")
@@ -306,6 +314,9 @@ class TokenCache:
         return scope
 
     def delete(self, key: str) -> None:
+        self.delete_many((key,))
+
+    def delete_many(self, keys: tuple[str, ...]) -> None:
         if not self.enabled:
             return
         try:
@@ -313,8 +324,11 @@ class TokenCache:
         except FileNotFoundError:
             return
         payload = self._read()
-        if payload["entries"].pop(key, None) is None:
+        present = [key for key in keys if key in payload["entries"]]
+        if not present:
             return
+        for key in present:
+            del payload["entries"][key]
         self._secure_parent()
         encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
         self._write(encoded, error_message="the token cache could not be updated")

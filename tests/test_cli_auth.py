@@ -259,7 +259,7 @@ def test_status_without_credentials_gives_login_action_without_starting_authoriz
             else:
                 assert json.loads(err.getvalue())["error"]["code"] == "credentials_unavailable"
         assert server.requests == []
-        cache = tmp_path / "cache/sai/token-cache.json"
+        cache = tmp_path / "data/sai/credentials.json"
         cache.parent.mkdir(parents=True, mode=0o700)
         cache.write_text('{"version":1,"entries":{}}')
         cache.chmod(0o644)
@@ -313,7 +313,7 @@ def test_task_consent_preserves_session_until_approved_and_survives_resume_refre
         settings = resolve_settings(args, env, require_site=False)
         provider = TokenProvider(settings=settings, transport=_build_transport(settings), environ=env,
                                  oidc_client=_build_oidc_client(settings))
-        provider.cache.delete(provider._device_access_key())
+        provider.credential_cache.delete(provider._device_access_key())
         # Refresh omits scope: retain the original grant, not the profile baseline.
         assert set(call(["auth", "status"])["scopes"]) == required
         assert server.requests[-2]["body"]["grant_type"] == "refresh_token"
@@ -334,7 +334,7 @@ def test_task_consent_preserves_session_until_approved_and_survives_resume_refre
         assert next(item for item in reversed(server.requests) if "authorization" in item)["authorization"] == "Bearer opaque-access-token-defaults"
         assert provider.pending_device_code() is None
         # A narrowed refresh grant is authoritative; do not retain removed rights.
-        provider.cache.delete(provider._device_access_key())
+        provider.credential_cache.delete(provider._device_access_key())
         assert set(call(["auth", "status"])["scopes"]) == {"openid", "offline_access"}
         call(["invitations", "list"], 4)
         call(["auth", "logout"])

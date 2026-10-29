@@ -339,7 +339,6 @@ def resolve_settings(
             "base_url",
             "site",
             "cluster",
-            "timeout",
             "cache",
             "no_cache",
             "allow_insecure_http",
@@ -408,6 +407,10 @@ def resolve_settings(
         values.get("timeout_seconds"),
         "10",
     )
+    timeout_seconds = _parse_timeout(timeout_raw)
+    if managed and args.timeout is not None:
+        # Shorter waits do not redirect credentials or expand managed authority.
+        timeout_seconds = min(timeout_seconds, _parse_timeout(args.timeout))
     insecure_raw: object = False if managed else args.allow_insecure_http
     if insecure_raw is None:
         insecure_raw = env.get("SAI_ALLOW_INSECURE_HTTP", values.get("allow_insecure_http"))
@@ -461,7 +464,7 @@ def resolve_settings(
     return Settings(
         base_url=base_url.rstrip("/"),
         site_id=site_id or "",
-        timeout_seconds=_parse_timeout(timeout_raw),
+        timeout_seconds=timeout_seconds,
         allow_insecure_http=_parse_bool(insecure_raw, field="allow_insecure_http"),
         cache_path=Path(cache_raw).expanduser() if cache_raw else default_cache_path(env),
         use_cache=not bool(getattr(args, "no_cache", False)),

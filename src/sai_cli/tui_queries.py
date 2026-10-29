@@ -22,6 +22,10 @@ class Read:
     selection: str = ""
     job: Any = None
 
+    @property
+    def remote(self) -> bool:
+        return self.view in {"account", "accounts", "cost"}
+
 
 class Queries:
     def __init__(self, args: Namespace, environ: Mapping[str, str]):
@@ -33,6 +37,8 @@ class Queries:
         ) if shutil.which(binary, path=environ.get("PATH", os.defpath))) + ("account",)
 
     async def _command(self, arguments: list[str], *, remote: bool = False) -> dict:
+        from .cancellation import refresh_cancel_grace
+        cancellation_grace = refresh_cancel_grace(self.settings().timeout_seconds) if remote else 1
         if remote:
             # These are the same documented connection inputs as the batch CLI.
             for name in ("config", "profile", "base_url", "site", "cache", "timeout", "no_cache", "allow_insecure_http"):
@@ -51,7 +57,9 @@ class Queries:
             stderr=asyncio.subprocess.PIPE, env=self.environ, start_new_session=True,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), 2 * (self.args.timeout or 30) + 5)
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), cancellation_grace if remote else 2 * (self.args.timeout or 30) + 5,
+            )
         except TimeoutError as exc:
             raise UnavailableError("The read timed out; refresh to retry.") from exc
         finally:
@@ -61,7 +69,7 @@ class Queries:
                 except ProcessLookupError:
                     pass
                 try:
-                    await asyncio.wait_for(process.communicate(), 1)
+                    await asyncio.wait_for(process.communicate(), cancellation_grace)
                 except TimeoutError:
                     os.killpg(process.pid, signal.SIGKILL)
                     await process.communicate()

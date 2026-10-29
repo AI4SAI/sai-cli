@@ -195,8 +195,9 @@ details; exact Slurm IDs remain available without per-thread panels. The compact
 tree shows the job's mapped CPU domains and selected GPUs, keeping its placement
 ahead of unrelated node hardware. Expansion restores the complete recorded
 domains and devices from the same response; unknown locality is never inferred.
-Outstanding reads are bounded and serialized; repeated requests retain only
-the newest pending query.
+Native and business reads are bounded and serialized within each source, with
+at most two active reads in total. Repeated requests retain only the newest
+pending query; a slow remote read does not delay a newly selected native view.
 Changing view/scope clears stale facts before loading. Account names come from
 the existing authorized defaults directory and change only the view, not the
 saved preference. Native queries do not require a business configuration or login.
@@ -424,8 +425,8 @@ HMAC token endpoint. `SAI_API_USERNAME`, `SAI_API_KEY_ID`, and
 `SAI_API_SHARED_SECRET` are no longer supported.
 
 `sai auth login`
-uses a short-lived browser/device authorization and persists only a rotating,
-revocable refresh credential. The CLI must not accept a secret, Bearer token,
+uses a short-lived browser/device authorization and persists the resulting
+access/refresh pair as one protected device session. The CLI must not accept a secret, Bearer token,
 or refresh credential as a command-line argument because process listings and
 shell history are not secret stores.
 
@@ -447,7 +448,7 @@ Pending or under-granted consent preserves the old login. Refresh uses an
 explicit returned scope, or retains the known grant when omitted; legacy scope
 metadata remains unknown. Business permission remains server-owned.
 
-Cache path precedence is:
+Disposable site-capability cache path precedence is:
 
 ```text
 ${XDG_RUNTIME_DIR}/sai/token-cache.json
@@ -466,11 +467,32 @@ Requirements:
   margin;
 - malformed or weak-permission caches fail closed with a bounded diagnostic.
 
-The device refresh cache defaults to
+The persistent device session defaults to
 `${XDG_DATA_HOME}/sai/credentials.json` or
 `~/.local/share/sai/credentials.json` and has the same `0700/0600`, symlink,
-atomic-replacement, and ownership requirements. A per-user lock serializes
-refresh-token rotation across concurrent CLI processes.
+atomic-replacement, and ownership requirements. Access, refresh and granted scope
+are committed in one atomic replacement under the existing per-user lock.
+SSH runtime-directory removal does not discard a still-valid access token.
+The lock wait is bounded by the effective API timeout. Old refresh-only records
+are upgraded on the next normal renewal; old access-cache entries are not used
+as an authentication fallback. Pending device requests keep their existing keys.
+
+Only an explicit rejected refresh credential clears that session, inside the
+same lock. Discovery, transport, response and storage errors preserve the current
+record. A stale access rejection invalidates only its matching lease. Ordinary
+SIGINT/SIGTERM during refresh are honored after its response has been validated
+and the updated session saved, before any subsequent business operation.
+Remote TUI cancellation allows `2 * timeout_seconds + 5` seconds for this
+bounded exchange; native child cancellation retains its one-second grace.
+SIGKILL, a lost token response and unavailable storage cannot guarantee recovery.
+This changes neither issuer expiry nor server revocation behavior.
+
+Shared activation must let old in-flight calls finish. The original refresh key
+remains readable by the prior client, but a rollback to that authentication code
+needs separate verification: it may consume a retained legacy access entry.
+Never restore a backup containing an already-consumed refresh token.
+Previously issued access tokens remain subject to the issuer's actual expiry
+and resource-server checks, including across older processes or devices.
 
 Refresh expiry may be unknown: OAuth does not require an expiry extension, and
 some providers return zero for server-managed offline sessions. Only refresh

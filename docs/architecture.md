@@ -389,10 +389,11 @@ standard-library HTTP, JSON, TOML and filesystem primitives. The optional
 `tui` extra contains Textual and Rich. The focused query app owns keyboard,
 selection and display state only. Native observations, resource renderables,
 account discovery, overview and cost contracts retain their existing owners.
-A single bounded reader coalesces refreshes; obsolete responses cannot repopulate
-a different view. One Textual timer schedules only the visible query; it neither
-runs overlapping reads nor adds a daemon, credential store, authorization resolver
-or native parser. Local startup precedes remote configuration/authentication.
+Native and business reads each have at most one active request. They share one
+latest pending selection, so a slow business read cannot block a local view;
+obsolete responses cannot repopulate a different view. One Textual timer schedules
+only the visible query. It adds no daemon, credential store, authorization
+resolver or native parser. Local startup precedes remote configuration/authentication.
 
 `sai status --format tui` stays a one-shot Rich summary, including at login.
 `sai tui` explicitly launches the interactive app; redirects are rejected with

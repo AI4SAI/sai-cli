@@ -24,9 +24,11 @@ def test_login_summary_runs_once_preserves_shell_and_passes_applied_account(tmp_
         'bash --noprofile --norc -ilc \'source "$1"\' bash "$1"; printf "SHELL-READY\\n"',
         'bash', str(fragment)], env=env, text=True, capture_output=True, timeout=6)
     assert result.returncode == 0 and result.stdout.count('CALL:') == 1, result.stderr
-    assert 'status --format tui --account org-example' in result.stdout
+    assert 'status --format tui --timeout 3 --account org-example' in result.stdout
     assert result.stdout.startswith('HELP\nrules.bash\nstatus.bash\nnotes.bash\nCALL:')
     assert result.stdout.count('status.bash') == 1
+    assert 'Slurm Account  org-example\n' in result.stdout
+    assert '当前目录  ' in result.stdout
     assert result.stdout.endswith('SHELL-READY\n')
     for flags, skip in (('-c', {}), ('-ilc', {'SLURM_JOB_ID': '123'}),
                         ('-ilc', {'SLURM_JOBID': '123'}), ('-ilc', {'HOSTNAME': 'compute-example'})):

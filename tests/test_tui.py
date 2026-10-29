@@ -91,7 +91,7 @@ def test_slow_native_read_coalesces_refresh_and_never_overwrites_new_view(job_cl
         calls.append(request.view)
         if len(calls)==1:
             started.set();await asyncio.wait_for(release.wait(),3)
-        if request.view=='accounts':raise AuthenticationError('private test marker')
+        if request.view=='accounts':raise AuthenticationError('private test marker', code='credentials_unavailable')
         return await original(request)
     queries.read=read
     async def run():

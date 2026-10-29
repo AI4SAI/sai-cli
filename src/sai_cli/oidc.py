@@ -291,13 +291,9 @@ class OidcClient:
         try:
             response = self._request(metadata.token_endpoint, form=form)
         except SaiCliError as exc:
-            if exc.code in {"invalid_grant", "invalid_token", "unauthorized_client"}:
-                raise AuthenticationError(
-                    "the Identity device session is no longer valid",
-                    code="credentials_unavailable",
-                    request_id=exc.request_id,
-                    recovery_command=("auth", "login"),
-                ) from exc
+            if exc.code in {"invalid_grant", "invalid_token"}:
+                from .errors import RefreshRejected
+                raise RefreshRejected(request_id=exc.request_id) from exc
             raise
         return self._parse_token_response(response.payload, now=now, request_id=response.request_id)
 
