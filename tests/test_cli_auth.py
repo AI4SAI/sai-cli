@@ -195,8 +195,8 @@ def test_device_login_status_and_logout_round_trip(tmp_path: Path) -> None:
             assert main(["auth", "status", "--format", "table", "--base-url", base_url, "--site", "site-a"],
                         environ=_env(tmp_path, identity_issuer=base_url), stdout=failure_out, stderr=failure_err) == expected_exit
             assert failure_out.getvalue() == ""
-            assert ("sai auth login" in failure_err.getvalue()) == (status_code == 401)
-            assert ("ERROR [account_status_unavailable]" in failure_err.getvalue()) == (status_code == 503)
+            assert "sai auth login" not in failure_err.getvalue()
+            assert "ERROR [account_status_unavailable]" in failure_err.getvalue()
             assert "opaque-access-token" not in failure_err.getvalue()
 
         logout_out = StringIO()

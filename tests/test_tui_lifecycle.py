@@ -58,8 +58,43 @@ def test_credential_storage_error_does_not_ask_the_user_to_sign_in(job_client):
         app = QueryApp(queries, initial="account")
         async with app.run_test(size=(80, 24)) as pilot:
             await loaded(app, pilot)
-            notice = str(app.query_one("#notice", Static).render())
+            notice = str(app.query_one("#content", Static).render())
             assert "could not be written" in notice
             assert "auth login" not in notice
+
+    asyncio.run(run())
+
+
+def test_slow_cancelled_authorization_does_not_immediately_overwrite_its_failure(job_client):
+    from contextlib import nullcontext
+    from sai_cli.errors import UnavailableError
+
+    async def run():
+        queries = Queries(build_parser().parse_args(["tui"]), job_client[0])
+        calls = []
+        error = AuthenticationError("Sign in", code="credentials_unavailable")
+        error.recovery_argv = ("sai", "auth", "login")
+
+        async def read(request):
+            calls.append(request)
+            raise error
+
+        queries.read = read
+        app = QueryApp(queries, initial="account")
+
+        async def authorize(argv):
+            app._last_read_at -= 120  # Browser interaction outlasted the ordinary poll interval.
+            raise UnavailableError("The issuer is unavailable")
+
+        queries.authorize = authorize
+        app.suspend = nullcontext
+        async with app.run_test(size=(80, 24)) as pilot:
+            await loaded(app, pilot)
+            count = len(calls)
+            await app._authorize(error, [])
+            app._poll_current_view()
+            await pilot.pause(.05)
+            assert len(calls) == count
+            assert "issuer is unavailable" in str(app.query_one("#content", Static).render())
 
     asyncio.run(run())

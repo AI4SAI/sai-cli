@@ -176,7 +176,11 @@ resource observation, preserving GPU indices. Job reads select self or the appli
 native account and subtree; account and cost reads initialize the existing
 remote client only when requested. A selected cost must match cluster, account,
 user, job/task and submission time before display. Native visibility never grants
-billing permission. The interface contains no write or Pilot session handler.
+billing permission. The interface contains no business write or Pilot session handler.
+An explicit authorization-recovery key delegates to the installed CLI's existing
+login flow; it does not implement another device protocol. Consequently the
+interactive command's discovery effect is conservatively `session_write`, while
+opening a native view still requires no authorization and starts no login.
 
 Opening the native job selector reads `account local`, sharing the existing
 association parser under the current UID. It does not delay the first queue.
@@ -396,7 +400,7 @@ Relevant environment variables:
 | `SAI_PROFILE` | Profile name |
 | `SAI_TOKEN` | Already-issued short-lived Identity access token for this process |
 | `SAI_API_TIMEOUT` | HTTP timeout in seconds |
-| `SAI_CREDENTIAL_CACHE` | Optional unmanaged path for the protected device refresh cache |
+| `SAI_CREDENTIAL_CACHE` | Optional unmanaged path for the protected device session |
 | `SAI_IDENTITY_ISSUER` | SAI Identity OIDC issuer used by `sai auth login` |
 | `SAI_OIDC_CLIENT_ID` | Pre-registered public OIDC client identifier |
 | `SAI_OIDC_SCOPE` | Reviewed OIDC scopes for the Portal resource (includes `offline_access`) |
@@ -575,6 +579,31 @@ not alter the server strings retained in JSON or calculate a new price.
 
 In JSON mode, errors are emitted as a small JSON object on stderr. In table
 mode they are emitted as one plain diagnostic line.
+
+Errors with a known recovery action additionally expose `error.recovery.argv`,
+an argument array beginning with `sai`. It uses the same connection-context
+builder as the copyable human command; Agents need not parse shell text from
+`message`. Pending `auth login --no-wait` results similarly include `resume_argv`
+alongside the existing human `resume` command. This is a suggested action, not permission to execute it or an
+automatic retry. `SERVICE_URL` remains a placeholder for a user/operator-provided
+trusted address. Authentication for a known task uses the installed operation
+scope metadata, including readback. Ordinary network, storage and business
+denials do not acquire login actions. Managed recovery uses the shared profile
+and omits transient invocation limits such as the automatic summary's timeout.
+An explicit `--no-cache` without a process-local token reports
+`device_session_disabled` without a login action: signing in would not make the
+original cache-disabled invocation able to use that session.
+
+The TUI retains the child's error code, request ID and recovery arguments. An
+account-directory failure hides the empty chooser and shows the actionable
+error at the start of the content; native tabs remain available. Existing
+authorized choices remain visible if only the selected account read fails.
+On supported terminals, `l` suspends Textual and runs only the bound `auth login`
+action through the same installed CLI, preserving its profile and task scopes.
+Normal browser consent remains required. Success refreshes the original view;
+failure or cancellation retains its context and real error. Opening the view
+does not request authorization. Other recovery commands, including configuration
+placeholders, remain manual; this is not an arbitrary command executor.
 
 ## Existing helper and alias integration
 

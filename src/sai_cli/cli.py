@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Mapping, Sequence, TextIO
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from . import __version__
-from .errors import AuthenticationError, ConfigError, ContractError, SaiCliError
-from .render import follow_up_command, render_json
+from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, SaiCliError
+from .render import follow_up_argv, follow_up_command, render_json
 
 if TYPE_CHECKING:
     from .auth import DeviceAuthorization, OidcClient, TokenProvider
@@ -120,10 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         overview = commands.add_parser(name, help=description, description=description)
         _operation(overview, source="mixed" if name == "tui" else "portal",
+                   effect="session_write" if name == "tui" else "read",
                    scopes=() if name == "tui" else ("sai.compute.read",),
                    site=name != "tui", site_option=True, cluster=name == "tui", interaction="terminal" if name == "tui" else "none",
                    requirements=({"when": "reading financial fields", "scopes": ["sai.billing.read"]},),
-                   notes=("Native views require no OAuth; account and cost views use their batch operation permissions.",)
+                   notes=("Native views require no OAuth; account and cost views use their batch operation permissions.",
+                          "Only an explicit recovery action delegates to auth login; opening the TUI does not start authorization.")
                          if name == "tui" else ("Financial fields require separate billing scope and policy; the overview may omit them.",))
         _add_connection_arguments(overview, suppress_defaults=True)
         overview.add_argument("--account", help="authorized account to view (does not change your submission account)")
@@ -465,10 +467,12 @@ def _auth_result_output(
     output: TextIO,
 ) -> None:
     if output_format == "json":
-        output.write(json.dumps(dict(payload), ensure_ascii=False, sort_keys=True) + "\n")
+        output.write(render_json(dict(payload), indent=None))
         return
     from .managed_runs import terminal_log
     for key, value in payload.items():
+        if key == "resume_argv":
+            continue
         output.write(terminal_log(f"{key}: {value}") + "\n")
 
 
@@ -578,6 +582,7 @@ def _handle_auth_command(
                 "expires_at": authorization.expires_at,
                 "interval_seconds": authorization.interval_seconds,
                 "resume": follow_up_command(args, "auth", "login", "--resume"),
+                "resume_argv": list(follow_up_argv(args, "auth", "login", "--resume")),
                 "requested_scopes": oidc_client.scope.split(),
             }
             _auth_result_output(return_value, output_format=output_format, output=output)
@@ -666,7 +671,7 @@ def _job_query(args: argparse.Namespace, *, settings: Settings) -> JobQuery:
 
 def _emit_error(error: SaiCliError, *, output_format: str, stderr: TextIO) -> None:
     if output_format == "json":
-        stderr.write(json.dumps(error.as_dict(), ensure_ascii=False) + "\n")
+        stderr.write(render_json(error.as_dict(), indent=None))
         return
     from .managed_runs import terminal_log
     suffix = f" (request {error.request_id})" if error.request_id else ""
@@ -701,6 +706,7 @@ def main(
         args.language = "zh-CN"
     output_format = getattr(args, "format", "json")
     env = os.environ if environ is None else environ
+    settings = None
 
     try:
         if args.command == "describe":
@@ -1023,29 +1029,48 @@ def main(
             output.write(render_table(result))
         return 0
     except SaiCliError as exc:
-        if exc.code == "identity_scope_denied" and args.command != "auth" and not env.get("SAI_TOKEN"):
+        missing_session = isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"
+        missing_scope = isinstance(exc, ForbiddenError) and exc.code == "identity_scope_denied"
+        if missing_session and settings is not None and not settings.use_cache and not env.get("SAI_TOKEN"):
+            exc.code = "device_session_disabled"
+            exc.message = "Device session storage is disabled; omit --no-cache to use device login."
+            exc.recovery_command = exc.recovery_argv = ()
+        elif ((missing_scope or missing_session)
+                and args.command != "auth" and settings is not None and not env.get("SAI_TOKEN")):
             path = [args.command]
             subcommand = getattr(args, args.command + "_command", None)
             if args.command == "invitations" and subcommand == "accept" and not args.apply:
                 subcommand = "show"
             if subcommand:
                 path.append(subcommand)
-            exc.message = "Permission is missing"
-            exc.recovery_command = ("auth", "login", "--for", *path)
-        if exc.recovery_command:
-            exc.message += "; run `" + follow_up_command(args, *exc.recovery_command) + "`"
+            from .discovery import describe, authorization_scopes
+            operation = describe(parser, path)
+            if operation["detailed"] and operation["operations"][0]["required_scopes"]:
+                required = authorization_scopes(parser, path)
+                if exc.code == "identity_scope_denied":
+                    exc.message = "Permission is missing"
+                if exc.code == "identity_scope_denied" or not set(required) <= set(settings.oidc_scope.split()):
+                    exc.recovery_command = ("auth", "login", "--for", *path)
+        from .render import prepare_error_recovery
+        recovery_args = None if settings is not None and settings.managed_login_node else args
+        prepare_error_recovery(exc, recovery_args)
         if (args.command == "status" and output_format in {"table", "tui"}
-                and isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"):
+                and isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"
+                and exc.recovery_argv[:3] == ("sai", "auth", "login")):
             from .managed_runs import terminal_log
-            login = terminal_log(follow_up_command(args, "auth", "login"))
+            import shlex
+            login = terminal_log(shlex.join(exc.recovery_argv) if exc.recovery_argv else follow_up_command(recovery_args, "auth", "login"))
             errors.write(f"SAI account information: run {login} to sign in.\n" if args.language == "en-US"
                          else f"SAI 账户信息：运行 {login} 后可查看。\n")
         elif (args.command == "auth" and args.auth_command == "status"
                 and output_format == "table" and isinstance(exc, AuthenticationError)
-                and (exc.code == "credentials_unavailable" or exc.request_id is not None)):
+                and not env.get("SAI_TOKEN")
+                and exc.code == "credentials_unavailable"
+                and exc.recovery_argv[:3] == ("sai", "auth", "login")):
             from .contracts import ACCOUNT_VERIFICATION_PATH
             from .managed_runs import terminal_log
-            login = terminal_log(follow_up_command(args, "auth", "login"))
+            import shlex
+            login = terminal_log(shlex.join(exc.recovery_argv) if exc.recovery_argv else follow_up_command(recovery_args, "auth", "login"))
             errors.write(f"请运行 {login} 完成 CLI 登录。\n"
                          f"身份认证：{urljoin(transport.base_url, ACCOUNT_VERIFICATION_PATH)}\n")
         else:

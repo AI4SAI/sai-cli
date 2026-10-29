@@ -13,6 +13,7 @@ from textwrap import fill
 from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
+    from .errors import SaiCliError
     from .catalog import ResourceCatalog
     from .contracts import AccountStatus, JobCostResult, JobItem, JobResult, RunningEstimateItem, RunningEstimateResult
     from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -21,8 +22,8 @@ if TYPE_CHECKING:
     from .native_quota import NativeQuotaResult
 
 
-def follow_up_command(args: Namespace | None, *words: str) -> str:
-    """Keep the caller's explicit connection choices in a copyable command."""
+def follow_up_argv(args: Namespace | None, *words: str) -> tuple[str, ...]:
+    """Keep explicit connection choices as arguments, without shell interpretation."""
     command = ["sai", *words]
     if words == ("auth", "login") and getattr(args, "authorization_path", None):
         command += ["--for", *args.authorization_path]
@@ -34,7 +35,19 @@ def follow_up_command(args: Namespace | None, *words: str) -> str:
             if name in {"config", "cache"}:
                 value = str(Path(value).expanduser().absolute())
             command += ["--" + name.replace("_", "-")] + ([] if value is True else [str(value)])
-    return shlex.join(command)
+    return tuple(command)
+
+
+def follow_up_command(args: Namespace | None, *words: str) -> str:
+    """Render the same follow-up arguments as a copyable shell command."""
+    return shlex.join(follow_up_argv(args, *words))
+
+
+def prepare_error_recovery(error: SaiCliError, args: Namespace | None) -> None:
+    """Bind once at the client boundary; downstream views retain that action."""
+    if error.recovery_command and not error.recovery_argv:
+        error.recovery_argv = follow_up_argv(args, *error.recovery_command)
+        error.message += "; run `" + shlex.join(error.recovery_argv) + "`"
 
 
 _COLUMNS = (
@@ -82,8 +95,8 @@ def format_decimal(value: str, places: int = 2, *, trim: bool = False) -> str:
     return text.rstrip("0").rstrip(".") if trim and "." in text else text
 
 
-def render_json(payload: dict[str, Any], *, ensure_ascii: bool = False) -> str:
-    encoded = json.dumps(payload, ensure_ascii=ensure_ascii, indent=2)
+def render_json(payload: dict[str, Any], *, ensure_ascii: bool = False, indent: int | None = 2) -> str:
+    encoded = json.dumps(payload, ensure_ascii=ensure_ascii, indent=indent)
     # JSON already escapes C0; escape the remaining terminal control range too.
     return encoded.translate({value: f"\\u{value:04x}" for value in range(127, 160)}) + "\n"
 

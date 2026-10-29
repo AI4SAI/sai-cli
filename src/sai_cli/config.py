@@ -105,9 +105,8 @@ def default_cache_path(environ: Mapping[str, str]) -> Path:
 def default_credential_path(environ: Mapping[str, str]) -> Path:
     """Return the persistent user-owned device credential path.
 
-    Device refresh credentials are intentionally kept in a separate protected
-    file instead of the non-secret TOML profile or the short-lived access
-    token cache.
+    Access and refresh credentials share one protected atomic session file,
+    separate from the non-secret profile and disposable capability cache.
     """
 
     data_home = (environ.get("XDG_DATA_HOME") or "").strip()

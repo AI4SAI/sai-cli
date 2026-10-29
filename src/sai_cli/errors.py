@@ -24,6 +24,7 @@ class SaiCliError(Exception):
     exit_code: int
     request_id: str | None = None
     recovery_command: tuple[str, ...] = ()
+    recovery_argv: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         super().__init__(self.message)
@@ -35,6 +36,8 @@ class SaiCliError(Exception):
         }
         if self.request_id:
             error["request_id"] = self.request_id
+        if self.recovery_argv:
+            error["recovery"] = {"argv": list(self.recovery_argv)}
         return {"ok": False, "error": error}
 
 
