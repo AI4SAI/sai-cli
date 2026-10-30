@@ -75,9 +75,12 @@ historical entries are not an automatic new-feature queue.
 - [ ] Deliver the recipient invitation task through the original collaboration
   owner; paired list/detail/accept, shared client and optional scopes are deployed;
   actual new consent, recipient acceptance and site application remain open
-- [ ] Activate the paired v2 invitation contract: explicit file/compute permissions,
-  governance and payer labels, with preview by default and `--apply` for acceptance.
-  Source implementation and local HTTP validation do not establish deployment.
+- [x] Activate the paired v2 invitation contract and verification recovery through
+  shared CLI `922fb8585403` and Portal `3a2ad1b5cba9`. Preview remains read-only;
+  verification links and same-invitation readback are shared by human/JSON output.
+  Installed-client HTTP recovery passed locally. Ordinary-user production reads,
+  existing missing-scope denial and package/configuration checks passed; actual
+  new recipient consent, acceptance and site application remain open.
 - [x] Publish task-based consent without manual scope/profile editing:
   shared source `7939328519f4`, original metadata/credentials and normal Identity
   consent. Existing-session reads and missing-scope denial passed; actual new

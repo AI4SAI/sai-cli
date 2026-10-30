@@ -111,8 +111,8 @@ authorized `account defaults` read for the saved choice and site application sta
 Contracts: [page](../contracts/collaboration-invitations/v2/README.md) and
 [detail/accept](../contracts/collaboration-invitation/v2/README.md).
 The previous invitation workflow and optional Identity scopes were deployed.
-The v2 capability contract and preview/apply command now require a paired
-Portal/CLI activation. An old response fails before writing; an old empty
+The v2 capability contract and preview/apply command are deployed with the
+paired Portal/CLI components. An old response fails before writing; an old empty
 acceptance body is rejected by the paired server. Actual additional consent,
 recipient acceptance and applied site access remain separate acceptance work.
 Inviter-side member/role management and broader budgets/storage/compute remain
