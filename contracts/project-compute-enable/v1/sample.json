@@ -1,0 +1,14 @@
+{
+  "schema_version": "project.compute-enable/v1",
+  "request_id": "request-example",
+  "state": "accepted",
+  "project_id": "project-example",
+  "membership_id": "member-example",
+  "tasks": [
+    {
+      "task_id": "task-example",
+      "generation": 1,
+      "site_id": "site-a"
+    }
+  ]
+}

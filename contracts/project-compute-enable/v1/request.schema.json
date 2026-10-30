@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "WorkspaceCollaborationExpectedIn": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "owner",
+            "member",
+            "read",
+            "write",
+            "admin"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "compute_enabled": {
+          "title": "Compute Enabled",
+          "type": "boolean"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Valid From"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
+        }
+      },
+      "required": [
+        "role",
+        "compute_enabled",
+        "valid_from",
+        "expires_at"
+      ],
+      "title": "WorkspaceCollaborationExpectedIn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "site_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Site Id",
+      "type": "string"
+    },
+    "expected": {
+      "$ref": "#/$defs/WorkspaceCollaborationExpectedIn"
+    }
+  },
+  "required": [
+    "site_id",
+    "expected"
+  ],
+  "title": "ProjectComputeEnableIn",
+  "type": "object"
+}

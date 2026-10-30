@@ -125,6 +125,15 @@ exists; joining another site does not replace a valid global choice. Inspect
 `account defaults` with its separate read permission for the saved choice and
 site application state.
 
+For a requested project computing permission, use `projects list` to match the
+chosen project and `projects members` to find the existing username. Preview
+`projects enable-compute PROJECT_ID MEMBERSHIP_ID` at the chosen site. Apply only
+the requested enablement, with one request UUID; the role and validity stay with
+the original member. On uncertainty read `projects request` with that UUID before
+any retry, then inspect the returned `projects task` references and current member
+state. Task completion is separate from effective site permission and job
+admission. This operation cannot invite a person, change file roles or cancel jobs.
+
 ## Return a useful answer
 
 Explain the result, selected site/account and any action still pending. Successful

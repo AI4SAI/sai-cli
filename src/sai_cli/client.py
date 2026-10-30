@@ -11,7 +11,7 @@ from .auth import TokenLease, TokenProvider
 from .capability import CAPABILITY_HEADER, CapabilityLease, CapabilityProvider
 from .catalog import ResourceCatalog
 from .contracts import AccountStatus, JobCostResult, JobResult, RunningEstimateResult
-from .errors import AuthenticationError, ConfigError, ContractError
+from .errors import AuthenticationError, ConfigError, ContractError, NetworkError, NotFoundError, SaiCliError, UnavailableError
 from .overview import AccountOverview
 from .default_account import DefaultAccountChange, DefaultAccountState
 from .job_web_context import JobWebContext
@@ -25,6 +25,7 @@ from .run_cost import ManagedRunCost
 from .job_charges import JobCharges
 from .sites import SiteDirectory, site_directory_query
 from .invitations import Invitations, invitation_reference
+from .project_compute import ProjectCompute, reference as project_reference, request_key
 from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -436,6 +437,90 @@ class PortalClient:
             raise ConfigError("invitation cursor must be an ID from the previous page") from exc
         response = self._central_get("/v1/account/cli/invitations", query={"limit": limit, "cursor": cursor})
         return Invitations.page(response.payload, limit=limit, cursor=cursor, request_id=response.request_id)
+
+    def projects(self, *, limit: int = 50, cursor: str | None = None, query: str = "") -> ProjectCompute:
+        if type(limit) is not int or not 1 <= limit <= 100 or not isinstance(query, str) or len(query) > 128 or any(ord(c) < 32 for c in query):
+            raise ConfigError("project page is invalid")
+        cursor = self._project_ref(cursor) if cursor is not None else None
+        response = self._central_get("/v1/account/cli/projects", query={"limit": limit, "cursor": cursor, "q": query})
+        return ProjectCompute.parse(response.payload, schema="collaboration.projects/v1", request_id=response.request_id,
+                                    limit=limit, cursor=cursor)
+
+    @staticmethod
+    def _project_ref(value: str, *, request: bool = False) -> str:
+        try:
+            return request_key(value) if request else project_reference(value)
+        except ValueError as exc:
+            raise ConfigError("project/member/task or request reference is invalid") from exc
+
+    def project_members(self, project_id: str, *, site_id: str, limit: int = 50,
+                        cursor: str | None = None, username: str | None = None) -> ProjectCompute:
+        project = self._project_ref(project_id)
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ConfigError("member page limit must be between 1 and 100")
+        cursor = self._project_ref(cursor) if cursor is not None else None
+        username = self._project_ref(username) if username is not None else None
+        response = self._central_get(f"/v1/account/cli/projects/{quote(project, safe='')}/members",
+            query={"site_id": site, "limit": limit, "cursor": cursor, "username": username})
+        return ProjectCompute.parse(response.payload, schema="project.members/v1", request_id=response.request_id,
+            project_id=project, site_id=site, limit=limit, cursor=cursor, username=username)
+
+    def project_member(self, project_id: str, membership_id: str, *, site_id: str) -> ProjectCompute:
+        project, member = self._project_ref(project_id), self._project_ref(membership_id)
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        response = self._central_get(f"/v1/account/cli/projects/{quote(project, safe='')}/members/{quote(member, safe='')}",
+                                    query={"site_id": site})
+        result = ProjectCompute.parse(response.payload, schema="project.member/v1", request_id=response.request_id,
+                                      project_id=project, membership_id=member, site_id=site)
+        values = result.as_dict()
+        for row in values["sites"]:
+            if row["task_url"] is not None:
+                row["task_url"] = urljoin(self.transport.base_url, row["task_url"])
+        return ProjectCompute(values)
+
+    def project_compute_request(self, key: str) -> ProjectCompute:
+        key = self._project_ref(key, request=True)
+        response = self._central_get("/v1/account/cli/project-compute/requests/" + quote(key, safe=""), query={})
+        return ProjectCompute.parse(response.payload, schema="project.compute-enable/v1", request_id=response.request_id, key=key)
+
+    def enable_project_compute(self, project_id: str, membership_id: str, *, site_id: str, key: str) -> ProjectCompute:
+        project, member = self._project_ref(project_id), self._project_ref(membership_id)
+        key = self._project_ref(key, request=True)
+        try:
+            accepted = self.project_compute_request(key)
+        except NotFoundError as exc:
+            if exc.code != "project_compute_request_not_found":
+                raise
+        else:
+            if accepted.values["project_id"] != project or accepted.values["membership_id"] != member:
+                raise ConfigError("request ID already belongs to another project or member")
+            return accepted
+        current = self.project_member(project, member, site_id=site_id)
+        expected = {field: current.values["member"][field] for field in ("role", "compute_enabled", "valid_from", "expires_at")}
+        lease = self.token_provider.get()
+        try:
+            response = self.transport.request("POST", f"/v1/account/cli/projects/{quote(project, safe='')}/members/{quote(member, safe='')}/enable-compute",
+                headers={"Authorization": f"Bearer {lease.token}", "Idempotency-Key": key},
+                json_body={"site_id": current.values["site_id"], "expected": expected})
+            return ProjectCompute.parse(response.payload, schema="project.compute-enable/v1", request_id=response.request_id,
+                                        key=key, project_id=project, membership_id=member)
+        except SaiCliError as exc:
+            if isinstance(exc, ConfigError) and exc.code in {
+                "project_compute_not_ready", "project_compute_already_enabled", "project_compute_site_not_ready",
+                "project_compute_requires_reconciliation", "project_member_changed", "workspace_collaboration_changed",
+            }:
+                exc.recovery_command = ("projects", "member", project, member, "--site", current.values["site_id"])
+            elif isinstance(exc, (NetworkError, UnavailableError, ContractError)) or (
+                isinstance(exc, ConfigError) and exc.code == "idempotency_conflict"
+            ):
+                exc.recovery_command = ("projects", "request", key)
+            raise
+
+    def project_compute_task(self, task_id: str) -> ProjectCompute:
+        task = self._project_ref(task_id)
+        response = self._central_get("/v1/account/cli/project-member-tasks/" + quote(task, safe=""), query={})
+        return ProjectCompute.parse(response.payload, schema="project.member-task/v1", request_id=response.request_id, task_id=task)
 
     def invitation(self, invitation_id: str, *, accept: bool = False) -> Invitations:
         try:

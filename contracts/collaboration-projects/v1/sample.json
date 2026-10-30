@@ -1,0 +1,15 @@
+{
+  "schema_version": "collaboration.projects/v1",
+  "items": [
+    {
+      "project_id": "project-example",
+      "code": "proj-example",
+      "label": "Research",
+      "organization_label": "Research team",
+      "compute_supported": true,
+      "uses_project_budget": true
+    }
+  ],
+  "has_more": false,
+  "next_cursor": null
+}

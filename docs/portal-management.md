@@ -237,3 +237,29 @@ site application. JSON is the default; `--format table` gives a short human view
 Subsequent domain operations follow the ownership table. They do not wait for
 3D assets or a Pilot release, and this first action does not claim full Agent
 management coverage.
+
+## Enable project computation for an existing member
+
+The new candidate adapter implements a complete task over the existing member
+service. Discover a project by authorized name/code with `projects list`, find
+the existing username with `projects members`, then inspect `projects member`.
+`projects enable-compute PROJECT_ID MEMBERSHIP_ID` previews; `--apply` submits
+with one `--request-id` for the intent. It preserves file role and validity.
+The human preview supplies a contextual confirmation command; Agents use the
+installed description and structured current state without asking a person for
+internal IDs or old permission fields.
+
+Read requires the separate optional `sai.collaboration.members.read`; applying
+also requires `sai.collaboration.compute.write`. Both are currently source
+definitions requiring paired Identity/API/client activation. Existing grants
+are not expanded. New invitations, disabling permissions, role/validity changes,
+budgets and storage/compute lifecycle management remain distinct gaps.
+
+The original locks, expected values, idempotency records, assignment writer and
+site receipt own execution. Same-value apply creates no task. Historical site
+cleanup cannot be included in this computation-only action. Use `projects request`
+after uncertainty, then `projects task` and the exact member to distinguish
+acceptance, execution and current permission. A parent organization task remains
+visible through its authorized original console link. No task is retried or
+canceled automatically. [The contract](../contracts/project-compute-enable/v1/README.md)
+defines scope, native submission holds and replay behavior.

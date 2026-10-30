@@ -1,0 +1,9 @@
+{
+  "site_id": "site-a",
+  "expected": {
+    "role": "write",
+    "compute_enabled": false,
+    "valid_from": null,
+    "expires_at": "2030-12-31T00:00:00Z"
+  }
+}

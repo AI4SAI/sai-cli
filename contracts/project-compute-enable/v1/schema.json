@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "ProjectComputeTaskRef": {
+      "properties": {
+        "task_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "generation": {
+          "minimum": 1,
+          "title": "Generation",
+          "type": "integer"
+        },
+        "site_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Site Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "generation",
+        "site_id"
+      ],
+      "title": "ProjectComputeTaskRef",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "project.compute-enable/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 8,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "state": {
+      "const": "accepted",
+      "title": "State",
+      "type": "string"
+    },
+    "project_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "membership_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+      "title": "Membership Id",
+      "type": "string"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/ProjectComputeTaskRef"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Tasks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "state",
+    "project_id",
+    "membership_id",
+    "tasks"
+  ],
+  "title": "ProjectComputeEnableOut",
+  "type": "object"
+}

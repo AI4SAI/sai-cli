@@ -1,0 +1,34 @@
+{
+  "schema_version": "project.member/v1",
+  "site_id": "site-a",
+  "project": {
+    "project_id": "project-example",
+    "code": "proj-example",
+    "label": "Research",
+    "organization_label": "Research team",
+    "compute_supported": true,
+    "uses_project_budget": true
+  },
+  "member": {
+    "membership_id": "member-example",
+    "username": "researcher",
+    "role": "write",
+    "compute_enabled": false,
+    "valid_from": null,
+    "expires_at": "2030-12-31T00:00:00Z",
+    "membership_status": "active"
+  },
+  "sites": [
+    {
+      "site_id": "site-a",
+      "site_label": "Research station",
+      "status": "active",
+      "file_access": "write",
+      "compute_access": false,
+      "task_id": null,
+      "task_url": null
+    }
+  ],
+  "enable_compute_allowed": true,
+  "unavailable_reason": null
+}
