@@ -85,8 +85,8 @@ exit codes. A task can request its missing permissions with
 
 The client supports native queue/resource/quota reads, account and cost queries,
 job allocation and recorded-run outputs, default-account changes and recipient
-invitation acceptance. Current source also includes candidate project-member
-compute enablement, requiring its paired backend and optional grants. Broader
+invitation acceptance. Project-member compute enablement is also available with its paired backend
+and optional grants. Broader
 project, storage and compute lifecycle management is not implemented. Read permission does not grant write permission. The called service
 owns authorization and reports whether a change was accepted or applied.
 `invitations accept ID` previews file and computation permissions and the payer;

@@ -73,13 +73,14 @@ deployment; source compatibility is not production activation.
 
 ## Project member computing permission
 
-The candidate [project management contract](../contracts/project-compute-enable/v1/README.md)
+The [project management contract](../contracts/project-compute-enable/v1/README.md)
 adds bounded Identity-only project/member discovery, exact member state, enable
 submission, idempotent request lookup and original member-task readback. It uses
 separate optional collaboration read/write grants, with no shell, storage or
 site-read capability prerequisite. No original writer or permissions are replaced.
-The producer/client schemas and scope registration require paired activation;
-source implementation is not production or real-user consent acceptance.
+The paired producer/client and optional scope registration were activated on
+2026-10-30. Ordinary-user existing-grant checks passed; new human consent and
+actual member/site application remain separate from local execution evidence.
 
 ## Authentication
 

@@ -240,7 +240,7 @@ management coverage.
 
 ## Enable project computation for an existing member
 
-The new candidate adapter implements a complete task over the existing member
+The adapter implements a complete task over the existing member
 service. Discover a project by authorized name/code with `projects list`, find
 the existing username with `projects members`, then inspect `projects member`.
 `projects enable-compute PROJECT_ID MEMBERSHIP_ID` previews; `--apply` submits
@@ -250,9 +250,10 @@ installed description and structured current state without asking a person for
 internal IDs or old permission fields.
 
 Read requires the separate optional `sai.collaboration.members.read`; applying
-also requires `sai.collaboration.compute.write`. Both are currently source
-definitions requiring paired Identity/API/client activation. Existing grants
-are not expanded. New invitations, disabling permissions, role/validity changes,
+also requires `sai.collaboration.compute.write`. The paired Identity/API/client activation completed on 2026-10-30; existing
+grants are not expanded. The installed-client local workflow and ordinary-user
+existing-grant compatibility passed, while real additional consent and member
+assignment remain separate acceptance. New invitations, disabling permissions, role/validity changes,
 budgets and storage/compute lifecycle management remain distinct gaps.
 
 The original locks, expected values, idempotency records, assignment writer and

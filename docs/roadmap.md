@@ -114,10 +114,12 @@ historical entries are not an automatic new-feature queue.
   staging and sessions cleaned up. Retain independent human and broader site
   acceptance as separate requirements.
 
-- [ ] Complete paired project-member compute enablement: authorized name/member
-  discovery, preview, explicit apply and original request/task readback. Candidate
-  source reuses domain guards, locks, idempotency and site receipts; it does not
-  add file-role, validity, invite, disable, quota or job-cancellation writes.
+- [x] Deploy paired project-member compute enablement: shared CLI `ba219ecc7224`,
+  Portal `ac259384a47f` and Identity `6578cf104e84`. Name/member discovery, preview,
+  explicit apply and original request/task readback reuse the existing domain.
+  Installed local execution and ordinary-user existing-grant compatibility passed.
+- [ ] Qualify genuine additional consent, member enablement and site application.
+  Role/validity, invite, disable, quota and job-cancellation adapters remain separate.
 
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a
