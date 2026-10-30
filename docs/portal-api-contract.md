@@ -82,6 +82,12 @@ The paired producer/client and optional scope registration were activated on
 2026-10-30. Ordinary-user existing-grant checks passed; new human consent and
 actual member/site application remain separate from local execution evidence.
 
+Exact member reads can additionally report `compute_access_reason` from the
+console's shared reader. A completed enablement task can still leave scheduler
+access unconfirmed or limits pending, failed, inconsistent, or zero. This field
+explains the existing current access decision; it does not authorize a retry or
+change submission policy. The additive reader correction requires paired rollout.
+
 ## Authentication
 
 ### Recipient collaboration invitations

@@ -163,6 +163,29 @@
           "title": "Compute Access",
           "type": "boolean"
         },
+        "compute_access_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "restricted",
+                "restriction_pending",
+                "recovery_pending",
+                "failed",
+                "scheduler_unconfirmed",
+                "limits_pending",
+                "limits_failed",
+                "limits_drift",
+                "submission_limit_zero"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compute Access Reason"
+        },
         "task_id": {
           "anyOf": [
             {
