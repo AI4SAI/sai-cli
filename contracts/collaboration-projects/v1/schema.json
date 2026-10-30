@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "ProjectComputeRef": {
+      "properties": {
+        "project_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+          "title": "Label",
+          "type": "string"
+        },
+        "organization_label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+          "title": "Organization Label",
+          "type": "string"
+        },
+        "compute_supported": {
+          "title": "Compute Supported",
+          "type": "boolean"
+        },
+        "uses_project_budget": {
+          "title": "Uses Project Budget",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project_id",
+        "code",
+        "label",
+        "organization_label",
+        "compute_supported",
+        "uses_project_budget"
+      ],
+      "title": "ProjectComputeRef",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "collaboration.projects/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ProjectComputeRef"
+      },
+      "maxItems": 100,
+      "title": "Items",
+      "type": "array"
+    },
+    "has_more": {
+      "title": "Has More",
+      "type": "boolean"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "schema_version",
+    "items",
+    "has_more",
+    "next_cursor"
+  ],
+  "title": "ProjectComputePageOut",
+  "type": "object"
+}

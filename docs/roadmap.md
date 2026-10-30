@@ -114,6 +114,11 @@ historical entries are not an automatic new-feature queue.
   staging and sessions cleaned up. Retain independent human and broader site
   acceptance as separate requirements.
 
+- [ ] Complete paired project-member compute enablement: authorized name/member
+  discovery, preview, explicit apply and original request/task readback. Candidate
+  source reuses domain guards, locks, idempotency and site receipts; it does not
+  add file-role, validity, invite, disable, quota or job-cancellation writes.
+
 Broader budget, storage and compute management remain in the capability map.
 Native queries and the first management action are useful foundations, not a
 substitute for those domains. Pilot UI and asset-based 3D keep separate ownership.

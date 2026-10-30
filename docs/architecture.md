@@ -111,6 +111,10 @@ For writes, Portal remains the single domain writer. Reuse supported action
 validation, idempotency/concurrency checks, approval rules and durable site tasks.
 Return their existing identifiers and accepted/executed/failed outcomes; allow
 the caller to inspect completion without creating a second workflow engine.
+Project computing enablement reuses current project/member reads, the original
+collaboration writer and task receipts, and the existing idempotency table. A
+shared site-state reader applies the same final account restriction in Web and
+CLI. No local management state or duplicate permission policy is introduced.
 Recipient invitation acceptance previews the original detail by default;
 `--apply` adds the original acceptance scope and writer. Explicit computation
 permission stays separate from file editing, target resources and governance.

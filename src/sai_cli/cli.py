@@ -107,6 +107,43 @@ def build_parser() -> argparse.ArgumentParser:
                              "Active organization membership preserves an existing valid default computing account and selects this organization only when no valid default exists; inspect account defaults separately.",)
                             if name == "accept" else ()))
 
+    projects = commands.add_parser("projects", help="find project members and enable their computing permission")
+    project_commands = projects.add_subparsers(dest="projects_command", required=True)
+    for name, help_text in (("list", "find your projects by name or code"),
+                            ("members", "find existing project members"),
+                            ("member", "inspect a member's current permission and site state"),
+                            ("enable-compute", "preview enabling compute for an existing member; --apply submits"),
+                            ("request", "recover the original acceptance using its request ID"),
+                            ("task", "read the existing computing-permission task")):
+        command = project_commands.add_parser(name, help=help_text)
+        _add_connection_arguments(command, suppress_defaults=True)
+        _add_format_argument(command)
+        if name in {"members", "member", "enable-compute"}:
+            command.add_argument("project_id", help="project ID from projects list")
+        if name in {"member", "enable-compute"}:
+            command.add_argument("membership_id", help="membership ID from projects members")
+        if name in {"list", "members"}:
+            command.add_argument("--limit", type=int, default=50, help="page size, 1–100")
+            command.add_argument("--cursor", help="returned next-page cursor")
+            if name == "list":
+                command.add_argument("--query", default="", help="project name or code text")
+            else:
+                command.add_argument("--username", help="exact existing member username")
+        if name == "request":
+            command.add_argument("request_id", help="original request ID")
+        if name == "task":
+            command.add_argument("task_id", help="task ID from the accepted request")
+        if name == "enable-compute":
+            command.add_argument("--apply", action="store_true", help="enable computing permission without changing role or validity")
+            command.add_argument("--request-id", help="stable UUID for this intent; required with --apply")
+        _operation(command, source="portal", site=name in {"members", "member", "enable-compute"},
+            scopes=("sai.collaboration.members.read",),
+            requirements=({"when": "--apply is supplied", "effect": "business_write", "scopes": ["sai.collaboration.compute.write"]},) if name == "enable-compute" else (),
+            readback=("projects", "request") if name == "enable-compute" else (),
+            notes=(("Only enables compute for an existing current write/admin project member; file role and validity are preserved. No invitations, file changes or job cancellation.",
+                    "Use one UUID per intent. On uncertainty reuse it or read projects request; never create a new key for a retry.",
+                    "An accepted request contains original task IDs; projects task reads execution. Effective job admission still depends on the site's existing limits and policy.",) if name == "enable-compute" else ()))
+
     sites = commands.add_parser("sites", help="list published site names before choosing --site")
     _add_connection_arguments(sites, suppress_defaults=True)
     sites.add_argument("--limit", type=int, default=50, help="page size, 1–100 (default: 50)")
@@ -795,6 +832,7 @@ def main(
         settings = resolve_settings(
             args, env,
             require_site=not (args.command in {"auth", "sites", "invitations"} or
+                              args.command == "projects" and args.projects_command in {"list", "request", "task"} or
                               args.command == "account" and args.account_command == "set-default"),
         )
         transport = _build_transport(settings)
@@ -851,6 +889,29 @@ def main(
             ),
         )
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
+        if args.command == "projects":
+            from .project_compute import render_project_compute
+            action = args.projects_command
+            if args.cluster is not None or action in {"list", "request", "task"} and args.site is not None:
+                raise ConfigError("this project operation does not accept the supplied site/cluster selector")
+            if action == "list":
+                result = client.projects(limit=args.limit, cursor=args.cursor, query=args.query)
+            elif action == "members":
+                result = client.project_members(args.project_id, site_id=settings.site_id,
+                    limit=args.limit, cursor=args.cursor, username=args.username)
+            elif action == "request":
+                result = client.project_compute_request(args.request_id)
+            elif action == "task":
+                result = client.project_compute_task(args.task_id)
+            elif action == "enable-compute" and args.apply:
+                if not args.request_id:
+                    raise ConfigError("--apply requires one --request-id for this intent; keep the same ID when retrying")
+                result = client.enable_project_compute(args.project_id, args.membership_id,
+                    site_id=settings.site_id, key=args.request_id)
+            else:
+                result = client.project_member(args.project_id, args.membership_id, site_id=settings.site_id)
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_project_compute(result, args=args))
+            return 0
         if args.command == "invitations":
             from .invitations import render_invitations
             if args.site is not None or args.cluster is not None:
@@ -1042,6 +1103,8 @@ def main(
             subcommand = getattr(args, args.command + "_command", None)
             if args.command == "invitations" and subcommand == "accept" and not args.apply:
                 subcommand = "show"
+            if args.command == "projects" and subcommand == "enable-compute" and not args.apply:
+                subcommand = "member"
             if subcommand:
                 path.append(subcommand)
             from .discovery import describe, authorization_scopes

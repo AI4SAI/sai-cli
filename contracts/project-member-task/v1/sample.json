@@ -1,0 +1,25 @@
+{
+  "schema_version": "project.member-task/v1",
+  "requested_task_id": "task-example",
+  "task": {
+    "task_id": "task-example",
+    "generation": 1,
+    "site_id": "site-a"
+  },
+  "project": {
+    "project_id": "project-example",
+    "code": "proj-example",
+    "label": "Research",
+    "organization_label": "Research team",
+    "compute_supported": true,
+    "uses_project_budget": true
+  },
+  "membership_id": "member-example",
+  "username": "researcher",
+  "status": "queued",
+  "result_code": "processing",
+  "finished_at": null,
+  "compute_enabled": false,
+  "can_retry": false,
+  "membership_status": "active"
+}

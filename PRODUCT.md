@@ -111,9 +111,11 @@ broader business and device coverage remains open. See
 Settled job-charge reads are also deployed with bounded ordinary-user evidence.
 Published-site discovery and the bundled Agent skill are deployed with bounded
 ordinary-user reads; see the [delivery map](docs/product-delivery.md#shared-first-use-delivery).
-Account/member, project/budget, storage and compute
-management beyond the default-account action remain product gaps; a working
-read command does not establish their management coverage.
+An additional candidate supports enabling computation for an existing project
+member through the original authorization and task service. Its independent
+scopes and paired delivery are still pending. Inviter, broader member/role,
+project/budget, storage and compute lifecycle management remain product gaps;
+a read command does not establish their management coverage.
 
 Recipient invitation discovery, acceptance and original task readback are
 implemented and paired components are deployed, with separate optional scopes.

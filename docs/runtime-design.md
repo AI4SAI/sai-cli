@@ -84,6 +84,15 @@ keeps the one-shot summary and returns to the shell. The shared replacement was 
 and SSH/PTY evidence is recorded in the scope decision, separately from human
 usability acceptance.
 
+## Project member management candidate
+
+The `projects` group adds bounded names/member discovery, exact member preview,
+`enable-compute` with explicit `--apply --request-id`, and original request/task
+readback. It uses independent optional collaboration scopes through the central
+API and never the native query or site-read gateway. Effective compute states
+share the Web reader; file roles and membership validity are preserved.
+Candidate implementation and local evidence do not establish paired activation.
+
 ## Command surface
 
 `invitations list/show/accept` are global recipient operations: the returned
