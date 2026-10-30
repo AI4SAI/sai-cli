@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from .catalog import _boolean, _count, _items, _object, _text, _token
-from .contracts import _timestamp_text
+from .contracts import ACCOUNT_VERIFICATION_PATH, _timestamp_text
 from .errors import ContractError
 from .render import follow_up_command
 from .managed_runs import terminal_log
@@ -89,6 +89,11 @@ class Invitations:
             action = data["next_action"]
             if action not in {"accept", "complete_identity_assurance", "observe", "none"}:
                 raise ValueError("invalid next action")
+            verification_url = data.get("verification_url")
+            if verification_url is not None and (
+                verification_url != ACCOUNT_VERIFICATION_PATH or action != "complete_identity_assurance"
+            ):
+                raise ValueError("invalid invitation verification URL")
             deliveries = []
             for value in _items(data["deliveries"], maximum=64):
                 row = _object(value)
@@ -102,7 +107,7 @@ class Invitations:
             if len({row["task_id"] for row in deliveries}) != len(deliveries):
                 raise ValueError("duplicate invitation task")
             return cls({"schema_version": data["schema_version"], "invitation": item,
-                        "next_action": action, "deliveries": deliveries})
+                        "next_action": action, "deliveries": deliveries, "verification_url": verification_url})
         except (KeyError, TypeError, ValueError) as exc:
             raise ContractError("The invitation response is invalid.", request_id=request_id) from exc
 
@@ -150,7 +155,7 @@ def render_invitations(result: Invitations, *, args: Namespace | None = None) ->
     for task in value["deliveries"]:
         lines.append(f"{task['site_id']}：{task_states[task['status']]} · " + ("当前可访问工作空间" if task['workspace_available'] else "尚未确认当前工作空间可访问"))
     if value["next_action"] == "complete_identity_assurance":
-        lines.append("请先在身份中心完成身份验证")
+        lines.append("身份认证：" + value["verification_url"] if value.get("verification_url") else "请在控制台完成身份认证")
     elif value["next_action"] == "accept":
         lines.append(f"接受截止：{row['expires_at'] or '未指定'}")
         if row["target_kind"] == "organization":
@@ -158,4 +163,7 @@ def render_invitations(result: Invitations, *, args: Namespace | None = None) ->
         if args is not None and args.invitations_command == "accept" and not args.apply:
             command = follow_up_command(args, "invitations", "accept", row["invitation_id"], "--apply", "--format", "table")
             lines.append("确认接受：" + terminal_log(command))
+    if value["next_action"] in {"complete_identity_assurance", "observe"}:
+        command = follow_up_command(args, "invitations", "show", row["invitation_id"], "--format", "table")
+        lines.append("查看进度：" + terminal_log(command))
     return "\n".join(lines) + "\n"

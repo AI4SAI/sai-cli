@@ -113,7 +113,10 @@ Apply requires the acceptance scope in addition to read scope; the CLI rereads
 the v2 invitation before one POST. A version mismatch requires the paired
 Portal/CLI update, never a guessed permission or an unversioned write.
 After a conflict or uncertain response, read that same invitation before deciding
-whether to retry. Acceptance time, currently linked task results and current
+whether to retry. If `next_action` is `complete_identity_assurance`, give the user
+the returned `verification_url`, then read the same invitation after verification;
+existing processing may already have accepted it. This does not require another
+device login. Acceptance time, currently linked task results and current
 workspace access are separate facts. Administrators can change an accepted directory invitation
 later; a repeat acceptance is not fresh consent to those changed terms.
 Organization membership becoming active preserves an existing valid default

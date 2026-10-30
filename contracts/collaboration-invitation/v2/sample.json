@@ -19,5 +19,6 @@
     "compute_enabled": false
   },
   "next_action": "accept",
-  "deliveries": []
+  "deliveries": [],
+  "verification_url": null
 }

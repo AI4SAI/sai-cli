@@ -92,7 +92,9 @@ site/cluster selectors, use normal Identity and Portal, and require no native
 tools, shell-enabled account or read gateway. `accept` previews by default using
 read scope; `--apply` rereads the exact v2 invitation and performs one POST with
 its explicit computation permission, using the separate acceptance scope.
-Readback remains `invitations show` with that same ID. JSON and human output
+Readback remains `invitations show` with that same ID, including after identity
+verification. A required verification returns the existing central account URL
+in both JSON and human output; it does not start another device login. JSON and human output
 share the allowlisted contract; file access, governance and computation remain
 distinct. V2 requires paired activation; see [management](portal-management.md#collaboration-invitations).
 

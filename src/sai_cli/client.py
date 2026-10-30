@@ -452,7 +452,10 @@ class PortalClient:
                     "schema_version": "collaboration.invitation-accept/v2",
                     "compute_enabled": invitation.values["invitation"]["compute_enabled"],
                 })
-            return Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+            invitation = Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+        if invitation.values["verification_url"] is not None:
+            invitation = Invitations({**invitation.values,
+                "verification_url": urljoin(self.transport.base_url, invitation.values["verification_url"])})
         return invitation
 
     def list_run_workspaces(self, *, site_id: str, limit: int = 50,

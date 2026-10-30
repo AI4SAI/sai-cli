@@ -247,6 +247,19 @@
       "maxItems": 64,
       "title": "Deliveries",
       "type": "array"
+    },
+    "verification_url": {
+      "anyOf": [
+        {
+          "const": "/portal/#/portal/account/identity-assurance",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verification Url"
     }
   },
   "required": [

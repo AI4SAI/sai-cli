@@ -54,3 +54,20 @@ No client computes grants or queries Slurm/filesystems for this workflow.
 The v2 API and client require a coordinated release; existing optional scopes are unchanged. Source/schema
 validation is not proof of live consent, actual site application or every client
 platform. Existing browser invitation routes keep their current consumers.
+
+## Resume a pending acceptance
+
+Detail and acceptance derive `next_action` from the same current invitation and
+durable identity-assurance facts. A claimed open invitation that still needs
+verification returns `complete_identity_assurance` on both reads and writes.
+The additive nullable `verification_url` points to the existing account verification
+page at `/portal/#/portal/account/identity-assurance`; it is null otherwise.
+The CLI resolves this allowlisted path only against the selected central origin.
+Older clients ignore the new field; older servers may omit it. No new permission,
+login, confirmation object or invitation version is introduced.
+
+After verification, read the same invitation ID. Existing processing may already
+have accepted it; do not repeat acceptance merely because it left the pending
+list. `observe` still distinguishes accepted intent, task completion and current
+workspace availability. Expired or revoked invitations return `none`, even when
+identity verification is missing.

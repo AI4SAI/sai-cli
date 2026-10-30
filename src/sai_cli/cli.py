@@ -102,6 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
                    notes=("Recipient-only; read the invitation's site and current terms. No invitation token is accepted.",)
                          + (("Without --apply this command only previews; --apply rereads the v2 terms and accepts their explicit compute permission.",
                              "Acceptance is separate from task completion and current workspace access.",
+                             "If next_action is complete_identity_assurance, use verification_url, then show the same invitation; existing processing may already have accepted it. This is not a device-login request.",
                              "The stable invitation ID is the replay key; read it after conflict or an uncertain response. No automatic write retry.",
                              "Active organization membership preserves an existing valid default computing account and selects this organization only when no valid default exists; inspect account defaults separately.",)
                             if name == "accept" else ()))
