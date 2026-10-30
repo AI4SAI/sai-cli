@@ -119,3 +119,22 @@ def test_followup_display_preserves_state_without_terminal_controls():
     assert "\x85" not in rendered and "\\x85" in rendered
     page = sample("project-members");page["items"][0] = payload["member"]
     assert "已过期" in render_project_compute(ProjectCompute(page), args=args)
+
+
+@pytest.mark.parametrize("reason, label", [
+    ("limits_pending", "等待计算限额同步"), ("limits_failed", "计算限额同步失败"),
+    ("limits_drift", "计算限额尚未同步一致"), ("submission_limit_zero", "当前提交限额为 0"),
+    ("scheduler_unconfirmed", "调度权限尚未确认"), ("restriction_pending", "正在处理认证限制"),
+])
+def test_current_site_blocker_is_shared_by_json_and_human_output(reason, label):
+    value=sample("project-member")
+    value["sites"][0].update(compute_access=False,compute_access_reason=reason)
+    result=ProjectCompute.parse(value,schema="project.member/v1",request_id="r",project_id="project-example",membership_id="member-example",site_id="site-a")
+    args=build_parser().parse_args(["projects","member","project-example","member-example","--site","site-a"])
+    assert result.as_dict()["sites"][0]["compute_access_reason"]==reason
+    assert label in render_project_compute(result,args=args)
+    result.values["sites"][0]["status"]="failed"
+    assert "需要处理" in render_project_compute(result,args=args)
+    value["sites"][0]["compute_access"]=True
+    with pytest.raises(ContractError):
+        ProjectCompute.parse(value,schema="project.member/v1",request_id="r",project_id="project-example",membership_id="member-example",site_id="site-a")

@@ -55,6 +55,15 @@ def _task(value: object) -> dict[str, Any]:
             "generation": generation}
 
 
+_COMPUTE_REASONS = {
+    "restricted": "计算权限受身份认证限制", "restriction_pending": "正在处理认证限制",
+    "recovery_pending": "正在恢复计算权限", "failed": "计算权限设置失败",
+    "scheduler_unconfirmed": "调度权限尚未确认", "limits_pending": "等待计算限额同步",
+    "limits_failed": "计算限额同步失败", "limits_drift": "计算限额尚未同步一致",
+    "submission_limit_zero": "当前提交限额为 0",
+}
+
+
 @dataclass(frozen=True)
 class ProjectCompute:
     values: dict[str, Any]
@@ -94,6 +103,9 @@ class ProjectCompute:
                     row = _object(raw)
                     if row["file_access"] not in {"none", "read", "write"}:
                         raise ValueError("invalid file access")
+                    reason = row.get("compute_access_reason")
+                    if reason is not None and (reason not in _COMPUTE_REASONS or row["compute_access"] is True):
+                        raise ValueError("invalid compute access reason")
                     task_url = row.get("task_url")
                     if task_url is not None:
                         task_url = _text(task_url, maximum=256)
@@ -106,6 +118,7 @@ class ProjectCompute:
                     sites.append({"site_id": reference(row["site_id"], site=True),
                         "site_label": _text(row["site_label"], maximum=256), "status": reference(row["status"]),
                         "file_access": row["file_access"], "compute_access": _boolean(row["compute_access"]),
+                        "compute_access_reason": reason,
                         "task_id": reference(row["task_id"]) if row.get("task_id") is not None else None,
                         "task_url": task_url})
                 if len({row["site_id"] for row in sites}) != len(sites):
@@ -184,8 +197,10 @@ def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
             statuses = {"processing": "正在生效", "pending": "等待生效", "queued": "等待生效", "running": "正在生效",
                         "failed": "需要处理", "expired": "已过期", "scheduled": "尚未生效", "revoked": "已撤销",
                         "not_enabled": "未开通", "unavailable": "状态暂不可用"}
-            lines.append(f"{site['site_label']}：" + ("站点计算许可已生效" if site["compute_access"] else
-                statuses.get(site["status"], "站点计算许可未生效")))
+            label = statuses.get(site["status"])
+            if label is None:
+                label = "站点计算许可已生效" if site["compute_access"] else _COMPUTE_REASONS.get(site.get("compute_access_reason"), "站点计算许可未生效")
+            lines.append(f"{site['site_label']}：{label}")
             if site["task_id"]:
                 lines.append("查看进度：" + terminal_log(follow_up_command(args, "projects", "task", site["task_id"], "--format", "table")))
             elif site.get("task_url"):
