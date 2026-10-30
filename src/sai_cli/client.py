@@ -509,6 +509,7 @@ class PortalClient:
             if isinstance(exc, ConfigError) and exc.code in {
                 "project_compute_not_ready", "project_compute_already_enabled", "project_compute_site_not_ready",
                 "project_compute_requires_reconciliation", "project_member_changed", "workspace_collaboration_changed",
+                "workspace_membership_change_pending",
             }:
                 exc.recovery_command = ("projects", "member", project, member, "--site", current.values["site_id"])
             elif isinstance(exc, (NetworkError, UnavailableError, ContractError)) or (

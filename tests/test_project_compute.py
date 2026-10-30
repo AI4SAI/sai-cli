@@ -69,7 +69,7 @@ def test_project_query_pagination_preserves_service_and_filter(tmp_path):
         assert len(calls)==2
 
 
-@pytest.mark.parametrize("failure", ["unavailable", "invalid_response", "state_changed", "idempotency_conflict"])
+@pytest.mark.parametrize("failure", ["unavailable", "invalid_response", "state_changed", "member_pending", "idempotency_conflict"])
 def test_apply_requires_request_key_and_does_not_retry_a_failed_write(tmp_path, failure):
     def reply(call,_):
         if "/requests/" in call["path"]:
@@ -77,6 +77,8 @@ def test_apply_requires_request_key_and_does_not_retry_a_failed_write(tmp_path, 
         if call["method"]=="POST":
             if failure == "state_changed":
                 return 409,{"detail":{"code":"workspace_collaboration_changed"}}
+            if failure == "member_pending":
+                return 409,{"detail":{"code":"workspace_membership_change_pending"}}
             if failure == "idempotency_conflict":
                 return 409,{"detail":{"code":"idempotency_conflict"}}
             return (503,{"detail":{"code":"temporarily_unavailable","raw":"never-print"}}) if failure == "unavailable" else (200,{})
@@ -87,11 +89,11 @@ def test_apply_requires_request_key_and_does_not_retry_a_failed_write(tmp_path, 
         out,error=StringIO(),StringIO()
         assert main(args,environ=env,stdout=out,stderr=error)==2 and not calls
         error=StringIO()
-        code = {"invalid_response":7,"unavailable":6,"state_changed":2,"idempotency_conflict":2}[failure]
+        code = {"invalid_response":7,"unavailable":6,"state_changed":2,"member_pending":2,"idempotency_conflict":2}[failure]
         assert main([*args,"--request-id","request-example"],environ=env,stdout=out,stderr=error)==code
         assert len([c for c in calls if c["method"]=="POST"])==1 and "never-print" not in error.getvalue()
         recovery = json.loads(error.getvalue())["error"]["recovery"]["argv"]
-        assert recovery[:4] == (["sai","projects","member","project-example"] if failure == "state_changed" else ["sai","projects","request","request-example"])
+        assert recovery[:4] == (["sai","projects","member","project-example"] if failure in {"state_changed","member_pending"} else ["sai","projects","request","request-example"])
 
 
 def test_member_scope_and_control_fields_are_allowlisted():
