@@ -1,0 +1,16 @@
+--- a/src/slurmctld/proc_req.c
++++ b/src/slurmctld/proc_req.c
+@@ -4877,6 +4877,13 @@
+ 	char *op;
+ 
+ 	START_TIMER;
++	if ((sus_ptr->op == SUSPEND_JOB) &&
++	    !validate_operator(msg->auth_uid)) {
++		error("Security violation, REQUEST_SUSPEND RPC from uid=%u",
++		      msg->auth_uid);
++		slurm_send_rc_msg(msg, ESLURM_ACCESS_DENIED);
++		return;
++	}
+ 	switch (sus_ptr->op) {
+ 	case SUSPEND_JOB:
+ 		op = "suspend";
