@@ -168,6 +168,42 @@ def test_preview_requires_only_read_and_confirmation_keeps_selected_service(tmp_
         assert [call["method"] for call in calls] == ["GET", "GET", "POST"]
 
 
+@pytest.mark.parametrize("action", ["complete_identity_assurance", "observe"])
+def test_invitation_recovery_uses_selected_origin_and_reads_the_same_result(tmp_path, action):
+    detail = sample()
+    detail["next_action"] = action
+    detail["invitation"]["status"] = "pending" if action == "complete_identity_assurance" else "accepted"
+    detail["verification_url"] = "/portal/#/portal/account/identity-assurance" if action == "complete_identity_assurance" else None
+    with http_endpoint(lambda *_: (200, detail)) as (origin, calls):
+        config = tmp_path / "selected service.toml"
+        config.write_text(f'[profiles.chosen]\nbase_url={json.dumps(origin)}\n')
+        config.chmod(0o600)
+        env = {"SAI_TOKEN": "read-only-user", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        args = ["invitations", "show", "invitation-example", "--config", str(config), "--profile", "chosen"]
+        output, error = StringIO(), StringIO()
+        assert main(args, environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        result = json.loads(output.getvalue())
+        expected_url = origin + detail["verification_url"] if detail["verification_url"] else None
+        assert result["verification_url"] == expected_url
+        output = StringIO()
+        assert main([*args, "--format", "table"], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        if expected_url:
+            assert expected_url in output.getvalue()
+        assert "auth login" not in output.getvalue()
+        following = shlex.split(output.getvalue().split("查看进度：")[1].strip())[1:]
+        assert main(following, environ=env, stdout=StringIO(), stderr=error) == 0, error.getvalue()
+        assert [call["method"] for call in calls] == ["GET", "GET", "GET"]
+        assert all(call["path"] == "/v1/account/cli/invitations/invitation-example" for call in calls)
+
+
+@pytest.mark.parametrize("path", ["https://other.example.org/verify", "//other.example.org/verify", "/unexpected", "\x1b[31m"])
+def test_invitation_recovery_cannot_redirect_to_another_location(path):
+    detail = sample()
+    detail.update(next_action="complete_identity_assurance", verification_url=path)
+    with pytest.raises(ContractError):
+        Invitations.detail(detail, invitation_id="invitation-example", request_id="r")
+
+
 @pytest.mark.parametrize("kind, role, compute, project_budget, expected", [
     ("project", "read", False, False, "查看文件 · 不含计算权限"),
     ("project", "write", False, True, "编辑文件 · 不含计算权限"),

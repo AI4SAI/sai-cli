@@ -70,6 +70,9 @@ and inspect the owner's currently linked access-task result. The three commands 
 `invitations accept INVITATION_ID`. They add no TUI page or invitation database.
 `accept` defaults to a read-only preview. Add `--apply` to accept; it first reads
 that exact invitation again, then submits its explicit v2 computation permission.
+If identity verification is required, use the returned `verification_url`, then
+read the same invitation ID. Existing processing may already have accepted it.
+The human view includes that link and the contextual readback command.
 File viewing, file editing and use of a computing account are shown separately
 from administrator roles. When computation is included, the view identifies the
 organization as payer and any project-budget constraint, without estimating an amount.

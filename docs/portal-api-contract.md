@@ -97,7 +97,11 @@ use of the computing account. `invitations accept ID` previews the same detail;
 apply additionally needs acceptance scope. V1 responses fail with a paired
 upgrade diagnostic before writing. V2 activation requires the matching Portal
 and CLI; existing optional scopes stay unchanged. Actual recipient consent and
-applied access remain separate. Browser routes retain their live consumers.
+applied access remain separate. Detail and acceptance derive `next_action` from
+the same current durable assurance facts. The additive nullable `verification_url`
+uses the existing account-verification path and only the selected central origin;
+read the same invitation after verification before deciding to retry. Browser
+routes retain their live consumers.
 
 ### Published site discovery
 
