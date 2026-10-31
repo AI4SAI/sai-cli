@@ -86,7 +86,10 @@ Exact member reads can additionally report `compute_access_reason` from the
 console's shared reader. A completed enablement task can still leave scheduler
 access unconfirmed or limits pending, failed, inconsistent, or zero. This field
 explains the existing current access decision; it does not authorize a retry or
-change submission policy. The additive reader correction requires paired rollout.
+change submission policy. The correction was deployed on 2026-10-31 with shared
+CLI `f734747c17a1` and Portal `869eeec48af6`. Existing-grant production reads and
+installed presentation passed; positive member changes remain local synthetic
+execution evidence, not new human consent or production member enablement.
 
 ## Authentication
 
