@@ -77,6 +77,10 @@ apply to their operations, without a second generic approval system in the CLI.
 ## Experience and acceptance
 
 Preserve the shell, familiar aliases, scriptability and fast repeated queries.
+Automatic SSH login retains the detailed GPU index view, per-node CPU/memory
+bars and directory quota. Manual commands or numeric partition totals do not
+replace that default visual experience. Verify it through a real login when
+changing the shared profile, runtime or native presentation.
 Use authorized names and existing login context to avoid repeated technical-ID
 entry. Querying another account does not change the submission account, working
 directory or payer; management changes are explicit separate operations.

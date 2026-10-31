@@ -71,9 +71,10 @@ JSON/native readers remain dependency-free, with no additional native query.
 The combined resource summary shows each partition's free/total GPU, CPU and
 memory and each resource's largest free amount on one node. These independent
 maxima do not describe one combined allocation. Totals deduplicate shared nodes;
-CPU totals include the CPUs on GPU nodes. The shared login status fragment uses
-this summary from one native observation, followed by the current-directory
-quota. Explicit GPU/CPU helpers and the native status alias keep node details.
+CPU totals include the CPUs on GPU nodes. This summary is an explicit batch
+view. Automatic login and the native status alias use the same detailed GPU/CPU
+helpers, followed by the current-directory quota. Native GPU index cells and
+per-node CPU/memory bars remain part of the default login experience.
 With no subcommand, `sai` uses the same central account read: plain text when
 stdout is a terminal, JSON when redirected. It returns without prompting and
 needs no optional UI package. This changes presentation only; it adds no native

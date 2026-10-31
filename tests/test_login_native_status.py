@@ -8,47 +8,62 @@ import sys
 from test_local_resources import native_client
 
 
-FRAGMENT = Path(__file__).resolve().parents[1] / "site/shell/status.bash"
+SHELL = Path(__file__).resolve().parents[1] / "site/shell"
 
 
-def run_status(tmp_path, native_client, arguments):
+def run_status(tmp_path, native_client, *, login=False):
     environment, _, _ = native_client
-    command = tmp_path / "sai"
     source = Path(__file__).resolve().parents[1] / "src"
+    command = tmp_path / "sai"
     command.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -m sai_cli "$@"\n')
     command.chmod(0o755)
     fragment = tmp_path / "status.bash"
-    fragment.write_text(FRAGMENT.read_text().replace('/opt/sai/bin/sai', str(command)))
-    return subprocess.run(['/bin/bash', '--noprofile', '--norc', '-c',
-        'gpu() { printf "GPU-DETAIL\\n"; }; cpu() { printf "CPU-DETAIL\\n"; }; '
-        'quota() { printf "LOCAL-QUOTA\\n"; }; source "$1" "${@:2}"; printf "SHELL-READY\\n"',
-        'bash', str(fragment), *arguments], env={**os.environ, **environment, 'PYTHONPATH': str(source)},
-        text=True, capture_output=True, timeout=10)
+    fragment.write_text((SHELL / "status.bash").read_text())
+    if login:
+        for name in ("aliases.txt", "rules.bash", "notes.bash"):
+            (tmp_path / name).write_text("")
+        summary = tmp_path / "summary"
+        summary.write_text('#!/bin/sh\nprintf "ACCOUNT-SUMMARY\\n"\n')
+        summary.chmod(0o755)
+        fragment = tmp_path / "login.bash"
+        fragment.write_text((SHELL / "login_summary.bash").read_text()
+                            .replace('/opt/sai/shell', str(tmp_path)).replace('/opt/sai/bin/sai', str(summary)))
+    env = {k: v for k, v in os.environ.items() if k not in {
+        '_SAI_LOGIN_SUMMARY_SHOWN', 'SLURM_JOB_ID', 'SLURM_JOBID',
+    }}
+    env.update(environment, PYTHONPATH=str(source), HOSTNAME='login-example',
+               PATH=environment['PATH'] + ':/usr/bin:/bin', SAI_TEST_NATIVE_CLI=str(command))
+    return subprocess.run(['/bin/bash', '--noprofile', '--norc', '-ilc' if login else '-c',
+        'gpu() { "$SAI_TEST_NATIVE_CLI" resources local --kind gpu --details --format table; }; '
+        'cpu() { "$SAI_TEST_NATIVE_CLI" resources local --kind cpu --details --format table; }; '
+        'quota() { printf "LOCAL-QUOTA\\n"; }; source "$1"; printf "SHELL-READY\\n"',
+        'bash', str(fragment)], env=env, text=True, capture_output=True, timeout=10)
 
 
-def test_login_summary_uses_one_native_observation_and_preserves_local_quota(tmp_path, native_client):
-    result = run_status(tmp_path, native_client, ['--summary'])
-    assert result.returncode == 0 and not result.stderr
-    assert 'GPU-DETAIL' not in result.stdout and 'CPU-DETAIL' not in result.stdout
-    assert 'GPU' in result.stdout and 'CPU' in result.stdout and 'Mem GiB' in result.stdout
-    assert 'Max free' in result.stdout and '/node' in result.stdout
-    assert result.stdout.endswith('LOCAL-QUOTA\nSHELL-READY\n')
+def test_login_and_manual_status_keep_gpu_positions_and_cpu_bars(tmp_path, native_client):
+    _, path, payload = native_client
+    payload['sinfo'][0]['gres']['used'] = 'gpu:example:2(IDX:0,2)'
+    path.write_text(json.dumps(payload))
+    manual = run_status(tmp_path, native_client)
+    login = run_status(tmp_path, native_client, login=True)
+    assert manual.returncode == login.returncode == 0
+    assert not manual.stderr
+    for result in (manual, login):
+        assert all(name in result.stdout for name in ('node-a', 'node-b', 'node-c'))
+        assert '[#][_][#][_]' in result.stdout and '[x][x][x][x]' in result.stdout
+        assert '━' in result.stdout and 'Mem GiB' in result.stdout
+        assert result.stdout.index('GPU NODE STATUS:') < result.stdout.index('CPU NODE STATUS:') < result.stdout.index('LOCAL-QUOTA')
+        assert result.stdout.endswith('SHELL-READY\n')
+    assert login.stdout == manual.stdout.replace('SHELL-READY\n', 'ACCOUNT-SUMMARY\nSHELL-READY\n')
     calls = [json.loads(line) for line in Path(native_client[0]['NATIVE_CALL']).read_text().splitlines()]
-    assert len(calls) == 1 and calls[0]['argv'] == ['--json', '--local', '--Node']
-    assert not calls[0]['sai_token']
-
-
-def test_manual_status_keeps_existing_node_helpers_and_quota(tmp_path, native_client):
-    result = run_status(tmp_path, native_client, [])
-    assert result.returncode == 0 and not result.stderr
-    assert result.stdout.index('GPU-DETAIL') < result.stdout.index('CPU-DETAIL') < result.stdout.index('LOCAL-QUOTA')
-    assert not Path(native_client[0]['NATIVE_CALL']).exists()
+    assert len(calls) == 4
+    assert all(call['argv'] == ['--json', '--local', '--Node'] and not call['sai_token'] for call in calls)
 
 
 def test_unavailable_native_source_still_reaches_quota_and_shell_without_fake_capacity(tmp_path, native_client):
     _, path, _ = native_client
     path.write_text('{"errors":[{"error":"unavailable"}]}')
-    result = run_status(tmp_path, native_client, ['--summary'])
+    result = run_status(tmp_path, native_client)
     assert result.returncode == 0 and result.stderr
-    assert 'TOTAL' not in result.stdout and '0/0' not in result.stdout
+    assert 'GLOBAL' not in result.stdout and '0/0' not in result.stdout
     assert result.stdout.endswith('LOCAL-QUOTA\nSHELL-READY\n')
