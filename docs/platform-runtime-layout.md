@@ -146,9 +146,10 @@ it does not yet contain. Keep manual commands and the independent
 `sai auth status` recovery diagnostic. Publish the TUI-enabled shared release
 before switching the profile; preserve the previous release/profile for rollback.
 
-The repository-owned `site/shell/status.bash` accepts `--summary` for login:
-one `resources local` observation displays per-partition capacity and separate
-per-node maxima, then the existing quota command reads the current directory.
-Without that argument, the status alias keeps its full GPU/CPU node views.
-Publish this shared script with the matching runtime before selecting the login
-fragment; no per-node installation or additional shell hook is needed.
+The repository-owned `site/shell/status.bash` runs the existing `gpu`, `cpu` and
+`quota` helpers for both automatic login and the native status alias. Login must
+retain GPU index cells and per-node CPU/memory bars; a partition summary is not
+an equivalent default view. Each resource helper makes one bounded native read.
+Publish this shared script and the matching inline login fragment together;
+no per-node installation or additional shell hook is needed. Release acceptance
+must inspect a real ordinary-user login as well as direct helper commands.
