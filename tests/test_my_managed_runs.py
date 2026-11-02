@@ -70,7 +70,7 @@ def test_recent_command_reads_one_identity_bound_site_page(tmp_path, prefix, out
         code = main(connection + args if prefix else args + connection, environ=_env(tmp_path), stdout=stdout, stderr=stderr)
     assert code == 0 and stderr.getvalue() == ''
     assert json.loads(stdout.getvalue()) == value if output_format == 'json' else 'Example project' in stdout.getvalue()
-    assert len(server.requests) == 1
+    assert len(server.requests) == 1 + (output_format == 'table')
     request = server.requests[0]
     assert request['path'] == '/v1/compute/cli/my-runs'
     assert request['query'] == {'site_id': ['site-a'], 'limit': ['3'], 'cursor': ['run-older']}

@@ -84,7 +84,8 @@ class JobCharges(ManagedReadResult):
         return cls(result)
 
 
-def render_job_charges(result: JobCharges, *, detail: bool = False) -> str:
+def render_job_charges(result: JobCharges, *, detail: bool = False, site_label: str | None = None) -> str:
+    from .messages import display_site_name
     data = result.values
     if detail:
         item = data['items'][0]
@@ -100,7 +101,7 @@ def render_job_charges(result: JobCharges, *, detail: bool = False) -> str:
     headings = ('Job', 'Account', 'Cash CNY', 'SAI Credit', 'Settled UTC')
     widths = [max(len(header), *(len(row[index]) for row in rows)) if rows else len(header)
               for index, header in enumerate(headings)]
-    lines = [f"Settled job charges · {data['site_id']}"]
+    lines = [f"Settled job charges · {display_site_name(site_label, data['site_id'])}"]
     if rows:
         lines.extend((_line(headings, widths), *(_line(row, widths) for row in rows)))
     else:

@@ -66,13 +66,15 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, lan
 
 
 def render_overview(overview: AccountOverview, *, work_dir: str | None = None, language: str = "zh-CN") -> str:
+    from .messages import display_site_name
     data = overview.values
-    lines = [f"SAI · {data['site_id']} · {data['user_name']}"]
+    lines = [f"SAI · {display_site_name(data.get('site_label'), data['site_id'], language=language)} · {data['user_name']}"]
     lines += [f"{label}  {value}" for label, value, _ in overview_rows(overview, work_dir=work_dir, language=language)]
     return "\n".join([*lines, f"{Messages(language)('snapshot')}: {data['observed_at']}"]) + "\n"
 
 
 def overview_panel(overview: AccountOverview, *, work_dir: str | None = None, base_url: str | None = None, language: str = "zh-CN"):
+    from .messages import display_site_name
     # Optional UI dependencies stay outside JSON and plain-text command paths.
     from rich.console import Group
     from rich.table import Table
@@ -99,5 +101,5 @@ def overview_panel(overview: AccountOverview, *, work_dir: str | None = None, ba
     if base_url and data["inbox"] is not None and data["inbox"]["unread_count"]:
         grid.add_row(Text(""), Text(t("message_center"), style=f"link {overview.messages_url(base_url)}"))
     stamp = datetime.fromisoformat(data["observed_at"].replace("Z", "+00:00")).astimezone().strftime("%m-%d %H:%M")
-    return Group(Text(f"SAI · {data['site_id']} · {data['user_name']}", style="bold cyan"),
+    return Group(Text(f"SAI · {display_site_name(data.get('site_label'), data['site_id'], language=language)} · {data['user_name']}", style="bold cyan"),
                  grid, Text(f"{t('snapshot')} · {stamp}"))

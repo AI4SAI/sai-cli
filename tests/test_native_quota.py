@@ -85,7 +85,12 @@ def test_native_quota_cli_capability_only_http(tmp_path, monkeypatch, prefix, ou
         output, errors = StringIO(), StringIO()
         assert main(command + options, environ=_env(tmp_path), stdout=output, stderr=errors) == 6
         assert output.getvalue() == "" and "secret" not in errors.getvalue()
-        assert all(row["path"] == "/v1/authz/storage-read" for row in issuer.requests)
+        assert [row["path"] for row in issuer.requests] == [
+            "/v1/authz/storage-read",
+            *(["/v1/account/cli/sites/site-a/connection"] if output_format == "table" else []),
+        ]
+        assert all(row["authorization"] == "Bearer test-bearer-token" and row["capability"] is None
+                   for row in issuer.requests)
 
 
 def test_native_quota_without_direct_transport_does_not_query_portal(tmp_path):

@@ -45,9 +45,10 @@ class StorageWorkspaces:
         return deepcopy(self.values)
 
 
-def render_storage_workspaces(result: StorageWorkspaces) -> str:
+def render_storage_workspaces(result: StorageWorkspaces, *, site_label: str | None = None) -> str:
+    from .messages import display_site_name
     data = result.values
-    lines = [f"Readable storage workspaces · Site: {data['site_id']} · queried {data['queried_at']}"]
+    lines = [f"Readable storage workspaces · Site: {display_site_name(site_label, data['site_id'])} · queried {data['queried_at']}"]
     lines.extend(f"{row['workspace_key']}  {row['label']}" + (
         f" · {row['organization_label']}" if row['organization_label'] is not None else ""
     ) for row in data["items"])

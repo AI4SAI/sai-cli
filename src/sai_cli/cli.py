@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, TextIO
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from . import __version__
-from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, SaiCliError
+from .errors import AuthenticationError, ConfigError, ContractError, ForbiddenError, NotFoundError, SaiCliError, UnavailableError
 from .render import follow_up_argv, follow_up_command, render_json
 
 if TYPE_CHECKING:
@@ -858,6 +858,7 @@ def main(
 
         native_jobs = args.command == "jobs" and args.jobs_command != "charges"
         native_quota = args.command == "storage" and args.storage_command == "native-quota"
+        metadata = None
         if settings.require_site_capability and (native_jobs or native_quota):
             if native_jobs:
                 _job_query(args, settings=settings).validated(detail=args.jobs_command in {"show", "allocation", "placement"})
@@ -888,6 +889,19 @@ def main(
                 if settings.site_read_base_url else None
             ),
         )
+
+        def site_label() -> str | None:
+            nonlocal metadata
+            if metadata is None:
+                try:
+                    metadata = client.site_connection(settings.site_id)
+                except (NotFoundError, UnavailableError) as exc:
+                    # Historical data can outlive a published connection.
+                    if exc.code not in {'site_connection_not_found', 'site_connection_unavailable'}:
+                        raise
+                    return None
+            return metadata.values.get("display_name")
+
         login_account = env.get("_SAI_LOGIN_ACCOUNT") if settings.managed_login_node else None
         if args.command == "projects":
             from .project_compute import render_project_compute
@@ -986,7 +1000,7 @@ def main(
             else:
                 result = client.storage_quota_summary(workspace_key=args.workspace_key, site_id=settings.site_id)
                 rendered = render_storage_quota_summary
-            output.write(render_json(result.as_dict()) if output_format == "json" else rendered(result))
+            output.write(render_json(result.as_dict()) if output_format == "json" else rendered(result, site_label=site_label()))
             return 0
         if args.command == "runs":
             from .managed_runs import render_managed_runs
@@ -1030,7 +1044,8 @@ def main(
             render = (render_artifact_content if args.runs_command == "read" else render_run_cost if args.runs_command == "cost" else
                       render_run_stats if args.runs_command == "stats" else
                       render_run_placement if args.runs_command == "placement" else render_managed_runs)
-            output.write(render_json(result.as_dict()) if output_format == "json" else render(result))
+            output.write(render_json(result.as_dict()) if output_format == "json" else
+                         render(result, **({} if args.runs_command == "read" else {"site_label": site_label()})))
             return 0
         if args.command == "jobs" and args.jobs_command == "charges":
             from .client import JobQuery
@@ -1047,7 +1062,8 @@ def main(
                 limit=args.limit if args.limit is not None else 20)
             result = client.job_charges(query, job_key=args.job_key, job_id=args.job_id,
                 start_date=args.start_date, end_date=args.end_date, cursor=args.cursor)
-            output.write(render_json(result.as_dict()) if output_format == "json" else render_job_charges(result, detail=args.job_key is not None))
+            output.write(render_json(result.as_dict()) if output_format == "json" else render_job_charges(
+                result, detail=args.job_key is not None, site_label=site_label() if args.job_key is None else None))
             return 0
         query = _job_query(args, settings=settings)
 
@@ -1074,9 +1090,9 @@ def main(
             output.write(render_json(result.as_dict()))
         elif args.jobs_command == "cost":
             width = shutil.get_terminal_size().columns if output.isatty() else 80
-            output.write(render_running_estimate_table(result, width=width))
+            output.write(render_running_estimate_table(result, width=width, site_label=site_label()))
         elif isinstance(result, SiteJobPlacementResult):
-            output.write(render_site_placement(result))
+            output.write(render_site_placement(result, site_label=site_label()))
         elif isinstance(result, SiteJobAllocationResult):
             if args.with_interconnect:
                 _load_ui_console()
@@ -1084,11 +1100,11 @@ def main(
                 output.write(render_allocation(result.as_dict(), width=shutil.get_terminal_size().columns if output.isatty() else 100,
                     color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb"))
             else:
-                output.write(render_site_allocation(result))
+                output.write(render_site_allocation(result, site_label=site_label()))
         elif isinstance(result, SiteJobResult):
-            output.write(render_site_jobs(result))
+            output.write(render_site_jobs(result, site_label=site_label()))
         else:
-            output.write(render_table(result))
+            output.write(render_table(result, site_label=site_label()))
         return 0
     except SaiCliError as exc:
         missing_session = isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"

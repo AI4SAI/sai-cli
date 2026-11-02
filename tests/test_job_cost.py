@@ -155,6 +155,8 @@ def test_cost_command_reads_exact_array_job_and_preserves_billing_denial(tmp_pat
             assert call["body"]["operation"] == "jobs.detail" and call["body"]["job_id"] == "12345_0"
             return issuer(call, count)
         parsed = urlsplit(call["path"])
+        if parsed.path == '/v1/account/cli/sites/site-a/connection':
+            return issuer(call, count)
         assert parsed.path == "/v1/slurm/cli/jobs/12345_0"
         assert parse_qs(parsed.query)["include_estimate"] == ["true"]
         if denied:
@@ -178,8 +180,8 @@ def test_cost_command_reads_exact_array_job_and_preserves_billing_denial(tmp_pat
             assert "12345_0" in out.getvalue() and "2.00" in out.getvalue()
             assert "not settled" in out.getvalue() and "+00:00" in out.getvalue()
             assert "Slurm Account: personal-alice" in out.getvalue()
-        assert len(calls) == 2
+        assert len(calls) == 2 + (output_format == 'table')
         denied = True
         out, err = StringIO(), StringIO()
         assert main(args, environ=env, stdout=out, stderr=err) == 4 and not out.getvalue()
-        assert "job_cost_read_denied" in err.getvalue() and len(calls) == 3 and not native_calls
+        assert "job_cost_read_denied" in err.getvalue() and len(calls) == 3 + (output_format == 'table') and not native_calls

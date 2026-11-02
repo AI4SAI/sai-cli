@@ -52,6 +52,7 @@ def _task(value: object) -> dict[str, Any]:
     if generation is None or generation < 1:
         raise ValueError("invalid generation")
     return {"task_id": reference(row["task_id"]), "site_id": reference(row["site_id"], site=True),
+            **({"site_label": _text(row["site_label"], maximum=256)} if row.get("site_label") is not None else {}),
             "generation": generation}
 
 
@@ -169,6 +170,7 @@ class ProjectCompute:
 
 
 def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
+    from .messages import display_site_name
     value = result.values
     if "items" in value:
         if value["schema_version"] == "collaboration.projects/v1":
@@ -200,7 +202,7 @@ def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
             label = statuses.get(site["status"])
             if label is None:
                 label = "站点计算许可已生效" if site["compute_access"] else _COMPUTE_REASONS.get(site.get("compute_access_reason"), "站点计算许可未生效")
-            lines.append(f"{site['site_label']}：{label}")
+            lines.append(f"{display_site_name(site['site_label'], site['site_id'], language='zh-CN')}：{label}")
             if site["task_id"]:
                 lines.append("查看进度：" + terminal_log(follow_up_command(args, "projects", "task", site["task_id"], "--format", "table")))
             elif site.get("task_url"):
@@ -222,4 +224,5 @@ def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
         current = "成员关系尚未生效" if value["membership_status"] == "scheduled" else "成员关系已过期"
     follow = follow_up_command(args, "projects", "member", value["project"]["project_id"], value["membership_id"],
                                "--site", value["task"]["site_id"], "--format", "table")
-    return f"{value['project']['label']} · {value['username']}\n{value['task']['site_id']}：{status} · {current}\n查看当前权限：{terminal_log(follow)}\n"
+    site = display_site_name(value['task'].get('site_label'), value['task']['site_id'], language='zh-CN')
+    return f"{value['project']['label']} · {value['username']}\n{site}：{status} · {current}\n查看当前权限：{terminal_log(follow)}\n"

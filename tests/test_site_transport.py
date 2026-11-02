@@ -55,6 +55,10 @@ def http_endpoint(respond):
 
 
 def issuer(call, count):
+    if call['method'] == 'GET' and call['path'] == '/v1/account/cli/sites/site-a/connection':
+        assert call['bearer'] == 'Bearer identity-session-token' and call['capability'] is None
+        return 200, {'schema_version':'site.connection/v1', 'site_id':'site-a', 'cluster_id':'cluster-a',
+                     'display_name':'Research center', 'site_read_base_url':None}
     assert call["method"] == "POST" and call["path"] == "/v1/authz/site-read"
     assert call["bearer"] == "Bearer identity-session-token" and call["capability"] is None
     body = call["body"]
@@ -190,7 +194,8 @@ def test_allocation_uses_exact_operation_and_gateway_path(tmp_path, site_allocat
         site_allocation_payload["job"]["array_task_id"] = None
         result, output, errors = invoke(config, tmp_path, ["jobs", "allocation", "12345_7"])
         assert result == 7 and output == ""
-    assert len(issued) == 1
+    assert len(issued) == 2
+    assert issued[1]['path'] == '/v1/account/cli/sites/site-a/connection'
     assert issued[0]["body"] == {
         "operation": "jobs.allocation", "site_id": "site-a", "cluster_id": "cluster-a",
         "scope_type": "self", "slurm_account_id": None, "slurm_account_name": None,

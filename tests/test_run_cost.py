@@ -94,7 +94,11 @@ def test_cost_command_uses_exact_http_path_and_explicit_scope(tmp_path, prefix, 
         code = main(connection + command if prefix else command + connection,
                     environ=_env(tmp_path), stdout=output, stderr=errors)
     assert code == 0, errors.getvalue()
-    assert len(server.requests) == 1
+    assert len(server.requests) == 1 + (output_format == "table")
+    if output_format == "table":
+        assert server.requests[1]["path"] == "/v1/account/cli/sites/site-a/connection"
+        assert server.requests[1]["authorization"] == "Bearer test-bearer-token"
+        assert server.requests[1]["capability"] is None
     assert server.requests[0]["path"] == "/v1/compute/cli/runs/run-example-1/billing"
     assert server.requests[0]["query"] == {"site_id": ["site-a"], "workspace_key": ["project:project-example"]}
     assert server.requests[0]["capability"] is None

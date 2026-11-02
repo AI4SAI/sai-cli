@@ -4,7 +4,8 @@
   "task": {
     "task_id": "task-example",
     "generation": 1,
-    "site_id": "site-a"
+    "site_id": "site-a",
+    "site_label": "Research Center"
   },
   "project": {
     "project_id": "project-example",

@@ -102,6 +102,7 @@ class Invitations:
                     raise ValueError("invalid invitation task")
                 deliveries.append({"task_id": invitation_reference(row["task_id"]), "generation": generation,
                                    "site_id": invitation_reference(row["site_id"], site=True), "status": row["status"],
+                                   **({"site_label": _label(row["site_label"])} if row.get("site_label") is not None else {}),
                                    "finished_at": _timestamp_text(row, "finished_at", nullable=True, request_id=request_id),
                                    "workspace_available": _boolean(row["workspace_available"])})
             if len({row["task_id"] for row in deliveries}) != len(deliveries):
@@ -135,10 +136,11 @@ def _permission_label(row: dict[str, Any]) -> str:
 
 
 def render_invitations(result: Invitations, *, args: Namespace | None = None) -> str:
+    from .messages import display_site_name
     value = result.values
     states = {"pending": "待接受", "accepted": "已接受", "expired": "已过期", "revoked": "已撤回"}
     if "items" in value:
-        lines = [f"{row['target_label']} · {_permission_label(row)} · {row['site_label']}\n"
+        lines = [f"{row['target_label']} · {_permission_label(row)} · {display_site_name(row['site_label'], row['site_id'], language='zh-CN')}\n"
                  f"  接受截止 {row['expires_at'] or '未指定'} · {row['invitation_id']}" for row in value["items"]]
         if value["has_more"]:
             command = follow_up_command(args, "invitations", "list", "--cursor", value["next_cursor"],
@@ -146,14 +148,14 @@ def render_invitations(result: Invitations, *, args: Namespace | None = None) ->
             lines.append("下一页：" + terminal_log(command))
         return "\n".join(lines or ["暂无待接受邀请"]) + "\n"
     row = value["invitation"]
-    sites = ", ".join(row["directory_site_labels"]) if row["target_kind"] == "directory" else row["site_label"]
+    sites = ", ".join(row["directory_site_labels"]) if row["target_kind"] == "directory" else display_site_name(row["site_label"], row["site_id"], language='zh-CN')
     lines = [f"{row['target_label']} · {states[row['status']]}",
              f"权限：{_permission_label(row)}",
              f"协作期限：{row['membership_valid_from'] or '接受后'} → {row['membership_expires_at'] or '未设截止'}",
              f"范围：{'全局关系' if row['relationship_scope'] == 'global' else '目录访问'} · {sites}"]
     task_states = {"queued": "等待执行", "running": "正在执行", "ready": "任务已完成", "expired": "任务已取消", "failed": "需要处理"}
     for task in value["deliveries"]:
-        lines.append(f"{task['site_id']}：{task_states[task['status']]} · " + ("当前可访问工作空间" if task['workspace_available'] else "尚未确认当前工作空间可访问"))
+        lines.append(f"{display_site_name(task.get('site_label'), task['site_id'], language='zh-CN')}：{task_states[task['status']]} · " + ("当前可访问工作空间" if task['workspace_available'] else "尚未确认当前工作空间可访问"))
     if value["next_action"] == "complete_identity_assurance":
         lines.append("身份认证：" + value["verification_url"] if value.get("verification_url") else "请在控制台完成身份认证")
     elif value["next_action"] == "accept":

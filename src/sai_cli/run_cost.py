@@ -5,7 +5,7 @@ import re
 from .errors import ContractError
 from .managed_runs import ManagedReadResult, _boolean, _context, _object, _text, _time, _token
 from .render import format_decimal
-from .messages import Messages
+from .messages import Messages, display_site_name
 
 
 AMOUNT_FIELDS = ("gross_amount", "cash_amount", "sai_credit_cny_equivalent_amount", "sai_credit_amount",
@@ -71,6 +71,6 @@ def cost_lines(result: ManagedRunCost, language: str = "en-US") -> list[str]:
     return lines
 
 
-def render_run_cost(result: ManagedRunCost) -> str:
+def render_run_cost(result: ManagedRunCost, *, site_label: str | None = None) -> str:
     data = result.values
-    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}", *cost_lines(result)]) + "\n"
+    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {display_site_name(site_label, data['site_id'])}", *cost_lines(result)]) + "\n"

@@ -103,7 +103,11 @@ def test_runs_placement_uses_exact_run_and_scope_over_http(tmp_path,prefix,forma
         command=['runs','placement','run-example-1','--workspace-key','project:project-example','--format',format]
         out,err=StringIO(),StringIO();code=main(connection+command if prefix else command+connection,environ=_env(tmp_path),stdout=out,stderr=err)
     assert code==0,err.getvalue()
-    assert len(server.requests)==1
+    assert len(server.requests)==1 + (format == 'table')
+    if format == 'table':
+        assert server.requests[1]['path']=='/v1/account/cli/sites/site-a/connection'
+        assert server.requests[1]['authorization']=='Bearer test-bearer-token'
+        assert server.requests[1]['capability'] is None
     assert server.requests[0]['path']=='/v1/compute/cli/runs/run-example-1/placement'
     assert server.requests[0]['query']=={'workspace_key':['project:project-example'],'site_id':['site-a']}
     assert server.requests[0]['capability'] is None

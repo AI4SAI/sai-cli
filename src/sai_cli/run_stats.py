@@ -101,7 +101,8 @@ def stats_lines(result: ManagedRunStats, language: str = "en-US") -> list[str]:
     return lines
 
 
-def render_run_stats(result: ManagedRunStats) -> str:
+def render_run_stats(result: ManagedRunStats, *, site_label: str | None = None) -> str:
+    from .messages import display_site_name
     data = result.values
-    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}",
+    return "\n".join([f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {display_site_name(site_label, data['site_id'])}",
                       *stats_lines(result)]) + "\n"

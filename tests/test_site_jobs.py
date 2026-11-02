@@ -188,11 +188,12 @@ def test_state_binding_accepts_documented_native_aliases_only(site_jobs_payload,
 def test_gateway_table_shows_observation_and_truncation_without_guessing(site_jobs_payload):
     site_jobs_payload.update(items=[], has_more=True)
     site_jobs_payload["freshness"].update(age_seconds=5, stale=True)
-    table = render_site_jobs(SiteJobResult.from_payload(site_jobs_payload, request_id="table"))
-    for expected in ("Site: site-a", "Cluster: cluster-a", "Scope: self", "Source: squeue",
+    table = render_site_jobs(SiteJobResult.from_payload(site_jobs_payload, request_id="table"), site_label='Research center')
+    for expected in ("Site: Research center", "Scope: self", "Source: squeue",
                      "Observed: 2026-07-31T01:01:00Z", "Age: 5s", "Stale: yes", "Has-more: yes", "(no jobs)"):
         assert expected in table
     assert "Queried:" not in table
+    assert 'site-a' not in table and 'cluster-a' not in table
 
 
 def test_allocation_preserves_snapshot_values_and_recursively_drops_unknown_fields(site_allocation_payload):

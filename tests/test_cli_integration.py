@@ -47,7 +47,13 @@ class _Handler(BaseHTTPRequestHandler):
                 "request_id": self.headers.get("X-SAI-Request-ID"),
             }
         )
-        self._respond(self.server.response_payload)
+        site = self.server.response_payload.get('site_id')
+        if site and parsed.path == f'/v1/account/cli/sites/{site}/connection':
+            self._respond({'schema_version':'site.connection/v1', 'site_id':site,
+                           'cluster_id':self.server.response_payload.get('cluster_id', 'cluster-a'),
+                           'display_name':'Research center', 'site_read_base_url':None})
+        else:
+            self._respond(self.server.response_payload)
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlsplit(self.path)

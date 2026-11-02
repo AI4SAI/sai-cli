@@ -55,6 +55,11 @@ class AccountOverview:
                                ("workspace_key", "kind", "label", "slurm_account", "canonical_account", "default_account")}},
                 "funds": None, "inbox": None,
             }
+            if "site_label" in data:
+                label = _text(data["site_label"], maximum=256)
+                if any(ord(character) < 32 or 127 <= ord(character) < 160 for character in label):
+                    raise ValueError("invalid site label")
+                result["site_label"] = label
             if context["state"] == "available":
                 if context["kind"] not in {"personal", "org", "project"}:
                     raise ValueError("invalid identity kind")

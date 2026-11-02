@@ -141,7 +141,9 @@ def test_placement_exact_operation_and_two_origins(tmp_path, monkeypatch):
         value["allocation"]["job"]["array_task_id"] = "1"
         result, output, _ = invoke(config, tmp_path, ["jobs", "placement", "12345_0", "--scope", "project-account", "--account", "project-example"])
         assert result == 7 and output == ""
-    assert len(issued) == 1 and issued[0]["body"]["operation"] == "jobs.placement"
+    assert len(issued) == 2 and issued[0]["body"]["operation"] == "jobs.placement"
+    assert issued[1]["path"] == "/v1/account/cli/sites/site-a/connection"
+    assert issued[1]["bearer"] == "Bearer identity-session-token" and issued[1]["capability"] is None
     assert issued[0]["body"]["job_id"] == "12345_0" and issued[0]["body"]["limit"] is None
     assert all(call["path"] == "/v1/site-read/jobs/12345_0/placement" and call["bearer"] is None for call in reads)
 
