@@ -69,6 +69,18 @@
           "minLength": 1,
           "title": "Site Id",
           "type": "string"
+        },
+        "site_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Site Label"
         }
       },
       "required": [

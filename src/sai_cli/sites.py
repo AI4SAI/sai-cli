@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from .config import Settings, _site_read_origin
 from .errors import ConfigError, ContractError, UnavailableError
 from .managed_runs import ManagedReadResult, _boolean, _integer, _object, _text, _time
+from .messages import display_site_name
 from .render import _line, follow_up_command
 
 
@@ -30,7 +31,9 @@ class SiteConnection(ManagedReadResult):
         except (ConfigError, ValueError) as exc:
             raise ContractError("The site connection metadata is invalid.", request_id=request_id) from exc
         return cls({"schema_version": "site.connection/v1", "site_id": site_id,
-                    "cluster_id": cluster, "site_read_base_url": origin})
+                    "cluster_id": cluster, "site_read_base_url": origin,
+                    **({"display_name": _text(data, "display_name", request_id, maximum=256)}
+                       if "display_name" in data else {})})
 
 
 def resolve_site_settings(settings: Settings, connection: SiteConnection, *, gateway: bool) -> Settings:
@@ -87,11 +90,11 @@ class SiteDirectory(ManagedReadResult):
 
 
 def render_sites(result: SiteDirectory, *, args: Namespace | None = None) -> str:
-    rows = [(row["site_id"], row["display_name"]) for row in result.values["items"]]
+    rows = [(display_site_name(row["display_name"], row["site_id"]), row["site_id"]) for row in result.values["items"]]
     if not rows:
         return "No published sites on this page.\n"
     widths = [max(len("Site"), *(len(row[0]) for row in rows)), 0]
-    lines = [_line(("Site", "Name"), widths), *(_line(row, widths) for row in rows)]
+    lines = [_line(("Site", "--site"), widths), *(_line(row, widths) for row in rows)]
     if result.values["has_more"]:
         from .managed_runs import terminal_log
         lines.append("Next: " + terminal_log(follow_up_command(args, "sites", "--cursor", result.values['next_cursor'],

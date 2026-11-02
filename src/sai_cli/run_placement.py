@@ -53,10 +53,11 @@ class ManagedRunPlacement(ManagedReadResult):
         return {**super().as_dict(), "placement": self.placement.as_dict()}
 
 
-def render_run_placement(result: ManagedRunPlacement) -> str:
+def render_run_placement(result: ManagedRunPlacement, *, site_label: str | None = None) -> str:
+    from .messages import display_site_name
     data = result.values
-    lines = [f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {data['site_id']}",
+    lines = [f"Run: {data['run_ref']} · Read scope: {data['workspace_key']} · Site: {display_site_name(site_label, data['site_id'])}",
              f"Queried: {data['queried_at']}"]
     if data["execution"] is not None:
         lines.append(f"Runtime SLUID: {data['execution']['sluid']}")
-    return "\n".join(lines) + "\n" + render_site_placement(result.placement)
+    return "\n".join(lines) + "\n" + render_site_placement(result.placement, site_label=site_label)

@@ -44,5 +44,6 @@
     "verification_current": true,
     "initial_verification_deadline": null,
     "submit_allowed": true
-  }
+  },
+  "site_label": "Research Center"
 }

@@ -12,6 +12,12 @@
       "title": "Site Id",
       "type": "string"
     },
+    "display_name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+    },
     "cluster_id": {
       "maxLength": 64,
       "minLength": 1,
@@ -36,6 +42,7 @@
   "required": [
     "schema_version",
     "site_id",
+    "display_name",
     "cluster_id",
     "site_read_base_url"
   ],

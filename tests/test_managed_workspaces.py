@@ -82,7 +82,7 @@ def test_workspace_discovery_is_narrow_identity_http_in_both_argument_positions(
         result = main(connection + command if prefix else command + connection,
             environ={**_env(tmp_path), "SAI_REQUIRE_SITE_CAPABILITY": "1"}, stdout=stdout, stderr=stderr)
     assert result == 0, stderr.getvalue()
-    assert stderr.getvalue() == "" and len(server.requests) == 1
+    assert stderr.getvalue() == "" and len(server.requests) == 1 + (output_format == 'table')
     request = server.requests[0]
     assert request["path"] == ("/v1/compute/cli/workspaces" if family == "runs" else "/v1/account/cli/storage/workspaces")
     assert request["query"] == {"site_id": ["site-a"], "cursor": ["project:older"], "limit": ["10"]}
@@ -104,7 +104,7 @@ def test_exact_workspace_is_one_bound_identity_http_read(tmp_path, family, prefi
         stdout, stderr = StringIO(), StringIO()
         code = main(connection + command if prefix else command + connection,
             environ={**_env(tmp_path), "SAI_REQUIRE_SITE_CAPABILITY": "1"}, stdout=stdout, stderr=stderr)
-    assert code == 0 and stderr.getvalue() == "" and len(server.requests) == 1
+    assert code == 0 and stderr.getvalue() == "" and len(server.requests) == 1 + (output_format == 'table')
     request = server.requests[0]
     assert request["path"] == ("/v1/compute/cli/workspaces" if family == "runs" else "/v1/account/cli/storage/workspaces")
     assert request["query"] == {"site_id": ["site-a"], "limit": ["50"], "workspace_key": [key]}

@@ -74,6 +74,21 @@
           "title": "Site Id",
           "type": "string"
         },
+        "site_label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Site Label"
+        },
         "state": {
           "enum": [
             "not_requested",

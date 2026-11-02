@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
-from .catalog import _count, _items, _object, _token
+from .catalog import _count, _items, _object, _text, _token
 from .contracts import _timestamp_text
 from .errors import ContractError
 
@@ -26,7 +26,8 @@ def _projection(value: object) -> dict[str, Any]:
     task = None if row["task_id"] is None else _token(row["task_id"])
     if (generation is None) != (task is None) or generation is not None and generation < 1:
         raise ValueError("invalid projection generation")
-    return {"site_id": _token(row["site_id"]), "task_id": task, "generation": generation}
+    return {"site_id": _token(row["site_id"]), "task_id": task, "generation": generation,
+            **({"site_label": _text(row["site_label"], maximum=256)} if row.get("site_label") is not None else {})}
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,7 @@ class DefaultAccountChange:
 
 
 def render_default_account(result: DefaultAccountState | DefaultAccountChange, *, args: Namespace | None = None, managed: bool = False) -> str:
+    from .messages import display_site_name
     value = result.values
     target = value["default_account_id"]
     if isinstance(result, DefaultAccountChange):
@@ -120,5 +122,5 @@ def render_default_account(result: DefaultAccountState | DefaultAccountChange, *
     states = {"not_requested": "尚无应用记录", "pending": "等待站点应用", "applied": "已收到应用回执",
               "failed": "站点应用失败", "unavailable": "暂无法确认"}
     for row in value["deliveries"]:
-        lines.append(f"{row['site_id']}：{states[row['state']]}" + (f" · {row['applied_at']}" if row["applied_at"] else ""))
+        lines.append(f"{display_site_name(row.get('site_label'), row['site_id'], language='zh-CN')}：{states[row['state']]}" + (f" · {row['applied_at']}" if row["applied_at"] else ""))
     return "\n".join(lines) + "\n"

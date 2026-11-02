@@ -7,6 +7,7 @@ from .errors import ConfigError
 
 
 MESSAGES: dict[str, tuple[str, str]] = {
+    'site_name_unavailable': ('站点名称暂不可用', 'Site name unavailable'),
     'runtime_stats': ('运行观测', 'Runtime stats'),
     'stats_available': ('已读取', 'Read'),
     'stats_not_running': ('当前无适用的运行步骤', 'No current running-step read'),
@@ -96,3 +97,8 @@ class Messages:
 
     def __call__(self, key: str, /, **values: object) -> str:
         return MESSAGES[key][self.language == "en-US"].format(**values)
+
+
+def display_site_name(name: str | None, site_id: str, *, language: str = 'en-US') -> str:
+    """Present an authoritative label without turning its identifier into a name."""
+    return name if name and name.strip() and name != site_id else Messages(language)('site_name_unavailable')

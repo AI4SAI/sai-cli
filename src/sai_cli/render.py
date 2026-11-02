@@ -12,6 +12,8 @@ from decimal import Decimal, ROUND_HALF_UP, localcontext
 from textwrap import fill
 from zoneinfo import ZoneInfo
 
+from .messages import display_site_name
+
 if TYPE_CHECKING:
     from .errors import SaiCliError
     from .catalog import ResourceCatalog
@@ -207,7 +209,7 @@ def render_resource_catalog(result: ResourceCatalog) -> str:
                   for index, heading in enumerate(headings)] if rendered else [len(h) for h in headings]
         return [_line(headings, widths), *(_line(row, widths) for row in rendered)] if rendered else ["(none published)"]
 
-    lines = [f"Site: {cell(catalog['site_label'])} ({cell(catalog['site_id'])})", "Compute"]
+    lines = [f"Site: {cell(display_site_name(catalog['site_label'], catalog['site_id']))}", "Compute"]
     lines.extend(table(
         ["Partition", "Kind", "Nodes", "CPU/node", "GPUs(total)", "GPU model", "Published price"],
         [[row["name"], row["resource_kind"], row["node_count"], row["cpu_cores_per_node"],
@@ -225,10 +227,10 @@ def render_resource_catalog(result: ResourceCatalog) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_storage_quota_summary(result: StorageQuotaSummary) -> str:
+def render_storage_quota_summary(result: StorageQuotaSummary, *, site_label: str | None = None) -> str:
     values = result.values
     lines = [
-        f"Workspace: {_display(values['workspace_key'])}  Site: {_display(values['site_id'])}",
+        f"Workspace: {_display(values['workspace_key'])}  Site: {display_site_name(site_label, values['site_id'])}",
         f"State: {_display(values['state'])}  Source: {_display(values['source'])}",
         f"Target total TiB: {_display(values['target_total_tib'])}",
         f"Effective total TiB: {_display(values['effective_total_tib'])}",
@@ -241,10 +243,10 @@ def render_storage_quota_summary(result: StorageQuotaSummary) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_native_quota(result: NativeQuotaResult) -> str:
+def render_native_quota(result: NativeQuotaResult, *, site_label: str | None = None) -> str:
     values = result.values
     lines = [
-        f"Workspace: {_display(values['workspace_key'])}  Site: {_display(values['site_id'])}",
+        f"Workspace: {_display(values['workspace_key'])}  Site: {display_site_name(site_label, values['site_id'])}",
         f"Source: lustre_quota  Query completed: {_display(values['as_of'])}",
         "Authorized quota subjects; these rows are not an organization pool total.",
         "Native limits use 0 for unlimited. Counters are exact bytes and inodes.",
@@ -285,19 +287,19 @@ def job_table_lines(items: tuple[JobItem, ...], *, notes: tuple[str, ...] = _JOB
     return lines
 
 
-def render_table(result: JobResult) -> str:
+def render_table(result: JobResult, *, site_label: str | None = None) -> str:
     header = (
-        f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+        f"Site: {display_site_name(site_label, result.site_id)}  "
         f"Scope: {result.scope}  Source: {result.freshness.source}  "
         f"Queried: {result.freshness.queried_at}"
     )
     return "\n".join([header, *job_table_lines(result.items)]) + "\n"
 
 
-def render_site_jobs(result: SiteJobResult) -> str:
+def render_site_jobs(result: SiteJobResult, *, site_label: str | None = None) -> str:
     freshness = result.freshness
     lines = [
-        f"Site: {result.site_id}  Cluster: {result.cluster_id}  "
+        f"Site: {display_site_name(site_label, result.site_id)}  "
         f"Scope: {result.scope_type}  Source: {freshness.source}",
         f"Observed: {freshness.observed_at}  Age: {freshness.age_seconds}s  "
         f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
@@ -306,10 +308,10 @@ def render_site_jobs(result: SiteJobResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_site_allocation(result: SiteJobAllocationResult) -> str:
+def render_site_allocation(result: SiteJobAllocationResult, *, site_label: str | None = None) -> str:
     freshness = result.freshness
     lines = [
-        f"Site: {result.site_id}  Cluster: {result.cluster_id}  Scope: {result.scope_type}",
+        f"Site: {display_site_name(site_label, result.site_id)}  Scope: {result.scope_type}",
         f"Source: {freshness.source}  Observed: {freshness.observed_at}  "
         f"Age: {freshness.age_seconds}s  Stale: {'yes' if freshness.stale else 'no'}",
         f"Job: {_display(result.job.values['job_id'])}  "
@@ -350,8 +352,8 @@ def format_allocation_indices(indices: tuple[int, ...]) -> str:
     return ", ".join(ranges)
 
 
-def render_site_placement(result: SiteJobPlacementResult) -> str:
-    lines = [render_site_allocation(result.allocation).rstrip(), "Recorded locations (operator records)"]
+def render_site_placement(result: SiteJobPlacementResult, *, site_label: str | None = None) -> str:
+    lines = [render_site_allocation(result.allocation, site_label=site_label).rstrip(), "Recorded locations (operator records)"]
     if result.inventory is not None:
         lines.append(f"Published: {result.inventory.published_at}  Valid until: {result.inventory.expires_at}")
     for node in result.nodes:
@@ -367,7 +369,7 @@ def render_site_placement(result: SiteJobPlacementResult) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_running_estimate_table(result: RunningEstimateResult | JobCostResult, *, width: int = 80) -> str:
+def render_running_estimate_table(result: RunningEstimateResult | JobCostResult, *, width: int = 80, site_label: str | None = None) -> str:
     """Show price facts without clipping money or treating missing estimates as zero."""
     from .contracts import JobCostResult, RunningEstimateResult
 
@@ -388,7 +390,7 @@ def render_running_estimate_table(result: RunningEstimateResult | JobCostResult,
     context_line = (f"Slurm Account: {result.estimate.values['slurm_account'] or 'Unknown'}"
                     if isinstance(result, JobCostResult) else f"For: {subject or 'Unknown'} ({scope})")
     lines = [f"{title} (CNY; not settled)",
-             fill(f"Site: {context.site_id} / {context.cluster_id}", width),
+             fill(f"Site: {display_site_name(site_label, context.site_id)}", width),
              fill(context_line, width)]
     if result.freshness.stale:
         lines.append(fill(f"STALE observation: {result.freshness.age_seconds}s old. Refresh before relying on these estimates.", width))

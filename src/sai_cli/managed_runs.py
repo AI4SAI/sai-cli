@@ -325,22 +325,23 @@ def _relative_filename(value: object, request_id: str) -> str:
     return value
 
 
-def render_managed_runs(result: ManagedReadResult) -> str:
+def render_managed_runs(result: ManagedReadResult, *, site_label: str | None = None) -> str:
+    from .messages import display_site_name
     data = result.values
     if isinstance(result, MyManagedRunList):
-        lines = [f"My recorded computations · Site: {data['site_id']} · queried {data['queried_at']}"]
+        lines = [f"My recorded computations · Site: {display_site_name(site_label, data['site_id'])} · queried {data['queried_at']}"]
         lines.extend(f"{row['workspace_label']} · {terminal_log(row['title']) if row['title'] is not None else 'Untitled'}"
                      f" · {row['status']} · {row['run_ref']}" for row in data["items"])
         lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
         return "\n".join(lines) + "\n"
     if isinstance(result, ManagedRunWorkspaces):
-        lines = [f"Readable task scopes · Site: {data['site_id']} · queried {data['queried_at']}"]
+        lines = [f"Readable task scopes · Site: {display_site_name(site_label, data['site_id'])} · queried {data['queried_at']}"]
         lines.extend(f"{row['workspace_key']}  {row['label']}" + (
             f" · {row['organization_label']}" if row['organization_label'] is not None else ""
         ) for row in data["items"])
         lines.append(f"Next cursor: {data['next_cursor'] or 'None'}")
         return "\n".join(lines) + "\n"
-    lines = [f"Read scope: {data['workspace_key']} · Site: {data['site_id']}"]
+    lines = [f"Read scope: {data['workspace_key']} · Site: {display_site_name(site_label, data['site_id'])}"]
     if isinstance(result, (ManagedRunList, ManagedRunDetail)):
         lines.append(f"Managed run records · queried {data['queried_at']} (not live queue state)")
         for run in data["items"] if isinstance(result, ManagedRunList) else [data["run"]]:
