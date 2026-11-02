@@ -114,7 +114,11 @@ def test_stats_command_uses_only_exact_run_and_project_site_over_http(tmp_path,p
         output,errors=StringIO(),StringIO()
         result=main(connection+command if prefix else command+connection,environ=_env(tmp_path),stdout=output,stderr=errors)
     assert result==0,errors.getvalue()
-    assert len(server.requests)==1
+    assert len(server.requests)==1 + (output_format == "table")
+    if output_format == "table":
+        assert server.requests[1]["path"] == "/v1/account/cli/sites/site-a/connection"
+        assert server.requests[1]["authorization"] == "Bearer test-bearer-token"
+        assert server.requests[1]["capability"] is None
     request=server.requests[0]
     assert request["path"]=="/v1/compute/cli/runs/run-example-1/stats"
     assert request["query"]=={"workspace_key":["project:project-example"],"site_id":["site-a"]}
