@@ -685,6 +685,11 @@ and enabled shell access, and exposes finance only with `sai.billing.read` and
 the existing workspace financial visibility. It does not inherit the recovery
 route's wider availability or require a native site capability.
 
+Human summaries lead with the server's `funds.spending_power` for general compute
+in the current account/site scope and retain `net_balance` as accounting detail.
+A missing or null spending amount is shown as unavailable; the client never
+derives it from other funds. Deploy the paired Portal producer before this client.
+
 Managed `sai auth status` calls `GET /v1/account/cli/status` with its existing
 Identity resource Bearer. The route accepts no user, workspace or site selector,
 requires the current subject binding, and remains readable for identity recovery.

@@ -15,7 +15,14 @@ scope yields `funds.state=not_authorized` and null amounts. This is a central
 read, never a site-read capability or an identity-recovery endpoint.
 
 Cash/credit/project visibility follows the existing workspace and billing owners.
-`net_balance` is the signed settlement balance used by the console cash presenter;
+`spending_power` is the server's general compute amount for the current account
+and site after obligations and commitments, including applicable unrestricted
+Credit and unused postpaid credit. Product-limited Credit and earmarked contract
+funds remain in their original scoped actions. Project members without
+organization finance access receive no organization spending amount. Human
+summaries lead with this value; a missing or null value is unavailable and is
+never calculated or substituted by the client.
+`net_balance` remains the signed settlement balance shown as accounting detail;
 `available_credit` is current scope/site Credit after reservations, in SAI Credit
 units. It is neither a cash balance nor a guarantee a proposed job can run.
 Unused postpaid credit and running cash exposure remain separate. Project budget

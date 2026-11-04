@@ -18,7 +18,7 @@ from sai_cli.cli import main
 from sai_cli.client import JobQuery, PortalClient
 from sai_cli.errors import ContractError
 from sai_cli.overview import AccountOverview
-from sai_cli.overview_view import render_overview
+from sai_cli.overview_view import overview_rows, render_overview
 from sai_cli.transport import JsonTransport
 from test_site_transport import http_endpoint
 
@@ -50,14 +50,22 @@ def test_missing_optional_account_session_is_a_hint_for_people_not_fake_success(
 
 def test_overview_keeps_money_scope_and_sensitive_field_allowlist():
     value = sample()
+    value["funds"].update(spending_power="73.25000000", postpaid_available="200.00000000",
+                          budget_mode="limited", budget_available="456.00000000",
+                          credit_expires_at="2026-12-01T00:00:00Z")
     value["token"] = "private-token"
     value["funds"]["ledger"] = ["private-ledger"]
     value["inbox"]["items"][0]["payload"] = {"secret": "private-payload"}
     parsed = AccountOverview.from_payload(value, site_id="site-a", account="org-example", request_id="test")
     assert "private-" not in json.dumps(parsed.as_dict())
     assert parsed.values["funds"]["net_balance"] == "1280.50000000"
+    assert parsed.as_dict()["funds"]["spending_power"] == "73.25000000"
     text = render_overview(parsed, work_dir="/org/org-example/run")
     assert "¥1,280.50" in text and "20,000 点" in text and "4 条" in text
+    money = next(value for _, value, kind in overview_rows(parsed) if kind == "money")
+    assert money == "通用计算可用额 ¥73.25 · 项目预算 ¥456.00 · SAI Credit 20,000 点"
+    assert "资金明细  账务净额 ¥1,280.50 · 可用授信 ¥200.00 · 运行现金预估 ¥35.80" in text
+    assert "SAI Credit 最早到期" in text
     assert parsed.messages_url("https://portal.example.org") == "https://portal.example.org/portal/#/portal/workspaces/org%3Aexample/site-a/messages"
     for changed in ("other-site",):
         with pytest.raises(ContractError):
@@ -67,7 +75,9 @@ def test_overview_keeps_money_scope_and_sensitive_field_allowlist():
 
 
 @pytest.mark.parametrize("field,bad", [("net_balance", "1e99999999"), ("available_credit", "NaN"),
-                                        ("net_balance", True), ("postpaid_available", "infinity")])
+                                        ("net_balance", True), ("postpaid_available", "infinity"),
+                                        ("spending_power", "1e9"), ("spending_power", "NaN"),
+                                        ("spending_power", True)])
 def test_overview_rejects_unsafe_amounts(field, bad):
     value = sample()
     value["funds"][field] = bad
@@ -75,22 +85,28 @@ def test_overview_rejects_unsafe_amounts(field, bad):
         AccountOverview.from_payload(value, site_id="site-a", request_id="test")
 
 
-def test_overview_failure_and_message_states_are_not_fabricated():
+@pytest.mark.parametrize("funds_state", ["not_authorized", "unavailable"])
+def test_overview_failure_and_message_states_are_not_fabricated(funds_state):
     value = sample()
     value["inbox"]["items"][0]["title"] = "unsafe\x1b[31m"
     with pytest.raises(ContractError):
         AccountOverview.from_payload(value, site_id="site-a", request_id="test")
 
     value = sample()
-    value["funds"]["state"] = "not_authorized"
+    value["funds"]["state"] = funds_state
     with pytest.raises(ContractError):
         AccountOverview.from_payload(value, site_id="site-a", request_id="test")
     for key in value["funds"]:
         if key not in {"state", "currency"}:
             value["funds"][key] = None
+    value["funds"]["spending_power"] = "73.25000000"
+    with pytest.raises(ContractError):
+        AccountOverview.from_payload(value, site_id="site-a", request_id="test")
+    value["funds"]["spending_power"] = None
     parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
     text = render_overview(parsed)
-    assert "未授权资金读取" in text and "¥0" not in text
+    expected = "未授权资金读取" if funds_state == "not_authorized" else "暂不可读取"
+    assert expected in text and "¥" not in text
     value["inbox"]["unread_count"] = 0
     with pytest.raises(ContractError):
         AccountOverview.from_payload(value, site_id="site-a", request_id="test")
@@ -98,11 +114,36 @@ def test_overview_failure_and_message_states_are_not_fabricated():
 
 def test_overview_small_balances_and_credit_are_not_zero():
     value = sample()
-    value["funds"].update(net_balance="-0.00100000", available_credit="0.00000001")
+    value["funds"].update(spending_power="-0.00000002", net_balance="-0.00100000", available_credit="0.00000001")
     parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
     text = render_overview(parsed)
     assert "¥-0.001" in text and "0.00000001 点" in text
+    assert "通用计算可用额 ¥-0.00000002" in text
     assert parsed.as_dict()["funds"]["net_balance"] == "-0.00100000"
+    assert parsed.as_dict()["funds"]["spending_power"] == "-0.00000002"
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_missing_spending_power_is_unavailable_without_using_other_funds(missing):
+    value = sample()
+    if missing:
+        value["funds"].pop("spending_power", None)
+    else:
+        value["funds"]["spending_power"] = None
+    parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
+    money = next(value for _, value, kind in overview_rows(parsed) if kind == "money")
+    assert money.split(" · ")[0] == "通用计算可用额 暂不可读取"
+    assert parsed.as_dict()["funds"]["spending_power"] is None
+    assert "账务净额 ¥1,280.50" in render_overview(parsed)
+
+
+def test_zero_spending_power_is_zero_with_visible_project_budget():
+    value = sample()
+    value["funds"].update(spending_power="0.00000000", budget_mode="unlimited")
+    parsed = AccountOverview.from_payload(value, site_id="site-a", request_id="test")
+    text = render_overview(parsed)
+    assert "通用计算可用额 ¥0.00 · 项目预算 未设上限" in text
+    assert parsed.as_dict()["funds"]["spending_power"] == "0.00000000"
 
 
 def test_missing_default_does_not_hide_personal_verification_action():
@@ -115,26 +156,33 @@ def test_missing_default_does_not_hide_personal_verification_action():
     assert "¥0" not in text
 
 
-@pytest.mark.parametrize("output_format", ["json", "table"])
-def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, monkeypatch, output_format):
+@pytest.mark.parametrize("output_format", ["json", "table", "tui"])
+@pytest.mark.parametrize("language", ["zh-CN", "en-US"])
+def test_status_uses_self_authorized_central_http_without_site_grant(tmp_path, monkeypatch, output_format, language):
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
-    monkeypatch.setattr(cli_module, "_load_ui_console", lambda: pytest.fail("batch status must not load UI"))
+    if output_format != "tui":
+        monkeypatch.setattr(cli_module, "_load_ui_console", lambda: pytest.fail("batch status must not load UI"))
     def reply(call, _):
         parsed = urlsplit(call["path"])
         assert parsed.path == "/v1/account/cli/overview"
         assert parse_qs(parsed.query) == {"site_id": ["site-a"], "slurm_account_name": ["org-example"]}
-        return 200, sample()
+        value = sample()
+        value["funds"]["spending_power"] = "73.25000000"
+        return 200, value
     with http_endpoint(reply) as (origin, calls):
         for args in (["--site", "site-a", "status"], ["status", "--site", "site-a"]):
             out, err = StringIO(), StringIO()
-            rc = main([*args, "--account", "org-example", "--format", output_format, "--base-url", origin],
+            rc = main([*args, "--account", "org-example", "--format", output_format, "--language", language, "--base-url", origin],
                       environ={"SAI_TOKEN": "test-bearer", "XDG_CONFIG_HOME": str(tmp_path)}, stdout=out, stderr=err)
             assert rc == 0 and not err.getvalue()
             if output_format == "json":
                 assert json.loads(out.getvalue())["inbox"]["unread_count"] == 4
+                assert json.loads(out.getvalue())["funds"]["spending_power"] == "73.25000000"
             else:
-                assert "未读消息  4 条" in out.getvalue()
+                label = "通用计算可用额" if language == "zh-CN" else "General compute spending power"
+                assert f"{label} ¥73.25" in out.getvalue()
+                assert "1,280.50" in out.getvalue()
                 assert "sai tui" not in out.getvalue()
     assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
 

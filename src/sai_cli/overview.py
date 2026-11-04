@@ -84,6 +84,7 @@ class AccountOverview:
                 if funds["currency"] != "CNY":
                     raise ValueError("invalid currency")
                 parsed = {"state": _choice(funds["state"], {"available", "not_authorized", "unavailable"}),
+                          "spending_power": _amount(funds.get("spending_power")),
                           "currency": "CNY", **{key: _amount(funds[key]) for key in
                           ("net_balance", "available_credit", "postpaid_available", "running_cash_exposure", "budget_available")},
                           "budget_mode": None if funds["budget_mode"] is None else _choice(funds["budget_mode"], {"limited", "unlimited"}),
