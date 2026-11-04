@@ -125,6 +125,7 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
             return (403, {'detail':{'code':'scope_denied','message':'Denied'}}) if directory_denied[0] else (200,state())
         if fail[0]:return 403,{'detail':{'code':'scope_denied','message':'Denied'}}
         value=sample()
+        value['funds']['spending_power']='73.25000000'
         if 'slurm_account_name=' in call['path']:
             from urllib.parse import parse_qs,urlsplit
             name=parse_qs(urlsplit(call['path']).query)['slurm_account_name'][0]
@@ -138,6 +139,13 @@ def test_account_names_refresh_and_failure_clear_old_private_data(tmp_path,monke
             async with app.run_test(size=(60,24)) as pilot:
                 await loaded(app,pilot)
                 assert len(calls)==2 and app.snapshot is not None
+                assert app.snapshot.as_dict()['funds']['spending_power']=='73.25000000'
+                from rich.console import Console
+                from io import StringIO
+                out=StringIO()
+                Console(file=out,width=60,color_system=None).print(app.query_one('#content',Static).content)
+                assert '通用计算可用额 ¥73.25' in out.getvalue()
+                assert '账务净额 ¥1,280.50' in out.getvalue()
                 assert not app.query('#choose')
                 app.query_one('#selection',Select).value='org-research'
                 await loaded(app,pilot)

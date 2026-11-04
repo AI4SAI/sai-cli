@@ -21,7 +21,8 @@
     "running_cash_exposure": "35.80000000",
     "budget_available": null,
     "budget_mode": null,
-    "credit_expires_at": null
+    "credit_expires_at": null,
+    "spending_power": "1444.70000000"
   },
   "inbox": {
     "state": "available",

@@ -39,17 +39,18 @@ def overview_rows(overview: AccountOverview, *, work_dir: str | None = None, lan
     elif funds["state"] == "not_authorized":
         rows.append((t("funds"), t("funds_denied"), "plain"))
     else:
-        amounts = []
+        spending_power = t("funds_unavailable") if funds["spending_power"] is None else "¥" + format_decimal(funds["spending_power"])
+        amounts = [t("spending_power") + " " + spending_power]
         if funds["budget_mode"]:
             budget = t("unlimited") if funds["budget_mode"] == "unlimited" and funds["budget_available"] is None else "¥" + format_decimal(funds["budget_available"])
             amounts.append(t("project_budget") + " " + budget)
-        if funds["net_balance"] is not None:
-            amounts.append(t("cash") + " ¥" + format_decimal(funds["net_balance"]))
         if funds["available_credit"] is not None:
             points = format_decimal(funds["available_credit"], trim=True)
             amounts.append(t("credit_points", points=points))
-        rows.append((t("org_shared" if context["kind"] == "org" else "funds"), " · ".join(amounts) or t("no_visible_amount"), "money"))
+        rows.append((t("org_shared" if context["kind"] == "org" else "funds"), " · ".join(amounts), "money"))
         extra = []
+        if funds["net_balance"] is not None:
+            extra.append(t("net_balance") + " ¥" + format_decimal(funds["net_balance"]))
         if funds["postpaid_available"] is not None and Decimal(funds["postpaid_available"]) > 0:
             extra.append(t("postpaid") + " ¥" + format_decimal(funds["postpaid_available"]))
         if funds["running_cash_exposure"] is not None and Decimal(funds["running_cash_exposure"]) > 0:
