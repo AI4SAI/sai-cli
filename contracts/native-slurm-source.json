@@ -1,6 +1,6 @@
 {
   "repository": "AI4SAI/sai-portal",
   "path": "sai_native_slurm.py",
-  "revision": "2a6e8e8f5a9dec8100f1afc9bbd91d014c2d779b",
-  "sha256": "37928f45b0679fe133f609cf1328f01bd46299bc84beb06874742b8d1675a57f"
+  "revision": "1adfcc22447d5bc56a0b1b06603efe46a4091c44",
+  "sha256": "dc8f5ac77975a1acdd6dffa9fe8a3dde930272e1fadea905bf01251bb7858364"
 }

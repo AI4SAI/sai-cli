@@ -1,0 +1,59 @@
+diff --git a/src/sacctmgr/association_functions.c b/src/sacctmgr/association_functions.c
+--- a/src/sacctmgr/association_functions.c
++++ b/src/sacctmgr/association_functions.c
+@@ -228,7 +228,12 @@
+ 	if (!assoc)
+ 		return set;
+ 
+-	if (!xstrncasecmp(type, "Comment", MAX(command_len, 2))) {
++	/* Literal assignments are deliberately not abbreviated. */
++	if (!option && (command_len == 14) &&
++	    !xstrncasecmp(type, "CommentLiteral=", 15)) {
++		assoc->comment = xstrdup(value);
++		set = 1;
++	} else if (!xstrncasecmp(type, "Comment", MAX(command_len, 2))) {
+ 		assoc->comment = strip_quotes(value, NULL, 1);
+ 		set = 1;
+ 	} else if (!xstrncasecmp(type, "DefaultQOS", MAX(command_len, 8))) {
+diff --git a/src/common/slurmdb_pack.c b/src/common/slurmdb_pack.c
+--- a/src/common/slurmdb_pack.c
++++ b/src/common/slurmdb_pack.c
+@@ -991,6 +991,8 @@
+ 					    uint16_t protocol_version,
+ 					    buf_t *buffer)
+ {
++	uint32_t comment_size;
++
+ 	slurmdb_init_assoc_rec(object_ptr, 0);
+ 
+ 	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+@@ -1003,7 +1005,9 @@
+ 
+ 		safe_unpackstr(&object_ptr->acct, buffer);
+ 		safe_unpackstr(&object_ptr->cluster, buffer);
+-		safe_unpackstr(&object_ptr->comment, buffer);
++		/* SQL escaping must not enter the association or controller cache. */
++		if (unpackstr_xmalloc(&object_ptr->comment, &comment_size, buffer))
++			goto unpack_error;
+ 
+ 		safe_unpack32(&object_ptr->def_qos_id, buffer);
+ 		safe_unpack32(&object_ptr->flags, buffer);
+diff --git a/src/plugins/accounting_storage/mysql/accounting_storage_mysql.c b/src/plugins/accounting_storage/mysql/accounting_storage_mysql.c
+--- a/src/plugins/accounting_storage/mysql/accounting_storage_mysql.c
++++ b/src/plugins/accounting_storage/mysql/accounting_storage_mysql.c
+@@ -1989,9 +1989,13 @@
+ 	}
+ 
+ 	if (assoc->comment) {
++		char *escaped_comment = slurm_add_slash_to_quotes(assoc->comment);
++
+ 		xstrcat(*cols, ", comment");
+-		xstrfmtcat(*vals, ", '%s'", assoc->comment);
+-		xstrfmtcat(*extra, ", comment='%s'", assoc->comment);
++		xstrfmtcat(*vals, ", '%s'", escaped_comment ? escaped_comment : "");
++		xstrfmtcat(*extra, ", comment='%s'",
++			   escaped_comment ? escaped_comment : "");
++		xfree(escaped_comment);
+ 	}
+ 
+ 	if (assoc->flags) {

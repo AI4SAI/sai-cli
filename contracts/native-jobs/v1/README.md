@@ -73,6 +73,18 @@ seconds, partition, QOS, nodes, slots, per-node GPU request, memory request and
 reason/nodelist. Unknown values remain null. Extra native script, environment,
 command and filesystem-path fields are discarded.
 
+The optional `pending_reason` object contains only `code` and `account` when the
+same native pending observation carries the scheduler's compute-gate reason.
+The codes are `arrears`, `severe_arrears`, `no_compute_funding` and `admin_blocked`.
+They require native `AssocGrpJobsLimit` and an exact state description:
+`Arrears: ACCOUNT`, `Severe arrears: ACCOUNT`, `No compute funds: ACCOUNT` or
+`Admin disabled: ACCOUNT`. User comments, other native reasons, malformed
+descriptions and running jobs do not supply it. `reason_or_nodelist` keeps
+the original Slurm reason. The account identifies the blocking association,
+possibly an ancestor, without selecting a read scope or granting access.
+Tables use a short reason label; selected details also name the blocking
+account. Producers without this field remain readable.
+
 `job_id` is the decimal array base when present, otherwise the native job ID.
 `array_task_id` preserves task zero and may contain a bracketed native array
 range for a grouped pending row. It must not be mistaken for an exact remote

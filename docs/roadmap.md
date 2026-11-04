@@ -9,6 +9,10 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
+- [x] Carry recognized native pending-job reasons through local jobs, gateway
+  DTOs and terminal detail, preserving the original Slurm reason and scope.
+  Paired native producer and production consumption remain separate validation.
+
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and numbered allocation inspection
   in the portable `0.2.0a1` alpha; see [query usability](terminal-scope.md#query-usability-correction).

@@ -7,9 +7,15 @@ clients. A source migration is not a deployment or live-site verification.
 
 ## Response
 
+The nested job may carry the optional native `pending_reason` code/account,
+alongside its unchanged `reason_or_nodelist`. It is present only for a recognized
+compute-gate blocker on a pending job. It adds no allocation or account access;
+missing fields remain compatible with older producers. Local exact-job detail
+uses the same projection and displays the blocking account with the short reason.
+
 `schema.json` and `sample.json` are the shared machine-readable contract and a
-synthetic observation. Pilot bundles byte-identical copies. All modeled fields
-are required; consumers recursively discard unknown additive fields before
+synthetic observation. Pilot bundles byte-identical copies. The schema identifies
+required fields; consumers recursively discard unknown additive fields before
 validation. Beyond JSON Schema, consumers check native integer types, exact
 Portal-resolved scope and subject, base/task identity (including task `0`),
 first scheduler-state agreement, sorted unique node names, real UTC dates and

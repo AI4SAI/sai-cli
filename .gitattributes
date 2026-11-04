@@ -1,0 +1,2 @@
+# Unified diff context prefixes original tabs and empty lines with a space.
+site/slurm/patches/*.patch whitespace=-blank-at-eol,-space-before-tab

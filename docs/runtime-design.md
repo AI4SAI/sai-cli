@@ -574,6 +574,12 @@ Table mode keeps the established SAI meanings:
 - `Reason/Nodelist` is a pending reason or the allocated node expression,
   depending on state.
 
+A validated native `pending_reason` adds a short business label in that existing
+cell; selected job context and allocation details also show the blocking account.
+The original Slurm reason remains in JSON. No extra source read, account lookup,
+per-row explanation or financial decision is added. Running observations never
+retain a pending reason from an earlier read.
+
 Table rendering uses no ANSI color by default so redirects and wrapper output
 remain deterministic.
 

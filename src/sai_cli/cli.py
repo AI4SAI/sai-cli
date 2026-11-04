@@ -1102,9 +1102,9 @@ def main(
             else:
                 output.write(render_site_allocation(result, site_label=site_label()))
         elif isinstance(result, SiteJobResult):
-            output.write(render_site_jobs(result, site_label=site_label()))
+            output.write(render_site_jobs(result, site_label=site_label(), detail=args.jobs_command == "show"))
         else:
-            output.write(render_table(result, site_label=site_label()))
+            output.write(render_table(result, site_label=site_label(), detail=args.jobs_command == "show"))
         return 0
     except SaiCliError as exc:
         missing_session = isinstance(exc, AuthenticationError) and exc.code == "credentials_unavailable"

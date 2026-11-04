@@ -14,6 +14,81 @@ _MAX_INDEX = 2**31 - 1
 MAX_OBSERVATION_GRES_ENTRIES = 4096
 MAX_OBSERVATION_GRES_INDICES = 65536
 
+COMPUTE_BLOCK_REASONS = frozenset({
+    "arrears", "severe_arrears", "no_compute_funding", "admin_blocked",
+})
+_COMPUTE_GATE_PREFIX = "[sai.compute-gate/v1:"
+_COMPUTE_GATE_MARKER = re.compile(r"\[sai\.compute-gate/v1:([a-z_]+)\](?: |$)")
+_COMPUTE_GATE_DESCRIPTIONS = {
+    "Arrears": "arrears", "Severe arrears": "severe_arrears",
+    "No compute funds": "no_compute_funding", "Admin disabled": "admin_blocked",
+}
+_PENDING_COMPUTE_GATE = re.compile(
+    r"(Arrears|Severe arrears|No compute funds|Admin disabled): ([A-Za-z0-9][A-Za-z0-9_.+-]{0,127})"
+)
+
+
+def validate_compute_block_reason(reason: object) -> str | None:
+    if reason is not None and (not isinstance(reason, str) or reason not in COMPUTE_BLOCK_REASONS):
+        raise ValueError("invalid compute block reason")
+    return reason
+
+
+def read_compute_gate_comment(comment: object) -> str | None:
+    """Read only the managed prefix; operator text is never a public reason."""
+    if comment is None:
+        return None
+    if not isinstance(comment, str):
+        raise ValueError("invalid native association comment")
+    if not comment.startswith(_COMPUTE_GATE_PREFIX):
+        return None
+    marker = _COMPUTE_GATE_MARKER.match(comment)
+    if marker is None:
+        raise ValueError("invalid compute gate comment")
+    return validate_compute_block_reason(marker[1])
+
+
+def write_compute_gate_comment(comment: object, reason: object) -> str:
+    """Replace our prefix while preserving the operator's original text."""
+    reason = validate_compute_block_reason(reason)
+    existing = read_compute_gate_comment(comment)
+    text = comment or ""
+    if existing is not None:
+        text = text[len(f"{_COMPUTE_GATE_PREFIX}{existing}]"):]
+        if text.startswith(" "):
+            text = text[1:]
+    if reason is None:
+        return text
+    return f"{_COMPUTE_GATE_PREFIX}{reason}]" + (" " + text if text else "")
+
+
+def normalize_job_pending_reason(item: dict[str, Any]) -> dict[str, str] | None:
+    """Project only the actual native association blocker from this observation."""
+    state = item.get("job_state", item.get("state"))
+    if isinstance(state, list):
+        state = state[0] if state else None
+    if not isinstance(state, str) or state not in {"PD", "PENDING"} or item.get("state_reason") != "AssocGrpJobsLimit":
+        return None
+    description = item.get("state_description")
+    if not isinstance(description, str):
+        return None
+    match = _PENDING_COMPUTE_GATE.fullmatch(description)
+    if match is None:
+        return None
+    return {"code": _COMPUTE_GATE_DESCRIPTIONS[match[1]], "account": match[2]}
+
+
+def validate_job_pending_reason(value: object, *, state: object, reason: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or state not in ("PD", "PENDING") or reason != "AssocGrpJobsLimit":
+        raise ValueError("invalid job pending reason")
+    code = validate_compute_block_reason(value.get("code"))
+    account = value.get("account")
+    if code is None or not isinstance(account, str) or _IDENTIFIER.fullmatch(account) is None:
+        raise ValueError("invalid job pending reason")
+    return {"code": code, "account": account}
+
 
 class GresBudgetExceeded(ValueError):
     """The observation cannot publish a complete bounded GRES layer."""

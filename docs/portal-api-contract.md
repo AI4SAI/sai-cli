@@ -466,6 +466,18 @@ Every item must contain exactly the documented semantic field set after client
 normalization. Values may be null where the scheduler has no fact. Unknown
 server fields are not forwarded by the CLI.
 
+Job rows optionally carry `pending_reason: {"code": "arrears", "account": "org-example"}`
+from the same native pending observation. Allowed codes are `arrears`,
+`severe_arrears`, `no_compute_funding` and `admin_blocked`; they require state
+`PD` and original `reason_or_nodelist=AssocGrpJobsLimit`. The native projection
+recognizes only the exact `Arrears: ACCOUNT`, `Severe arrears: ACCOUNT`,
+`No compute funds: ACCOUNT` or `Admin disabled: ACCOUNT` state description,
+never user comments.
+The named blocking account may be an ancestor and grants no additional account
+visibility. Gateway, central relay, local jobs and exact allocation share this
+optional field; older responses remain valid. Display labels do not replace
+the original reason in JSON or price a pending job.
+
 The default job response must not expose:
 
 - work directories, stdout/stderr paths, submit scripts, commands, or
