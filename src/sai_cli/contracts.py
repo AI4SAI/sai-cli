@@ -358,7 +358,7 @@ class AccountStatus:
 
 @dataclass(frozen=True)
 class JobItem:
-    values: dict[str, str | int | None]
+    values: dict[str, Any]
 
     @property
     def canonical_id(self) -> str:
@@ -376,7 +376,7 @@ class JobItem:
     ) -> "JobItem":
         if not isinstance(payload, dict):
             raise ContractError(request_id=request_id)
-        values: dict[str, str | int | None] = {
+        values: dict[str, Any] = {
             "job_id": _required_text(
                 payload,
                 "job_id",
@@ -396,6 +396,14 @@ class JobItem:
                 values[key] = _nullable_int(payload, key, request_id=request_id)
             else:
                 raise AssertionError(f"unclassified job field: {key}")
+        if "pending_reason" in payload:
+            from sai_native_slurm import validate_job_pending_reason
+            try:
+                values["pending_reason"] = validate_job_pending_reason(
+                    payload["pending_reason"], state=values["state"], reason=values["reason_or_nodelist"],
+                )
+            except ValueError as exc:
+                raise ContractError("The job pending reason is invalid.", request_id=request_id) from exc
         if "run_link" in payload:
             values["run_link"] = _nullable_sha256_text(payload, "run_link", request_id=request_id)
         if "run_ref" in payload:
@@ -406,8 +414,8 @@ class JobItem:
             values["run_ref"] = value
         return cls(values=values)
 
-    def as_dict(self) -> dict[str, str | int | None]:
-        fields = (*JOB_ITEM_FIELDS, *(key for key in ("run_link", "run_ref") if key in self.values))
+    def as_dict(self) -> dict[str, Any]:
+        fields = (*JOB_ITEM_FIELDS, *(key for key in ("pending_reason", "run_link", "run_ref") if key in self.values))
         return {key: self.values[key] for key in fields}
 
 

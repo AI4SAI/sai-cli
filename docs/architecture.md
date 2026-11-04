@@ -13,6 +13,11 @@ queries, and a default-account management operation. Broader Portal management
 remains a target. It owns neither
 business authorization nor scheduler decisions.
 
+Pending-job business reasons remain native observations. The shared Slurm
+projection recognizes the actual scheduler blocker; CLI and remote DTOs retain
+its optional code/account alongside the original Slurm reason. Presentation
+adds no account authority, pricing lookup or new query.
+
 The [product task map](product-delivery.md) connects these boundaries to complete
 human and Agent journeys. The public client, contracts and bundled Agent guidance
 use Apache-2.0 with separately identified upstream licenses; each release retains

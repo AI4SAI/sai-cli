@@ -11,6 +11,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from textwrap import fill
 from zoneinfo import ZoneInfo
+from .job_reasons import job_reason
 
 from .messages import display_site_name
 
@@ -168,7 +169,7 @@ def _row(item: JobItem, *, local_time: bool = False) -> dict[str, str]:
         "gpus_per_node": _display(values["gpus_per_node"]),
         "mem_per_unit": _display(values["mem_per_unit"]),
         "array_task_id": _display(values["array_task_id"]),
-        "reason_or_nodelist": _display(values["reason_or_nodelist"]),
+        "reason_or_nodelist": _display(job_reason(values)),
     }
 
 
@@ -287,16 +288,19 @@ def job_table_lines(items: tuple[JobItem, ...], *, notes: tuple[str, ...] = _JOB
     return lines
 
 
-def render_table(result: JobResult, *, site_label: str | None = None) -> str:
+def render_table(result: JobResult, *, site_label: str | None = None, detail: bool = False) -> str:
     header = (
         f"Site: {display_site_name(site_label, result.site_id)}  "
         f"Scope: {result.scope}  Source: {result.freshness.source}  "
         f"Queried: {result.freshness.queried_at}"
     )
-    return "\n".join([header, *job_table_lines(result.items)]) + "\n"
+    lines = [header, *job_table_lines(result.items)]
+    if detail and len(result.items) == 1 and result.items[0].values.get("pending_reason"):
+        lines.append(job_reason(result.items[0].values, detail=True))
+    return "\n".join(lines) + "\n"
 
 
-def render_site_jobs(result: SiteJobResult, *, site_label: str | None = None) -> str:
+def render_site_jobs(result: SiteJobResult, *, site_label: str | None = None, detail: bool = False) -> str:
     freshness = result.freshness
     lines = [
         f"Site: {display_site_name(site_label, result.site_id)}  "
@@ -305,6 +309,8 @@ def render_site_jobs(result: SiteJobResult, *, site_label: str | None = None) ->
         f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
         *job_table_lines(result.items),
     ]
+    if detail and len(result.items) == 1 and result.items[0].values.get("pending_reason"):
+        lines.append(job_reason(result.items[0].values, detail=True))
     return "\n".join(lines) + "\n"
 
 
@@ -319,6 +325,8 @@ def render_site_allocation(result: SiteJobAllocationResult, *, site_label: str |
         f"Scheduler states: {', '.join(result.scheduler_states)}",
         f"Restart count: {_display(result.restart_count)}  Allocation: {result.allocation_status}",
     ]
+    if result.job.values["state"] == "PD" and result.job.values.get("reason_or_nodelist"):
+        lines.append("Waiting: " + job_reason(result.job.values, language="en-US", detail=True))
     if result.nodes:
         rows = [(node.name, str(node.cpus), _display(node.memory_mib),
                  "Unknown" if node.gres is None else "; ".join(

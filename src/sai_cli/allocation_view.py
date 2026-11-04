@@ -7,6 +7,7 @@ from rich.console import Console, ConsoleOptions, Group, RenderResult
 from rich.text import Text
 from rich.table import Table
 from .native_resource_view import ALLOCATED, UNKNOWN, _gib
+from .job_reasons import job_reason
 
 
 def ranges(values: list[int]) -> str:
@@ -48,7 +49,7 @@ def _allocation_view(value: dict, *, language: str, width: int, expanded: bool =
         blocks.append(Text(("尚未分配节点" if chinese else "No nodes allocated") if state == "not_allocated" else
                            ("当前分配未知" if chinese else "Allocation unavailable"), style=UNKNOWN))
         if job.get("reason_or_nodelist"):
-            blocks.append(Text(job["reason_or_nodelist"]))
+            blocks.append(Text(job_reason(job, language=language, detail=True)))
         return Group(*blocks)
     from .interconnect_view import node_interconnect, fabric_view
     failures = {row["node"]: row["reason"] for row in value.get("interconnect", {}).get("nodes", ())

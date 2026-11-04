@@ -40,6 +40,33 @@ The privileged password `authn-relay` is a third, separate service. Its reset
 credential and failure domain must never be exposed to the CLI, read gateway,
 or controller plugin.
 
+## Applied account restriction diagnostics
+
+Financial restriction reasons use the existing account resource-limit publisher,
+not the static GPU snapshot or a call from Lua. The publisher carries its
+already-decided reason alongside `GrpJobs=0` in an owned association Comment
+prefix. Reason-only changes participate in normal reconciliation and readback;
+opening the gate removes the prefix while preserving operator notes. Initial
+provisioning without a financial decision remains unclassified.
+
+The matched [native diagnostic patch](../site/slurm/patches/README.md) adds a
+short `state_description` only where Slurm itself finds the actual blocking
+association. It preserves `state_reason`, native QoS precedence, reservations,
+holds and submission return codes. The same observation supplies CLI, gateway
+and Agent `pending_reason` data. Human queue rows use a short label; details can
+name the blocking account. Ordinary `squeue` also receives a short description.
+
+Submission notices use that same native decision in the existing response
+channel, after Slurm has resolved the request. This avoids predicting the
+scheduler's result in the earlier Lua callback. It does not add another
+submission prohibition or make warnings proof of acceptance.
+
+The publisher requires the matched `CommentLiteral` client and DBD changes to
+preserve comments through argument parsing, native serialization and SQL storage.
+Deploy those components before enabling the new publisher; retain native package
+rollback together with the paired producer and readers. Local source checks and
+isolated native acceptance do not establish production activation.
+
 ## Submission Rules
 
 When a GPU TRES is requested, the submit hook applies these rules:

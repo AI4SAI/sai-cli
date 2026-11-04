@@ -269,6 +269,40 @@
               "type": "null"
             }
           ]
+        },
+        "pending_reason": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "arrears",
+                    "severe_arrears",
+                    "no_compute_funding",
+                    "admin_blocked"
+                  ]
+                },
+                "account": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$",
+                  "not": {
+                    "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
+                  }
+                }
+              },
+              "required": [
+                "code",
+                "account"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -292,7 +326,31 @@
         "mem_per_unit",
         "reason_or_nodelist"
       ],
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "pending_reason"
+            ],
+            "properties": {
+              "pending_reason": {
+                "type": "object"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "const": "PD"
+              },
+              "reason_or_nodelist": {
+                "const": "AssocGrpJobsLimit"
+              }
+            }
+          }
+        }
+      ]
     },
     "node": {
       "additionalProperties": true,

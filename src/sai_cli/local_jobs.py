@@ -9,6 +9,7 @@ import os
 import re
 from typing import Any, Mapping
 
+from sai_native_slurm import normalize_job_pending_reason
 from .contracts import JobItem, short_job_state
 from .errors import ConfigError, ContractError
 from .native_process import read_native_json
@@ -17,6 +18,7 @@ from .native_values import (invalid_native as _invalid, native_number as _number
                             native_header, native_user)
 from .render import _duration
 from .render import _line, _truncate
+from .job_reasons import job_reason
 
 
 def _timestamp(value: int | None) -> str | None:
@@ -93,6 +95,9 @@ def _item(job: object, *, observed: int) -> JobItem:
         "gpus_per_node": gpu_count, "mem_per_unit": _memory(job),
         "reason_or_nodelist": _text(job.get("state_reason" if state == "PD" else "nodes")),
     }
+    pending_reason = normalize_job_pending_reason(job)
+    if pending_reason is not None:
+        values["pending_reason"] = pending_reason
     try:
         return JobItem.from_payload(values, request_id="native-squeue",
                                     text_limits={key: 16384 for key in values})
@@ -183,7 +188,7 @@ def render_local_jobs(result: LocalJobs) -> str:
         cells = [value["job_id"], value["priority"], _truncate(value["name"] or "-", 13), value["slurm_user"],
                  timestamp, value["state"], _duration(value["run_wait_seconds"]), value["partition"], value["qos"],
                  value["nodes"], value["slots"], value["gpus_per_node"], value["mem_per_unit"],
-                 value["array_task_id"], value["reason_or_nodelist"]]
+                 value["array_task_id"], job_reason(value)]
         rows.append(["-" if cell is None or cell == "" else str(cell) for cell in cells])
     # Keep the familiar spacing while allowing IDs and native memory units to fit.
     for index in (0, 1, 3, 5, 7, 8, 9, 10, 11, 12, 13):

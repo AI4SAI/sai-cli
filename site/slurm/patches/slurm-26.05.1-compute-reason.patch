@@ -1,0 +1,196 @@
+diff --git a/src/slurmctld/acct_policy.c b/src/slurmctld/acct_policy.c
+--- a/src/slurmctld/acct_policy.c
++++ b/src/slurmctld/acct_policy.c
+@@ -3737,6 +3737,90 @@
+ 	return rc;
+ }
+ 
++typedef struct {
++	const char *marker;
++	const char *description;
++	const char *warning;
++} compute_gate_reason_t;
++
++static const compute_gate_reason_t _compute_gate_reasons[] = {
++	{ "[sai.compute-gate/v1:arrears]",
++	  "Arrears",
++	  "欠费，暂不能启动 / Overdue charges; cannot start." },
++	{ "[sai.compute-gate/v1:severe_arrears]",
++	  "Severe arrears",
++	  "严重欠费，暂不能启动 / Severe arrears; cannot start." },
++	{ "[sai.compute-gate/v1:no_compute_funding]",
++	  "No compute funds",
++	  "资金不足，暂不能启动 / No available compute funding." },
++	{ "[sai.compute-gate/v1:admin_blocked]",
++	  "Admin disabled",
++	  "已被管理员限制启动 / Start blocked by administrator." },
++};
++
++static const compute_gate_reason_t *_compute_gate_reason(const char *text)
++{
++	if (!text)
++		return NULL;
++	for (size_t i = 0; i < ARRAY_SIZE(_compute_gate_reasons); i++) {
++		const compute_gate_reason_t *reason = &_compute_gate_reasons[i];
++		size_t len = strlen(reason->marker);
++
++		if (!strncmp(text, reason->marker, len) &&
++		    (!text[len] || (text[len] == ' ')))
++			return reason;
++	}
++	return NULL;
++}
++
++static bool _compute_gate_account_valid(const char *account)
++{
++	size_t len;
++
++	if (!account || !(len = strnlen(account, 129)) || (len > 128))
++		return false;
++	if (!((account[0] >= '0' && account[0] <= '9') ||
++	      (account[0] >= 'A' && account[0] <= 'Z') ||
++	      (account[0] >= 'a' && account[0] <= 'z')))
++		return false;
++	return strspn(account, "abcdefghijklmnopqrstuvwxyz"
++		      "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.+-") == len;
++}
++
++static const compute_gate_reason_t *_compute_gate_description(
++	const char *text, const char **account)
++{
++	if (!text)
++		return NULL;
++	for (size_t i = 0; i < ARRAY_SIZE(_compute_gate_reasons); i++) {
++		const compute_gate_reason_t *reason = &_compute_gate_reasons[i];
++		size_t len = strlen(reason->description);
++
++		if (strncmp(text, reason->description, len) ||
++		    strncmp(text + len, ": ", 2) ||
++		    !_compute_gate_account_valid(text + len + 2))
++			continue;
++		if (account)
++			*account = text + len + 2;
++		return reason;
++	}
++	return NULL;
++}
++
++extern void acct_policy_add_compute_gate_warning(job_record_t *job_ptr,
++						 char **message)
++{
++	const compute_gate_reason_t *reason;
++	const char *account;
++
++	if (!message || !job_ptr || !IS_JOB_PENDING(job_ptr) ||
++	    (job_ptr->state_reason != WAIT_ASSOC_GRP_JOB) ||
++	    !(reason = _compute_gate_description(job_ptr->state_desc, &account)))
++		return;
++	xstrfmtcat(*message, "%sWARNING: Account %s %s",
++		   *message ? "\n" : "", account, reason->warning);
++}
++
+ /*
+  * acct_policy_job_runnable_pre_select - Determine if the specified
+  *	job can execute right now or not depending upon accounting
+@@ -3754,6 +3838,7 @@
+ 	bool rc = true;
+ 	uint32_t wall_mins;
+ 	bool safe_limits = false;
++	char *old_compute_gate_desc = NULL;
+ 	int parent = 0; /* flag to tell us if we are looking at the
+ 			 * parent or not
+ 			 */
+@@ -3773,6 +3858,11 @@
+ 	/* now see if we are enforcing limits */
+ 	if (!(accounting_enforce & ACCOUNTING_ENFORCE_LIMITS))
+ 		return true;
++
++	/* Preserve only the diagnostic for change notification after reevaluation. */
++	if ((job_ptr->state_reason == WAIT_ASSOC_GRP_JOB) &&
++	    _compute_gate_description(job_ptr->state_desc, NULL))
++		SWAP(old_compute_gate_desc, job_ptr->state_desc);
+ 
+ 	/* clear old state reason */
+ 	if (job_state_reason_check(job_ptr->state_reason, JSR_QOS_ASSOC)) {
+@@ -3834,6 +3924,16 @@
+ 		    (use_usage->used_jobs >= assoc_ptr->grp_jobs)) {
+ 			xfree(job_ptr->state_desc);
+ 			job_ptr->state_reason = WAIT_ASSOC_GRP_JOB;
++			if ((assoc_ptr->grp_jobs == 0) &&
++			    _compute_gate_account_valid(assoc_ptr->acct)) {
++				const compute_gate_reason_t *reason =
++					_compute_gate_reason(assoc_ptr->comment);
++
++				if (reason)
++					job_ptr->state_desc = xstrdup_printf(
++						"%s: %s", reason->description,
++						assoc_ptr->acct);
++			}
+ 			debug2("%pJ being held, assoc %u is at or exceeds group max jobs limit %u with %u for account %s",
+ 			       job_ptr, assoc_ptr->id, assoc_ptr->grp_jobs,
+ 			       use_usage->used_jobs, assoc_ptr->acct);
+@@ -3969,6 +4069,12 @@
+ 	if (!assoc_mgr_locked)
+ 		assoc_mgr_unlock(&locks);
+ 	slurmdb_free_qos_rec_members(&qos_rec);
++	if ((old_compute_gate_desc ||
++	     ((job_ptr->state_reason == WAIT_ASSOC_GRP_JOB) &&
++	      _compute_gate_description(job_ptr->state_desc, NULL))) &&
++	    xstrcmp(old_compute_gate_desc, job_ptr->state_desc))
++		last_job_update = time(NULL);
++	xfree(old_compute_gate_desc);
+ 
+ 	return rc;
+ }
+diff --git a/src/slurmctld/acct_policy.h b/src/slurmctld/acct_policy.h
+--- a/src/slurmctld/acct_policy.h
++++ b/src/slurmctld/acct_policy.h
+@@ -46,6 +46,10 @@
+  *	accounting policy purposes.
+  */
+ extern void acct_policy_add_job_submit(job_record_t *job_ptr, bool assoc_lock);
++
++/* Append a fixed warning for an already observed managed account blocker. */
++extern void acct_policy_add_compute_gate_warning(job_record_t *job_ptr,
++						 char **message);
+ 
+ /*
+  * acct_policy_remove_job_submit - Note that a job has finished (might
+diff --git a/src/slurmctld/proc_req.c b/src/slurmctld/proc_req.c
+--- a/src/slurmctld/proc_req.c
++++ b/src/slurmctld/proc_req.c
+@@ -798,6 +798,8 @@
+ 
+ 	alloc_msg->error_code     = error_code;
+ 	alloc_msg->job_submit_user_msg = xstrdup(job_submit_user_msg);
++	acct_policy_add_compute_gate_warning(job_ptr,
++					    &alloc_msg->job_submit_user_msg);
+ 	alloc_msg->step_id = STEP_ID_FROM_JOB_RECORD(job_ptr);
+ 	alloc_msg->node_cnt       = job_ptr->node_cnt;
+ 	alloc_msg->node_list      = xstrdup(job_ptr->nodes);
+@@ -1244,6 +1246,7 @@
+ 		_het_job_val_init(job_ptr);
+ 		if (!_het_job_component_acct_policy_runnable(job_ptr)) {
+ 			error_code = ESLURM_ACCOUNTING_POLICY;
++			acct_policy_add_compute_gate_warning(job_ptr, &err_msg);
+ 			_het_job_val_fini(job_ptr);
+ 			break;
+ 		}
+@@ -3923,6 +3926,8 @@
+ 			step_id = STEP_ID_FROM_JOB_RECORD(job_ptr);
+ 			step_id.step_id = SLURM_BATCH_SCRIPT;
+ 			priority = job_ptr->priority;
++			acct_policy_add_compute_gate_warning(
++				job_ptr, &job_submit_user_msg);
+ 		}
+ 
+ 		if (job_desc_msg->immediate &&
+@@ -4175,6 +4180,8 @@
+ 			_het_job_val_init(job_ptr);
+ 			if (!_het_job_component_acct_policy_runnable(job_ptr)) {
+ 				error_code = ESLURM_ACCOUNTING_POLICY;
++				acct_policy_add_compute_gate_warning(job_ptr,
++								    &err_msg);
+ 				reject_job = true;
+ 				_het_job_val_fini(job_ptr);
+ 				break;
