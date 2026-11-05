@@ -466,17 +466,17 @@ Every item must contain exactly the documented semantic field set after client
 normalization. Values may be null where the scheduler has no fact. Unknown
 server fields are not forwarded by the CLI.
 
-Job rows optionally carry `pending_reason: {"code": "arrears", "account": "org-example"}`
-from the same native pending observation. Allowed codes are `arrears`,
-`severe_arrears`, `no_compute_funding` and `admin_blocked`; they require state
-`PD` and original `reason_or_nodelist=AssocGrpJobsLimit`. The native projection
-recognizes only the exact `Arrears: ACCOUNT`, `Severe arrears: ACCOUNT`,
-`No compute funds: ACCOUNT` or `Admin disabled: ACCOUNT` state description,
-never user comments.
-The named blocking account may be an ancestor and grants no additional account
-visibility. Gateway, central relay, local jobs and exact allocation share this
-optional field; older responses remain valid. Display labels do not replace
-the original reason in JSON or price a pending job.
+Job rows optionally carry `account_restriction`, containing `code`, `account`,
+`source=sai_applied_policy` and integer epoch `observed_at`. Allowed codes are
+`arrears`, `severe_arrears`, `no_compute_funding` and `admin_blocked`; they require
+state `PD` and original `reason_or_nodelist=AssocGrpJobsLimit`. The source is a
+separate applied SAI account-policy snapshot, not Slurm's reason or comments.
+The account may be an observed ancestor and grants no additional visibility.
+Gateway, relay, local jobs and exact allocation share the typed context. Native
+readers ignore injected account fields and add context only from the snapshot.
+Missing context does not imply available funding. Old alpha `pending_reason`
+fields are discarded and no longer produced. Labels retain the original reason
+in JSON and do not price a pending job.
 
 The default job response must not expose:
 

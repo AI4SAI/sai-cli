@@ -396,14 +396,14 @@ class JobItem:
                 values[key] = _nullable_int(payload, key, request_id=request_id)
             else:
                 raise AssertionError(f"unclassified job field: {key}")
-        if "pending_reason" in payload:
-            from sai_native_slurm import validate_job_pending_reason
+        if "account_restriction" in payload:
+            from sai_compute_restrictions import validate_account_restriction
             try:
-                values["pending_reason"] = validate_job_pending_reason(
-                    payload["pending_reason"], state=values["state"], reason=values["reason_or_nodelist"],
+                values["account_restriction"] = validate_account_restriction(
+                    payload["account_restriction"], state=values["state"], reason=values["reason_or_nodelist"],
                 )
             except ValueError as exc:
-                raise ContractError("The job pending reason is invalid.", request_id=request_id) from exc
+                raise ContractError("The SAI account restriction is invalid.", request_id=request_id) from exc
         if "run_link" in payload:
             values["run_link"] = _nullable_sha256_text(payload, "run_link", request_id=request_id)
         if "run_ref" in payload:
@@ -415,7 +415,7 @@ class JobItem:
         return cls(values=values)
 
     def as_dict(self) -> dict[str, Any]:
-        fields = (*JOB_ITEM_FIELDS, *(key for key in ("pending_reason", "run_link", "run_ref") if key in self.values))
+        fields = (*JOB_ITEM_FIELDS, *(key for key in ("account_restriction", "run_link", "run_ref") if key in self.values))
         return {key: self.values[key] for key in fields}
 
 

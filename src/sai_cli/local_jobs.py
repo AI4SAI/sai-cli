@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
 import re
-from typing import Any, Mapping
+import sys
+from typing import Any, Mapping, TextIO
 
-from sai_native_slurm import normalize_job_pending_reason
+from sai_compute_restrictions import read_snapshot, restriction_for_job
 from .contracts import JobItem, short_job_state
 from .errors import ConfigError, ContractError
 from .native_process import read_native_json
@@ -95,9 +96,6 @@ def _item(job: object, *, observed: int) -> JobItem:
         "gpus_per_node": gpu_count, "mem_per_unit": _memory(job),
         "reason_or_nodelist": _text(job.get("state_reason" if state == "PD" else "nodes")),
     }
-    pending_reason = normalize_job_pending_reason(job)
-    if pending_reason is not None:
-        values["pending_reason"] = pending_reason
     try:
         return JobItem.from_payload(values, request_id="native-squeue",
                                     text_limits={key: 16384 for key in values})
@@ -124,7 +122,20 @@ class LocalJobs:
                 "has_more": self.has_more, "warning_count": self.warning_count}
 
 
-def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> LocalJobs:
+def _account_context(items: tuple[JobItem, ...], *, cluster: str, stderr: TextIO | None = None) -> tuple[JobItem, ...]:
+    if not any(item.values["state"] == "PD" and item.values["reason_or_nodelist"] == "AssocGrpJobsLimit" for item in items):
+        return items
+    try:
+        snapshot = read_snapshot(cluster=cluster)
+    except (OSError, ValueError, RecursionError):
+        (sys.stderr if stderr is None else stderr).write(
+            "WARNING [account_restrictions_unavailable]: SAI account status is unavailable.\n")
+        return items
+    return tuple(JobItem({**item.values, "account_restriction": restriction})
+                 if (restriction := restriction_for_job(item.values, snapshot)) is not None else item for item in items)
+
+
+def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str], stderr: TextIO | None = None) -> LocalJobs:
     timeout = local_options(args, command="jobs local")
     if args.limit is not None and not 1 <= args.limit <= 100000:
         raise ConfigError("--limit must be between 1 and 100000")
@@ -171,6 +182,7 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str]) -> 
     has_more = args.limit is not None and len(items) > args.limit
     if args.limit is not None:
         items = items[:args.limit]
+    items = _account_context(items, cluster=cluster, stderr=stderr)
     return LocalJobs(cluster=cluster, actor=actor, uid=os.geteuid(), filters=filters,
                      observed_at=observed_at.isoformat().replace("+00:00", "Z"), items=items,
                      has_more=has_more, warning_count=warning_count)

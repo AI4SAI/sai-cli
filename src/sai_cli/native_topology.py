@@ -6,11 +6,11 @@ from datetime import datetime, timezone
 import argparse
 import os
 import re
-from typing import Mapping
+from typing import Mapping, TextIO
 
 from sai_native_slurm import normalize_job_allocation, bind_job_topology, node_topology_command, select_job_visibility_item
 from .errors import ConfigError, NotFoundError
-from .local_jobs import _item
+from .local_jobs import _item, _account_context
 from .native_process import read_native_json, read_native_output
 from .native_values import local_options, native_environment, native_header, native_user, invalid_native
 
@@ -23,7 +23,7 @@ class NativeTopology:
         return self.values
 
 
-def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, str]) -> NativeTopology:
+def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, str], stderr: TextIO | None = None) -> NativeTopology:
     timeout = local_options(args, command="jobs local")
     job_id = args.job_id
     if not isinstance(job_id, str) or re.fullmatch(r"[0-9]{1,20}(?:_[0-9]{1,20})?", job_id) is None:
@@ -48,6 +48,7 @@ def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, s
     if len(jobs) != 1:
         raise invalid_native()
     raw, job = jobs[0]
+    job, = _account_context((job,), cluster=cluster, stderr=stderr)
     try:
         allocation = normalize_job_allocation(raw)
         if allocation["status"] == "allocated":

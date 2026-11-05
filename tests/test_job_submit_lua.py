@@ -36,15 +36,17 @@ def _snapshot(tmp_path: Path, payload: dict | None = None) -> Path:
     return output
 
 
-def _prelude(snapshot: Path, *, expected: int = 0) -> str:
+def _prelude(snapshot: Path, *, expected: int = 0, restrictions: Path | None = None) -> str:
     return f"""
 SAI_SUBMIT_POLICY_PATH = {json.dumps(str(snapshot))}
+SAI_ACCOUNT_RESTRICTIONS_PATH = {json.dumps(str(restrictions or snapshot.parent / 'missing-restrictions.lua'))}
 slurm = {{
     SUCCESS = 0,
     ERROR = -1,
     ESLURM_ACCOUNTING_POLICY = 2050,
     ESLURM_INVALID_GRES = 2070,
     NO_VAL16 = 65534,
+    CLUSTER_NAME = "cluster-a",
 }}
 messages = {{}}
 function slurm.user_msg(message) table.insert(messages, message) end
@@ -467,10 +469,66 @@ def test_submit_callback_has_no_runtime_external_io() -> None:
     text = PLUGIN.read_text(encoding="utf-8")
     submit_body = text.split("function slurm_job_submit", 1)[1]
 
-    assert text.count("dofile") == 1
+    assert text.count("dofile") == 2
     assert "dofile" not in submit_body
     assert "require(" not in text
     assert "io." not in text
     assert "os.execute" not in text
     assert "popen" not in text
     assert "package.loadlib" not in text
+
+
+def test_account_notice_uses_loaded_lineage_and_never_changes_native_policy(tmp_path: Path) -> None:
+    restrictions = tmp_path / "account_restrictions.lua"
+    restrictions.write_text('''return {
+        schema_version = "sai.compute-restrictions/v1", cluster_id = "cluster-a",
+        published_at = 100, expires_at = 400, accounts = {
+            ["org-example"] = {group_jobs_limit = 0, reason = "arrears"},
+            ["proj-research"] = {lineage = {"org-example", "proj-research"}},
+        },
+    }''')
+    run_lua(_prelude(_snapshot(tmp_path), restrictions=restrictions) + '''
+os.time = function() return 200 end
+-- Every file read is confined to initial load, including optional observations.
+dofile = function() error("callback attempted file I/O") end
+local job = new_job({account = "proj-research", tres_per_node = "gres/gpu:4", priority = 0})
+assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
+assert(job.account == "proj-research" and job.priority == 0)
+assert(message_contains("SAI账户 org-example：欠费 / Arrears"))
+messages = {}
+assert(slurm_job_modify({name = "rename"}, job, {}, 1000) == slurm.SUCCESS)
+assert(#messages == 0)
+assert(slurm_job_modify({account = "proj-research"}, job, {}, 1000) == slurm.SUCCESS)
+assert(not message_contains("SAI账户"))
+messages = {}
+assert(slurm_job_modify({account = "proj-research"}, new_job({account = "personal-alice"}), {}, 1000) == slurm.SUCCESS)
+assert(message_contains("SAI账户 org-example"))
+messages = {}
+assert(slurm_job_submit(new_job({account = "proj-research", tres_per_node = "gres/gpu:3"}), {}, 1000) == slurm.ESLURM_INVALID_GRES)
+assert(message_contains("divisible by 4") and not message_contains("SAI账户"))
+messages = {}
+os.time = function() return 400 end
+assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
+assert(not message_contains("SAI账户"))
+''')
+
+
+def test_optional_restriction_clear_bad_cluster_or_invalid_file_only_omits_notice(tmp_path: Path) -> None:
+    snapshot = _snapshot(tmp_path)
+    restrictions = tmp_path / "account_restrictions.lua"
+    for data in ('invalid lua', 'return nil', '''return {
+        schema_version = "sai.compute-restrictions/v1", cluster_id = "other-cluster",
+        published_at = 100, expires_at = 400, accounts = {},
+    }''', '''return {
+        schema_version = "sai.compute-restrictions/v1", cluster_id = "cluster-a",
+        published_at = 100, expires_at = 400, accounts = {
+            ["proj-research"] = {lineage = {"proj-research"}},
+        },
+    }'''):
+        restrictions.write_text(data)
+        run_lua(_prelude(snapshot, restrictions=restrictions) + '''
+os.time = function() return 200 end
+assert(slurm_job_submit(new_job({account = "proj-research", tres_per_node = "gres/gpu:4"}), {}, 1000) == slurm.SUCCESS)
+assert(not message_contains("SAI账户"))
+assert(slurm_job_submit(new_job({account = "proj-research", tres_per_node = "gres/gpu:3"}), {}, 1000) == slurm.ESLURM_INVALID_GRES)
+''')

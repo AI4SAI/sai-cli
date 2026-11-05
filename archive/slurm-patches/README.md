@@ -1,3 +1,13 @@
+# Historical Slurm patch prototypes
+
+These sources are retained for traceability and upstream investigation. They are
+not supported deployment artifacts. Current SAI integration uses unmodified
+upstream Slurm through its standard commands and Lua extension interface.
+
+Any proposed upstream source change requires an independently useful, general
+solution, upstream-compatible tests and explicit maintainer authorization.
+The earlier implementation notes below describe the retired prototypes only.
+
 # Slurm controller patches
 
 `slurm-26.05.1-preserve-hold.patch` targets the upstream

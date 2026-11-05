@@ -103,8 +103,9 @@ add `--apply` to accept. This v2 workflow requires the paired Portal update.
 - [Licensing and third-party notices](THIRD_PARTY.md)
 
 First-party client code, the shared native projection and bundled Agent guidance
-are licensed under Apache-2.0. The separate Slurm source patch retains its upstream
-GPL terms and is excluded from Python distributions. The repository's site
+are licensed under Apache-2.0. Historical Slurm patch prototypes retain their upstream GPL terms in the repository
+archive and are excluded from Python distributions. Current integration uses
+unmodified upstream Slurm. The repository's site
 integration artifacts have their own deployment roles; installing the Python
 client never installs or changes a scheduler, login profile or storage service.
 

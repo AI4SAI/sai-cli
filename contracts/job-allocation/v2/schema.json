@@ -268,7 +268,7 @@
             }
           ]
         },
-        "pending_reason": {
+        "account_restriction": {
           "anyOf": [
             {
               "type": "object",
@@ -290,11 +290,22 @@
                   "not": {
                     "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
                   }
+                },
+                "source": {
+                  "type": "string",
+                  "const": "sai_applied_policy"
+                },
+                "observed_at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 253402300799
                 }
               },
               "required": [
                 "code",
-                "account"
+                "account",
+                "source",
+                "observed_at"
               ]
             },
             {
@@ -329,10 +340,10 @@
         {
           "if": {
             "required": [
-              "pending_reason"
+              "account_restriction"
             ],
             "properties": {
-              "pending_reason": {
+              "account_restriction": {
                 "type": "object"
               }
             }
