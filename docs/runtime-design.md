@@ -574,11 +574,15 @@ Table mode keeps the established SAI meanings:
 - `Reason/Nodelist` is a pending reason or the allocated node expression,
   depending on state.
 
-A validated native `pending_reason` adds a short business label in that existing
-cell; selected job context and allocation details also show the blocking account.
-The original Slurm reason remains in JSON. No extra source read, account lookup,
-per-row explanation or financial decision is added. Running observations never
-retain a pending reason from an earlier read.
+For native `AssocGrpJobsLimit`, optional `account_restriction` adds a short SAI
+account-state label in the existing cell. The original reason remains in JSON.
+The whole filtered query reads the protected policy snapshot at most once;
+native/HTTP query counts stay unchanged. Details distinguish the native code
+from the SAI account restriction and ancestor account. Missing or expired snapshots leave
+context unknown. Existing invalid/unreadable files produce one bounded diagnostic
+without failing the native query. Running observations clear the optional context.
+The retired private `pending_reason` and custom Slurm descriptions supply no
+financial context.
 
 Native holds, dependencies and selected account/QOS limits use short labels
 from the same presenter in local, remote and TUI views. Details retain the native

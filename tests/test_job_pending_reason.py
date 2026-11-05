@@ -1,9 +1,12 @@
-"""One native observation supplies pending reasons to every job presentation."""
+"""Native waiting reasons retain separate optional SAI account context."""
 import asyncio
 from copy import deepcopy
 from html import unescape
 import json
+import os
 from pathlib import Path
+import sys
+import time
 
 import pytest
 
@@ -13,72 +16,139 @@ from sai_cli.errors import ContractError
 from sai_cli.job_reasons import job_reason
 from sai_cli.tui import QueryApp
 from sai_cli.tui_queries import Queries
+from sai_compute_restrictions import read_snapshot
 from test_local_jobs import native_client, native_job, invoke
 from test_native_topology import topology_client
 from test_site_transport import http_endpoint, issuer, profile, invoke as invoke_remote, site_payload
 from test_tui import loaded
 
 
-@pytest.mark.parametrize("code,native_label,label", [
-    ("arrears", "Arrears", "欠费"), ("severe_arrears", "Severe arrears", "严重欠费"),
-    ("no_compute_funding", "No compute funds", "资金不足"), ("admin_blocked", "Admin disabled", "管理停用"),
+@pytest.fixture
+def account_snapshot(tmp_path, monkeypatch):
+    root = tmp_path / "admission"
+    root.mkdir(mode=0o755)
+    path = root / "cluster-a.json"
+    published = int(time.time())
+    value = {"schema_version": "sai.compute-restrictions/v1", "cluster_id": "cluster-a",
+        "generation": time.time_ns() // 1000, "published_at": published, "expires_at": published + 300, "accounts": {
+            "org-parent": {"lineage": ["org-parent"], "group_jobs_limit": 0, "reason": "arrears", "observed_at": 1790000000},
+            "research": {"lineage": ["org-parent", "research"], "group_jobs_limit": None, "observed_at": 1790000000}}}
+    path.write_text(json.dumps(value))
+    path.chmod(0o644)
+    calls = []
+    def read(*, cluster):
+        calls.append(cluster)
+        return read_snapshot(cluster=cluster, root=root, trusted_uids=(os.getuid(),))
+    monkeypatch.setattr("sai_cli.local_jobs.read_snapshot", read)
+    return path, value, calls
+
+
+@pytest.mark.parametrize("code,label", [
+    ("arrears", "欠费"), ("severe_arrears", "严重欠费"),
+    ("no_compute_funding", "资金不足"), ("admin_blocked", "管理停用"),
 ])
-def test_native_queue_and_exact_detail_keep_reason_and_actual_blocker(topology_client, code, native_label, label):
+def test_native_queue_and_exact_detail_keep_separate_account_context(topology_client, account_snapshot, code, label):
     env, path, payload = topology_client
+    snapshot_path, snapshot, reads = account_snapshot
+    snapshot["accounts"]["org-parent"]["reason"] = code
+    snapshot_path.write_text(json.dumps(snapshot))
     job = payload["jobs"][0]
     job.update(job_state=["PENDING"], state_reason="AssocGrpJobsLimit",
-               state_description=f"{native_label}: org-parent")
+               state_description="Arrears: ignored-account")
     path.write_text(json.dumps(payload))
     rc, output, error = invoke(env, "jobs", "local")
     assert rc == 0, error
     row = json.loads(output)["items"][0]
     assert row["reason_or_nodelist"] == "AssocGrpJobsLimit"
-    assert row["pending_reason"] == {"code": code, "account": "org-parent"}
+    assert row["account_restriction"] == {"code": code, "account": "org-parent",
+        "source": "sai_applied_policy", "observed_at": 1790000000}
+    assert "pending_reason" not in row
     assert row["slurm_account"] == "research"
     assert json.loads(Path(env["NATIVE_CALL"]).read_text())["argv"][0:2] == ["--json", "--local"]
-    assert label in invoke(env, "jobs", "local", "--format", "table")[1]
+    assert f"账户并发上限 · 账户{label}" in invoke(env, "jobs", "local", "--format", "table")[1]
     rc, detail, error = invoke(env, "jobs", "local", "--job-id", "42", "--format", "table")
     assert rc == 0, error
-    assert label in detail and "阻塞账户 org-parent" in detail
-    assert "账户并发上限" not in detail
+    assert f"SAI 账户限制：{label} · org-parent" in detail
+    assert "账户并发上限 (AssocGrpJobsLimit)" in detail
+    assert reads == ["cluster-a"] * 3
     assert len(Path(env["TOPOLOGY_CALLS"]).read_text().splitlines()) == 1
 
 
 @pytest.mark.parametrize("update", [
-    {"job_state": ["RUNNING"]}, {"state_reason": "Resources"},
-    {"state_description": "Unknown: org-parent"},
-    {"state_description": "Arrears: org-parent extra"},
-    {"state_description": "[sai.compute-gate/v1:arrears] account=org-parent"},
+    {}, {"state_description": "[sai.compute-gate/v1:arrears] account=org-parent"},
     {"state_description": None, "comment": "Arrears: org-parent"},
+    {"account_restriction": {"code": "arrears", "account": "forged"}},
 ])
-def test_native_nonmatching_observations_never_acquire_a_business_reason(native_job, update):
+def test_native_descriptions_and_unknown_fields_never_supply_account_context(native_job, update):
     from sai_cli.local_jobs import _item
     native_job.update(job_state=["PENDING"], state_reason="AssocGrpJobsLimit",
                       state_description="Arrears: org-parent")
     native_job.update(update)
-    assert "pending_reason" not in _item(native_job, observed=1790000060).as_dict()
+    row = _item(native_job, observed=1790000060).as_dict()
+    assert "pending_reason" not in row and "account_restriction" not in row
 
 
 @pytest.mark.parametrize("change", [
-    {"pending_reason": {"code": "unknown", "account": "org-parent"}},
-    {"pending_reason": {"code": "arrears", "account": "bad\x1b[31m"}},
-    {"pending_reason": "arrears"}, {"state": "R"}, {"reason_or_nodelist": "Resources"},
+    {"code": "unknown"}, {"account": "bad\x1b[31m"}, {"source": "slurm"}, {"observed_at": True},
 ])
-def test_remote_reason_allowlist_rejects_malformed_or_stale_business_facts(job_payload, change):
+def test_remote_account_context_is_typed_and_source_bound(job_payload, change):
     row = job_payload["items"][0]
     row.update(state="PD", reason_or_nodelist="AssocGrpJobsLimit",
-               pending_reason={"code": "arrears", "account": "org-parent", "secret": "discard"})
-    assert JobItem.from_payload(row, request_id="r").as_dict()["pending_reason"] == {
-        "code": "arrears", "account": "org-parent"}
-    row.update(change)
+               account_restriction={"code": "arrears", "account": "org-parent", "secret": "discard",
+                                    "source": "sai_applied_policy", "observed_at": 1790000000})
+    clean = JobItem.from_payload(row, request_id="r").as_dict()["account_restriction"]
+    assert "secret" not in clean
+    row["account_restriction"].update(change)
     with pytest.raises(ContractError):
         JobItem.from_payload(row, request_id="r")
 
 
-def test_remote_list_and_allocation_preserve_pending_reason_without_scope_expansion(tmp_path, site_payload, site_allocation_payload):
+@pytest.mark.parametrize("case", ["absent", "invalid", "unsafe", "wrong_cluster", "expired", "other_reason"])
+def test_optional_snapshot_failure_keeps_native_rows_and_one_bounded_diagnostic(native_client, account_snapshot, case):
+    env, path, payload = native_client
+    snapshot_path, snapshot, reads = account_snapshot
+    job = payload["jobs"][0]
+    job.update(job_state=["PENDING"], state_reason="AssocGrpJobsLimit", state_description="Arrears: private-account")
+    if case == "absent":
+        snapshot_path.unlink()
+    elif case == "invalid":
+        snapshot_path.write_text("private-invalid-json")
+    elif case == "unsafe":
+        snapshot_path.chmod(0o666)
+    elif case == "wrong_cluster":
+        snapshot["cluster_id"] = "other-cluster"
+        snapshot_path.write_text(json.dumps(snapshot))
+    elif case == "expired":
+        snapshot.update(published_at=int(time.time()) - 301, expires_at=int(time.time()) - 1)
+        snapshot_path.write_text(json.dumps(snapshot))
+    else:
+        job["state_reason"] = "JobHeldUser"
+    payload["jobs"].append({**job, "job_id": 43})
+    path.write_text(json.dumps(payload))
+    rc, output, error = invoke(env, "jobs", "local")
+    assert rc == 0
+    rows = json.loads(output)["items"]
+    assert len(rows) == 2 and all("account_restriction" not in row and "pending_reason" not in row for row in rows)
+    assert all(row["reason_or_nodelist"] == job["state_reason"] for row in rows)
+    assert len(reads) == (0 if case == "other_reason" else 1)
+    assert error.count("account_restrictions_unavailable") == (case in {"invalid", "unsafe", "wrong_cluster"})
+    assert str(snapshot_path) not in error and "private" not in error
+
+
+def test_old_alpha_reason_is_dropped_and_account_context_cannot_attach_to_running_jobs(job_payload):
+    row = job_payload["items"][0]
+    row["pending_reason"] = {"code": "arrears", "account": "org-parent"}
+    assert "pending_reason" not in JobItem.from_payload(row, request_id="r").as_dict()
+    row["account_restriction"] = {"code": "arrears", "account": "org-parent", "source": "sai_applied_policy", "observed_at": 1790000000}
+    with pytest.raises(ContractError):
+        JobItem.from_payload(row, request_id="r")
+
+
+def test_remote_list_and_allocation_preserve_account_context_without_scope_expansion(tmp_path, site_payload, site_allocation_payload):
     row = site_payload["items"][0]
     row.update(state="PD", state_label="排队中", reason_or_nodelist="AssocGrpJobsLimit",
-               pending_reason={"code": "no_compute_funding", "account": "org-parent"})
+               account_restriction={"code": "no_compute_funding", "account": "org-parent",
+                                    "source": "sai_applied_policy", "observed_at": 1790000000})
     allocation = deepcopy(site_allocation_payload)
     allocation.update(job=deepcopy(row), scheduler_states=["PENDING"], allocation={"status": "not_allocated", "nodes": []})
     with http_endpoint(issuer) as (central, grants), http_endpoint(
@@ -92,36 +162,52 @@ def test_remote_list_and_allocation_preserve_pending_reason_without_scope_expans
             assert rc == 0, error
             data = json.loads(output)
             returned = data["job"] if "job" in data else data["items"][0]
-            assert returned["pending_reason"] == row["pending_reason"]
+            assert returned["account_restriction"] == row["account_restriction"]
             assert returned["reason_or_nodelist"] == "AssocGrpJobsLimit"
         rc, output, error = invoke_remote(config, tmp_path, ["jobs", "show", row["job_id"], "--format", "table"])
         assert rc == 0, error
-        assert "资金不足 · 阻塞账户 org-parent" in output
+        assert "SAI 账户限制：资金不足 · org-parent" in output
         assert all(call["bearer"] is None for call in reads)
         assert all("org-parent" not in json.dumps(call["body"]) for call in grants)
 
 
-def test_tui_pending_detail_and_refresh_drop_the_previous_business_reason(topology_client):
+def test_tui_account_context_refreshes_from_one_file_and_clears_when_running(topology_client, account_snapshot):
     env, path, payload = topology_client
+    snapshot_path, snapshot, _ = account_snapshot
     job = payload["jobs"][0]
     job.update(job_state=["PENDING"], state_reason="AssocGrpJobsLimit",
                state_description="Arrears: org-parent")
     path.write_text(json.dumps(payload))
 
     async def run():
-        app = QueryApp(Queries(build_parser().parse_args(["tui"]), env))
+        queries = Queries(build_parser().parse_args(["tui"]), env)
+        async def spawn(arguments):
+            entry = "import sys,os;from functools import partial;sys.path.insert(0,sys.argv.pop(1));import sai_cli.local_jobs as jobs;from sai_compute_restrictions import read_snapshot;jobs.read_snapshot=partial(read_snapshot,root=sys.argv.pop(1),trusted_uids=(os.getuid(),));from sai_cli.cli import entrypoint;entrypoint()"
+            return await asyncio.create_subprocess_exec(sys.executable, "-I", "-P", "-B", "-c", entry,
+                str(Path(__file__).resolve().parents[1] / "src"), str(snapshot_path.parent), *arguments,
+                stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE, env=env, start_new_session=True)
+        queries._spawn = spawn
+        app = QueryApp(queries)
         async with app.run_test(size=(40, 24)) as pilot:
             await loaded(app, pilot)
             screenshot = app.export_screenshot()
-            assert "欠费" in screenshot and "org-parent" in screenshot
+            assert "账户欠费" in screenshot and "org-parent" not in screenshot
             await pilot.press("enter")
             await loaded(app, pilot)
-            assert app._allocation_detail["job"]["pending_reason"]["account"] == "org-parent"
+            assert app._allocation_detail["job"]["account_restriction"]["account"] == "org-parent"
+            snapshot["accounts"]["org-parent"].pop("reason")
+            snapshot["accounts"]["org-parent"]["group_jobs_limit"] = None
+            snapshot_path.write_text(json.dumps(snapshot))
+            await pilot.press("r")
+            await loaded(app, pilot)
+            assert "account_restriction" not in app._allocation_detail["job"]
+            assert "账户欠费" not in app.export_screenshot()
             job.update(job_state=["RUNNING"], state_reason="None")
             path.write_text(json.dumps(payload))
             await pilot.press("r")
             await loaded(app, pilot)
-            assert "pending_reason" not in app._allocation_detail["job"]
+            assert "account_restriction" not in app._allocation_detail["job"]
             assert app._allocation_detail["job"]["reason_or_nodelist"] == job["nodes"]
             assert "欠费" not in app.export_screenshot()
             await pilot.press("q")

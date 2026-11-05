@@ -44,14 +44,15 @@ versions. Keep their complete notices when rebundling; the table is not a
 replacement for upstream license text. Development tools are not bundled in
 the client runtime.
 
-## Separate native scheduler patch
+## Historical native scheduler prototypes
 
-`site/slurm/patches/slurm-26.05.1-preserve-hold.patch` modifies Slurm's
+`archive/slurm-patches/slurm-26.05.1-preserve-hold.patch` modifies Slurm's
 `src/slurmctld/acct_policy.c`. That upstream file is GPL version 2 or later,
 with the upstream OpenSSL exception and notices. Its terms are kept separately
-in [the repository's patch directory](https://github.com/AI4SAI/sai-cli/tree/main/site/slurm/patches).
+in [the repository's patch directory](https://github.com/AI4SAI/sai-cli/tree/main/archive/slurm-patches).
 
-The scheduler patch is a repository/operator artifact. It is excluded from the
-Python wheel and source distribution; obtain it and its notices from the full
-repository when building a patched Slurm. The first-party client license does not relabel this upstream-derived patch. The SAI Lua, shell and Tcl site
+The historical patches and their notices are retained in the repository archive
+and excluded from Python distributions. They are not part of the supported
+installation. The first-party client license does not relabel upstream-derived
+source. The SAI Lua, shell and Tcl site
 artifacts retain their separately documented operating roles.

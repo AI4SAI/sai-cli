@@ -9,9 +9,9 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
-- [x] Carry recognized native pending-job reasons through local jobs, gateway
-  DTOs and terminal detail, preserving the original Slurm reason and scope.
-  Paired native producer and production consumption remain separate validation.
+- [x] Carry optional applied SAI account restrictions through local jobs, gateway
+  DTOs and terminal detail, separately from upstream Slurm's original reason.
+  Snapshot publication and production consumption remain separate validation.
 - [x] Present native holds, dependencies and selected account/QOS limits through
   one local/remote/TUI presenter, retaining raw codes in JSON and details.
 - [ ] Explain the service-level or manual-setting source of the actual blocking

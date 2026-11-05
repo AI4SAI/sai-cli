@@ -19,6 +19,11 @@ and one `sinfo --json --local --Node --nodes=...` restricted to those verified
 nodes. An unallocated job needs only its job observation. There is no per-node
 SSH, historical query, collector or privilege change.
 
+For pending `AssocGrpJobsLimit`, one optional local policy-snapshot read may add
+the separate `account_restriction` context described in
+[native jobs](../../native-jobs/v1/README.md). Failure does not hide the native
+job or allocation; private Slurm state descriptions are not a financial source.
+
 CPU IDs follow Slurm's `scontrol` numbering: the job's stored socket/core bitmap
 is expanded using each node's configured threads per core. The job's requested
 `threads_per_core`, allocated CPU count and OS/Linux processor IDs are not

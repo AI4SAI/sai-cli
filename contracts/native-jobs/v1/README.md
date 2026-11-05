@@ -73,17 +73,27 @@ seconds, partition, QOS, nodes, slots, per-node GPU request, memory request and
 reason/nodelist. Unknown values remain null. Extra native script, environment,
 command and filesystem-path fields are discarded.
 
-The optional `pending_reason` object contains only `code` and `account` when the
-same native pending observation carries the scheduler's compute-gate reason.
-The codes are `arrears`, `severe_arrears`, `no_compute_funding` and `admin_blocked`.
-They require native `AssocGrpJobsLimit` and an exact state description:
-`Arrears: ACCOUNT`, `Severe arrears: ACCOUNT`, `No compute funds: ACCOUNT` or
-`Admin disabled: ACCOUNT`. User comments, other native reasons, malformed
-descriptions and running jobs do not supply it. `reason_or_nodelist` keeps
-the original Slurm reason. The account identifies the blocking association,
-possibly an ancestor, without selecting a read scope or granting access.
-Tables use a short reason label; selected details also name the blocking
-account. Producers without this field remain readable.
+The optional `account_restriction` object contains `code`, `account`,
+`source=sai_applied_policy` and integer epoch `observed_at`. Codes are `arrears`,
+`severe_arrears`, `no_compute_funding` and `admin_blocked`. It is separate SAI
+account context for a `PD` job with native `AssocGrpJobsLimit`, not a financial
+cause determined by Slurm. The shared account-policy snapshot supplies the
+observation and native ancestor lineage. Its account never selects a scope or
+grants access. `reason_or_nodelist` keeps the original Slurm value.
+
+After the normal query/filter/limit, a matching result reads the optional
+snapshot once for the whole query. It adds no native/HTTP request. A missing or
+expired snapshot means context was not provided; it does not mean funds are available. An existing
+unreadable or invalid file emits one fixed `account_restrictions_unavailable`
+stderr diagnostic and leaves the native result intact. No snapshot content or
+path enters that diagnostic. The TUI subprocess currently captures successful
+command stderr without displaying it; the job result remains usable.
+
+Tables combine the short native label with the observed account state. Enter
+details keep the native code and identify the separate SAI account restriction
+and account. The private `pending_reason` field used by earlier `0.2.0a2`
+development builds is retired and ignored; custom state descriptions and user
+comments no longer supply financial context.
 
 `job_id` is the decimal array base when present, otherwise the native job ID.
 `array_task_id` preserves task zero and may contain a bracketed native array

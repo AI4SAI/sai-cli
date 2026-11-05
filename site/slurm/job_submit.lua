@@ -17,11 +17,51 @@ end
 local exempt_qos = snapshot.gpu_multiple_exempt_qos
 local gpu_multiple = snapshot.gpu_per_node_multiple
 
+local restriction_loaded, restrictions = pcall(dofile,
+    rawget(_G, "SAI_ACCOUNT_RESTRICTIONS_PATH") or "/etc/slurm/sai/account_restrictions.lua")
+if not restriction_loaded or type(restrictions) ~= "table"
+    or restrictions.schema_version ~= "sai.compute-restrictions/v1"
+    or restrictions.cluster_id ~= slurm.CLUSTER_NAME
+    or type(restrictions.accounts) ~= "table"
+    or type(restrictions.published_at) ~= "number"
+    or type(restrictions.expires_at) ~= "number"
+    or restrictions.expires_at <= restrictions.published_at then
+    restrictions = nil
+end
+local restriction_labels = {
+    arrears = "欠费 / Arrears",
+    severe_arrears = "严重欠费 / Severe arrears",
+    no_compute_funding = "资金不足 / Insufficient compute funds",
+    admin_blocked = "管理停用 / Administratively disabled",
+}
+
 local policy_error = slurm.ESLURM_ACCOUNTING_POLICY or slurm.ERROR
 local gres_error = slurm.ESLURM_INVALID_GRES or policy_error
 
 local function nonempty(value)
     return type(value) == "string" and value ~= ""
+end
+
+local function notify_account_restriction(job_desc, job_ptr)
+    local account = job_desc.account
+    if not restrictions or not nonempty(account)
+        or (job_ptr and account == job_ptr.account) then return end
+    local now = os.time()
+    if now < restrictions.published_at or now >= restrictions.expires_at then return end
+    local row = restrictions.accounts[account]
+    if type(row) ~= "table" or type(row.lineage) ~= "table"
+        or #row.lineage < 1 or #row.lineage > 64 or row.lineage[#row.lineage] ~= account then return end
+    for index = #row.lineage, 1, -1 do
+        local ancestor = row.lineage[index]
+        if type(ancestor) ~= "string" or #ancestor > 128
+            or not string.match(ancestor, "^[%w][%w_.+%-]*$") then return end
+        local policy = restrictions.accounts[ancestor]
+        if type(policy) == "table" and policy.group_jobs_limit == 0
+            and type(policy.reason) == "string" and restriction_labels[policy.reason] then
+            slurm.user_msg("SAI账户 " .. ancestor .. "：" .. restriction_labels[policy.reason])
+            return
+        end
+    end
 end
 
 local function specified_number(value, unset)
@@ -204,7 +244,9 @@ end
 
 function slurm_job_submit(job_desc, part_list, submit_uid)
     if not apply_account_policy(job_desc) then return policy_error end
-    return validate_gpu_policy(job_desc, job_desc)
+    local result = validate_gpu_policy(job_desc, job_desc)
+    if result == slurm.SUCCESS then notify_account_restriction(job_desc) end
+    return result
 end
 
 local function updated_qos(job_desc, job_ptr)
@@ -241,14 +283,19 @@ function slurm_job_modify(job_desc, job_ptr, part_list, modify_uid)
         effective[field] = job_desc[field] or job_ptr[field]
         changed = changed or job_desc[field] ~= nil
     end
-    if not changed then return slurm.SUCCESS end
+    if not changed then
+        notify_account_restriction(job_desc, job_ptr)
+        return slurm.SUCCESS
+    end
     local had_gpu = gpu_request(job_ptr) or contains_gpu(job_ptr.gres_req)
     if gpu_request(effective) ~= had_gpu then
         slurm.user_msg("ERROR: SAI GPU policy: resubmit to switch between CPU-only and GPU jobs; native updates retain the old resource settings.")
         return gres_error
     end
     effective.qos = updated_qos(job_desc, job_ptr)
-    return validate_gpu_policy(effective, job_desc)
+    local result = validate_gpu_policy(effective, job_desc)
+    if result == slurm.SUCCESS then notify_account_restriction(job_desc, job_ptr) end
+    return result
 end
 
 return slurm.SUCCESS

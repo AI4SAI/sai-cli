@@ -13,10 +13,11 @@ queries, and a default-account management operation. Broader Portal management
 remains a target. It owns neither
 business authorization nor scheduler decisions.
 
-Pending-job business reasons remain native observations. The shared Slurm
-projection recognizes the actual scheduler blocker; CLI and remote DTOs retain
-its optional code/account alongside the original Slurm reason. Presentation
-adds no account authority, pricing lookup or new query.
+Native job reasons and SAI account restrictions have distinct sources. Native
+Slurm supplies its unchanged wait reason; an optional local applied-policy
+snapshot supplies typed account context, including its observation time and
+ancestor account. CLI and remote DTOs preserve that distinction. One snapshot
+read adds no account authority, pricing lookup or native/HTTP query.
 
 The [product task map](product-delivery.md) connects these boundaries to complete
 human and Agent journeys. The public client, contracts and bundled Agent guidance

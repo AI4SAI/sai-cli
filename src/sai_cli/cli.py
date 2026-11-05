@@ -805,7 +805,7 @@ def main(
                 raise ConfigError("--with-interconnect and --details require --job-id")
             if args.job_id is not None:
                 from .native_topology import read_local_job_topology
-                result = read_local_job_topology(args, environ=env)
+                result = read_local_job_topology(args, environ=env, stderr=errors)
                 if output_format == "json":
                     output.write(render_json(result.as_dict()))
                 else:
@@ -815,7 +815,7 @@ def main(
                         color=output.isatty() and "NO_COLOR" not in env and env.get("TERM") != "dumb", expanded=args.details))
             else:
                 from .local_jobs import read_local_jobs, render_local_jobs
-                result = read_local_jobs(args, environ=env)
+                result = read_local_jobs(args, environ=env, stderr=errors)
                 output.write(render_json(result.as_dict()) if output_format == "json" else render_local_jobs(result))
             return 0
         from .auth import TokenProvider

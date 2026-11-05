@@ -7,11 +7,11 @@ clients. A source migration is not a deployment or live-site verification.
 
 ## Response
 
-The nested job may carry the optional native `pending_reason` code/account,
-alongside its unchanged `reason_or_nodelist`. It is present only for a recognized
-compute-gate blocker on a pending job. It adds no allocation or account access;
-missing fields remain compatible with older producers. Local exact-job detail
-uses the same projection and displays the blocking account with the short reason.
+The nested job may carry optional `account_restriction` from SAI's applied
+account-policy observation, alongside unchanged `reason_or_nodelist`. The context
+requires `PD` and `AssocGrpJobsLimit`, but does not claim that Slurm determined a
+financial cause. It adds no allocation or account access. Local exact-job detail
+uses the same snapshot reader and presents native and SAI account facts separately.
 
 `schema.json` and `sample.json` are the shared machine-readable contract and a
 synthetic observation. Pilot bundles byte-identical copies. The schema identifies
