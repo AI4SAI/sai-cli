@@ -19,5 +19,5 @@ def job_context(item: JobItem, *, language: str) -> Group:
         amounts.append(f"{row['slots']} {unit}")
     if row["gpus_per_node"] is not None:
         amounts.append(f"{row['gpus_per_node']} " + ("GPU/节点" if chinese else "GPU/node"))
-    return Group(Text(location + "  " + (job_reason(row, language=language, detail=True) or "?")),
+    return Group(Text(location + "  " + (job_reason(row, language=language, detail=bool(row.get("pending_reason"))) or "?")),
                  Text(" · ".join(amounts)), Text(context))

@@ -176,9 +176,11 @@ def test_native_reason_presentation_agrees_across_local_http_and_tui(topology_cl
         async with app.run_test(size=(100, 24)) as pilot:
             await loaded(app, pilot)
             assert english in unescape(app.export_screenshot()).replace("\xa0", " ")
+            assert native not in app.export_screenshot()
             await pilot.press("enter")
             await loaded(app, pilot)
             assert english in unescape(app.export_screenshot()).replace("\xa0", " ")
+            assert native in app.export_screenshot()
             assert app._allocation_detail["job"]["reason_or_nodelist"] == native
             assert len(calls) == 2
             await pilot.press("q")
