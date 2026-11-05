@@ -580,6 +580,12 @@ The original Slurm reason remains in JSON. No extra source read, account lookup,
 per-row explanation or financial decision is added. Running observations never
 retain a pending reason from an earlier read.
 
+Native holds, dependencies and selected account/QOS limits use short labels
+from the same presenter in local, remote and TUI views. Details retain the native
+code for scheduler diagnostics. Unknown codes remain unchanged. A label describes
+the observed limit; service-level or manual-setting provenance requires a
+separately verified binding to the applied policy.
+
 Table rendering uses no ANSI color by default so redirects and wrapper output
 remain deterministic.
 

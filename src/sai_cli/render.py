@@ -295,8 +295,10 @@ def render_table(result: JobResult, *, site_label: str | None = None, detail: bo
         f"Queried: {result.freshness.queried_at}"
     )
     lines = [header, *job_table_lines(result.items)]
-    if detail and len(result.items) == 1 and result.items[0].values.get("pending_reason"):
-        lines.append(job_reason(result.items[0].values, detail=True))
+    if detail and len(result.items) == 1:
+        reason = job_reason(result.items[0].values, detail=True)
+        if reason != job_reason(result.items[0].values):
+            lines.append(reason)
     return "\n".join(lines) + "\n"
 
 
@@ -309,8 +311,10 @@ def render_site_jobs(result: SiteJobResult, *, site_label: str | None = None, de
         f"Stale: {'yes' if freshness.stale else 'no'}  Has-more: {'yes' if result.has_more else 'no'}",
         *job_table_lines(result.items),
     ]
-    if detail and len(result.items) == 1 and result.items[0].values.get("pending_reason"):
-        lines.append(job_reason(result.items[0].values, detail=True))
+    if detail and len(result.items) == 1:
+        reason = job_reason(result.items[0].values, detail=True)
+        if reason != job_reason(result.items[0].values):
+            lines.append(reason)
     return "\n".join(lines) + "\n"
 
 
