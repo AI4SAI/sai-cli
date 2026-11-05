@@ -62,6 +62,7 @@ def test_job_selection_refresh_details_and_exit_without_portal(job_client, monke
 def test_partition_choice_uses_one_native_observation_and_preserves_indices(resource_client, monkeypatch):
     env,path,payload=resource_client
     payload['sinfo'][0]['gres']['used']='gpu:example:2(IDX:1,3)'
+    payload['sinfo'][2]['memory'].update(minimum=122880, maximum=122880, allocated=122266)
     path.write_text(json.dumps(payload))
     monkeypatch.setattr('sai_cli.config.resolve_settings',lambda *a:pytest.fail('Portal invoked'))
     async def run():
@@ -78,9 +79,11 @@ def test_partition_choice_uses_one_native_observation_and_preserves_indices(reso
             assert app.view=='cpu'
             assert app.snapshot.values['filters']['kind']=='cpu'
             assert len(Path(env['NATIVE_CALL']).read_text().splitlines())==2
-            await pilot.resize_terminal(40,20)
-            await pilot.pause()
-            assert len(Path(env['NATIVE_CALL']).read_text().splitlines())==2
+            for width in (40, 80, 100):
+                await pilot.resize_terminal(width,20)
+                await pilot.pause()
+                assert '119.4/120' in app.export_screenshot()
+                assert len(Path(env['NATIVE_CALL']).read_text().splitlines())==2
     asyncio.run(run())
 
 

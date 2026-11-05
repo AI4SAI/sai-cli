@@ -13,6 +13,7 @@ from textual.events import Resize
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Select, Static, Tab, Tabs
 from textual.worker import Worker, WorkerCancelled
 
@@ -43,6 +44,12 @@ LABELS = {
         "time": "Run / wait", "name": "Name", "state": "State", "partition": "Partition", "node": "Nodes / reason",
         "truncated": "First 500 jobs only", "detail": "Details", "back": "Back", "snapshot": "Updated", "read_only": "Viewing account", "estimate_title": "Estimate · not settled", "standard_price": "Standard", "cash_price": "Cash", "unknown": "Unavailable", "stale": "Stale observation; refresh", "partial": "Partial estimate", "not_started": "Not started", "unavailable": "Estimate unavailable"},
 }
+
+
+class QueryScreen(Screen):
+    def on_resize(self, event: Resize) -> None:
+        self.app._refresh_footer(width=event.size.width)
+        self.call_after_refresh(self.app._render)
 
 
 class QueryApp(App):
@@ -111,6 +118,9 @@ class QueryApp(App):
         self.bind("p", "pause", description=self.words["pause"])
         self.bind("i", "allocation_details", description="硬件" if self.language == "zh-CN" else "Hardware")
         self.bind("l", "authorize", description=self.words["authorize"])
+
+    def get_default_screen(self) -> Screen:
+        return QueryScreen(id="_default")
 
     def compose(self) -> ComposeResult:
         yield Static("SAI", id="heading", markup=False)
@@ -674,11 +684,6 @@ class QueryApp(App):
         paused = self._paused or (self.view == "jobs" and self.query_one("#detail").display)
         context += " · " + (self.words["paused"] if paused else self.words["auto"].format(seconds=self.REFRESH_SECONDS[self.view]))
         self.query_one("#heading", Static).update(Text(f"SAI  ·  {source}{context}  ·  {stamp}"))
-
-    def on_resize(self, event: Resize) -> None:
-        if self.is_mounted:
-            self._refresh_footer(width=event.size.width)
-            self.call_after_refresh(self._render)
 
     def _refresh_footer(self, *, width: int | None = None) -> None:
         compact = (self.size.width if width is None else width) < 60

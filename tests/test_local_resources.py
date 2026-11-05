@@ -251,7 +251,7 @@ def test_unknown_indices_are_not_replaced_by_grouped_counts(native_client):
     assert '?' in running and '[#]' not in running and '2/4' in running
 
 
-@pytest.mark.parametrize('width', [40,80,120])
+@pytest.mark.parametrize('width', [40,80,100,120])
 def test_resource_tables_fit_width_without_losing_gpu_position_order(native_client, width):
     from rich.text import Text
     value=result(native_client,'--kind','gpu')
@@ -261,6 +261,32 @@ def test_resource_tables_fit_width_without_losing_gpu_position_order(native_clie
         assert all(len(line)<=width for line in Text.from_ansi(table).plain.splitlines())
     summary=render_local_resources(LocalResources(value),width=width)
     assert 'node-a' not in summary and 'GLOBAL' in summary
+
+
+@pytest.mark.parametrize('width', [40, 80, 100])
+def test_cpu_allocation_values_survive_long_node_states(native_client, width):
+    from rich.text import Text
+    env, path, payload = native_client
+    busy = node('compute-a', 'cpu-standard', gpu=False)
+    busy['cpus'].update(total=104, allocated=58, idle=46)
+    busy['memory'].update(minimum=122880, maximum=122880, allocated=122266)
+    busy.update(sockets={'minimum': 8, 'maximum': 8}, cores={'minimum': 13, 'maximum': 13},
+                threads={'minimum': 1, 'maximum': 1})
+    blocked = deepcopy(busy)
+    blocked['nodes']['nodes'] = ['compute-b']
+    blocked['node']['state'] = ['IDLE', 'MAINTENANCE', 'RESERVED']
+    blocked['cpus'].update(allocated=0, idle=104)
+    blocked['memory']['allocated'] = 0
+    payload['sinfo'] = [busy, blocked]
+    path.write_text(json.dumps(payload))
+    value = result(native_client, '--kind', 'cpu')
+    for color in (False, True):
+        text = Text.from_ansi(render_local_resources(LocalResources(value), details=True, width=width, color=color)).plain
+        assert all(len(line) <= width for line in text.splitlines())
+        assert all(ratio in text for ratio in ('58/104', '119.4/120', '0/104', '0/120'))
+        if width >= 64:
+            assert '━' in text
+    assert len(Path(env['NATIVE_CALL']).read_text().splitlines()) == 1
 
 
 def test_native_resource_colors_and_literal_labels(native_client):
