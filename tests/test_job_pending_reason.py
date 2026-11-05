@@ -1,6 +1,7 @@
 """One native observation supplies pending reasons to every job presentation."""
 import asyncio
 from copy import deepcopy
+from html import unescape
 import json
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 from sai_cli.cli import build_parser
 from sai_cli.contracts import JobItem
 from sai_cli.errors import ContractError
+from sai_cli.job_reasons import job_reason
 from sai_cli.tui import QueryApp
 from sai_cli.tui_queries import Queries
 from test_local_jobs import native_client, native_job, invoke
@@ -38,6 +40,7 @@ def test_native_queue_and_exact_detail_keep_reason_and_actual_blocker(topology_c
     rc, detail, error = invoke(env, "jobs", "local", "--job-id", "42", "--format", "table")
     assert rc == 0, error
     assert label in detail and "阻塞账户 org-parent" in detail
+    assert "账户并发上限" not in detail
     assert len(Path(env["TOPOLOGY_CALLS"]).read_text().splitlines()) == 1
 
 
@@ -119,7 +122,73 @@ def test_tui_pending_detail_and_refresh_drop_the_previous_business_reason(topolo
             await pilot.press("r")
             await loaded(app, pilot)
             assert "pending_reason" not in app._allocation_detail["job"]
+            assert app._allocation_detail["job"]["reason_or_nodelist"] == job["nodes"]
             assert "欠费" not in app.export_screenshot()
             await pilot.press("q")
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("native,label,english", [
+    ("JobHeldAdmin", "管理员挂起", "Held by administrator"),
+    ("DependencyNeverSatisfied", "依赖无法满足", "Unsatisfiable dependency"),
+    ("AssocGrpBilling", "账户并发资源上限", "Account resource concurrency limit"),
+    ("AssocMaxJobsLimit", "账户内个人并发上限", "Per-user concurrency limit in account"),
+    ("QOSGrpBilling", "QOS并发资源上限", "QOS resource concurrency limit"),
+    ("QOSGrpGRES", "QOS 通用资源上限", "QOS generic resource limit"),
+])
+def test_native_reason_presentation_agrees_across_local_http_and_tui(topology_client, tmp_path, site_payload, native, label, english):
+    env, path, payload = topology_client
+    payload["jobs"][0].update(job_state=["PENDING"], state_reason=native)
+    path.write_text(json.dumps(payload))
+    rc, output, error = invoke(env, "jobs", "local")
+    assert rc == 0, error
+    row = json.loads(output)["items"][0]
+    assert row["reason_or_nodelist"] == native and "pending_reason" not in row
+    assert label in invoke(env, "jobs", "local", "--format", "table")[1]
+    rc, detail, error = invoke(env, "jobs", "local", "--job-id", "42", "--format", "table")
+    assert rc == 0 and f"{label} ({native})" in detail, error
+    assert len(Path(env["TOPOLOGY_CALLS"]).read_text().splitlines()) == 1
+    site_payload.update(items=[row], subject={"slurm_user": row["slurm_user"], "slurm_account": None})
+    with http_endpoint(issuer) as (central, _), http_endpoint(lambda call, _: (200, {
+        **site_payload, "freshness": {**site_payload["freshness"],
+            "source": "scontrol" if call["path"].endswith("/42") else "squeue"},
+    })) as (gateway, reads):
+        config = profile(tmp_path, central, gateway)
+        for command in (["jobs", "list"], ["jobs", "list", "--format", "table"], ["jobs", "show", "42", "--format", "table"]):
+            rc, output, error = invoke_remote(config, tmp_path, command)
+            assert rc == 0, error
+            if len(command) == 2:
+                assert json.loads(output)["items"][0] == row
+            else:
+                assert label in output
+                assert (native in output) == (command[1] == "show")
+        assert len(reads) == 3
+
+    async def run():
+        queries = Queries(build_parser().parse_args(["tui"]), env)
+        calls, original_spawn = [], queries._spawn
+        async def spawn(arguments):
+            calls.append(arguments)
+            return await original_spawn(arguments)
+        queries._spawn = spawn
+        app = QueryApp(queries, language="en-US")
+        async with app.run_test(size=(100, 24)) as pilot:
+            await loaded(app, pilot)
+            assert english in unescape(app.export_screenshot()).replace("\xa0", " ")
+            assert native not in app.export_screenshot()
+            await pilot.press("enter")
+            await loaded(app, pilot)
+            assert english in unescape(app.export_screenshot()).replace("\xa0", " ")
+            assert native in app.export_screenshot()
+            assert app._allocation_detail["job"]["reason_or_nodelist"] == native
+            assert len(calls) == 2
+            await pilot.press("q")
+    asyncio.run(run())
+
+
+def test_running_unknown_and_unmodeled_limit_reasons_keep_the_native_text():
+    for native in ("QOSGrpBillingMinutes", "AssocGrpBillingRunMinutes", "QOSGrpGRESFuture", "jobhelduser"):
+        row = {"state": "PD", "reason_or_nodelist": native}
+        assert job_reason(row) == job_reason(row, detail=True) == native
+    assert job_reason({"state": "R", "reason_or_nodelist": "JobHeldAdmin"}, detail=True) == "JobHeldAdmin"

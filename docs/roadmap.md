@@ -12,6 +12,11 @@ not imply production activation or completion of a paired rollout.
 - [x] Carry recognized native pending-job reasons through local jobs, gateway
   DTOs and terminal detail, preserving the original Slurm reason and scope.
   Paired native producer and production consumption remain separate validation.
+- [x] Present native holds, dependencies and selected account/QOS limits through
+  one local/remote/TUI presenter, retaining raw codes in JSON and details.
+- [ ] Explain the service-level or manual-setting source of the actual blocking
+  limit, bound to the applied policy. Native reason labels alone do not provide
+  this provenance.
 
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and numbered allocation inspection
