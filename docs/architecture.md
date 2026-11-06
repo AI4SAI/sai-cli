@@ -13,11 +13,14 @@ queries, and a default-account management operation. Broader Portal management
 remains a target. It owns neither
 business authorization nor scheduler decisions.
 
-Native job reasons and SAI account restrictions have distinct sources. Native
-Slurm supplies its unchanged wait reason; an optional local applied-policy
-snapshot supplies typed account context, including its observation time and
-ancestor account. CLI and remote DTOs preserve that distinction. One snapshot
-read adds no account authority, pricing lookup or native/HTTP query.
+Slurm supplies the native wait reason. Optional SAI account context comes from
+the current user association's standard `Comment`, read by the observed job's
+association ID. `src/sai_compute_restrictions.py` owns the shared encoding,
+validation and bounded batch projection used by local and gateway readers.
+The existing Center limit, membership and parent-account flows project the
+current account state to those associations. Native limits remain the scheduling
+authority, and their numeric readiness is independent of diagnostic delivery.
+The paired migration and live consumption checks remain release work.
 
 The [product task map](product-delivery.md) connects these boundaries to complete
 human and Agent journeys. The public client, contracts and bundled Agent guidance
@@ -440,12 +443,13 @@ artifact validates native Slurm submissions; it is not imported by `sai-cli`,
 does not enter the client wheel, and does not turn the client into a scheduler
 writer.
 
-The plugin consumes a controller-local Lua snapshot generated from a strict
-control-plane projection. Portal owns account, membership, project-shape and
-policy facts; the site artifact owns bounded submit-time evaluation. The
-callback never calls Portal, the site-local read gateway, an authn relay, a
-database, or shared storage. Full policy, snapshot and rollout semantics are in
-[job-submit-policy.md](job-submit-policy.md).
+The plugin loads only static GPU rules from its controller-local Lua policy
+file. Account-state notices read Slurm's native `job_desc.assoc_comment` directly
+and use `slurm.user_msg`; this diagnostic path adds no rejection or job-field
+mutation. The callback performs no external I/O. Portal retains account,
+membership and policy ownership. The existing site writer updates standard
+association Comments through the upstream C API while preserving operator notes.
+See [job-submit-policy.md](job-submit-policy.md) for policy and rollout semantics.
 
 ## Validation boundaries
 

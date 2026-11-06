@@ -9,9 +9,14 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
-- [x] Carry optional applied SAI account restrictions through local jobs, gateway
-  DTOs and terminal detail, separately from upstream Slurm's original reason.
-  Snapshot publication and production consumption remain separate validation.
+- [x] Carry optional SAI account restrictions through the shared standard
+  association Comment reader into local jobs, gateway DTOs and terminal detail,
+  retaining upstream Slurm's original reason. Native reads batch the observed
+  jobs' association IDs; Lua notices use the native `assoc_comment` field.
+- [ ] Complete paired Center/site publisher and client rollout on unmodified
+  upstream Slurm, preserving operator notes and existing numeric-limit readiness.
+  Verify submission notices, current-association reads, recovery and runtime
+  consumption separately from source implementation.
 - [x] Present native holds, dependencies and selected account/QOS limits through
   one local/remote/TUI presenter, retaining raw codes in JSON and details.
 - [ ] Explain the service-level or manual-setting source of the actual blocking
@@ -348,15 +353,17 @@ without treating the first center ingress as a mandatory global transit point.
 - [x] Minimal `job_submit.lua` submission and modification policy
 - [x] Strict versioned GPU policy renderer; account selection uses native facts
 - [x] Actual-Lua behavior tests without a Python policy reimplementation
-- [x] Snapshot, hot-reload, rollback, failure and performance contracts
-- [x] Portal authoritative projection producer
+- [x] Static GPU policy, hot-reload, rollback, failure and performance contracts
+- [x] Portal authoritative GPU policy projection producer
 - [x] Matching-version disposable-controller compatibility test
 - [x] Live controller canary, measured-peak load gate and duplicate TaskProlog checks retired
 
 Acceptance boundary: one site on the matched Slurm version, with native client
 and representative GPU allocation canaries. This does not claim every site,
 topology, MPI mapping or scientific application has been revalidated. Detailed
-operations evidence is kept outside this repository.
+operations evidence is kept outside this repository. These earlier GPU-policy
+checks do not qualify the association Comment migration or prove that a running
+controller has been restored to an unmodified upstream artifact.
 
 ## Site artifact: software module access
 

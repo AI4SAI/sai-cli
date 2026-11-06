@@ -11,7 +11,8 @@ The nested job may carry optional `account_restriction` from SAI's applied
 account-policy observation, alongside unchanged `reason_or_nodelist`. The context
 requires `PD` and `AssocGrpJobsLimit`, but does not claim that Slurm determined a
 financial cause. It adds no allocation or account access. Local exact-job detail
-uses the same snapshot reader and presents native and SAI account facts separately.
+uses the same bounded native association reader and presents native and SAI
+account facts separately.
 
 `schema.json` and `sample.json` are the shared machine-readable contract and a
 synthetic observation. Pilot bundles byte-identical copies. The schema identifies

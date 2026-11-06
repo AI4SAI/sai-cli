@@ -162,7 +162,7 @@ sampling is added only for a named feature with a bounded retention policy.
 | Shared contract | capability grant, request, normalized DTO, freshness, bounded error | ORM or native commands |
 | Portal issuer | identity/membership/site policy, scope resolution, signing, epoch, audit of issuance | interactive Slurm reads |
 | Site-read gateway | signature verification, filter narrowing, native reads, short cache, audit buffer | membership/RBAC, wallet/ledger, provisioning, scheduler writes |
-| Native adapter | bounded `squeue` and `scontrol show job` reads | user authorization |
+| Native adapter | bounded job, allocation and exact-association metadata reads | user authorization |
 | Remote `sai-cli`/`sai-pilot` consumer | explicit intent, capability renewal, transport, allowlist validation, rendering | signing keys, policy or pricing arithmetic |
 | Planned local CLI provider | integrate existing native helpers with human/JSON presentation under the current UID | Portal authority, elevated privileges or a new scheduler |
 
@@ -294,7 +294,23 @@ The reusable site runtime adapter supports these bounded native reads:
   bounded result limit;
 - `scontrol show job <ids> --json`, for detail and allocation snapshots;
 - `scontrol show hostnames <expression>`, only to expand an observed allocation's
-  host expression. This does not query all-node state or physical inventory.
+  host expression. This does not query all-node state or physical inventory;
+- `sacctmgr --json show association`, restricted to the visible pending jobs'
+  exact association IDs, for optional SAI account context. IDs are deduplicated
+  and queried in batches of at most 512.
+
+The association reader shares `sai_compute_restrictions` with the local CLI.
+It binds each current user association to the observed job's cluster, account,
+user and partition, then validates the managed Comment prefix and source
+lineage. Only typed `account_restriction` fields reach consumers; operator notes
+and raw Comments stay at the native boundary. Missing context leaves the native
+reason unchanged. A failed context read produces a bounded diagnostic while
+preserving the authorized job observation.
+
+Center's existing limit, membership and parent-account flows publish this
+metadata through standard Slurm association Comments. The diagnostic carrier
+has no controller HTTP fetch, timer or dynamic policy file. Its rollout and
+actual service-UID read permission require separate verification.
 
 The paired `jobs.allocation/v2` projection reads `gres_detail` from that same
 job response. Slurm JSON already enables detail. Index-to-node binding uses
@@ -302,9 +318,9 @@ the native ordered expansion before sorting. CPU topology adds one sinfo
 read restricted to those verified nodes; see Shared job topology below.
 Unknown GRES remains null independently of valid CPU/memory observations.
 
-It has no `sacct`, enforcement, reservation, metadata, provisioning, quota, or
-write method. Commands run without sudo, with explicit timeout and output
-bounds. A source failure returns a bounded unavailable result; it never falls
+These job and association reads expose no `sacct` history, enforcement,
+reservation, provisioning, quota mutation or write method. Commands run without
+sudo, with explicit timeout and output bounds. A source failure returns a bounded unavailable result; it never falls
 back to broad accounting or a guessed empty success.
 
 ## Native Lustre quota
