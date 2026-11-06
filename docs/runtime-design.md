@@ -26,8 +26,9 @@ Preserve the explicit HTTP read contracts during migration. `sai jobs local`
 implements the existing job-helper filter semantics through Slurm JSON.
 The explicit `--with-subaccounts` mode resolves the local cluster and native
 Slurm `WithSubAccounts` hierarchy before that one queue read. `sqa`/`ja` use it
-so current-organization queries include child projects. Exact `-A` reads add no
-metadata query. The
+so current-organization queries include child projects. Exact `-A` filters need
+no hierarchy lookup. Eligible pending rows can add the bounded association
+Comment read described below. The
 [native contract](../contracts/native-jobs/v1/README.md) records names, flags,
 units and failure limits. `resources local` reuses the same native execution/value
 boundary for one per-node `sinfo` response; its [contract](../contracts/native-resources/v1/README.md)
@@ -574,15 +575,22 @@ Table mode keeps the established SAI meanings:
 - `Reason/Nodelist` is a pending reason or the allocated node expression,
   depending on state.
 
-For native `AssocGrpJobsLimit`, optional `account_restriction` adds a short SAI
-account-state label in the existing cell. The original reason remains in JSON.
-The whole filtered query reads the protected policy snapshot at most once;
-native/HTTP query counts stay unchanged. Details distinguish the native code
-from the SAI account restriction and ancestor account. Missing or expired snapshots leave
-context unknown. Existing invalid/unreadable files produce one bounded diagnostic
-without failing the native query. Running observations clear the optional context.
-The retired private `pending_reason` and custom Slurm descriptions supply no
-financial context.
+For a pending native `AssocGrpJobsLimit`, optional `account_restriction` adds a
+short SAI account-state label while JSON retains the native reason. After the
+visible-page filter, the shared reader deduplicates the jobs' association IDs
+and queries current standard Comments with bounded `sacctmgr --json` batches
+of at most 512 IDs. It verifies each row's cluster, user, account, partition and
+lineage before decoding the managed prefix. A page with no eligible association
+IDs makes no additional call. Local reads keep the caller's UID; the gateway
+keeps its existing service identity.
+
+Details distinguish the native code from the observed SAI account context and
+its source account. Unmarked or missing associations leave context unknown.
+Malformed or unavailable association reads emit a bounded diagnostic and retain
+the native job result. Running rows carry no restriction context. The shared
+`src/sai_compute_restrictions.py` module performs this projection without a
+local policy file, HTTP request or pricing lookup. The source change requires
+paired publisher/reader rollout and separate live verification.
 
 Native holds, dependencies and selected account/QOS limits use short labels
 from the same presenter in local, remote and TUI views. Details retain the native

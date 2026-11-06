@@ -256,3 +256,39 @@ def test_explicit_limit_is_reported_not_a_complete_queue(native_client):
     code, raw, _ = invoke(env, "jobs", "local", "--limit", "1")
     assert code == 0 and json.loads(raw)["has_more"] and json.loads(raw)["count"] == 1
     assert "More jobs matched" in invoke(env, "jobs", "local", "--limit", "1", "--format", "table")[1]
+
+
+def test_current_account_reason_uses_one_native_association_read_after_limit(native_client, tmp_path):
+    from sai_compute_restrictions import encode_association_comment
+    env, source, payload = native_client
+    job = payload['jobs'][0]
+    job.update(job_state=['PENDING'], state_reason='AssocGrpJobsLimit', association_id=47)
+    payload['jobs'].append({**job, 'job_id': 43, 'association_id': 99})
+    source.write_text(json.dumps(payload))
+    rows = tmp_path / 'associations.json'
+    call = tmp_path / 'association-calls.jsonl'
+    binary = tmp_path / 'sacctmgr'
+    binary.write_text(f'#!{sys.executable}\n' + f'''
+import json,sys
+from pathlib import Path
+with Path({str(call)!r}).open('a') as out:out.write(json.dumps(sys.argv[1:])+'\\n')
+print(Path({str(rows)!r}).read_text())
+''')
+    binary.chmod(0o755)
+    association = {'id': 47, 'cluster': 'cluster-a', 'account': 'research', 'user': job['user_name'],
+        'partition': '', 'lineage': '/org-a/research/0-user/'}
+    for reason in ('arrears', 'admin_blocked', None):
+        association['comment'] = encode_association_comment('private note', account='org-a', association_id=3,
+            owner_ref='11111111-2222-4333-8444-555555555555', revision=1, reason=reason)
+        rows.write_text(json.dumps({'associations': [association], 'errors': []}))
+        code, output, errors = invoke(env, 'jobs', 'local', '--limit', '1')
+        assert code == 0 and not errors
+        item = json.loads(output)['items'][0]
+        assert item.get('account_restriction', {}).get('code') == reason
+        assert all(value not in output for value in ('private note', 'association_id', 'owner_ref'))
+    calls = [json.loads(line) for line in call.read_text().splitlines()]
+    assert len(calls) == 3 and all(argv[-1] == 'Ids=47' for argv in calls)
+    rows.write_text('{invalid-private-data')
+    code, output, errors = invoke(env, 'jobs', 'local', '--limit', '1')
+    assert code == 0 and 'account_restriction' not in json.loads(output)['items'][0]
+    assert 'account_restrictions_unavailable' in errors and 'private-data' not in errors

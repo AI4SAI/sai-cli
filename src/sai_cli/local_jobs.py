@@ -8,11 +8,12 @@ from datetime import datetime, timezone
 import os
 import re
 import sys
+import time
 from typing import Any, Mapping, TextIO
 
-from sai_compute_restrictions import read_snapshot, restriction_for_job
+from sai_compute_restrictions import association_read_command, read_job_restrictions
 from .contracts import JobItem, short_job_state
-from .errors import ConfigError, ContractError
+from .errors import ConfigError, ContractError, UnavailableError
 from .native_process import read_native_json
 from .native_values import (invalid_native as _invalid, native_number as _number,
                             native_text as _text, local_options, native_environment,
@@ -122,17 +123,26 @@ class LocalJobs:
                 "has_more": self.has_more, "warning_count": self.warning_count}
 
 
-def _account_context(items: tuple[JobItem, ...], *, cluster: str, stderr: TextIO | None = None) -> tuple[JobItem, ...]:
-    if not any(item.values["state"] == "PD" and item.values["reason_or_nodelist"] == "AssocGrpJobsLimit" for item in items):
-        return items
+def _account_context(items: tuple[JobItem, ...], *, raw_jobs: list[dict], cluster: str,
+                     environ: Mapping[str, str], timeout: float,
+                     stderr: TextIO | None = None) -> tuple[JobItem, ...]:
+    deadline = time.monotonic() + timeout
+
+    def fetch(ids: list[int]) -> dict:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise UnavailableError("account context read timed out", code="native_query_timeout")
+        return read_native_json(association_read_command(cluster, ids), environ=environ, timeout=remaining)
+
     try:
-        snapshot = read_snapshot(cluster=cluster)
-    except (OSError, ValueError, RecursionError):
+        restrictions = read_job_restrictions([item.values for item in items],
+            [raw.get("association_id") for raw in raw_jobs], cluster=cluster, fetch=fetch)
+    except (OSError, ValueError, RecursionError, ContractError, UnavailableError):
         (sys.stderr if stderr is None else stderr).write(
             "WARNING [account_restrictions_unavailable]: SAI account status is unavailable.\n")
         return items
     return tuple(JobItem({**item.values, "account_restriction": restriction})
-                 if (restriction := restriction_for_job(item.values, snapshot)) is not None else item for item in items)
+                 if restriction is not None else item for item, restriction in zip(items, restrictions))
 
 
 def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str], stderr: TextIO | None = None) -> LocalJobs:
@@ -172,17 +182,21 @@ def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str], std
     if not isinstance(payload.get("jobs"), list):
         raise _invalid()
     observed_at = datetime.now(timezone.utc).replace(microsecond=0)
-    items = tuple(_item(job, observed=int(observed_at.timestamp())) for job in payload["jobs"])
+    entries = [(raw, _item(raw, observed=int(observed_at.timestamp()))) for raw in payload["jobs"]]
+    items = tuple(item for _raw, item in entries)
     if subtree and not {item.values["slurm_account"] for item in items}.issubset(accounts):
         raise _invalid()
     # One display order for JSON and humans, matching the familiar state groups.
     order = {"R": 0, "PD": 1, "CG": 2, "S": 3}
-    items = tuple(sorted(items, key=lambda item: (order.get(item.values["state"], 4),
-                        -(item.values["run_wait_seconds"] or 0), -(item.values["priority"] or 0), item.canonical_id)))
+    entries.sort(key=lambda pair: (order.get(pair[1].values["state"], 4),
+        -(pair[1].values["run_wait_seconds"] or 0), -(pair[1].values["priority"] or 0), pair[1].canonical_id))
+    items = tuple(item for _raw, item in entries)
     has_more = args.limit is not None and len(items) > args.limit
     if args.limit is not None:
         items = items[:args.limit]
-    items = _account_context(items, cluster=cluster, stderr=stderr)
+        entries = entries[:args.limit]
+    items = _account_context(items, raw_jobs=[raw for raw, _item_value in entries],
+        cluster=cluster, environ=native_env, timeout=timeout, stderr=stderr)
     return LocalJobs(cluster=cluster, actor=actor, uid=os.geteuid(), filters=filters,
                      observed_at=observed_at.isoformat().replace("+00:00", "Z"), items=items,
                      has_more=has_more, warning_count=warning_count)

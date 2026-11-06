@@ -17,17 +17,6 @@ end
 local exempt_qos = snapshot.gpu_multiple_exempt_qos
 local gpu_multiple = snapshot.gpu_per_node_multiple
 
-local restriction_loaded, restrictions = pcall(dofile,
-    rawget(_G, "SAI_ACCOUNT_RESTRICTIONS_PATH") or "/etc/slurm/sai/account_restrictions.lua")
-if not restriction_loaded or type(restrictions) ~= "table"
-    or restrictions.schema_version ~= "sai.compute-restrictions/v1"
-    or restrictions.cluster_id ~= slurm.CLUSTER_NAME
-    or type(restrictions.accounts) ~= "table"
-    or type(restrictions.published_at) ~= "number"
-    or type(restrictions.expires_at) ~= "number"
-    or restrictions.expires_at <= restrictions.published_at then
-    restrictions = nil
-end
 local restriction_labels = {
     arrears = "欠费 / Arrears",
     severe_arrears = "严重欠费 / Severe arrears",
@@ -44,24 +33,19 @@ end
 
 local function notify_account_restriction(job_desc, job_ptr)
     local account = job_desc.account
-    if not restrictions or not nonempty(account)
-        or (job_ptr and account == job_ptr.account) then return end
-    local now = os.time()
-    if now < restrictions.published_at or now >= restrictions.expires_at then return end
-    local row = restrictions.accounts[account]
-    if type(row) ~= "table" or type(row.lineage) ~= "table"
-        or #row.lineage < 1 or #row.lineage > 64 or row.lineage[#row.lineage] ~= account then return end
-    for index = #row.lineage, 1, -1 do
-        local ancestor = row.lineage[index]
-        if type(ancestor) ~= "string" or #ancestor > 128
-            or not string.match(ancestor, "^[%w][%w_.+%-]*$") then return end
-        local policy = restrictions.accounts[ancestor]
-        if type(policy) == "table" and policy.group_jobs_limit == 0
-            and type(policy.reason) == "string" and restriction_labels[policy.reason] then
-            slurm.user_msg("SAI账户 " .. ancestor .. "：" .. restriction_labels[policy.reason])
-            return
-        end
-    end
+    if not nonempty(account) or (job_ptr and account == job_ptr.account) then return end
+    local comment = job_desc.assoc_comment
+    if type(comment) ~= "string" or #comment > 65536 then return end
+    local source, assoc_id, owner_ref, revision, code, boundary = string.match(comment,
+        "^%[sai%.account%-state/v1:([%w_.+%-]+):(%d+):([%da-f%-]+):(%d+):([%w_]+)%]()")
+    if not source or #source > 128 or not string.match(source, "^[%w]")
+        or not restriction_labels[code] or #owner_ref ~= 36
+        or not string.match(owner_ref, "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$")
+        or #assoc_id > 10 or not string.match(assoc_id, "^[1-9]%d*$") or tonumber(assoc_id) < 1 or tonumber(assoc_id) >= 4294967294
+        or #revision > 19 or not string.match(revision, "^[1-9]%d*$")
+        or (#revision == 19 and revision > "9223372036854775807")
+        or (boundary <= #comment and string.sub(comment, boundary, boundary) ~= " ") then return end
+    slurm.user_msg("SAI账户 " .. source .. "：" .. restriction_labels[code])
 end
 
 local function specified_number(value, unset)

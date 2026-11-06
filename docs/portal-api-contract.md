@@ -469,11 +469,13 @@ server fields are not forwarded by the CLI.
 Job rows optionally carry `account_restriction`, containing `code`, `account`,
 `source=sai_applied_policy` and integer epoch `observed_at`. Allowed codes are
 `arrears`, `severe_arrears`, `no_compute_funding` and `admin_blocked`; they require
-state `PD` and original `reason_or_nodelist=AssocGrpJobsLimit`. The source is a
-separate applied SAI account-policy snapshot, not Slurm's reason or comments.
-The account may be an observed ancestor and grants no additional visibility.
-Gateway, relay, local jobs and exact allocation share the typed context. Native
-readers ignore injected account fields and add context only from the snapshot.
+state `PD` and original `reason_or_nodelist=AssocGrpJobsLimit`. SAI projects the
+applied account state into standard association `Comment` metadata. Native
+readers batch the visible jobs' association IDs and validate the exact cluster,
+user, account, partition and lineage before adding this context. The account
+may be an observed ancestor and grants no additional visibility. Gateway, relay,
+local jobs and exact allocation share the typed context. Raw remarks, association
+IDs and projection versions remain internal. Slurm retains its native reason.
 Missing context does not imply available funding. Old alpha `pending_reason`
 fields are discarded and no longer produced. Labels retain the original reason
 in JSON and do not price a pending job.

@@ -77,23 +77,27 @@ The optional `account_restriction` object contains `code`, `account`,
 `source=sai_applied_policy` and integer epoch `observed_at`. Codes are `arrears`,
 `severe_arrears`, `no_compute_funding` and `admin_blocked`. It is separate SAI
 account context for a `PD` job with native `AssocGrpJobsLimit`, not a financial
-cause determined by Slurm. The shared account-policy snapshot supplies the
-observation and native ancestor lineage. Its account never selects a scope or
-grants access. `reason_or_nodelist` keeps the original Slurm value.
+cause determined by Slurm. The current user association's standard `Comment`
+carries the applied SAI state. The shared native reader validates the observed
+association ID, cluster, user, account, partition and ancestor lineage. Its
+account never selects a scope or grants access. `reason_or_nodelist` keeps the
+original Slurm value.
 
-After the normal query/filter/limit, a matching result reads the optional
-snapshot once for the whole query. It adds no native/HTTP request. A missing or
-expired snapshot means context was not provided; it does not mean funds are available. An existing
-unreadable or invalid file emits one fixed `account_restrictions_unavailable`
-stderr diagnostic and leaves the native result intact. No snapshot content or
-path enters that diagnostic. The TUI subprocess currently captures successful
+After the normal query/filter/limit, matching results read deduplicated native
+association IDs in bounded batches of at most 512 through `sacctmgr --json`.
+No HTTP or Center query is added. Missing metadata means context was not
+provided; it does not mean funds are available. An unavailable or invalid native
+association read emits one fixed `account_restrictions_unavailable` stderr
+diagnostic and leaves the native result intact. Raw remarks and internal IDs
+never enter that diagnostic. The TUI subprocess currently captures successful
 command stderr without displaying it; the job result remains usable.
 
 Tables combine the short native label with the observed account state. Enter
 details keep the native code and identify the separate SAI account restriction
 and account. The private `pending_reason` field used by earlier `0.2.0a2`
 development builds is retired and ignored; custom state descriptions and user
-comments no longer supply financial context.
+job comments never supply financial context. The administrative association
+metadata is distinct from those user-editable job fields.
 
 `job_id` is the decimal array base when present, otherwise the native job ID.
 `array_task_id` preserves task zero and may contain a bracketed native array

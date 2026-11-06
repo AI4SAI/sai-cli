@@ -104,10 +104,12 @@ add `--apply` to accept. This v2 workflow requires the paired Portal update.
 
 First-party client code, the shared native projection and bundled Agent guidance
 are licensed under Apache-2.0. Historical Slurm patch prototypes retain their upstream GPL terms in the repository
-archive and are excluded from Python distributions. Current integration uses
-unmodified upstream Slurm. The repository's site
-integration artifacts have their own deployment roles; installing the Python
-client never installs or changes a scheduler, login profile or storage service.
+archive and are excluded from Python distributions. Site integration targets
+unmodified upstream Slurm. The standard association Comment migration and its
+paired deployment checks are tracked in the [roadmap](docs/roadmap.md).
+The repository's site integration artifacts have their own deployment roles;
+installing the Python client never installs or changes a scheduler, login
+profile or storage service.
 
 The [interconnect contract](contracts/node-interconnect/v1/README.md) joins recorded CPU/NUMA, PCIe, GPU and fabric
 relationships to an exact live allocation via `--with-interconnect`. Local reads

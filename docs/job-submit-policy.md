@@ -28,12 +28,13 @@ call would therefore turn daemon restarts, queueing, garbage collection,
 cache misses, and timeout tails into scheduler-wide submission stalls. Even a
 Unix socket would remove network routing without removing that failure domain.
 
-The two paths share control-plane projections, not a synchronous dependency:
+The existing owners publish through separate native paths:
 
 ```text
 control plane
   +-- signed capabilities --> site-local read gateway --> sai-cli / TUI
   +-- versioned GPU rules --> local Lua policy file --> job_submit.lua
+  +-- account state --> standard association Comment --> native readers / Lua
 ```
 
 The privileged password `authn-relay` is a third, separate service. Its reset
@@ -42,30 +43,35 @@ or controller plugin.
 
 ## Applied account restriction diagnostics
 
-Financial restriction reasons use the existing account resource-limit publisher,
-not the static GPU snapshot or a call from Lua. The publisher carries its
-already-decided reason alongside `GrpJobs=0` in an owned association Comment
-prefix. Reason-only changes participate in normal reconciliation and readback;
-opening the gate removes the prefix while preserving operator notes. Initial
-provisioning without a financial decision remains unclassified.
+Center owns the current account restriction. Its existing resource-limit,
+membership and parent-account flows project that state to standard Slurm
+association `Comment` fields. The shared `sai_compute_restrictions` module
+encodes a bounded managed prefix with the source account, association identity,
+owner, revision and reason. The site writer uses the upstream C API to preserve
+the original operator note. Clearing a restriction publishes the open state
+through the same flows. Numeric-limit readiness and diagnostic delivery retain
+separate outcomes and retries.
 
-The matched [native diagnostic patch](../site/slurm/patches/README.md) adds a
-short `state_description` only where Slurm itself finds the actual blocking
-association. It preserves `state_reason`, native QoS precedence, reservations,
-holds and submission return codes. The same observation supplies CLI, gateway
-and Agent `pending_reason` data. Human queue rows use a short label; details can
-name the blocking account. Ordinary `squeue` also receives a short description.
+For pending `AssocGrpJobsLimit` rows, CLI and gateway readers use the job's
+association ID to fetch the current user association in bounded native JSON
+batches. They validate the job binding and lineage before exposing optional
+`account_restriction` context. Slurm's reason stays unchanged, and an unavailable
+context read preserves the native observation. The same standard-library module
+owns this projection for both readers. See [runtime behavior](runtime-design.md).
 
-Submission notices use that same native decision in the existing response
-channel, after Slurm has resolved the request. This avoids predicting the
-scheduler's result in the earlier Lua callback. It does not add another
-submission prohibition or make warnings proof of acceptance.
+The Lua callback reads `job_desc.assoc_comment`, validates the managed prefix,
+and sends a short account-state notice through `slurm.user_msg`. This notice
+adds no rejection, changes no job field and performs no external I/O. GPU rules,
+account selection and native Slurm authorization keep their existing behavior.
+A notice describes account context; Slurm's return code and job receipt determine
+whether submission or modification was accepted.
 
-The publisher requires the matched `CommentLiteral` client and DBD changes to
-preserve comments through argument parsing, native serialization and SQL storage.
-Deploy those components before enabling the new publisher; retain native package
-rollback together with the paired producer and readers. Local source checks and
-isolated native acceptance do not establish production activation.
+This integration uses unmodified upstream Slurm APIs. It requires no custom
+scheduler reason, serialization extension, controller HTTPS reader, renewal
+timer or dynamic policy snapshot. The static GPU policy below has its own
+release lifecycle. Paired publisher, helper, reader and Lua deployment must be
+verified against actual native association readback and loaded upstream binaries.
+Source implementation alone does not establish that production migration.
 
 ## Submission Rules
 
@@ -197,9 +203,9 @@ does not change a running, already approved site policy.
 
 ## Hot-Path Budget
 
-The Lua state loads the GPU policy snapshot once through `dofile`.
-`slurm_job_submit` performs only bounded string checks, direct account
-construction and integer arithmetic. It
+The Lua state loads the static GPU policy once through `dofile`.
+`slurm_job_submit` performs bounded string checks, native `assoc_comment`
+inspection, direct account construction and integer arithmetic. It
 performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
@@ -290,26 +296,15 @@ scheduling limits remain Slurm's responsibility. An accepted update does not
 guarantee immediate execution or preserve queue priority. Multi-job updates
 retain native per-job outcomes.
 
-Two native behavior boundaries were observed on Slurm 26.05.1:
+Native modification behavior and validation:
 
 - A held job's requested memory/billing TRES can still show the old values
   after changing its GPU count. A live four-to-two GPU canary received the
   correct CPU, memory and GPU allocation when it ran; use allocation readback
   for runtime claims, not the intermediate pending request.
-- Updating QOS/resources on a user-held job can clear its hold reason while
-  leaving priority zero. The native controller correction in
-  `site/slurm/patches/slurm-26.05.1-preserve-hold.patch` preserves user/admin hold
-  reasons when accounting limits are rechecked. It does not bypass limits or
-  grant release privileges. Native isolated before/after tests verify that
-  users can release their own modified hold and cannot release an admin hold.
-
-The native patch targets upstream `slurm-26-05-1-1`, only in
-`acct_policy_update_pending_job`. Build with the upstream Debian tooling and
-install the controller role package; clients, protocol and shared libraries
-remain at the matched base version. Keep the original package for rollback.
-The patch is a source artifact, excluded from the CLI wheel. Recheck it against
-upstream before the next Slurm upgrade and remove it once upstream carries the
-fix. Production readback remains a separate gate from isolated validation.
+- Hold and release behavior follows the installed upstream Slurm version.
+  Include user and administrator holds in native QOS/resource-change canaries;
+  this integration does not modify controller hold semantics.
 
 ## Deployment And Reload
 

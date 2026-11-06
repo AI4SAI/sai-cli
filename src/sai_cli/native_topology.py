@@ -48,7 +48,8 @@ def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, s
     if len(jobs) != 1:
         raise invalid_native()
     raw, job = jobs[0]
-    job, = _account_context((job,), cluster=cluster, stderr=stderr)
+    job, = _account_context((job,), raw_jobs=[raw], cluster=cluster, environ=env,
+                            timeout=timeout, stderr=stderr)
     try:
         allocation = normalize_job_allocation(raw)
         if allocation["status"] == "allocated":

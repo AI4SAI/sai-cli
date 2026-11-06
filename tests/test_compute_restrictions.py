@@ -1,72 +1,66 @@
-"""SAI observations remain separate from the scheduler's native reason."""
+"""Shared standard association metadata keeps operator notes and scoped job context."""
 from copy import deepcopy
-import json
-import os
-import time
-
 import pytest
+from sai_compute_restrictions import (association_read_command, decode_association_comment,
+    encode_association_comment, read_job_restrictions, strip_association_comment)
 
-from sai_compute_restrictions import normalize_snapshot, read_snapshot, restriction_for_job
-
-
-def snapshot():
-    now = int(time.time())
-    return {"schema_version": "sai.compute-restrictions/v1", "cluster_id": "cluster-a",
-            "generation": now * 1_000_000, "published_at": now, "expires_at": now + 300,
-            "accounts": {
-                "org-a": {"lineage": ["root", "org-a"], "group_jobs_limit": 0,
-                          "observed_at": now, "reason": "arrears"},
-                "project-a": {"lineage": ["root", "org-a", "project-a"],
-                              "group_jobs_limit": None, "observed_at": now},
-            }}
+OWNER = "11111111-2222-4333-8444-555555555555"
 
 
-def test_parent_account_context_does_not_rewrite_native_observation_and_expires():
-    source = snapshot()
-    job = {"state": "PD", "reason_or_nodelist": "AssocGrpJobsLimit", "slurm_account": "project-a"}
+def encoded(note="", reason="arrears", revision=1):
+    return encode_association_comment(note, account="org-a", association_id=3,
+        owner_ref=OWNER, revision=revision, reason=reason)
+
+
+def test_reason_changes_and_open_preserve_original_note_exactly():
+    note = "  MiXeD 'quoted' \"double\" \\ path / 中文\nlast line  "
+    first = encoded(note)
+    second = encoded(first, "admin_blocked", 2)
+    cleared = encoded(second, None, 3)
+    assert strip_association_comment(first) == strip_association_comment(second) == strip_association_comment(cleared) == note
+    assert decode_association_comment(second) == {"account": "org-a", "association_id": 3,
+        "owner_ref": OWNER, "revision": 2, "reason": "admin_blocked"}
+    assert decode_association_comment(cleared)["reason"] is None
+    assert strip_association_comment("ordinary [brackets] note") == "ordinary [brackets] note"
+
+
+def test_visible_page_deduplicates_native_read_and_existing_job_sees_reason_change():
+    job = {"state": "PD", "reason_or_nodelist": "AssocGrpJobsLimit", "slurm_account": "project-a",
+           "slurm_user": "alice", "partition": "gpu"}
     before = deepcopy(job)
-    value = restriction_for_job(job, normalize_snapshot(source, cluster="cluster-a"))
-    assert value["account"] == "org-a" and value["code"] == "arrears"
-    assert value["source"] == "sai_applied_policy" and job == before
-    assert restriction_for_job(job, source, now=source["expires_at"]) is None
-    for change in ({"state": "R"}, {"reason_or_nodelist": "Resources"}, {"slurm_account": "unmanaged"}):
-        assert restriction_for_job({**job, **change}, source) is None
-    del source["accounts"]["org-a"]["reason"]
-    source["accounts"]["org-a"]["group_jobs_limit"] = None
-    assert restriction_for_job(job, normalize_snapshot(source, cluster="cluster-a")) is None
-
-
-def test_real_snapshot_read_rejects_wrong_cluster_shared_writes_and_symlinks(tmp_path):
-    root = tmp_path / "observations"
-    root.mkdir(mode=0o755)
-    path = root / "cluster-a.json"
-    path.write_text(json.dumps(snapshot()))
-    path.chmod(0o644)
-    options = {"cluster": "cluster-a", "root": root, "trusted_uids": (os.getuid(),)}
-    assert read_snapshot(**options)["accounts"]["org-a"]["reason"] == "arrears"
-    path.chmod(0o666)
-    with pytest.raises(ValueError):
-        read_snapshot(**options)
-    path.chmod(0o644)
-    bad = snapshot()
-    bad["cluster_id"] = "cluster-b"
-    path.write_text(json.dumps(bad))
-    with pytest.raises(ValueError):
-        read_snapshot(**options)
-    path.unlink()
-    target = root / "target.json"
-    target.write_text(json.dumps(snapshot()))
-    path.symlink_to(target)
-    with pytest.raises(OSError):
-        read_snapshot(**options)
+    row = {"id": 47, "cluster": "cluster-a", "account": "project-a", "user": "alice",
+           "partition": "", "lineage": "/org-a/project-a/0-alice/", "comment": encoded("private operator note")}
+    calls=[]
+    def fetch(ids):
+        calls.append(ids)
+        return {"associations": [row], "errors": []}
+    for reason, revision in (("arrears", 1), ("admin_blocked", 2), (None, 3)):
+        row["comment"] = encoded(row["comment"], reason, revision)
+        result = read_job_restrictions([job, job, {**job, "state": "R"}], [47, 47, 99],
+            cluster="cluster-a", fetch=fetch, now=123)
+        expected = None if reason is None else {"code": reason, "account": "org-a", "source": "sai_applied_policy", "observed_at": 123}
+        assert result == [expected, expected, None]
+    assert calls == [[47]] * 3 and job == before
+    assert read_job_restrictions([{**job, "reason_or_nodelist": "Resources"}], [47], cluster="cluster-a", fetch=fetch) == [None]
+    assert calls == [[47]] * 3
+    assert association_read_command("cluster-a", [47])[-2:] == ["Cluster=cluster-a", "Ids=47"]
 
 
 @pytest.mark.parametrize("change", [
-    {"group_jobs_limit": 2}, {"reason": "unverified"},
-    {"lineage": ["root", "org-a", "org-a"]}, {"observed_at": True},
+    {"id": 48}, {"cluster": "cluster-b"}, {"user": "bob"}, {"account": "other"},
+    {"partition": "cpu"}, {"lineage": "/unrelated/project-a/0-alice/"},
+    {"comment": "[sai.account-state/v1:invalid]"},
 ])
-def test_malformed_account_context_is_not_published_as_a_verified_cause(change):
-    value = snapshot()
-    value["accounts"]["org-a"].update(change)
+def test_unrelated_or_malformed_association_never_enriches_a_job(change):
+    job = {"state": "PD", "reason_or_nodelist": "AssocGrpJobsLimit", "slurm_account": "project-a",
+           "slurm_user": "alice", "partition": "gpu"}
+    row = {"id": 47, "cluster": "cluster-a", "account": "project-a", "user": "alice",
+           "partition": "", "lineage": "/org-a/project-a/0-alice/", "comment": encoded()}
     with pytest.raises(ValueError):
-        normalize_snapshot(value, cluster="cluster-a")
+        read_job_restrictions([job], [47], cluster="cluster-a", fetch=lambda ids: {"associations": [{**row, **change}]})
+
+
+@pytest.mark.parametrize("value", [True, 0, -1, 2**32 - 2, "47"])
+def test_invalid_association_id_cannot_change_native_query_scope(value):
+    with pytest.raises(ValueError):
+        association_read_command("cluster-a", [value])
