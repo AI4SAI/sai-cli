@@ -21,9 +21,21 @@ not imply production activation or completion of a paired rollout.
   worker's complete cycle passed. Full-fleet verification remains open.
 - [x] Present native holds, dependencies and selected account/QOS limits through
   one local/remote/TUI presenter, retaining raw codes in JSON and details.
-- [ ] Explain the service-level or manual-setting source of the actual blocking
-  limit, bound to the applied policy. Native reason labels alone do not provide
-  this provenance.
+- [x] Implement a source candidate for typed limit provenance in standard
+  association Comment v2 and the additive `limit_context` DTO. Shared readers
+  query exact job associations and declared ancestors with `WOPLimits`.
+  Details preserve separate group billing layers, nearest explicit
+  `MaxSubmitJobs`, exact decimal-string values and unknown sources. Lists retain
+  short native reasons. This candidate is not deployed and does not identify a
+  uniquely proven scheduler trigger.
+- [ ] Complete paired v2 activation in order: compatible CLI, Read gateway,
+  Core DTO and Lua consumers, then the Site helper/writers, then Ops workers.
+  Use the original policy projector and workers to backfill metadata while
+  keeping already-applied numeric limits unchanged. Verify account/member/parent
+  updates, source-only revisions, retry and unknown-source readback.
+- [ ] Remove temporary v1 marker compatibility after the original worker's
+  full accepted association cohort has migrated to v2. An `open` funding marker
+  stays silent throughout and grants no scheduling permission.
 
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and numbered allocation inspection

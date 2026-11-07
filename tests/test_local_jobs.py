@@ -276,7 +276,7 @@ print(Path({str(rows)!r}).read_text())
 ''')
     binary.chmod(0o755)
     association = {'id': 47, 'cluster': 'cluster-a', 'account': 'research', 'user': job['user_name'],
-        'partition': '', 'lineage': '/org-a/research/0-user/'}
+        'partition': '', 'lineage': f"/org-a/research/0-{job['user_name']}/"}
     for reason in ('arrears', 'admin_blocked', None):
         association['comment'] = encode_association_comment('private note', account='org-a', association_id=3,
             owner_ref='11111111-2222-4333-8444-555555555555', revision=1, reason=reason)
@@ -287,7 +287,7 @@ print(Path({str(rows)!r}).read_text())
         assert item.get('account_restriction', {}).get('code') == reason
         assert all(value not in output for value in ('private note', 'association_id', 'owner_ref'))
     calls = [json.loads(line) for line in call.read_text().splitlines()]
-    assert len(calls) == 3 and all(argv[-1] == 'Ids=47' for argv in calls)
+    assert len(calls) == 3 and all(argv[-2:] == ['Ids=47', 'WOPLimits'] for argv in calls)
     rows.write_text('{invalid-private-data')
     code, output, errors = invoke(env, 'jobs', 'local', '--limit', '1')
     assert code == 0 and 'account_restriction' not in json.loads(output)['items'][0]

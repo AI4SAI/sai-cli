@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 from _lua_runtime import run_lua
 
 
@@ -477,10 +479,12 @@ def test_submit_callback_has_no_runtime_external_io() -> None:
     assert "package.loadlib" not in text
 
 
-def test_account_notice_reads_selected_native_association_without_runtime_io(tmp_path: Path) -> None:
+@pytest.mark.parametrize("version", (1, 2))
+def test_account_notice_reads_selected_native_association_without_runtime_io(tmp_path: Path, version: int) -> None:
     from sai_compute_restrictions import encode_association_comment
     marker = encode_association_comment("private note", account="org-example", association_id=3,
-        owner_ref="11111111-2222-4333-8444-555555555555", revision=7, reason="arrears")
+        owner_ref="11111111-2222-4333-8444-555555555555", revision=7, reason="arrears",
+        **({"ancestor_ids": [1, 3]} if version == 2 else {}))
     run_lua(_prelude(_snapshot(tmp_path)) + "marker=" + json.dumps(marker) + "\n" + r'''
 dofile = function() error("callback attempted file I/O") end
 local job = new_job({account = "proj-research", assoc_comment = marker, tres_per_node = "gres/gpu:4", priority = 0})
@@ -504,8 +508,13 @@ def test_missing_open_or_malformed_native_marker_preserves_submit_behavior(tmp_p
     from sai_compute_restrictions import encode_association_comment
     opened = encode_association_comment("note", account="org-example", association_id=3,
         owner_ref="11111111-2222-4333-8444-555555555555", revision=8, reason=None)
+    opened_v2 = encode_association_comment(opened, account="org-example", association_id=3,
+        owner_ref="11111111-2222-4333-8444-555555555555", revision=8, reason=None,
+        ancestor_ids=[1, 3])
     for comment in ("", "operator note", "[sai.account-state/v1:bad]", opened,
-                    opened.replace(":open]", ":unknown]"), opened.replace(":3:", ":0:")):
+                    opened.replace(":open]", ":unknown]"), opened.replace(":3:", ":0:"),
+                    opened_v2, opened.replace("/v1:", "/v2:"),
+                    opened_v2.replace("/v2:", "/v3:")):
         run_lua(_prelude(_snapshot(tmp_path)) + "marker=" + json.dumps(comment) + "\n" + r'''
 assert(slurm_job_submit(new_job({account="proj-research", assoc_comment=marker, tres_per_node="gres/gpu:4"}), {}, 1000) == slurm.SUCCESS)
 assert(not message_contains("SAI账户"))

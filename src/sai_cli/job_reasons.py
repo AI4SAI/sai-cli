@@ -41,8 +41,79 @@ _NATIVE_LABELS = {
     "QOSMaxNodePerJobLimit": ("QOS 单作业节点上限", "QOS per-job node limit"),
     "QOSMaxGRESPerJob": ("QOS 单作业通用资源上限", "QOS per-job generic resource limit"),
     "AssocGrpBilling": ("账户并发资源上限", "Account resource concurrency limit"),
+    "AssocMaxSubmitJobLimit": ("账户提交作业上限", "Account submitted-job limit"),
     "QOSGrpBilling": ("QOS并发资源上限", "QOS resource concurrency limit"),
 }
+
+_SERVICE_LEVEL_NAMES = {
+    "personal_unverified": ("基础", "Basic"),
+    "personal_standard": ("标准", "Standard"),
+    "registration_trial": ("千卡尝鲜", "Registration trial"),
+    "personal_advanced": ("高级", "Advanced"),
+    "org_standard": ("标准", "Standard"),
+    "standard": ("标准", "Standard"),
+    "plus": ("Plus", "Plus"),
+    "pro": ("Pro", "Pro"),
+    "ultra": ("Ultra", "Ultra"),
+}
+
+_SOURCE_NAMES = {
+    "service_level": ("服务等级", "Service level"),
+    "grant": ("权益授予", "Grant"),
+    "reservation": ("预留容量", "Reserved capacity"),
+    "org_admin": ("组织设置", "Organization setting"),
+    "project_pi": ("项目设置", "Project setting"),
+    "hard_clamp": ("手动上限", "Manual cap"),
+    "member_limit": ("成员设置", "Member setting"),
+    "risk_control": ("风控限制", "Risk control"),
+}
+
+_GRANT_NAMES = {
+    "baseline": ("基准授予", "Baseline grant"),
+    "assurance": ("保障授予", "Assurance grant"),
+    "contract": ("合同授予", "Contract grant"),
+    "subscription": ("订阅授予", "Subscription grant"),
+    "trial": ("试用授予", "Trial grant"),
+    "mis": ("管理授予", "Management grant"),
+}
+
+_LIMIT_FIELDS = {"AssocGrpBilling": "billing_tres_limit", "AssocMaxSubmitJobLimit": "max_submit_jobs"}
+
+
+def _limit_sources(sources: list[dict[str, Any]], *, chinese: bool) -> str:
+    if not sources:
+        return "来源未核实" if chinese else "Source unverified"
+    entitlements, reservations, constraints = [], [], []
+    for source in sources:
+        kind = source["kind"]
+        label = _SOURCE_NAMES[kind][0 if chinese else 1]
+        if kind == "grant" and source.get("grant_kind"):
+            label = _GRANT_NAMES[source["grant_kind"]][0 if chinese else 1]
+        code = source.get("service_level_code")
+        if code:
+            label += " " + _SERVICE_LEVEL_NAMES.get(code, (code, code))[0 if chinese else 1]
+        target = entitlements if kind in {"service_level", "grant"} else reservations if kind == "reservation" else constraints
+        target.append(label)
+    separator = "、" if chinese else ", "
+    entitlement = separator.join(entitlements)
+    if len(entitlements) > 1 and reservations:
+        entitlement = f"({entitlement})"
+    contributions = ([entitlement] if entitlement else []) + reservations
+    return separator.join(([" + ".join(contributions)] if contributions else []) + constraints)
+
+
+def _limit_lines(context: Mapping[str, Any], *, native: str, chinese: bool) -> list[str]:
+    field = _LIMIT_FIELDS.get(native)
+    lines = []
+    for constraint in context["constraints"]:
+        if constraint["field"] != field:
+            continue
+        scope = ("账户" if constraint["scope"] == "account" else "成员") if chinese else constraint["scope"].title()
+        amount = (("并发额度 " if chinese else "Concurrency allowance ") + constraint["value"] + " billing"
+                  if field == "billing_tres_limit" else ("提交作业数上限 " if chinese else "Submitted-job limit ") + constraint["value"])
+        lines.append(f"{constraint['account']} {scope} · {amount} · "
+                     + _limit_sources(constraint["sources"], chinese=chinese))
+    return lines
 
 
 def job_reason(job: Mapping[str, Any], *, language: str = "zh-CN", detail: bool = False) -> str | None:
@@ -63,4 +134,6 @@ def job_reason(job: Mapping[str, Any], *, language: str = "zh-CN", detail: bool 
             label += ("\nSAI 账户限制：" if chinese else "\nSAI account restriction: ") + account_label + " · " + restriction["account"]
         else:
             label += (" · 账户" if chinese else " · Account: ") + account_label
+    if detail and job.get("limit_context") and native in _LIMIT_FIELDS:
+        label = "\n".join([label, *_limit_lines(job["limit_context"], native=native, chinese=chinese)])
     return label
