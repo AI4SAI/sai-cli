@@ -13,10 +13,12 @@ not imply production activation or completion of a paired rollout.
   association Comment reader into local jobs, gateway DTOs and terminal detail,
   retaining upstream Slurm's original reason. Native reads batch the observed
   jobs' association IDs; Lua notices use the native `assoc_comment` field.
-- [ ] Complete paired Center/site publisher and client rollout on unmodified
-  upstream Slurm, preserving operator notes and existing numeric-limit readiness.
-  Verify submission notices, current-association reads, recovery and runtime
-  consumption separately from source implementation.
+- [x] Complete the paired Center/site publisher and client deployment on
+  unmodified upstream Slurm, using the operator's preserved original packages.
+  Package files and loaded programs/libraries matched those artifacts. Existing
+  operator notes, numeric-limit readiness and user-held jobs were preserved.
+  Ordinary-user local/gateway reads, submission preflight and the original
+  worker's complete cycle passed. Full-fleet verification remains open.
 - [x] Present native holds, dependencies and selected account/QOS limits through
   one local/remote/TUI presenter, retaining raw codes in JSON and details.
 - [ ] Explain the service-level or manual-setting source of the actual blocking

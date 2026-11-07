@@ -589,8 +589,9 @@ its source account. Unmarked or missing associations leave context unknown.
 Malformed or unavailable association reads emit a bounded diagnostic and retain
 the native job result. Running rows carry no restriction context. The shared
 `src/sai_compute_restrictions.py` module performs this projection without a
-local policy file, HTTP request or pricing lookup. The source change requires
-paired publisher/reader rollout and separate live verification.
+local policy file, HTTP request or pricing lookup. Publishers and readers require
+a paired deployment. The [roadmap](roadmap.md) records the completed site
+deployment and its verification boundary.
 
 Native holds, dependencies and selected account/QOS limits use short labels
 from the same presenter in local, remote and TUI views. Details retain the native
