@@ -2,7 +2,7 @@
 from copy import deepcopy
 import pytest
 from sai_compute_restrictions import (association_read_command, decode_association_comment,
-    encode_association_comment, read_job_restrictions, strip_association_comment)
+    encode_association_comment, read_job_contexts, strip_association_comment)
 
 OWNER = "11111111-2222-4333-8444-555555555555"
 
@@ -36,14 +36,15 @@ def test_visible_page_deduplicates_native_read_and_existing_job_sees_reason_chan
         return {"associations": [row], "errors": []}
     for reason, revision in (("arrears", 1), ("admin_blocked", 2), (None, 3)):
         row["comment"] = encoded(row["comment"], reason, revision)
-        result = read_job_restrictions([job, job, {**job, "state": "R"}], [47, 47, 99],
+        result = read_job_contexts([job, job, {**job, "state": "R"}], [47, 47, 99],
             cluster="cluster-a", fetch=fetch, now=123)
-        expected = None if reason is None else {"code": reason, "account": "org-a", "source": "sai_applied_policy", "observed_at": 123}
-        assert result == [expected, expected, None]
+        expected = {} if reason is None else {"account_restriction": {
+            "code": reason, "account": "org-a", "source": "sai_applied_policy", "observed_at": 123}}
+        assert result == [expected, expected, {}]
     assert calls == [[47]] * 3 and job == before
-    assert read_job_restrictions([{**job, "reason_or_nodelist": "Resources"}], [47], cluster="cluster-a", fetch=fetch) == [None]
+    assert read_job_contexts([{**job, "reason_or_nodelist": "Resources"}], [47], cluster="cluster-a", fetch=fetch) == [{}]
     assert calls == [[47]] * 3
-    assert association_read_command("cluster-a", [47])[-2:] == ["Cluster=cluster-a", "Ids=47"]
+    assert association_read_command("cluster-a", [47])[-3:] == ["Cluster=cluster-a", "Ids=47", "WOPLimits"]
 
 
 @pytest.mark.parametrize("change", [
@@ -57,7 +58,7 @@ def test_unrelated_or_malformed_association_never_enriches_a_job(change):
     row = {"id": 47, "cluster": "cluster-a", "account": "project-a", "user": "alice",
            "partition": "", "lineage": "/org-a/project-a/0-alice/", "comment": encoded()}
     with pytest.raises(ValueError):
-        read_job_restrictions([job], [47], cluster="cluster-a", fetch=lambda ids: {"associations": [{**row, **change}]})
+        read_job_contexts([job], [47], cluster="cluster-a", fetch=lambda ids: {"associations": [{**row, **change}]})
 
 
 @pytest.mark.parametrize("value", [True, 0, -1, 2**32 - 2, "47"])

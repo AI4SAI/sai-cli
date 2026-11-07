@@ -575,29 +575,43 @@ Table mode keeps the established SAI meanings:
 - `Reason/Nodelist` is a pending reason or the allocated node expression,
   depending on state.
 
-For a pending native `AssocGrpJobsLimit`, optional `account_restriction` adds a
-short SAI account-state label while JSON retains the native reason. After the
-visible-page filter, the shared reader deduplicates the jobs' association IDs
-and queries current standard Comments with bounded `sacctmgr --json` batches
-of at most 512 IDs. It verifies each row's cluster, user, account, partition and
-lineage before decoding the managed prefix. A page with no eligible association
-IDs makes no additional call. Local reads keep the caller's UID; the gateway
-keeps its existing service identity.
+For pending `AssocGrpJobsLimit`, optional `account_restriction` adds the existing
+short SAI account-state label while JSON retains the native reason. The typed v2
+Comment extension is a source candidate, not deployed. It adds optional
+[`limit_context`](../contracts/compute-limit-context/v1/README.md) for pending
+`AssocGrpBilling` and `AssocMaxSubmitJobLimit`. QOS reasons and running jobs do
+not receive association-source claims.
 
-Details distinguish the native code from the observed SAI account context and
-its source account. Unmarked or missing associations leave context unknown.
-Malformed or unavailable association reads emit a bounded diagnostic and retain
-the native job result. Running rows carry no restriction context. The shared
-`src/sai_compute_restrictions.py` module performs this projection without a
-local policy file, HTTP request or pricing lookup. Publishers and readers require
-a paired deployment. The [roadmap](roadmap.md) records the completed site
-deployment and its verification boundary.
+After authorization, filtering and pagination, `read_job_contexts` deduplicates
+the exact job association IDs. A first native JSON read obtains those rows and
+their managed v2 metadata. A second phase reads only the declared ancestor IDs.
+Both phases use `sacctmgr --json show association` with `WOPLimits` and batches
+of at most 512 IDs, preserving explicitly configured values. The reader checks
+cluster, account, user, partition and current lineage, then binds source metadata
+to the association incarnation and native value. A page with no eligible IDs
+makes no additional call. Local reads keep the caller's UID; the gateway keeps
+its existing service identity.
+
+Group billing constraints retain their separate account/member layers.
+`MaxSubmitJobs` uses the member's explicit value or the nearest explicit ancestor,
+including an unknown source at that layer. More distant values are overridden.
+The public value is an exact unsigned decimal string; details label billing
+TRES units or submitted-job counts and the verified policy categories. Lists
+keep their short native labels. Unknown codes remain raw, and unverified sources
+leave the observed number intact with `sources=[]`.
+
+An `open` account-state marker emits no account notice and does not imply a job
+can run. Missing or malformed metadata and failed context reads preserve the
+native job result, with the existing bounded diagnostic on read failure. The
+shared module adds no local policy file, Center lookup or pricing calculation.
+v1 markers remain readable for the paired migration only; activation, backfill
+and removal of that bridge are pending in the [roadmap](roadmap.md).
 
 Native holds, dependencies and selected account/QOS limits use short labels
 from the same presenter in local, remote and TUI views. Details retain the native
-code for scheduler diagnostics. Unknown codes remain unchanged. A label describes
-the observed limit; service-level or manual-setting provenance requires a
-separately verified binding to the applied policy.
+code for scheduler diagnostics. A detail source describes the currently observed
+limit and its verified policy binding, without identifying one uniquely proven
+scheduler trigger or the last person who changed a native value.
 
 Table rendering uses no ANSI color by default so redirects and wrapper output
 remain deterministic.

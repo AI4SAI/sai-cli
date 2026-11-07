@@ -20,7 +20,17 @@ validation and bounded batch projection used by local and gateway readers.
 The existing Center limit, membership and parent-account flows project the
 current account state to those associations. Native limits remain the scheduling
 authority, and their numeric readiness is independent of diagnostic delivery.
-The paired migration and live consumption checks remain release work.
+
+The typed v2 Comment extension is a source candidate, not deployed. It adds
+applied account/member limit sources to the existing carrier. The shared reader
+uses exact job associations and their verified ancestors in two bounded native
+read phases with `WOPLimits`. The additive
+[`limit_context` contract](../contracts/compute-limit-context/v1/README.md)
+preserves each group billing layer and the nearest explicit `MaxSubmitJobs`
+value. Details show the observed value, unit and verified policy categories.
+Missing provenance preserves the native value with an unknown source. An `open`
+account-state marker is silent and makes no scheduling-eligibility claim.
+Paired activation and metadata backfill remain pending in the [roadmap](roadmap.md).
 
 The [product task map](product-delivery.md) connects these boundaries to complete
 human and Agent journeys. The public client, contracts and bundled Agent guidance

@@ -296,21 +296,33 @@ The reusable site runtime adapter supports these bounded native reads:
 - `scontrol show hostnames <expression>`, only to expand an observed allocation's
   host expression. This does not query all-node state or physical inventory;
 - `sacctmgr --json show association`, restricted to the visible pending jobs'
-  exact association IDs, for optional SAI account context. IDs are deduplicated
-  and queried in batches of at most 512.
+  exact association IDs, for optional SAI account context. The v2 source
+  candidate adds `WOPLimits` and a second read phase for declared ancestor IDs.
+  Each phase deduplicates IDs and uses batches of at most 512.
 
 The association reader shares `sai_compute_restrictions` with the local CLI.
 It binds each current user association to the observed job's cluster, account,
 user and partition, then validates the managed Comment prefix and source
-lineage. Only typed `account_restriction` fields reach consumers; operator notes
-and raw Comments stay at the native boundary. Missing context leaves the native
-reason unchanged. A failed context read produces a bounded diagnostic while
-preserving the authorized job observation.
+lineage. The typed v2 extension is a source candidate, not deployed. It adds
+[`limit_context`](../contracts/compute-limit-context/v1/README.md) alongside
+`account_restriction`. Each ancestor must be the exact account-only association
+on the current lineage, and source metadata must match its current native value.
+Member metadata binds the exact user association. Group billing layers stay
+separate; `MaxSubmitJobs` follows the nearest explicit inherited value.
+
+Only allowlisted source categories and exact decimal-string values reach
+consumers. Operator notes, internal owner references and raw association rows
+stay at the native boundary. Unknown provenance preserves the native number
+with an empty source list. Missing context leaves the native reason unchanged.
+A failed context read produces a bounded diagnostic while preserving the
+authorized job observation. An `open` marker produces no account notice.
 
 Center's existing limit, membership and parent-account flows publish this
 metadata through standard Slurm association Comments. The diagnostic carrier
 has no controller HTTP fetch, timer or dynamic policy file. The
-[roadmap](roadmap.md) records the paired site deployment. Each site still needs
+[roadmap](roadmap.md) records the deployed account-state baseline and pending v2
+reader/producer activation. v1 remains readable only until the original worker
+has migrated the accepted association cohort. Each site still needs
 verification of its actual service-UID read permission and native environment.
 
 The paired `jobs.allocation/v2` projection reads `gres_detail` from that same

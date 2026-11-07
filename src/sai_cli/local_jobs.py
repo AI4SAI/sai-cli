@@ -11,7 +11,7 @@ import sys
 import time
 from typing import Any, Mapping, TextIO
 
-from sai_compute_restrictions import association_read_command, read_job_restrictions
+from sai_compute_restrictions import association_read_command, read_job_contexts
 from .contracts import JobItem, short_job_state
 from .errors import ConfigError, ContractError, UnavailableError
 from .native_process import read_native_json
@@ -135,14 +135,14 @@ def _account_context(items: tuple[JobItem, ...], *, raw_jobs: list[dict], cluste
         return read_native_json(association_read_command(cluster, ids), environ=environ, timeout=remaining)
 
     try:
-        restrictions = read_job_restrictions([item.values for item in items],
+        contexts = read_job_contexts([item.values for item in items],
             [raw.get("association_id") for raw in raw_jobs], cluster=cluster, fetch=fetch)
     except (OSError, ValueError, RecursionError, ContractError, UnavailableError):
         (sys.stderr if stderr is None else stderr).write(
-            "WARNING [account_restrictions_unavailable]: SAI account status is unavailable.\n")
+            "WARNING [account_restrictions_unavailable]: SAI account context is unavailable.\n")
         return items
-    return tuple(JobItem({**item.values, "account_restriction": restriction})
-                 if restriction is not None else item for item, restriction in zip(items, restrictions))
+    return tuple(JobItem({**item.values, **context}) if context else item
+                 for item, context in zip(items, contexts))
 
 
 def read_local_jobs(args: argparse.Namespace, *, environ: Mapping[str, str], stderr: TextIO | None = None) -> LocalJobs:

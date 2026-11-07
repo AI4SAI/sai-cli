@@ -47,20 +47,32 @@ Center owns the current account restriction. Its existing resource-limit,
 membership and parent-account flows project that state to standard Slurm
 association `Comment` fields. The shared `sai_compute_restrictions` module
 encodes a bounded managed prefix with the source account, association identity,
-owner, revision and reason. The site writer uses the upstream C API to preserve
-the original operator note. Clearing a restriction publishes the open state
-through the same flows. Numeric-limit readiness and diagnostic delivery retain
-separate outcomes and retries.
+owner, revision and reason. The typed v2 extension is a source candidate, not
+deployed. It adds allowlisted applied limit sources, exact ancestor association
+IDs and current member metadata. Account/member/parent changes reuse the existing
+writers and receipts. Source-only changes use the original row revision.
+The site writer's narrow SAI helper uses the unchanged upstream C API and
+preserves the original operator note through exact comparison and readback.
+Clearing an account-state restriction publishes `open` through the same flows.
+Numeric-limit readiness and diagnostic delivery retain separate outcomes and
+retries; an annotation failure adds no computing-permission gate.
 
 For pending `AssocGrpJobsLimit` rows, CLI and gateway readers use the job's
 association ID to fetch the current user association in bounded native JSON
 batches. They validate the job binding and lineage before exposing optional
-`account_restriction` context. Slurm's reason stays unchanged, and an unavailable
-context read preserves the native observation. The same standard-library module
-owns this projection for both readers. See [runtime behavior](runtime-design.md).
+`account_restriction` context. The v2 reader also exposes current limit sources
+for `AssocGrpBilling` and `AssocMaxSubmitJobLimit`, using exact association and
+ancestor batches with `WOPLimits`. Slurm's reason stays unchanged, and an
+unavailable context read preserves the native observation. The same
+standard-library module owns this projection for both readers. See
+[runtime behavior](runtime-design.md) and the
+[limit-context contract](../contracts/compute-limit-context/v1/README.md).
 
 The Lua callback reads `job_desc.assoc_comment`, validates the managed prefix,
-and sends a short account-state notice through `slurm.user_msg`. This notice
+and sends a short account-state notice through `slurm.user_msg`. v1 and v2 headers
+remain readable during the paired migration. Lua consumes the short reason
+code without evaluating limit-source metadata. `open` is silent and makes no
+claim that other scheduling conditions are satisfied. This notice
 adds no rejection, changes no job field and performs no external I/O. GPU rules,
 account selection and native Slurm authorization keep their existing behavior.
 A notice describes account context; Slurm's return code and job receipt determine
@@ -71,7 +83,8 @@ scheduler reason, serialization extension, controller HTTPS reader, renewal
 timer or dynamic policy snapshot. The static GPU policy below has its own
 release lifecycle. Paired publisher, helper, reader and Lua deployment must be
 verified against actual native association readback and loaded upstream binaries.
-Source implementation alone does not establish that production migration.
+The v2 rollout and unchanged-number backfill remain pending in the
+[roadmap](roadmap.md); the deployed v1 baseline does not establish v2 activation.
 
 ## Submission Rules
 

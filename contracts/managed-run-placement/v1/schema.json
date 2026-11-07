@@ -819,6 +819,16 @@
               "type": "null"
             }
           ]
+        },
+        "limit_context": {
+          "anyOf": [
+            {
+              "$ref": "../../compute-limit-context/v1/schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -865,6 +875,9 @@
               }
             }
           }
+        },
+        {
+          "$ref": "../../compute-limit-context/v1/schema.json#/$defs/job_binding"
         }
       ]
     },

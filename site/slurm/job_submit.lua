@@ -36,8 +36,17 @@ local function notify_account_restriction(job_desc, job_ptr)
     if not nonempty(account) or (job_ptr and account == job_ptr.account) then return end
     local comment = job_desc.assoc_comment
     if type(comment) ~= "string" or #comment > 65536 then return end
-    local source, assoc_id, owner_ref, revision, code, boundary = string.match(comment,
-        "^%[sai%.account%-state/v1:([%w_.+%-]+):(%d+):([%da-f%-]+):(%d+):([%w_]+)%]()")
+    local header = "^%[sai%.account%-state/v2:([%w_.+%-]+):(%d+):([%da-f%-]+):(%d+):([%w_]+)"
+    local source, assoc_id, owner_ref, revision, code, boundary
+    if string.sub(comment, 1, #"[sai.account-state/v2:") == "[sai.account-state/v2:" then
+        local encoded
+        source, assoc_id, owner_ref, revision, code, encoded, boundary = string.match(comment,
+            header .. ":([%w_%-]+)%]()")
+        if not encoded then return end
+    else
+        source, assoc_id, owner_ref, revision, code, boundary = string.match(comment,
+            "^%[sai%.account%-state/v1:([%w_.+%-]+):(%d+):([%da-f%-]+):(%d+):([%w_]+)%]()")
+    end
     if not source or #source > 128 or not string.match(source, "^[%w]")
         or not restriction_labels[code] or #owner_ref ~= 36
         or not string.match(owner_ref, "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$")

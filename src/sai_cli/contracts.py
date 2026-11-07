@@ -404,6 +404,14 @@ class JobItem:
                 )
             except ValueError as exc:
                 raise ContractError("The SAI account restriction is invalid.", request_id=request_id) from exc
+        if "limit_context" in payload:
+            from sai_compute_restrictions import validate_limit_context
+            try:
+                values["limit_context"] = validate_limit_context(
+                    payload["limit_context"], state=values["state"], reason=values["reason_or_nodelist"],
+                )
+            except ValueError as exc:
+                raise ContractError("The native limit context is invalid.", request_id=request_id) from exc
         if "run_link" in payload:
             values["run_link"] = _nullable_sha256_text(payload, "run_link", request_id=request_id)
         if "run_ref" in payload:
@@ -415,7 +423,7 @@ class JobItem:
         return cls(values=values)
 
     def as_dict(self) -> dict[str, Any]:
-        fields = (*JOB_ITEM_FIELDS, *(key for key in ("account_restriction", "run_link", "run_ref") if key in self.values))
+        fields = (*JOB_ITEM_FIELDS, *(key for key in ("account_restriction", "limit_context", "run_link", "run_ref") if key in self.values))
         return {key: self.values[key] for key in fields}
 
 
