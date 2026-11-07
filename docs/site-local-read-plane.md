@@ -309,8 +309,9 @@ preserving the authorized job observation.
 
 Center's existing limit, membership and parent-account flows publish this
 metadata through standard Slurm association Comments. The diagnostic carrier
-has no controller HTTP fetch, timer or dynamic policy file. Its rollout and
-actual service-UID read permission require separate verification.
+has no controller HTTP fetch, timer or dynamic policy file. The
+[roadmap](roadmap.md) records the paired site deployment. Each site still needs
+verification of its actual service-UID read permission and native environment.
 
 The paired `jobs.allocation/v2` projection reads `gres_detail` from that same
 job response. Slurm JSON already enables detail. Index-to-node binding uses
