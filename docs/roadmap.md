@@ -34,11 +34,15 @@ not imply production activation or completion of a paired rollout.
   gateway readers use the same record without parent visibility. Current member
   values remain native. Local regressions cover restricted visibility, update,
   clearing, reparenting and partial retry.
-- [ ] Activate compatible CLI, Read gateway and Core readers before the Site
-  writer's optional record payload. Use the original projector and workers to
-  refresh metadata without numeric changes, then verify the ordinary job owner's
-  local and authorized remote result. This extension does not change Slurm,
-  the native helper, Lua framing or permissions.
+- [x] Deploy the compatible CLI, Core, Site and Read gateway for applied parent
+  records. A bounded metadata refresh preserved native numeric limits, and the
+  ordinary job owner read verified sources for six existing pending jobs locally.
+  The Site/Read update completed on 2026-11-10 with authenticated job reads,
+  foreign-job denial and public self/organization reads. The sampled remote job
+  had no applicable limit annotation and returned empty context.
+- [ ] Complete source-only metadata refresh across the original accepted cohort
+  and verify an applicable limit annotation through an ordinary user's authorized
+  remote read. Existing v1 records remain in the latest read-only inventory.
 - [ ] Remove temporary v1 marker compatibility after the original worker's
   full accepted association cohort has migrated to v2. An `open` funding marker
   stays silent throughout and grants no scheduling permission.
