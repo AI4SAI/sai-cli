@@ -21,16 +21,20 @@ The existing Center limit, membership and parent-account flows project the
 current account state to those associations. Native limits remain the scheduling
 authority, and their numeric readiness is independent of diagnostic delivery.
 
-The typed v2 Comment extension is a source candidate, not deployed. It adds
-applied account/member limit sources to the existing carrier. The shared reader
-uses exact job associations and their verified ancestors in two bounded native
-read phases with `WOPLimits`. The additive
+The typed v2 Comment extension carries applied account/member limit sources.
+Its optional `applied` record lets the site writer publish verified parent
+observations in the existing user association. The shared reader binds that
+record to the visible job and current user association using one bounded native
+read with `WOPLimits`. Ordinary users need no parent-association privilege.
+Older records keep their existing ancestor-read path during migration. The additive
 [`limit_context` contract](../contracts/compute-limit-context/v1/README.md)
 preserves each group billing layer and the nearest explicit `MaxSubmitJobs`
-value. Details show the observed value, unit and verified policy categories.
+value. Details distinguish recorded account values from current member values,
+and show their units and policy categories. The writer's recording time remains
+separate from the current query time.
 Missing provenance preserves the native value with an unknown source. An `open`
 account-state marker is silent and makes no scheduling-eligibility claim.
-Paired activation and metadata backfill remain pending in the [roadmap](roadmap.md).
+Applied-record activation and metadata refresh are tracked in the [roadmap](roadmap.md).
 
 The [product task map](product-delivery.md) connects these boundaries to complete
 human and Agent journeys. The public client, contracts and bundled Agent guidance

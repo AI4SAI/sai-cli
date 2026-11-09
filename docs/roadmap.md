@@ -21,18 +21,24 @@ not imply production activation or completion of a paired rollout.
   worker's complete cycle passed. Full-fleet verification remains open.
 - [x] Present native holds, dependencies and selected account/QOS limits through
   one local/remote/TUI presenter, retaining raw codes in JSON and details.
-- [x] Implement a source candidate for typed limit provenance in standard
-  association Comment v2 and the additive `limit_context` DTO. Shared readers
-  query exact job associations and declared ancestors with `WOPLimits`.
+- [x] Implement typed limit provenance in standard association Comment v2 and
+  the additive `limit_context` DTO. Shared readers use exact job associations
+  with `WOPLimits`.
   Details preserve separate group billing layers, nearest explicit
   `MaxSubmitJobs`, exact decimal-string values and unknown sources. Lists retain
-  short native reasons. This candidate is not deployed and does not identify a
-  uniquely proven scheduler trigger.
-- [ ] Complete paired v2 activation in order: compatible CLI, Read gateway,
-  Core DTO and Lua consumers, then the Site helper/writers, then Ops workers.
-  Use the original policy projector and workers to backfill metadata while
-  keeping already-applied numeric limits unchanged. Verify account/member/parent
-  updates, source-only revisions, retry and unknown-source readback.
+  short native reasons. The paired baseline is deployed, with bounded source-only
+  refresh verified to preserve native numeric limits. Ordinary-user acceptance
+  found that parent associations may be hidden by native permissions.
+- [x] Implement an optional applied parent record within the existing user
+  Comment. The original writer verifies its values, binding and time; local and
+  gateway readers use the same record without parent visibility. Current member
+  values remain native. Local regressions cover restricted visibility, update,
+  clearing, reparenting and partial retry.
+- [ ] Activate compatible CLI, Read gateway and Core readers before the Site
+  writer's optional record payload. Use the original projector and workers to
+  refresh metadata without numeric changes, then verify the ordinary job owner's
+  local and authorized remote result. This extension does not change Slurm,
+  the native helper, Lua framing or permissions.
 - [ ] Remove temporary v1 marker compatibility after the original worker's
   full accepted association cohort has migrated to v2. An `open` funding marker
   stays silent throughout and grants no scheduling permission.

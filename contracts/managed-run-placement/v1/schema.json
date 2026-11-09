@@ -806,6 +806,14 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 253402300799
+                },
+                "basis": {
+                  "const": "applied_record"
+                },
+                "recorded_at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 253402300799
                 }
               },
               "required": [
@@ -813,7 +821,15 @@
                 "account",
                 "source",
                 "observed_at"
-              ]
+              ],
+              "dependentRequired": {
+                "basis": [
+                  "recorded_at"
+                ],
+                "recorded_at": [
+                  "basis"
+                ]
+              }
             },
             {
               "type": "null"

@@ -577,18 +577,20 @@ Table mode keeps the established SAI meanings:
 
 For pending `AssocGrpJobsLimit`, optional `account_restriction` adds the existing
 short SAI account-state label while JSON retains the native reason. The typed v2
-Comment extension is a source candidate, not deployed. It adds optional
+Comment carries optional
 [`limit_context`](../contracts/compute-limit-context/v1/README.md) for pending
 `AssocGrpBilling` and `AssocMaxSubmitJobLimit`. QOS reasons and running jobs do
 not receive association-source claims.
 
 After authorization, filtering and pagination, `read_job_contexts` deduplicates
 the exact job association IDs. A first native JSON read obtains those rows and
-their managed v2 metadata. A second phase reads only the declared ancestor IDs.
-Both phases use `sacctmgr --json show association` with `WOPLimits` and batches
-of at most 512 IDs, preserving explicitly configured values. The reader checks
-cluster, account, user, partition and current lineage, then binds source metadata
-to the association incarnation and native value. A page with no eligible IDs
+their managed v2 metadata. With an `applied` record, parent observations come
+from the original writer's verified record and require no parent read. Its
+target ID, lineage, parent order, source revisions and recording time are checked.
+Existing records without it keep the bounded ancestor read during migration.
+Native reads use `WOPLimits` and batches of at most 512 IDs. The reader checks
+cluster, account, user, partition and current lineage. Member values remain live;
+account-record time is never replaced by this query's time. A page with no eligible IDs
 makes no additional call. Local reads keep the caller's UID; the gateway keeps
 its existing service identity.
 

@@ -97,8 +97,49 @@ def validate_limit_sources(value: object) -> dict[str, Any]:
     return result
 
 
+def validate_applied_context(value: object) -> dict[str, Any]:
+    """Validate a writer's bounded native readback record, never its manual notes."""
+    if (not isinstance(value, dict)
+            or set(value) != {"recorded_at", "association_id", "lineage", "parents"}):
+        raise ValueError("invalid applied association record")
+    lineage, parents = value["lineage"], value["parents"]
+    if (not isinstance(lineage, str) or not lineage.startswith("/") or not lineage.endswith("/")
+            or len(lineage) > 65536 or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in lineage)
+            or not isinstance(parents, list) or not 1 <= len(parents) <= ASSOCIATION_BATCH_SIZE):
+        raise ValueError("invalid applied association scope")
+    result, seen_ids, seen_accounts = [], set(), set()
+    bounds = {"group_jobs_limit": 2**32 - 3, **_LIMIT_FIELDS}
+    for parent in parents:
+        if (not isinstance(parent, dict) or set(parent) != {
+                "account", "association_id", "owner_ref", "revision", "reason", "numeric", "limits"}):
+            raise ValueError("invalid applied parent record")
+        account, ident = _name(parent["account"]), _association_id(parent["association_id"])
+        if account in seen_accounts or ident in seen_ids:
+            raise ValueError("duplicate applied association")
+        seen_accounts.add(account)
+        seen_ids.add(ident)
+        owner, revision, reason = parent["owner_ref"], parent["revision"], validate_reason(parent["reason"])
+        limits = validate_limit_sources(parent["limits"])
+        if owner is None:
+            if revision is not None or reason is not None or limits:
+                raise ValueError("unowned applied source")
+        elif (not isinstance(owner, str) or _UUID.fullmatch(owner) is None
+                or _integer(revision, 2**63 - 1) == 0):
+            raise ValueError("invalid applied source incarnation")
+        numeric = parent["numeric"]
+        if not isinstance(numeric, dict) or set(numeric) != bounds.keys():
+            raise ValueError("invalid applied native values")
+        numeric = {field: None if numeric[field] is None else _integer(numeric[field], maximum)
+                   for field, maximum in bounds.items()}
+        result.append({"account": account, "association_id": ident, "owner_ref": owner,
+                       "revision": revision, "reason": reason, "numeric": numeric, "limits": limits})
+    return {"recorded_at": _time(value["recorded_at"]), "association_id": _association_id(value["association_id"]),
+            "lineage": lineage, "parents": result}
+
+
 def _metadata(value: object) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != {"limits", "ancestor_ids", "member"}:
+    if not isinstance(value, dict) or set(value) not in (
+            {"limits", "ancestor_ids", "member"}, {"limits", "ancestor_ids", "member", "applied"}):
         raise ValueError("invalid association metadata")
     ancestors = value["ancestor_ids"]
     if not isinstance(ancestors, list) or len(ancestors) > ASSOCIATION_BATCH_SIZE:
@@ -117,7 +158,12 @@ def _metadata(value: object) -> dict[str, Any]:
                   "limits": validate_limit_sources(member["limits"])}
     if (limits and (ancestors or member is not None)) or (member is not None and not ancestors):
         raise ValueError("mixed account and member metadata")
-    return {"limits": limits, "ancestor_ids": ancestors, "member": member}
+    result = {"limits": limits, "ancestor_ids": ancestors, "member": member}
+    if "applied" in value:
+        if limits or not ancestors:
+            raise ValueError("applied context requires a user association")
+        result["applied"] = validate_applied_context(value["applied"])
+    return result
 
 
 def _canonical(value: dict[str, Any]) -> bytes:
@@ -170,16 +216,19 @@ def strip_association_comment(comment: str | None) -> str:
 def encode_association_comment(comment: str | None, *, account: str, association_id: int,
                                owner_ref: str, revision: int, reason: str | None,
                                limits: object = _OMITTED, ancestor_ids: object = _OMITTED,
-                               member: object = _OMITTED) -> str:
+                               member: object = _OMITTED, applied: object = _OMITTED) -> str:
     account = _name(account)
     validate_reason(reason)
     if type(association_id) is not int or type(revision) is not int:
         raise ValueError("invalid managed association generation")
     version, suffix = "v1", ""
-    if any(value is not _OMITTED for value in (limits, ancestor_ids, member)):
-        metadata = _metadata({"limits": {} if limits is _OMITTED else limits,
-                              "ancestor_ids": [] if ancestor_ids is _OMITTED else ancestor_ids,
-                              "member": None if member is _OMITTED else member})
+    if any(value is not _OMITTED for value in (limits, ancestor_ids, member, applied)):
+        metadata = {"limits": {} if limits is _OMITTED else limits,
+                    "ancestor_ids": [] if ancestor_ids is _OMITTED else ancestor_ids,
+                    "member": None if member is _OMITTED else member}
+        if applied is not _OMITTED:
+            metadata["applied"] = applied
+        metadata = _metadata(metadata)
         suffix = ":" + base64.urlsafe_b64encode(_canonical(metadata)).rstrip(b"=").decode("ascii")
         version = "v2"
     prefix = f"{_PREFIX}{version}:{account}:{association_id}:{owner_ref}:{revision}:{reason or 'open'}{suffix}]"
@@ -278,8 +327,9 @@ def _parent_marker(row: dict[str, Any]) -> dict[str, Any] | None:
     return marker
 
 
-def _constraint(row: dict[str, Any], scope: str, field: str, limits: dict[str, Any]) -> dict[str, Any] | None:
-    value = association_limit_values(row)[field]
+def _constraint(row: dict[str, Any], scope: str, field: str, limits: dict[str, Any], *,
+                numeric: dict[str, int | None] | None = None) -> dict[str, Any] | None:
+    value = (association_limit_values(row) if numeric is None else numeric)[field]
     if value is None:
         return None
     evidence = limits.get(field)
@@ -288,9 +338,25 @@ def _constraint(row: dict[str, Any], scope: str, field: str, limits: dict[str, A
             "value": str(value), "sources": sources}
 
 
+def _applied_matches(row: dict[str, Any], lineage: list[str], marker: dict[str, Any], observed: int) -> bool:
+    applied = marker["applied"]
+    if (applied["association_id"] != row["id"] or applied["lineage"] != row["lineage"]
+            or applied["recorded_at"] > observed
+            or [parent["association_id"] for parent in applied["parents"]] != marker["ancestor_ids"]
+            or [parent["account"] for parent in applied["parents"]] != lineage):
+        return False
+    if marker["association_id"] == row["id"]:
+        member = marker.get("member")
+        return (marker["reason"] is None and marker["account"] == row["account"] and member is not None
+                and all(member[key] == marker[key] for key in ("association_id", "owner_ref", "revision")))
+    return any(all(parent[key] == marker[key] for key in
+                   ("account", "association_id", "owner_ref", "revision", "reason"))
+               for parent in applied["parents"])
+
+
 def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object], *,
                       cluster: str, fetch, now: float | None = None) -> list[dict[str, Any]]:
-    """Read the visible job associations, then their declared current ancestors."""
+    """Read visible job associations and their applied records; old v2 reads parents."""
     _name(cluster)
     if len(jobs) != len(association_ids):
         raise ValueError("job association bindings are incomplete")
@@ -311,14 +377,23 @@ def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object],
             if "ancestor_ids" in marker:
                 if len(marker["ancestor_ids"]) != len(lineage) or row["id"] in marker["ancestor_ids"]:
                     raise ValueError("native association ancestry changed")
-                ancestor_ids.extend(marker["ancestor_ids"])
+                if "applied" not in marker:
+                    ancestor_ids.extend(marker["ancestor_ids"])
         prepared[index] = row, lineage, marker
     parents = _association_rows(list(dict.fromkeys(ancestor_ids)), cluster=cluster, fetch=fetch)
     results = [{} for _ in jobs]
     observed = _time(int(time.time() if now is None else now))
     for index, (row, lineage, marker) in prepared.items():
         current_parents = []
-        for position, ident in enumerate(marker.get("ancestor_ids", []) if marker else []):
+        recorded_at = None
+        applied = marker.get("applied") if marker else None
+        if applied is not None and _applied_matches(row, lineage, marker, observed):
+            recorded_at = applied["recorded_at"]
+            current_parents = [({"id": parent["association_id"], "account": parent["account"]},
+                                parent if parent["owner_ref"] is not None else None, parent["numeric"])
+                               for parent in applied["parents"]]
+        old_ancestors = marker.get("ancestor_ids", []) if marker and applied is None else []
+        for position, ident in enumerate(old_ancestors):
             parent = parents.get(ident)
             if parent is None:
                 continue
@@ -326,40 +401,46 @@ def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object],
             if (parent.get("account") != lineage[position] or parent.get("user") not in (None, "")
                     or parent.get("partition") not in (None, "") or parent.get("lineage") != expected_lineage):
                 raise ValueError("native ancestor does not match the current lineage")
-            current_parents.append((parent, _parent_marker(parent)))
+            current_parents.append((parent, _parent_marker(parent), association_limit_values(parent)))
         reason = jobs[index]["reason_or_nodelist"]
         if reason == "AssocGrpJobsLimit" and marker is not None and marker["reason"] is not None:
             verified = "ancestor_ids" not in marker or any(
                 parent["id"] == marker["association_id"] and source is not None
                 and all(source[key] == marker[key] for key in ("account", "owner_ref", "revision", "reason"))
-                and association_limit_values(parent)["group_jobs_limit"] == 0
-                for parent, source in current_parents)
+                and numeric["group_jobs_limit"] == 0
+                for parent, source, numeric in current_parents)
             if verified:
                 results[index]["account_restriction"] = {"code": marker["reason"], "account": marker["account"],
                     "source": "sai_applied_policy", "observed_at": observed}
+                if recorded_at is not None:
+                    results[index]["account_restriction"].update(basis="applied_record", recorded_at=recorded_at)
         field = _REASON_FIELDS.get(reason)
         if field is None:
             continue
         member = marker.get("member") if marker else None
         member_limits = member["limits"] if member is not None and member["association_id"] == row["id"] else {}
+        if applied is not None and recorded_at is None:
+            member_limits = {}
         member_constraint = _constraint(row, "member", field, member_limits)
         if field == "max_submit_jobs":
             # Slurm inherits this per-user limit from the nearest explicit layer.
             constraints = [member_constraint] if member_constraint is not None else []
-            current = {parent["id"]: (parent, source) for parent, source in current_parents}
+            current = {parent["id"]: (parent, source, numeric) for parent, source, numeric in current_parents}
             for ident in reversed(marker.get("ancestor_ids", []) if marker else []):
                 if constraints or ident not in current:
                     break  # A missing nearer row cannot prove a farther inherited limit.
-                parent, source = current[ident]
-                candidate = _constraint(parent, "account", field, source.get("limits", {}) if source else {})
+                parent, source, numeric = current[ident]
+                candidate = _constraint(parent, "account", field, source.get("limits", {}) if source else {}, numeric=numeric)
                 if candidate is not None:
                     constraints.append(candidate)
         else:
-            constraints = [_constraint(parent, "account", field, source.get("limits", {}) if source else {})
-                           for parent, source in current_parents]
+            constraints = [_constraint(parent, "account", field, source.get("limits", {}) if source else {}, numeric=numeric)
+                           for parent, source, numeric in current_parents]
             constraints = [item for item in [*constraints, member_constraint] if item is not None]
         if constraints:
             results[index]["limit_context"] = {"observed_at": observed, "constraints": constraints}
+            if recorded_at is not None and any(item["scope"] == "account" for item in constraints):
+                results[index]["limit_context"].update(basis="applied_record", recorded_at=recorded_at)
     return results
 
 
@@ -370,8 +451,18 @@ def validate_account_restriction(value: object, *, state: object, reason: object
             or reason != "AssocGrpJobsLimit" or value.get("source") != "sai_applied_policy"
             or not isinstance(value.get("code"), str) or value["code"] not in REASONS):
         raise ValueError("invalid SAI account restriction")
+    observed = _time(value.get("observed_at"))
     return {"code": value["code"], "account": _name(value.get("account")),
-            "source": "sai_applied_policy", "observed_at": _time(value.get("observed_at"))}
+            "source": "sai_applied_policy", "observed_at": observed, **_record_time(value, observed)}
+
+
+def _record_time(value: dict[str, Any], observed: int) -> dict[str, Any]:
+    if "basis" not in value and "recorded_at" not in value:
+        return {}
+    recorded = _time(value.get("recorded_at"))
+    if value.get("basis") != "applied_record" or recorded > observed:
+        raise ValueError("invalid applied record time")
+    return {"basis": "applied_record", "recorded_at": recorded}
 
 
 def validate_limit_context(value: object, *, state: object, reason: object) -> dict[str, Any] | None:
@@ -405,4 +496,5 @@ def validate_limit_context(value: object, *, state: object, reason: object) -> d
         result.append({"account": account, "scope": item["scope"], "field": field,
                        "value": amount,
                        "sources": _sources(item.get("sources"), allow_empty=True)})
-    return {"observed_at": _time(value.get("observed_at")), "constraints": result}
+    observed = _time(value.get("observed_at"))
+    return {"observed_at": observed, "constraints": result, **_record_time(value, observed)}
