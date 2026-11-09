@@ -1,5 +1,6 @@
 """Native waiting reasons and separately observed SAI account restrictions."""
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -105,6 +106,9 @@ def _limit_sources(sources: list[dict[str, Any]], *, chinese: bool) -> str:
 def _limit_lines(context: Mapping[str, Any], *, native: str, chinese: bool) -> list[str]:
     field = _LIMIT_FIELDS.get(native)
     lines = []
+    if context.get("basis") == "applied_record":
+        recorded = datetime.fromtimestamp(context["recorded_at"], timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        lines.append(("账户限额记录" if chinese else "Account limit record") + " · " + recorded)
     for constraint in context["constraints"]:
         if constraint["field"] != field:
             continue
@@ -132,6 +136,9 @@ def job_reason(job: Mapping[str, Any], *, language: str = "zh-CN", detail: bool 
         account_label = _LABELS[restriction["code"]][0 if chinese else 1]
         if detail:
             label += ("\nSAI 账户限制：" if chinese else "\nSAI account restriction: ") + account_label + " · " + restriction["account"]
+            if restriction.get("basis") == "applied_record":
+                recorded = datetime.fromtimestamp(restriction["recorded_at"], timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                label += "\n" + ("账户限制记录" if chinese else "Account restriction record") + " · " + recorded
         else:
             label += (" · 账户" if chinese else " · Account: ") + account_label
     if detail and job.get("limit_context") and native in _LIMIT_FIELDS:

@@ -31,6 +31,9 @@ JSON through `sai account local`. These reads do not change your shell or defaul
 
 Native adapters have been exercised with Slurm 26.05.1 and Lustre 2.17;
 other native versions are not yet qualified.
+Pending-job details can include the account limit and service level recorded by
+the site writer. The record time is shown separately from the current job state.
+This optional context follows native visibility and does not require Portal login.
 
 ## On your computer
 

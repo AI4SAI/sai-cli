@@ -405,6 +405,33 @@ def test_limit_dto_keeps_uint64_precision_and_drops_private_envelope_fields(job_
     assert job_reason(clean) == "账户并发资源上限"
 
 
+def test_applied_limit_details_keep_record_time_separate_from_queue_observation(job_payload):
+    row = job_payload["items"][0]
+    context = limit_context("200", [{"kind": "service_level", "service_level_code": "org_standard"}])
+    context.update(basis="applied_record", recorded_at=1700000000, observed_at=1800000000)
+    row.update(state="PD", reason_or_nodelist="AssocGrpBilling", limit_context=context)
+    clean = JobItem.from_payload(row, request_id="limits").as_dict()
+    assert clean["limit_context"] == context
+    detail = job_reason(clean, detail=True)
+    assert "账户限额记录 · 2023-11-14 22:13:20 UTC" in detail
+    assert "服务等级 标准" in detail
+    assert "2027" not in detail
+    assert "Account limit record · 2023-11-14 22:13:20 UTC" in job_reason(clean, detail=True, language="en-US")
+    assert job_reason(clean) == "账户并发资源上限"
+
+
+def test_applied_account_restriction_time_does_not_expand_queue_label(job_payload):
+    row = job_payload["items"][0]
+    row.update(state="PD", reason_or_nodelist="AssocGrpJobsLimit", account_restriction={
+        "account": "org-parent", "code": "severe_arrears", "source": "sai_applied_policy",
+        "observed_at": 1800000000, "basis": "applied_record", "recorded_at": 1700000000,
+    })
+    clean = JobItem.from_payload(row, request_id="account-record").as_dict()
+    assert clean["account_restriction"]["recorded_at"] == 1700000000
+    assert "账户限制记录 · 2023-11-14 22:13:20 UTC" in job_reason(clean, detail=True)
+    assert "记录" not in job_reason(clean)
+
+
 @pytest.mark.parametrize("change", [
     {"value": 128}, {"value": 128.0}, {"value": True}, {"value": "01"}, {"value": "-1"},
     {"value": "18446744073709551614"}, {"account": "org\x1b[31m"}, {"scope": "parent"},

@@ -1,38 +1,54 @@
 # Compute limit context v1
 
-Status: source candidate, not deployed. This additive job field uses the typed
-association Comment v2 carrier. The public DTO and native carrier have separate
-version numbers. The public shape is defined by [schema.json](schema.json).
+This additive job field uses the typed association Comment v2 carrier. The public
+DTO and native carrier have separate version numbers. The public shape is defined
+by [schema.json](schema.json). The applied-record extension requires paired
+reader and writer deployment before metadata is refreshed.
 
-`limit_context` describes current native limits and their verified SAI policy
-sources. Slurm retains the original scheduling reason. The field identifies
+`limit_context` describes native member limits and the account limits and policy
+sources last verified by the site writer. Slurm retains the original scheduling reason. The field identifies
 neither a uniquely proven trigger nor the last person to change a native value.
 
 ## Job binding and reads
 
 The shared `read_job_contexts` reader runs after job authorization, filtering and
-pagination. It reads exact job association IDs first, then the declared ancestor
-IDs from v2 metadata. Both phases use native `sacctmgr --json show association`
-with `WOPLimits`, deduplicating IDs into batches of at most 512. No eligible jobs
+pagination. It reads exact job association IDs using native `sacctmgr --json show
+association` with `WOPLimits`, deduplicating IDs into batches of at most 512.
+The optional v2 `applied` record contains the writer's bounded parent observations,
+target association and lineage, source revisions, and actual recording time.
+Readers use that record without querying parents that ordinary users may not
+be allowed to see. The gateway uses the same record even when it could read more.
+Existing v2 records without `applied` retain the two-phase ancestor read during
+migration. No eligible jobs
 means no extra read. Local queries use the caller's Unix authority; gateway reads
 retain their existing capability and service-identity boundaries.
 
 Rows must match the job's cluster, account, user, partition and current lineage.
-Ancestors must be exact account-only associations on that lineage. A source is
-verified only when its managed metadata binds the current association and agrees
-with the observed native value. Member metadata also binds the current user
+Recorded ancestors must be exact account-only associations on that lineage.
+The writer verifies each source against the native value before recording it.
+A contradictory applied record is not replaced by a broader parent query.
+Member metadata also binds the current user
 association ID. Internal identities and manual Comment suffixes remain private.
+Seeing another user's job does not imply that its association is readable.
+If that association is unavailable, its native reason remains without attribution.
 
 ## Public fields
 
 | Field | Meaning |
 | --- | --- |
 | `observed_at` | Association observation time as Unix seconds, separate from the queue observation |
+| `basis` | Optional `applied_record` when account constraints come from the writer's record |
+| `recorded_at` | With `basis`, the actual account-record time, distinct from this query's time |
 | `constraints[].account` | Native account at the observed layer |
 | `constraints[].scope` | `account` or `member` |
 | `constraints[].field` | `billing_tres_limit` or `max_submit_jobs` |
 | `constraints[].value` | Exact unsigned decimal string, preserving native integer precision |
 | `constraints[].sources` | Verified policy categories, or `[]` when provenance is unknown |
+
+Member values still come from the current user-association observation. A result
+containing only a member constraint has no parent-record time. External native
+changes not yet reconciled by the writer do not turn a recorded account value
+into a freshly verified value.
 
 Source objects contain an allowlisted `kind` and, where present, a validated
 `service_level_code` or `grant_kind`. Kinds are `service_level`, `grant`,
@@ -56,7 +72,8 @@ unknown, and a missing nearer row cannot establish a farther inherited limit.
 QOS reasons and running jobs receive no association-source context.
 
 Lists keep their short native reason labels. Details add the account/member
-layer, native value, billing TRES unit or submitted-job count, and source labels.
+layer, value, billing TRES unit or submitted-job count, source labels and, for
+recorded account constraints, the record time.
 Unknown native codes remain unchanged. Missing or mismatched metadata preserves
 native numbers with unknown sources. Read failure preserves the authorized job
 result and its bounded diagnostic. The separate `account_restriction` field
@@ -65,14 +82,15 @@ and does not imply a job can run.
 
 ## Migration
 
-Compatible CLI, Read gateway, Core DTO and Lua consumers precede the Site
-helper/writers, followed by Ops and the original policy projector's metadata
-backfill. Numeric limits remain unchanged during backfill. The SAI helper uses
+Compatible CLI, Read gateway and Core DTO consumers precede Site writers for the
+optional `applied` payload. The v2 frame, SAI native helper and Lua reader are
+unchanged. The original policy projector and workers refresh metadata while
+numeric limits remain unchanged. The SAI helper uses
 standard Slurm APIs, preserves the original manual suffix and supports both
 carrier versions before v2 writes start. Slurm source, libraries and protocol
 remain unmodified.
 
 v1 remains readable only for existing or in-flight association records during
 this paired migration. Remove that bridge after the original worker has migrated
-the full accepted cohort. Deployment and backfill remain pending in the
+the full accepted cohort. Applied-record activation and backfill are tracked in the
 [roadmap](../../../docs/roadmap.md).

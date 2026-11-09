@@ -296,18 +296,21 @@ The reusable site runtime adapter supports these bounded native reads:
 - `scontrol show hostnames <expression>`, only to expand an observed allocation's
   host expression. This does not query all-node state or physical inventory;
 - `sacctmgr --json show association`, restricted to the visible pending jobs'
-  exact association IDs, for optional SAI account context. The v2 source
-  candidate adds `WOPLimits` and a second read phase for declared ancestor IDs.
-  Each phase deduplicates IDs and uses batches of at most 512.
+  exact association IDs with `WOPLimits`, for optional SAI account context.
+  Each phase deduplicates IDs and uses batches of at most 512. Older v2 records
+  without an applied parent record retain the second ancestor-read phase.
 
 The association reader shares `sai_compute_restrictions` with the local CLI.
 It binds each current user association to the observed job's cluster, account,
 user and partition, then validates the managed Comment prefix and source
-lineage. The typed v2 extension is a source candidate, not deployed. It adds
+lineage. The typed v2 extension adds
 [`limit_context`](../contracts/compute-limit-context/v1/README.md) alongside
-`account_restriction`. Each ancestor must be the exact account-only association
-on the current lineage, and source metadata must match its current native value.
-Member metadata binds the exact user association. Group billing layers stay
+`account_restriction`. The original writer records verified parent values and
+sources in the user association's optional `applied` payload. This binds the
+target association, lineage, ancestor identities and source revisions. Both local
+and gateway readers consume that same record without demanding parent visibility.
+Its recording time is explicit and is not a fresh native verification claim.
+Member metadata binds the exact user association and current value. Group billing layers stay
 separate; `MaxSubmitJobs` follows the nearest explicit inherited value.
 
 Only allowlisted source categories and exact decimal-string values reach
@@ -320,8 +323,9 @@ authorized job observation. An `open` marker produces no account notice.
 Center's existing limit, membership and parent-account flows publish this
 metadata through standard Slurm association Comments. The diagnostic carrier
 has no controller HTTP fetch, timer or dynamic policy file. The
-[roadmap](roadmap.md) records the deployed account-state baseline and pending v2
-reader/producer activation. v1 remains readable only until the original worker
+[roadmap](roadmap.md) tracks applied-record activation and metadata refresh.
+New readers precede writers because earlier strict decoders reject the added
+payload key. The helper and Lua v2 frame stay unchanged. v1 remains readable only until the original worker
 has migrated the accepted association cohort. Each site still needs
 verification of its actual service-UID read permission and native environment.
 

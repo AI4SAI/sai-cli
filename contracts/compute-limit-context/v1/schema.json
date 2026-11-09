@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Current native association limits and verified SAI sources",
+  "title": "Native association limits and applied SAI source records",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -16,6 +16,14 @@
       "items": {
         "$ref": "#/$defs/constraint"
       }
+    },
+    "basis": {
+      "const": "applied_record"
+    },
+    "recorded_at": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
     }
   },
   "required": [
@@ -251,5 +259,13 @@
         ]
       }
     }
+  },
+  "dependentRequired": {
+    "basis": [
+      "recorded_at"
+    ],
+    "recorded_at": [
+      "basis"
+    ]
   }
 }

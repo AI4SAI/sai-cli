@@ -476,6 +476,13 @@ user, account, partition and lineage before adding this context. The account
 may be an observed ancestor and grants no additional visibility. Gateway, relay,
 local jobs and exact allocation share the typed context. Raw remarks, association
 IDs and projection versions remain internal. Slurm retains its native reason.
+Recorded account context additionally carries the paired optional fields
+`basis=applied_record` and `recorded_at`. That timestamp is when the site writer
+verified the recorded account facts, while `observed_at` is this association
+read. The same fields apply to `limit_context` when it includes recorded account
+constraints. The member's current native values remain separate. Local readers
+need only their visible user association, and remote readers retain the normal
+capability scope. Paired readers must precede the optional carrier extension.
 Missing context does not imply available funding. Old alpha `pending_reason`
 fields are discarded and no longer produced. Labels retain the original reason
 in JSON and do not price a pending job.
