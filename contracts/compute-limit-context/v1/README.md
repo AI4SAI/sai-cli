@@ -2,8 +2,8 @@
 
 This additive job field uses the typed association Comment v2 carrier. The public
 DTO and native carrier have separate version numbers. The public shape is defined
-by [schema.json](schema.json). The applied-record extension requires paired
-reader and writer deployment before metadata is refreshed.
+by [schema.json](schema.json). Compatible readers and writers for the applied-record
+extension are deployed. Full-cohort metadata migration remains incomplete.
 
 `limit_context` describes native member limits and the account limits and policy
 sources last verified by the site writer. Slurm retains the original scheduling reason. The field identifies
@@ -82,15 +82,21 @@ and does not imply a job can run.
 
 ## Migration
 
-Compatible CLI, Read gateway and Core DTO consumers precede Site writers for the
-optional `applied` payload. The v2 frame, SAI native helper and Lua reader are
+During upgrades, compatible CLI, Read gateway and Core DTO consumers precede
+Site writers for the optional `applied` payload. The v2 frame, SAI native helper and Lua reader are
 unchanged. The original policy projector and workers refresh metadata while
 numeric limits remain unchanged. The SAI helper uses
 standard Slurm APIs, preserves the original manual suffix and supports both
 carrier versions before v2 writes start. Slurm source, libraries and protocol
 remain unmodified.
 
-v1 remains readable only for existing or in-flight association records during
-this paired migration. Remove that bridge after the original worker has migrated
-the full accepted cohort. Applied-record activation and backfill are tracked in the
+The paired deployment completed with the Site/Read update on 2026-11-10.
+Bounded ordinary-owner local reads verified applied sources without numeric
+limit changes. Authenticated remote reads and foreign-job denial passed; the
+sampled remote job had no applicable annotation, so positive remote source
+attribution remains unverified.
+
+Existing v1 records remain in the accepted cohort. Keep v1 readable until the
+original worker completes that cohort's migration. Metadata backfill and the
+remaining remote annotation check are tracked in the
 [roadmap](../../../docs/roadmap.md).

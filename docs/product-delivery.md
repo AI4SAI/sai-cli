@@ -1,6 +1,7 @@
 # Human and Agent product delivery
 
 Status: established product scope and current delivery map, reviewed 2026-10-14.
+Applied limit-context deployment status updated 2026-11-10.
 Publishing still requires the maintainer release process. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
 remains the executable operation catalogue.
 
@@ -46,7 +47,8 @@ for an already completed action.
 | Check local queue, GPU/CPU allocation and path quota | Native Slurm/Linux/Lustre under the actual Unix user | Shared aliases and focused Textual queries deployed; ordinary login/compute checks | Preserve familiar output and latency; broaden real terminal/device usability evidence as needed |
 | Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and synthetic independent-Agent workflow verified; shared site discovery and account choices deployed with ordinary-user reads | Observe independent first-use experience on supported devices using shipped guidance |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
-| Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
+| Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Compatible client and server components deployed; ordinary-owner local source attribution and authenticated remote reads verified | Complete accepted-cohort metadata migration and an applicable remote annotation sample; retain v1 compatibility until migration completes |
+| Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified on an isolated Linux container | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Receive and accept a collaboration invitation | Portal invitation lifecycle, original acceptance writer and access-task readback | Paired v2 permissions, preview/`--apply` and verification recovery are deployed; positive recovery passed installed-client local HTTP | Verify a genuinely requested recipient task, including user consent and applied access |
 | Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No inviter-side OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
 | Enable computation for an existing project member | Original collaboration guard, expected values, idempotency and site assignment receipts | Paired scopes/API/shared client deployed; installed-client local workflow and existing-grant production checks passed | Qualify genuine requested management through ordinary user consent and actual site application |
@@ -266,6 +268,16 @@ skills are the current extension points; a generic plugin framework needs real
 consumers before it becomes a supported platform.
 
 ## Current order of work
+
+Applied limit-context readers and writers are deployed. Local ordinary-owner
+reads verified sources for six existing pending jobs after a bounded metadata
+refresh that preserved native numeric limits. The 2026-11-10 Site/Read release
+passed authenticated job reads, foreign-job denial and public self/organization
+reads. Its sampled remote job returned empty context because its native reason
+had no applicable annotation. Full-cohort metadata migration and a positive
+remote annotation sample remain open; existing v1 records still require the
+compatibility reader. See the [contract](../contracts/compute-limit-context/v1/README.md)
+and [roadmap](roadmap.md).
 
 Selected-site connection discovery was paired and deployed on 2026-10-13:
 CLI `e93932a6bb46`, Center `cb4f5217791b`. An ordinary user's temporary connection
