@@ -38,6 +38,9 @@ def follow_up_argv(args: Namespace | None, *words: str) -> tuple[str, ...]:
             if name in {"config", "cache"}:
                 value = str(Path(value).expanduser().absolute())
             command += ["--" + name.replace("_", "-")] + ([] if value is True else [str(value)])
+    output_format = getattr(args, "format", None)
+    if output_format == "table" and "--format" not in words:
+        command += ["--format", output_format]
     return tuple(command)
 
 

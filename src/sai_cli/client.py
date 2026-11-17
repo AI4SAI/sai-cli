@@ -533,12 +533,17 @@ class PortalClient:
         invitation = Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
         if accept:
             lease = self.token_provider.get()
-            response = self.transport.request("POST", path + "/accept",
-                headers={"Authorization": f"Bearer {lease.token}"}, json_body={
-                    "schema_version": "collaboration.invitation-accept/v2",
-                    "compute_enabled": invitation.values["invitation"]["compute_enabled"],
-                })
-            invitation = Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+            try:
+                response = self.transport.request("POST", path + "/accept",
+                    headers={"Authorization": f"Bearer {lease.token}"}, json_body={
+                        "schema_version": "collaboration.invitation-accept/v2",
+                        "compute_enabled": invitation.values["invitation"]["compute_enabled"],
+                    })
+                invitation = Invitations.detail(response.payload, invitation_id=identifier, request_id=response.request_id)
+            except (NetworkError, UnavailableError, ContractError) as exc:
+                exc.message = "Invitation acceptance result is unknown; read this invitation before retrying."
+                exc.recovery_command = ("invitations", "show", identifier)
+                raise
         if invitation.values["verification_url"] is not None:
             invitation = Invitations({**invitation.values,
                 "verification_url": urljoin(self.transport.base_url, invitation.values["verification_url"])})
@@ -617,15 +622,21 @@ class PortalClient:
         if len(key) < 8:
             raise ConfigError("request ID must contain 8-128 characters")
         lease = self.token_provider.get()
-        response = self.transport.request(
-            "PUT", "/v1/account/cli/defaults",
-            headers={"Authorization": f"Bearer {lease.token}", "Idempotency-Key": key},
-            json_body={"account_id": target, "expected_account_id": expected},
-        )
-        return DefaultAccountChange.from_payload(
-            response.payload, account_id=target, expected_account_id=expected,
-            idempotency_key=key, request_id=response.request_id,
-        )
+        try:
+            response = self.transport.request(
+                "PUT", "/v1/account/cli/defaults",
+                headers={"Authorization": f"Bearer {lease.token}", "Idempotency-Key": key},
+                json_body={"account_id": target, "expected_account_id": expected},
+            )
+            return DefaultAccountChange.from_payload(
+                response.payload, account_id=target, expected_account_id=expected,
+                idempotency_key=key, request_id=response.request_id,
+            )
+        except (NetworkError, UnavailableError, ContractError) as exc:
+            exc.message = "Default-account result is unknown; replay the same intent and request ID to recover its acceptance."
+            exc.recovery_command = ("account", "set-default", target or "auto",
+                                    "--if-current", expected or "auto", "--request-id", key)
+            raise
 
     def _managed_read(self, *, workspace_key: str, site_id: str, run_ref: str | None = None,
                       suffix: str = "", **parameters: str | int | None) -> JsonResponse:

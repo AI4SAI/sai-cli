@@ -6,10 +6,11 @@ from argparse import Namespace
 from dataclasses import dataclass
 import re
 from typing import Any
+from uuid import uuid4
 
 from .catalog import _count, _items, _object, _text, _token
 from .contracts import _timestamp_text
-from .errors import ContractError
+from .errors import ConfigError, ContractError
 
 
 def _account_id(value: object) -> str | None:
@@ -103,13 +104,13 @@ class DefaultAccountChange:
 
 
 def render_default_account(result: DefaultAccountState | DefaultAccountChange, *, args: Namespace | None = None, managed: bool = False) -> str:
+    from .managed_runs import terminal_log
     from .messages import display_site_name
+    from .render import follow_up_command
     value = result.values
     target = value["default_account_id"]
     if isinstance(result, DefaultAccountChange):
-        from .render import follow_up_command
-        from .managed_runs import terminal_log
-        lines = [f"默认计算账户修改请求已受理：{target or '自动选择'}（全局）", f"请求：{value['request_id']}"]
+        lines = ["默认计算账户修改请求已受理（全局）"]
         sites = [None] if managed else [row['site_id'] for row in value['site_projections']]
         for site in sites:
             command = follow_up_command(args, "account", "defaults", *(["--site", site] if site else []))
@@ -123,4 +124,25 @@ def render_default_account(result: DefaultAccountState | DefaultAccountChange, *
               "failed": "站点应用失败", "unavailable": "暂无法确认"}
     for row in value["deliveries"]:
         lines.append(f"{display_site_name(row.get('site_label'), row['site_id'], language='zh-CN')}：{states[row['state']]}" + (f" · {row['applied_at']}" if row["applied_at"] else ""))
+    selected = getattr(args, "select", None)
+    if selected is not None:
+        if selected == "auto":
+            choice = {"id": None, "name": "自动选择"}
+        else:
+            choices = [row for row in value["choices"] if selected in (row["name"], row["id"])]
+            if not choices:
+                raise ConfigError("请选择本站可选的账户名称。", code="account_selection_invalid")
+            if len(choices) != 1:
+                raise ConfigError("账户名称不唯一，请使用精确账户 ID。", code="account_selection_ambiguous")
+            choice = choices[0]
+        if choice["id"] == target:
+            return f"当前全局默认计算账户：{choice['name']}\n"
+        current = names.get(target, target) if target else "自动选择"
+        command = follow_up_command(args, "account", "set-default", choice["id"] or "auto",
+                                    "--if-current", target or "auto", "--request-id", str(uuid4()))
+        return f"切换全局默认：{current} → {choice['name']}\n确认切换：{terminal_log(command)}\n"
+    elif value["choices"]:
+        command = follow_up_command(args, "account", "defaults", "--select", "ACCOUNT_NAME",
+                                    *([] if managed else ["--site", value["site_id"]]))
+        lines.append("预览切换：" + terminal_log(command))
     return "\n".join(lines) + "\n"

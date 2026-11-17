@@ -234,6 +234,19 @@ replay. Its `accepted` response records the original request, including after a
 later edit. Run `account defaults` again to inspect the current setting and
 site application. JSON is the default; `--format table` gives a short human view.
 
+For a manual change, select a returned account name in the human view:
+
+```bash
+sai account defaults --site site-a --format table
+sai account defaults --site site-a --select org-example --format table
+```
+
+The second read previews the global change and provides a complete confirmation
+command using that observation's saved value and a request key. Run it to submit
+the change. `--select auto` previews clearing the explicit default. An unchanged
+selection stays read-only. Existing scripts keep the explicit ID and request-key
+interface above. Printed follow-up and recovery commands preserve table output.
+
 Subsequent domain operations follow the ownership table. They do not wait for
 3D assets or a Pilot release, and this first action does not claim full Agent
 management coverage.

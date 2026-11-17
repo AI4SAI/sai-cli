@@ -162,7 +162,8 @@ def render_invitations(result: Invitations, *, args: Namespace | None = None) ->
         lines.append(f"接受截止：{row['expires_at'] or '未指定'}")
         if row["target_kind"] == "organization":
             lines.append("保留已有有效的默认计算账户；没有时才将本组织设为默认")
-        if args is not None and args.invitations_command == "accept" and not args.apply:
+        if (row["status"] == "pending" and args is not None
+                and args.invitations_command in {"show", "accept"} and not getattr(args, "apply", False)):
             command = follow_up_command(args, "invitations", "accept", row["invitation_id"], "--apply", "--format", "table")
             lines.append("确认接受：" + terminal_log(command))
     if value["next_action"] in {"complete_identity_assurance", "observe"}:

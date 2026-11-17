@@ -85,6 +85,19 @@ def describe(root: argparse.ArgumentParser, path: list[str]) -> dict[str, Any]:
             "authorization_checked": False, "path": path, "detailed": detailed, "operations": operations}
 
 
+def configure_help(root: argparse.ArgumentParser) -> None:
+    """Present the same operation options in human help and discovery."""
+    for _path, summary, parser in _leaves(root):
+        operation = parser.get_default("_operation")
+        allowed = {item["name"] for item in _parameters(parser, root, operation)}
+        for action in parser._actions:
+            if action.dest in _CONNECTION and action.dest not in allowed:
+                action.help = argparse.SUPPRESS
+        parser.description = summary
+        if operation["site_required"]:
+            parser.description += ". Choose --site from sai sites or use the configured site."
+
+
 def render_description(value: dict) -> str:
     lines = []
     for operation in value["operations"]:
