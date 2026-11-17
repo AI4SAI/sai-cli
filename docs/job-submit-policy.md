@@ -222,26 +222,20 @@ inspection, direct account construction and integer arithmetic. It
 performs no file read, network request,
 DNS lookup, subprocess, module load, logging RPC, or filesystem metadata query.
 
-Non-fatal account notices lead with Chinese and concise English, stating the
-billing consequence, selected Account, reason and native correction command.
-A mismatch can be intentional; it is a request to check billing attribution,
-not evidence of an incorrect charge. For example:
+Non-fatal account notices use one Chinese line naming the selected billing
+account and the reason. When accounts differ, the reason includes the
+directory-derived, default or previous account for comparison. For example:
 
 ```text
-WARNING: 请核对计费账户 / CHECK BILLING ACCOUNT
-作业运行后，费用将记入 / Charges if run: Account=personal-alice
-目录推导 / WorkDir account: Account=proj-research；本次显式指定优先 / explicit account takes precedence.
-后续提交 / Next submission: --account=<account>
-排队作业更正 / Correct pending job: scontrol update JobId=<jobid> Account=<account>
+计费账户：personal-alice（显式指定，目录账户为 proj-research）
 ```
 
-Replace the placeholders with the intended account and job ID. Updating a job
-omits the next-submission line. Notices appear under the existing mismatch or
-unresolved-path conditions; matching accounts and unrelated updates stay quiet.
-They do not claim submission succeeded, a charge already occurred, or a payer
-was identified from a path. Final monetary settlement remains Portal-owned.
-Plain text works in terminals and captured logs without ANSI color, repeated
-banners or an interactive confirmation that would break native automation.
+Notices appear under the existing mismatch or unresolved-path conditions;
+matching accounts and unrelated updates stay quiet. Account restriction notices
+also use short Chinese reasons, such as `SAI账户 org-example：资金不足`.
+The selected account identifies where charges will accrue if the job runs.
+Final monetary settlement remains Portal-owned. Native commands retain their
+normal output, and complete correction instructions stay in the documentation.
 
 Slurm may still prefix `slurm.user_msg` with
 `sbatch: error:`. The command's exit status and job receipt determine whether

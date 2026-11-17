@@ -40,9 +40,11 @@ not imply production activation or completion of a paired rollout.
   The Site/Read update completed on 2026-11-10 with authenticated job reads,
   foreign-job denial and public self/organization reads. The sampled remote job
   had no applicable limit annotation and returned empty context.
-- [ ] Complete source-only metadata refresh across the original accepted cohort
-  and verify an applicable limit annotation through an ordinary user's authorized
-  remote read. Existing v1 records remain in the latest read-only inventory.
+- [x] Complete the main account/member source-only metadata batch through the
+  original projector and workers, with native numeric values unchanged.
+- [ ] Finish the remaining organization source records and verify an applicable
+  limit annotation through an ordinary user's authorized remote read. Retain v1
+  compatibility until the accepted cohort is complete.
 - [ ] Remove temporary v1 marker compatibility after the original worker's
   full accepted association cohort has migrated to v2. An `open` funding marker
   stays silent throughout and grants no scheduling permission.
@@ -146,6 +148,11 @@ historical entries are not an automatic new-feature queue.
   public page, tagged guide and anonymous downloads of all three assets against
   the approved checksums. Preserve the a1 release and assets. Independent human
   first use and shared production activation remain separate from distribution.
+- [ ] Qualify and publish the `0.2.0a3` portable candidate with existing
+  project-member compute enablement, invitation v2, task consent/resume,
+  credential continuity, native reads and account-limit context. The current
+  Portal contracts already support these operations. The source version is a3;
+  its package validation and public release remain pending, and a1/a2 stay intact.
 - [x] Activate PR #14 through shared source `4a3d794aee12`: ordinary-user
   candidate/selected native views, existing authorization/account/job/cost reads
   and actual PTY restoration passed; dependencies/configuration were preserved,
