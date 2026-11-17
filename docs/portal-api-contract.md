@@ -93,6 +93,34 @@ execution evidence, not new human consent or production member enablement.
 
 ## Authentication
 
+### Project invitation sender
+
+The [sender contract](../contracts/project-invitation/v1/README.md) adds a narrow
+adapter for inviting one existing account to an existing computing project.
+Project discovery and sender reads require `sai.collaboration.members.read`.
+Sending requires the independent optional `sai.collaboration.invitations.write`
+grant and current project management authority. Recipient read and acceptance
+scopes retain their existing meaning.
+
+`POST /v1/account/cli/projects/{project_id}/invitations/preview` resolves the
+username and validates the proposed role, explicit computing permission,
+membership window and invitation lifetime through the original service.
+It creates no invitation. `POST` to the same path without `/preview` binds the
+returned invitee ID and the confirmed terms to one `Idempotency-Key`.
+The original writer and notification flow own creation. The original middleware
+idempotency record binds that actor, key and complete request to its invitation.
+
+`GET /v1/account/cli/project-invitation-requests/{request_id}` reads that actor's
+original receipt. `GET /v1/account/cli/project-invitations/{invitation_id}`
+requires current project management authority and reads the invitation and
+original access-task results. It grants no recipient acceptance authority.
+Unknown write results use these reads before any deliberate replay. Repeating a
+confirmed request retains its exact invitee, terms and key.
+
+These adapters require coordinated Portal, CLI and optional Identity scope
+activation. They are a source candidate, separate from the frozen a3 release
+and its already deployed management operations.
+
 ### Recipient collaboration invitations
 
 `GET /v1/account/cli/invitations` accepts only `limit` (1–100) and the returned

@@ -51,6 +51,23 @@ def _invitation(value: object, request_id: str) -> dict[str, Any]:
     return result
 
 
+def invitation_deliveries(value: object, *, request_id: str) -> list[dict[str, Any]]:
+    deliveries = []
+    for value in _items(value, maximum=64):
+        row = _object(value)
+        generation = _count(row["generation"])
+        if generation is None or generation < 1 or row["status"] not in {"queued", "running", "ready", "expired", "failed"}:
+            raise ValueError("invalid invitation task")
+        deliveries.append({"task_id": invitation_reference(row["task_id"]), "generation": generation,
+                           "site_id": invitation_reference(row["site_id"], site=True), "status": row["status"],
+                           **({"site_label": _label(row["site_label"])} if row.get("site_label") is not None else {}),
+                           "finished_at": _timestamp_text(row, "finished_at", nullable=True, request_id=request_id),
+                           "workspace_available": _boolean(row["workspace_available"])})
+    if len({row["task_id"] for row in deliveries}) != len(deliveries):
+        raise ValueError("duplicate invitation task")
+    return deliveries
+
+
 @dataclass(frozen=True)
 class Invitations:
     values: dict[str, Any]
@@ -94,19 +111,7 @@ class Invitations:
                 verification_url != ACCOUNT_VERIFICATION_PATH or action != "complete_identity_assurance"
             ):
                 raise ValueError("invalid invitation verification URL")
-            deliveries = []
-            for value in _items(data["deliveries"], maximum=64):
-                row = _object(value)
-                generation = _count(row["generation"])
-                if generation is None or generation < 1 or row["status"] not in {"queued", "running", "ready", "expired", "failed"}:
-                    raise ValueError("invalid invitation task")
-                deliveries.append({"task_id": invitation_reference(row["task_id"]), "generation": generation,
-                                   "site_id": invitation_reference(row["site_id"], site=True), "status": row["status"],
-                                   **({"site_label": _label(row["site_label"])} if row.get("site_label") is not None else {}),
-                                   "finished_at": _timestamp_text(row, "finished_at", nullable=True, request_id=request_id),
-                                   "workspace_available": _boolean(row["workspace_available"])})
-            if len({row["task_id"] for row in deliveries}) != len(deliveries):
-                raise ValueError("duplicate invitation task")
+            deliveries = invitation_deliveries(data["deliveries"], request_id=request_id)
             return cls({"schema_version": data["schema_version"], "invitation": item,
                         "next_action": action, "deliveries": deliveries, "verification_url": verification_url})
         except (KeyError, TypeError, ValueError) as exc:

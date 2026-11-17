@@ -1,0 +1,44 @@
+{
+  "schema_version": "project.invitation/v1",
+  "project": {
+    "project_id": "project-example",
+    "code": "proj-research",
+    "label": "Research project",
+    "organization_label": "Research organization",
+    "compute_supported": true,
+    "uses_project_budget": true
+  },
+  "invitee": {
+    "user_id": "user-example",
+    "username": "researcher"
+  },
+  "invitation": {
+    "invitation_id": "invitation-example",
+    "status": "accepted",
+    "target_kind": "project",
+    "target_label": "Research project",
+    "role": "write",
+    "site_id": "site-a",
+    "site_label": "Research Station",
+    "relationship_scope": "global",
+    "directory_site_labels": [],
+    "has_compute_resources": true,
+    "compute_enabled": true,
+    "uses_project_budget": true,
+    "membership_valid_from": null,
+    "membership_expires_at": "2027-06-30T10:00:00Z",
+    "expires_at": "2027-01-04T00:00:00Z",
+    "accepted_at": "2027-01-02T00:00:00Z"
+  },
+  "deliveries": [
+    {
+      "task_id": "task-project-member",
+      "generation": 1,
+      "site_id": "site-a",
+      "site_label": "Research Station",
+      "status": "ready",
+      "finished_at": "2027-01-02T00:05:00Z",
+      "workspace_available": true
+    }
+  ]
+}

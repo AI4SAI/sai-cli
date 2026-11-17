@@ -1,8 +1,9 @@
-"""Mapping from explicit CLI scopes to Portal read-only endpoints."""
+"""Validated CLI operations over existing Portal APIs."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from collections.abc import Callable
 import re
 from urllib.parse import quote, urljoin
@@ -26,6 +27,7 @@ from .job_charges import JobCharges
 from .sites import SiteDirectory, site_directory_query
 from .invitations import Invitations, invitation_reference
 from .project_compute import ProjectCompute, reference as project_reference, request_key
+from .project_invitation import ProjectInvitation
 from .run_stats import ManagedRunStats
 from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
@@ -522,6 +524,74 @@ class PortalClient:
         task = self._project_ref(task_id)
         response = self._central_get("/v1/account/cli/project-member-tasks/" + quote(task, safe=""), query={})
         return ProjectCompute.parse(response.payload, schema="project.member-task/v1", request_id=response.request_id, task_id=task)
+
+    def invite_project_member(self, project_id: str, *, site_id: str, username: str, role: str,
+                              compute_enabled: bool, member_expires_at: str,
+                              member_valid_from: str | None = None, invitation_hours: int = 72,
+                              apply: bool = False, invitee_id: str | None = None,
+                              key: str | None = None) -> ProjectInvitation:
+        project, username = self._project_ref(project_id), self._project_ref(username)
+        site = clean_token(site_id, field="site", required=True, maximum=64)
+        if role not in {"read", "write", "admin"} or type(compute_enabled) is not bool:
+            raise ConfigError("Choose a file role and whether to enable computing.")
+        if type(invitation_hours) is not int or not 1 <= invitation_hours <= 720:
+            raise ConfigError("Invitation acceptance must be between 1 and 720 hours after sending.")
+        if apply and (not invitee_id or not key):
+            raise ConfigError("Preview the invitation first; --apply requires its --invitee-id and one --request-id.")
+        key = self._project_ref(key, request=True) if key is not None else None
+        invitee_id = self._project_ref(invitee_id) if invitee_id is not None else None
+        dates = {}
+        for field, value in (("membership_valid_from", member_valid_from), ("membership_expires_at", member_expires_at)):
+            if value is None and field == "membership_valid_from":
+                dates[field] = None
+                continue
+            try:
+                instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if instant.tzinfo is None or instant.utcoffset() is None:
+                    raise ValueError("missing timezone")
+                dates[field] = instant.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            except (AttributeError, TypeError, ValueError, OverflowError) as exc:
+                raise ConfigError("Membership dates must use ISO 8601 with a timezone, for example 2027-06-30T18:00:00+08:00.") from exc
+        terms = {"role": role, "compute_enabled": compute_enabled, **dates, "ttl_hours": invitation_hours}
+        schema = "project.invitation-create/v1" if apply else "project.invitation-preview/v1"
+        payload = {"schema_version": schema, "site_id": site, "invitee_username": username, **terms}
+        path = f"/v1/account/cli/projects/{quote(project, safe='')}/invitations"
+        if apply:
+            payload["invitee_user_id"] = invitee_id
+        else:
+            path += "/preview"
+        lease = self.token_provider.get()
+        try:
+            headers = {"Authorization": f"Bearer {lease.token}"}
+            if apply:
+                headers["Idempotency-Key"] = key
+            response = self.transport.request("POST", path, headers=headers, json_body=payload)
+            return ProjectInvitation.parse(response.payload, schema=schema, request_id=response.request_id,
+                project_id=project, site_id=None if apply else site, username=username,
+                invitee_id=invitee_id, key=key if apply else None, terms=None if apply else terms)
+        except (NetworkError, UnavailableError, ContractError) as exc:
+            if apply:
+                exc.message = "Invitation result is unknown; read the original request before retrying."
+                exc.recovery_command = ("projects", "invite-request", key)
+            raise
+        except ConfigError as exc:
+            if apply and exc.code == "idempotency_conflict":
+                exc.recovery_command = ("projects", "invite-request", key)
+            elif exc.code == "project_invitation_member_exists":
+                exc.recovery_command = ("projects", "members", project, "--username", username, "--site", site)
+            raise
+
+    def project_invitation(self, invitation_id: str) -> ProjectInvitation:
+        identifier = self._project_ref(invitation_id)
+        response = self._central_get("/v1/account/cli/project-invitations/" + quote(identifier, safe=""), query={})
+        return ProjectInvitation.parse(response.payload, schema="project.invitation/v1",
+            request_id=response.request_id, invitation_id=identifier)
+
+    def project_invitation_request(self, key: str) -> ProjectInvitation:
+        key = self._project_ref(key, request=True)
+        response = self._central_get("/v1/account/cli/project-invitation-requests/" + quote(key, safe=""), query={})
+        return ProjectInvitation.parse(response.payload, schema="project.invitation-create/v1",
+            request_id=response.request_id, key=key)
 
     def invitation(self, invitation_id: str, *, accept: bool = False) -> Invitations:
         try:

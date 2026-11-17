@@ -1,0 +1,29 @@
+{
+  "schema_version": "project.invitation-preview/v1",
+  "project": {
+    "project_id": "project-example",
+    "code": "proj-research",
+    "label": "Research project",
+    "organization_label": "Research organization",
+    "compute_supported": true,
+    "uses_project_budget": true
+  },
+  "invitee": {
+    "user_id": "user-example",
+    "username": "researcher"
+  },
+  "allowed_roles": ["read", "write", "admin"],
+  "site_id": "site-a",
+  "site_label": "Research Station",
+  "relationship_scope": "global",
+  "directory_site_labels": ["Research Station", "Secondary Station"],
+  "terms": {
+    "role": "write",
+    "compute_enabled": true,
+    "membership_valid_from": null,
+    "membership_expires_at": "2027-06-30T10:00:00Z",
+    "ttl_hours": 72
+  },
+  "acceptance_expires_at": "2027-01-04T00:00:00Z",
+  "delivery": "message_center"
+}

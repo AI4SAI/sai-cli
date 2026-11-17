@@ -50,7 +50,7 @@ for an already completed action.
 | Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Compatible components deployed; the main account/member metadata batch completed without numeric changes; ordinary-owner local attribution and authenticated remote reads verified | Finish the remaining organization source records and an applicable remote annotation sample; retain v1 compatibility until migration completes |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified on an isolated Linux container | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Receive and accept a collaboration invitation | Portal invitation lifecycle, original acceptance writer and access-task readback | Paired v2 permissions, preview/`--apply` and verification recovery are deployed; positive recovery passed installed-client local HTTP | Verify a genuinely requested recipient task, including user consent and applied access |
-| Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No inviter-side OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
+| Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | Existing-account computing-project invitation adapter is a source candidate, separate from frozen a3; broader member changes remain planned | Complete paired validation and activation, then normal user consent and actual invitation/site results |
 | Enable computation for an existing project member | Original collaboration guard, expected values, idempotency and site assignment receipts | Paired scopes/API/shared client deployed; installed-client local workflow and existing-grant production checks passed | Qualify genuine requested management through ordinary user consent and actual site application |
 | Manage a project's budget | Portal project-budget service, role checks and budget events | No CLI management adapter; cost/overview reads are not this action | Design authorized request, concurrency/replay and exact readback against the existing writer before exposing a write command |
 | Manage storage allocations or compute lifecycle remotely | Existing Portal storage and compute domain services and task receipts | Storage and computation read surfaces exist; broad management is not delivered | Pair each useful user intent with its current authority and durable outcome; native read visibility does not imply remote write rights |
@@ -63,13 +63,14 @@ writer `set_project_budget` already owns locks, amount constraints and request
 references; an Agent adapter must inspect its actual replay/concurrency semantics
 rather than assume that a request ID supplies every required guarantee.
 
-The current management slice covers the recipient's complete invitation task,
-shared by organizations, projects and directories. It reuses the existing
-invitation and task owners. Inviter-side collaboration remains a candidate for
-broader management: inspect people, resolve an intended recipient, select role
-and validity, submit through the original owner and inspect application. Its
-priority still needs comparison with recurring user needs and the other gaps;
-available endpoints alone are not a reason to expand the surface.
+The recipient's invitation task is shared by organizations, projects and
+directories. The next isolated source candidate covers sending an invitation to
+one existing account for an existing computing project, so an authorized Agent
+can complete both sides of this ordinary collaboration task. It reuses the
+same invitation and task owners, with named-target preview, one confirmed send
+and original-request recovery. Broader member changes, budget and storage
+management retain their separate gaps. Source validation and actual consent,
+delivery and site access remain distinct acceptance stages.
 
 An organization join preserves an existing valid default computing account;
 Portal selects the new organization only when no valid default exists. This

@@ -140,7 +140,14 @@ def _http_error(*, status: int, payload: object, request_id: str | None) -> SaiC
     if status in {408, 429, 500, 502, 503, 504}:
         return UnavailableError(message, code=code, request_id=request_id)
     if status in {400, 405, 409, 410, 422}:
-        return ConfigError(message, code=code)
+        error = ConfigError(message, code=code)
+        if status == 409 and code == "workspace_invitation_already_pending":
+            detail = payload.get("detail") if isinstance(payload, dict) else None
+            identifier = detail.get("invitation_id") if isinstance(detail, dict) else None
+            if isinstance(identifier, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", identifier):
+                error.message = "An invitation is already pending; read its terms and status."
+                error.recovery_command = ("projects", "invitation", identifier)
+        return error
     return UnavailableError(message, code=code, request_id=request_id)
 
 
