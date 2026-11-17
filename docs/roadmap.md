@@ -48,12 +48,15 @@ not imply production activation or completion of a paired rollout.
   had no applicable limit annotation and returned empty context.
 - [x] Complete the main account/member source-only metadata batch through the
   original projector and workers, with native numeric values unchanged.
-- [ ] Finish the remaining organization source records and verify an applicable
-  limit annotation through an ordinary user's authorized remote read. Retain v1
-  compatibility until the accepted cohort is complete.
-- [ ] Remove temporary v1 marker compatibility after the original worker's
-  full accepted association cohort has migrated to v2. An `open` funding marker
-  stays silent throughout and grants no scheduling permission.
+- [x] Complete the remaining organization/member source records. A current
+  observation of the published scope found no v1 markers or retryable v1 input.
+- [ ] Verify an applicable limit annotation through an ordinary user's
+  authorized remote read. Completed source migration is not repeated for this check.
+- [x] Remove v1 marker and three-field input compatibility from the shared
+  codec, Site writer, native helper and Lua notice reader in source.
+- [ ] Deploy that paired compatibility removal. An `open` funding marker stays
+  silent and grants no scheduling permission. Unmarked native comments and the
+  separate v2 ancestor-read contract retain their existing meaning.
 
 - [x] Implement native account discovery, explicit quota directory selection,
   retained query scopes and numbered allocation inspection
