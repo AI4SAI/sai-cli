@@ -9,6 +9,7 @@ from sai_cli.cli import main
 from sai_cli.errors import ContractError
 from sai_cli.job_charges import JobCharges
 from test_site_transport import http_endpoint
+from test_run_cost import segmented_sample
 
 
 def sample():
@@ -86,6 +87,23 @@ def test_failed_charge_read_is_not_replaced_with_estimate_or_native(tmp_path):
             environ={'SAI_TOKEN':'test-user','XDG_CONFIG_HOME':str(tmp_path/'config')},stdout=out,stderr=err)
         assert code != 0 and not out.getvalue() and len(calls)==1
         assert 'job_charges_unavailable' in err.getvalue() and 'do-not-echo' not in err.getvalue()
+
+
+def test_http_job_charge_detail_preserves_purchase_segments(tmp_path):
+    body = sample()
+    source = segmented_sample()
+    for key in ('amounts', 'segments', 'charge_amount'):
+        body['items'][0][key] = source[key]
+    env = {'SAI_TOKEN': 'test-user', 'XDG_CONFIG_HOME': str(tmp_path / 'config')}
+    with http_endpoint(lambda *_: (200, body)) as (origin, calls):
+        words = ['jobs', 'charges', 'slurm:site-a:71', '--site', 'site-a', '--base-url', origin]
+        out, err = StringIO(), StringIO()
+        assert main(words, environ=env, stdout=out, stderr=err) == 0, err.getvalue()
+        assert json.loads(out.getvalue()) == body
+        out, err = StringIO(), StringIO()
+        assert main([*words, '--format', 'table'], environ=env, stdout=out, stderr=err) == 0, err.getvalue()
+        assert 'Purchase A' in out.getvalue() and '140.00 CNY' in out.getvalue()
+        assert len(calls) == 2
 
 
 def test_requested_account_name_is_bound_without_losing_legacy_aliases(tmp_path):

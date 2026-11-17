@@ -28,6 +28,16 @@ and price adjustment retain the existing billing semantics; SAI Credit points
 are independently supplied by the producer. Clients never calculate prices,
 convert Credit or infer missing values. Quantity uses the returned unit.
 
+The additive `charge_amount` and `segments` fields preserve the producer's
+purchase allocation. Each segment has an opaque line reference, zero-based
+index, nullable purchase label/reference and contract number, quantity, unit,
+cash unit price, charge amount and the same amount fields. The client retains the
+provided order and values without calculating a price or summing a second total.
+Detail text shows these rows under the original Run total. A producer without
+these additive fields remains readable during the paired rollout.
+When funding is hidden, segment prices, charges, purchase/contract details and
+funding components must also be null. Pending results have no segment rows.
+
 Current account financial visibility is independent of Run READ and file READ.
 When `cash_visible=false`, settled gross and quantity remain visible; cash,
 Credit and funding components are null. No client may switch to organization

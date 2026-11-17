@@ -20,6 +20,72 @@ def parse(data):
                                        run_ref="run-example-1", request_id="cost")
 
 
+def segmented_sample():
+    body = sample()
+    body['charge_amount'] = '140.00000000'
+    body['amounts'].update(gross_amount='200.00000000', cash_amount='140.00000000',
+        sai_credit_cny_equivalent_amount='0.00000000', sai_credit_amount='0.00000000',
+        reservation_coverage_amount='0.00000000', price_adjustment_amount='60.00000000', quantity='100.00000000')
+    body['segments'] = []
+    for index, quantity, gross, cash, price, adjustment in [
+        (0, '60.00000000', '120.00000000', '60.00000000', '1.00000000', '60.00000000'),
+        (1, '40.00000000', '80.00000000', '80.00000000', '2.00000000', '0.00000000'),
+    ]:
+        body['segments'].append({'line_item_id': f'line-{index}', 'segment_index': index,
+            'purchase_reference': 'purchase-a' if index == 0 else None,
+            'pricing_contract_key': None, 'purchase_label': 'Purchase A' if index == 0 else None,
+            'contract_no': None, 'quantity': quantity, 'unit_name': body['unit_name'],
+            'unit_price': price, 'charge_amount': cash,
+            'amounts': {**body['amounts'], 'gross_amount': gross, 'cash_amount': cash,
+                'price_adjustment_amount': adjustment, 'quantity': quantity}})
+    return body
+
+
+def test_cost_purchase_segments_preserve_producer_values_and_redaction():
+    body = segmented_sample()
+    supplied = deepcopy(body)
+    supplied['segments'][0]['private_source'] = 'never-show'
+    supplied['segments'][1]['amounts']['private'] = 'never-show'
+    assert parse(supplied).as_dict() == body
+    rendered = render_run_cost(parse(supplied))
+    assert 'Purchase A' in rendered and '140.00 CNY' in rendered
+    assert '60.00 CNY' in rendered and '80.00 CNY' in rendered and 'never-show' not in rendered
+    assert body['segments'][0]['segment_index'] == 0
+    single = deepcopy(body)
+    single['segments'] = single['segments'][:1]
+    single['amounts'] = deepcopy(single['segments'][0]['amounts'])
+    single['charge_amount'] = single['segments'][0]['charge_amount']
+    assert parse(single).as_dict() == single
+    hidden = deepcopy(body)
+    hidden['cash_visible'] = False
+    hidden['charge_amount'] = None
+    from sai_cli.run_cost import FUNDING_FIELDS
+    for key in FUNDING_FIELDS:
+        hidden['amounts'][key] = None
+    for row in hidden['segments']:
+        for key in ('unit_price', 'charge_amount', 'purchase_reference', 'pricing_contract_key', 'purchase_label', 'contract_no'):
+            row[key] = None
+        for key in FUNDING_FIELDS:
+            row['amounts'][key] = None
+    assert parse(hidden).as_dict() == hidden
+    assert 'Purchase A' not in render_run_cost(parse(hidden))
+    for key, value in [('unit_price', '1.00000000'), ('charge_amount', '60.00000000'), ('purchase_label', 'Private purchase')]:
+        invalid = deepcopy(hidden)
+        invalid['segments'][0][key] = value
+        with pytest.raises(ContractError):
+            parse(invalid)
+    pending = sample('pending')
+    pending.update(charge_amount=None, segments=[])
+    assert parse(pending).as_dict() == pending
+    pending['segments'] = body['segments']
+    with pytest.raises(ContractError):
+        parse(pending)
+    duplicate = deepcopy(body)
+    duplicate['segments'][1]['line_item_id'] = duplicate['segments'][0]['line_item_id']
+    with pytest.raises(ContractError):
+        parse(duplicate)
+
+
 @pytest.mark.parametrize("name", ["settled", "gross-only", "pending", "unavailable", "not_chargeable"])
 def test_cost_shared_vectors_are_bound_allowlists_without_amount_inference(name):
     data = sample(name)
