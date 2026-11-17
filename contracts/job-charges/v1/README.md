@@ -36,5 +36,12 @@ gross and quantity keep their established meaning. Money remains exact decimal
 text. Missing or invalid final facts never become a zero charge. Stored charges
 describe computation expenses, independently of payment receipt or wallet balance.
 
+Each job remains one list item when it has multiple priced portions. Its
+additive `segments` and `charge_amount` use the shared Run cost parser and detail
+renderer. JSON preserves the supplied purchase rows, while the compact list
+keeps its existing columns. The client neither combines financial postings nor
+recalculates segment prices or totals. Segment financial fields obey the same
+current financial visibility as the job total.
+
 This contract is for the batch client and Agents. It adds no terminal page,
 pricing engine, financial writer, collector or duplicated ledger.

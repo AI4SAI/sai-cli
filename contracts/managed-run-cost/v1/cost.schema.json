@@ -37,6 +37,233 @@
       "not": {
         "pattern": "[\\x00-\\x1f\\x7f-\\x9f]"
       }
+    },
+    "JobChargeSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "line_item_id": {
+          "maxLength": 36,
+          "minLength": 1,
+          "title": "Line Item Id",
+          "type": "string"
+        },
+        "segment_index": {
+          "minimum": 0,
+          "title": "Segment Index",
+          "type": "integer"
+        },
+        "purchase_reference": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Purchase Reference"
+        },
+        "pricing_contract_key": {
+          "anyOf": [
+            {
+              "maxLength": 96,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pricing Contract Key"
+        },
+        "purchase_label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Purchase Label"
+        },
+        "contract_no": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Contract No"
+        },
+        "charge_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Charge Amount"
+        },
+        "quantity": {
+          "maxLength": 64,
+          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "unit_name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Unit Name",
+          "type": "string"
+        },
+        "unit_price": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit Price"
+        },
+        "amounts": {
+          "$ref": "#/$defs/ManagedRunCostAmounts"
+        }
+      },
+      "required": [
+        "line_item_id",
+        "segment_index",
+        "purchase_reference",
+        "pricing_contract_key",
+        "purchase_label",
+        "contract_no",
+        "charge_amount",
+        "quantity",
+        "unit_name",
+        "unit_price",
+        "amounts"
+      ],
+      "title": "JobChargeSegment",
+      "type": "object"
+    },
+    "ManagedRunCostAmounts": {
+      "additionalProperties": false,
+      "properties": {
+        "gross_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Gross Amount"
+        },
+        "cash_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cash Amount"
+        },
+        "sai_credit_cny_equivalent_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sai Credit Cny Equivalent Amount"
+        },
+        "sai_credit_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sai Credit Amount"
+        },
+        "reservation_coverage_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reservation Coverage Amount"
+        },
+        "price_adjustment_amount": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^-?(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Price Adjustment Amount"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Quantity"
+        }
+      },
+      "required": [
+        "gross_amount",
+        "cash_amount",
+        "sai_credit_cny_equivalent_amount",
+        "sai_credit_amount",
+        "reservation_coverage_amount",
+        "price_adjustment_amount",
+        "quantity"
+      ],
+      "title": "ManagedRunCostAmounts",
+      "type": "object"
     }
   },
   "required": [
@@ -207,6 +434,27 @@
           "type": "null"
         }
       ]
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/JobChargeSegment"
+      },
+      "title": "Segments",
+      "type": "array"
+    },
+    "charge_amount": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{8}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Charge Amount"
     }
   },
   "allOf": [
