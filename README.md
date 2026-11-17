@@ -37,13 +37,15 @@ This optional context follows native visibility and does not require Portal logi
 
 ## On your computer
 
-Python 3.11+ is required. This alpha is qualified on Linux; macOS and Windows
-are not yet qualified. Download the wheel and SHA-256 checksum from the
-[versioned releases](https://github.com/AI4SAI/sai-cli/releases), verify
-the checksum, then install in an isolated environment with pipx:
+Python 3.11+ is required. Existing portable-client qualification covers Linux;
+macOS and Windows are not yet qualified. This source tree prepares `0.2.0a3`,
+an unpublished candidate. The examples below use its wheel filename.
+Published wheels and SHA-256 checksums remain available from the
+[versioned releases](https://github.com/AI4SAI/sai-cli/releases).
+With your reviewed wheel and matching checksum, verify it and install with pipx:
 
 ```bash
-pipx install ./sai_cli-0.2.0a2-py3-none-any.whl
+pipx install ./sai_cli-0.2.0a3-py3-none-any.whl
 sai configure https://console.example.org --format table
 sai auth login
 sai sites --format table
@@ -65,12 +67,11 @@ additional permissions, multiple services and upgrade/rollback.
 
 The base client has no third-party runtime dependency. To add the optional
 interface, including to an existing base installation, use
-`pipx install --force './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`. This preserves
+`pipx install --force './sai_cli-0.2.0a3-py3-none-any.whl[tui]'`. This preserves
 your user configuration and credentials. It needs an interactive
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
-The `0.2.0a2` candidate includes recorded hardware connections, CPU locality and
-selected-site connection discovery. Use the wheel filename from the reviewed
-release you downloaded; older release assets are retained unchanged.
+Use the wheel filename for your reviewed version. The a1 and a2 releases and
+their assets remain unchanged; see the [a3 candidate scope](docs/product-delivery.md#portable-management-candidate-020a3).
 
 ## With your Agent
 
@@ -88,10 +89,11 @@ exit codes. A task can request its missing permissions with
 
 The client supports native queue/resource/quota reads, account and cost queries,
 job allocation and recorded-run outputs, default-account changes and recipient
-invitation acceptance. Project-member compute enablement is also available with its paired backend
-and optional grants. Broader
-project, storage and compute lifecycle management is not implemented. Read permission does not grant write permission. The called service
-owns authorization and reports whether a change was accepted or applied.
+invitation acceptance. The a3 candidate includes `projects enable-compute`,
+invitation v2 and task-specific consent/resume with the existing paired backend
+and optional grants. The called service owns authorization and reports whether
+a change was accepted or applied. Broader project, storage and compute lifecycle
+management remains planned.
 `invitations accept ID` previews file and computation permissions and the payer;
 add `--apply` to accept. This v2 workflow requires the paired Portal update.
 

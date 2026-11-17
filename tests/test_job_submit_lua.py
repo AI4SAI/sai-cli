@@ -87,11 +87,9 @@ local research = new_job({
 })
 assert(slurm_job_submit(research, {}, 1000) == slurm.SUCCESS)
 assert(research.account == "personal-alice")
-assert(message_contains("WARNING: 请核对计费账户 / CHECK BILLING ACCOUNT"))
-assert(message_contains("作业运行后，费用将记入 / Charges if run: Account=personal-alice"))
-assert(message_contains("目录推导 / WorkDir account: Account=proj-research"))
-assert(message_contains("Next submission: --account=<account>"))
-assert(message_contains("Correct pending job: scontrol update JobId=<jobid> Account=<account>"))
+assert(message_contains("计费账户：personal-alice"))
+assert(message_contains("显式指定，目录账户为 proj-research"))
+assert(#messages == 1 and not string.find(messages[1], string.char(10), 1, true))
 
 messages = {}
 local project = new_job({
@@ -101,7 +99,8 @@ local project = new_job({
 })
 assert(slurm_job_submit(project, {}, 1000) == slurm.SUCCESS)
 assert(project.account == "proj-research")
-assert(message_contains("Using WorkDir instead of default Account=personal-alice"))
+assert(message_contains("计费账户：proj-research"))
+assert(message_contains("按目录选择，默认账户为 personal-alice"))
 
 for _, suffix in ipairs({"run 1", "计算/输入文件", "results (final)", "data[1]", "./计算", "input/../计算", "run//output/"}) do
     local named_directory = new_job({
@@ -143,7 +142,8 @@ local alias = new_job({
 })
 assert(slurm_job_submit(alias, {}, 1000) == slurm.SUCCESS)
 assert(alias.account == "personal-alice")
-assert(message_contains("Unresolved WorkDir"))
+assert(message_contains("计费账户：personal-alice"))
+assert(message_contains("目录无法确定账户，沿用默认账户"))
 """
     )
 
@@ -160,7 +160,7 @@ local unknown = new_job({
 })
 assert(slurm_job_submit(unknown, {}, 1000) == slurm.SUCCESS)
 assert(unknown.account == "org-example")
-assert(not message_contains("Unresolved WorkDir"))
+assert(not message_contains("目录无法确定账户"))
 
 messages = {}
 local suspicious = new_job({
@@ -179,7 +179,8 @@ messages = {}
 local other_home = new_job({work_dir = "/home/bob/run", account = nil, tres_per_node = "gres/gpu:4"}) -- public-scan: allow-test-vector
 assert(slurm_job_submit(other_home, {}, 1000) == slurm.SUCCESS)
 assert(other_home.account == "personal-alice")
-assert(message_contains("using Slurm default Account"))
+assert(message_contains("计费账户：personal-alice"))
+assert(message_contains("目录无法确定账户，沿用默认账户"))
 
 messages = {}
 local relative = new_job({work_dir = "relative/run", account = nil, default_account = "", tres_per_node = "gres/gpu:4"})
@@ -356,10 +357,9 @@ local current = {
 local workdir_only = {work_dir = "/org/org-example/proj-research/run"}
 assert(slurm_job_modify(workdir_only, current, {}, 1000) == slurm.SUCCESS)
 assert(workdir_only.account == "proj-research")
-assert(message_contains("Charges if run: Account=proj-research"))
-assert(message_contains("Correct pending job: scontrol update JobId=<jobid> Account=<account>"))
-assert(not message_contains("Next submission:"))
-assert(message_contains("WorkDir changes billing account: personal-alice -> proj-research"))
+assert(message_contains("计费账户：proj-research"))
+assert(message_contains("按新目录选择，原账户为 personal-alice"))
+assert(#messages == 1 and not string.find(messages[1], string.char(10), 1, true))
 
 messages = {}
 local explicit_only = {account = "proj-research"}
@@ -370,7 +370,8 @@ assert(slurm_job_modify(explicit_only, {
     tres_per_node = "gres/gpu:4",
 }, {}, 1000) == slurm.SUCCESS)
 assert(explicit_only.account == "proj-research")
-assert(message_contains("WorkDir account: Account=private-alice"))
+assert(message_contains("计费账户：proj-research"))
+assert(message_contains("显式指定，目录账户为 private-alice"))
 
 messages = {}
 local both = {
@@ -379,25 +380,28 @@ local both = {
 }
 assert(slurm_job_modify(both, current, {}, 1000) == slurm.SUCCESS)
 assert(both.account == "personal-alice")
-assert(message_contains("WorkDir account: Account=proj-research"))
+assert(message_contains("计费账户：personal-alice"))
+assert(message_contains("显式指定，目录账户为 proj-research"))
 
 messages = {}
 local unresolved = {work_dir = "relative/run"}
 assert(slurm_job_modify(unresolved, current, {}, 1000) == slurm.SUCCESS)
 assert(unresolved.account == nil)
-assert(message_contains("Charges if run: Account=personal-alice"))
-assert(message_contains("Unresolved WorkDir; keeping existing job Account"))
+assert(message_contains("计费账户：personal-alice"))
+assert(message_contains("目录无法确定账户，保留原账户"))
 
 -- Native array updates reuse the request across elements with different accounts.
 current.account = "org-example"
 assert(slurm_job_modify(unresolved, current, {}, 1000) == slurm.SUCCESS)
 assert(unresolved.account == nil)
-assert(message_contains("Charges if run: Account=org-example"))
+assert(message_contains("计费账户：org-example"))
 
 -- A matching WorkDir must not add a needless Account update to a running job.
+messages = {}
 local matching = {work_dir = "/org/org-example/run"}
 assert(slurm_job_modify(matching, current, {}, 1000) == slurm.SUCCESS)
 assert(matching.account == nil)
+assert(#messages == 0)
 
 messages = {}
 local clear = {account = ""}
@@ -490,7 +494,8 @@ dofile = function() error("callback attempted file I/O") end
 local job = new_job({account = "proj-research", assoc_comment = marker, tres_per_node = "gres/gpu:4", priority = 0})
 assert(slurm_job_submit(job, {}, 1000) == slurm.SUCCESS)
 assert(job.priority == 0 and job.account == "proj-research")
-assert(message_contains("SAI账户 org-example：欠费 / Arrears"))
+assert(message_contains("SAI账户 org-example：欠费"))
+for _, message in ipairs(messages) do assert(not string.find(message, string.char(10), 1, true)) end
 assert(not message_contains("private note"))
 messages = {}
 assert(slurm_job_modify({name = "rename"}, job, {}, 1000) == slurm.SUCCESS)

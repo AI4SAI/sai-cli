@@ -18,10 +18,10 @@ local exempt_qos = snapshot.gpu_multiple_exempt_qos
 local gpu_multiple = snapshot.gpu_per_node_multiple
 
 local restriction_labels = {
-    arrears = "欠费 / Arrears",
-    severe_arrears = "严重欠费 / Severe arrears",
-    no_compute_funding = "资金不足 / Insufficient compute funds",
-    admin_blocked = "管理停用 / Administratively disabled",
+    arrears = "欠费",
+    severe_arrears = "严重欠费",
+    no_compute_funding = "资金不足",
+    admin_blocked = "管理停用",
 }
 
 local policy_error = slurm.ESLURM_ACCOUNTING_POLICY or slurm.ERROR
@@ -131,15 +131,8 @@ local function inferred_account(work_dir, username)
     return "private-" .. username
 end
 
-local function warn_billing_account(account, reason, modifying)
-    local action = ""
-    if not modifying then
-        action = "\n后续提交 / Next submission: --account=<account>"
-    end
-    slurm.user_msg("WARNING: 请核对计费账户 / CHECK BILLING ACCOUNT\n"
-        .. "作业运行后，费用将记入 / Charges if run: Account=" .. account .. "\n"
-        .. reason .. action
-        .. "\n排队作业更正 / Correct pending job: scontrol update JobId=<jobid> Account=<account>")
+local function warn_billing_account(account, reason)
+    slurm.user_msg("计费账户：" .. account .. "（" .. reason .. "）")
 end
 
 local function apply_account_policy(job_desc, job_ptr)
@@ -161,11 +154,9 @@ local function apply_account_policy(job_desc, job_ptr)
     local explicit = nonempty(job_desc.account) and job_desc.account or nil
     if explicit then
         if inferred and explicit ~= inferred then
-            warn_billing_account(explicit, "目录推导 / WorkDir account: Account=" .. inferred
-                .. "；本次显式指定优先 / explicit account takes precedence.", job_ptr)
+            warn_billing_account(explicit, "显式指定，目录账户为 " .. inferred)
         elseif not inferred then
-            warn_billing_account(explicit,
-                "目录无法推导账户，使用本次显式指定 / Unresolved WorkDir; using explicit Account.", job_ptr)
+            warn_billing_account(explicit, "显式指定，目录无法确定账户")
         end
         return true
     end
@@ -174,9 +165,9 @@ local function apply_account_policy(job_desc, job_ptr)
             -- Slurm reuses array update requests; leave each job's account untouched.
             if not job_ptr then job_desc.account = fallback end
             local reason = job_ptr
-                and "目录无法推导账户，保留作业原账户 / Unresolved WorkDir; keeping existing job Account."
-                or "目录无法推导账户，使用默认账户 / Unresolved WorkDir; using Slurm default Account."
-            warn_billing_account(fallback, reason, job_ptr)
+                and "目录无法确定账户，保留原账户"
+                or "目录无法确定账户，沿用默认账户"
+            warn_billing_account(fallback, reason)
             return true
         end
         slurm.user_msg("ERROR: SAI account policy: no explicit, path-derived, or " .. label .. "is available.")
@@ -185,9 +176,9 @@ local function apply_account_policy(job_desc, job_ptr)
     if not job_ptr or inferred ~= job_ptr.account then job_desc.account = inferred end
     if nonempty(fallback) and fallback ~= inferred then
         local reason = job_ptr
-            and "按新目录切换账户 / WorkDir changes billing account: " .. fallback .. " -> " .. inferred
-            or "按目录选择，未使用默认账户 / Using WorkDir instead of default Account=" .. fallback
-        warn_billing_account(inferred, reason, job_ptr)
+            and "按新目录选择，原账户为 " .. fallback
+            or "按目录选择，默认账户为 " .. fallback
+        warn_billing_account(inferred, reason)
     end
     return true
 end

@@ -38,6 +38,8 @@ reports measured utilization or promises communication performance.
 Python 3.11 or newer is required; independent-client validation currently covers
 Linux. Windows and macOS are not yet qualified. Download the reviewed wheel and
 SHA-256 checksum from the matching [GitHub release](https://github.com/AI4SAI/sai-cli/releases).
+This source guide uses the unpublished `0.2.0a3` candidate filename. Use the
+matching filename and guide when installing a published a1 or a2 wheel.
 Use the trusted service URL supplied by your operator. This alpha is distributed
 through GitHub; do not assume a package with a similar registry name is this
 client. Verify the published artifact checksum before installation.
@@ -47,7 +49,7 @@ In a directory you control, with the provided wheel present:
 ```bash
 python3 -m venv .sai-env
 . .sai-env/bin/activate
-python -m pip install ./sai_cli-0.2.0a2-py3-none-any.whl
+python -m pip install ./sai_cli-0.2.0a3-py3-none-any.whl
 sai --version
 sai describe --format table
 ```
@@ -55,9 +57,9 @@ sai describe --format table
 Use the filename supplied for your version. The batch client needs no third-party
 runtime packages, Slurm, Lustre mounts, shared cluster installation or hosted VM.
 To add the optional TUI in this environment, install the same reviewed wheel
-with its extra: `python -m pip install './sai_cli-0.2.0a2-py3-none-any.whl[tui]'`.
+with its extra: `python -m pip install './sai_cli-0.2.0a3-py3-none-any.whl[tui]'`.
 If you used pipx instead, use
-`pipx install --force './sai_cli-0.2.0a2-py3-none-any.whl[tui]'` to add it to the
+`pipx install --force './sai_cli-0.2.0a3-py3-none-any.whl[tui]'` to add it to the
 existing installation. Plain `pipx install` leaves an existing base installation
 unchanged. These commands preserve user configuration and credentials.
 The interface needs an interactive terminal; local views require Slurm or Lustre
@@ -162,6 +164,12 @@ as `--for invitations` requests the group's published permissions. Server-side
 roles and site access still apply. The shared client and invitation optional scopes are deployed. A user must still
 approve any newly requested permission; publication does not expand an existing
 login or perform the task.
+
+The a3 candidate also includes `projects enable-compute` and invitation v2.
+Both preview before `--apply`. Use `sai describe projects enable-compute` or
+`sai describe invitations accept` for their permissions and task readback.
+They use the existing paired Portal contracts described in
+[the management reference](portal-management.md).
 
 ## Recover or upgrade
 

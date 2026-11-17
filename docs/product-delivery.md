@@ -1,7 +1,7 @@
 # Human and Agent product delivery
 
 Status: established product scope and current delivery map, reviewed 2026-10-14.
-Applied limit-context deployment status updated 2026-11-10.
+Portable candidate and applied limit-context status updated 2026-11-17.
 Publishing still requires the maintainer release process. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
 remains the executable operation catalogue.
 
@@ -47,7 +47,7 @@ for an already completed action.
 | Check local queue, GPU/CPU allocation and path quota | Native Slurm/Linux/Lustre under the actual Unix user | Shared aliases and focused Textual queries deployed; ordinary login/compute checks | Preserve familiar output and latency; broaden real terminal/device usability evidence as needed |
 | Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and synthetic independent-Agent workflow verified; shared site discovery and account choices deployed with ordinary-user reads | Observe independent first-use experience on supported devices using shipped guidance |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
-| Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Compatible client and server components deployed; ordinary-owner local source attribution and authenticated remote reads verified | Complete accepted-cohort metadata migration and an applicable remote annotation sample; retain v1 compatibility until migration completes |
+| Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Compatible components deployed; the main account/member metadata batch completed without numeric changes; ordinary-owner local attribution and authenticated remote reads verified | Finish the remaining organization source records and an applicable remote annotation sample; retain v1 compatibility until migration completes |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified on an isolated Linux container | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Receive and accept a collaboration invitation | Portal invitation lifecycle, original acceptance writer and access-task readback | Paired v2 permissions, preview/`--apply` and verification recovery are deployed; positive recovery passed installed-client local HTTP | Verify a genuinely requested recipient task, including user consent and applied access |
 | Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | No inviter-side OAuth CLI management adapter | Resolve named context/recipient, show permitted roles and expiry, submit through original owner, follow invitation and applied site state |
@@ -194,7 +194,7 @@ base/TUI installs exposed the matching skill and 39 operations, verified public
 connection metadata and reported missing login normally. No new device consent,
 business mutation or shared-site installation was performed by this release.
 
-The revised `0.2.0a2` candidate includes recorded interconnects, CPU locality and
+The `0.2.0a2` review candidate included recorded interconnects, CPU locality and
 selected-site connection discovery. Independent product, delivery, architecture
 and visual review led to correction `f08b38702639`, merged in PR #14. It keeps
 portable routing stable when adding a cluster constraint, binds returned job
@@ -211,9 +211,9 @@ upgrade/rollback preserved the configuration. Architecture review checked the
 existing policy/grant/consumer chain; visual review checked actual rendered
 Chinese/English actions and states at 40/100 columns. These checks do not prove
 new human browser consent, production activation or complete product usability.
-Public tag/release publication still requires maintainer authorization; the a1
-assets remain unchanged. Release provenance must identify the exact final commit
-and artifact hashes, rather than treating the earlier candidate as current.
+The final a2 source and publication evidence are recorded below. Its release
+provenance identifies the exact reviewed commit and artifacts; the earlier
+review candidate does not replace them.
 
 Shared runtime `4a3d794aee12` was selected on 2026-10-14. An ordinary user passed
 candidate and selected-entry CPU/GPU views at 40/100 columns, an
@@ -250,6 +250,25 @@ also verified without a login. The a1 release and assets were preserved.
 This GitHub publication did not change the shared installation or publish to
 PyPI. Later documentation updates do not change the frozen source or artifacts.
 
+### Portable management candidate 0.2.0a3
+
+The current source is an unpublished `0.2.0a3` candidate. Published a2 predates
+project-member compute enablement and uses invitation v1. This candidate brings
+the portable package up to the existing paired management contracts:
+
+- Default-account changes, `projects enable-compute`, invitation v2 preview and
+  acceptance, and original request/task readback.
+- Task-specific consent, nonblocking device authorization and resume, with the
+  current credential-continuity and recovery behavior.
+- Existing local/native queries, topology reads and applied account-limit
+  context, shared with the deployed client.
+
+This packages existing capabilities against the current Portal contracts.
+No new management operation or server rollout is introduced. Candidate checks,
+review and public publication remain pending. Keep the a1/a2 tags and assets
+unchanged. Independent user-device first use and genuinely requested invitation
+or member changes remain separate acceptance work.
+
 API schema versions are independent of the client release version. Additive
 server fields remain ignored until modeled; incompatible contracts need paired
 consumer/producer changes. The installed `describe` output owns command syntax.
@@ -274,9 +293,10 @@ reads verified sources for six existing pending jobs after a bounded metadata
 refresh that preserved native numeric limits. The 2026-11-10 Site/Read release
 passed authenticated job reads, foreign-job denial and public self/organization
 reads. Its sampled remote job returned empty context because its native reason
-had no applicable annotation. Full-cohort metadata migration and a positive
-remote annotation sample remain open; existing v1 records still require the
-compatibility reader. See the [contract](../contracts/compute-limit-context/v1/README.md)
+had no applicable annotation. The main account/member metadata batch has since
+completed with native numeric values unchanged. The remaining organization
+source records and a positive remote annotation sample are still open; retain
+v1 compatibility until migration completes. See the [contract](../contracts/compute-limit-context/v1/README.md)
 and [roadmap](roadmap.md).
 
 Selected-site connection discovery was paired and deployed on 2026-10-13:
@@ -298,8 +318,10 @@ rollback inputs; remote staging and all operator sessions were cleaned up.
 2. Verify recipient invitations when there is an actually requested task, through
    the original domain and normal user consent. Keep inviter, budget/storage and
    compute gaps visible; do not manufacture invitations or grants for acceptance.
-3. Keep versioned distribution, provenance/history and support evidence current.
-   Review release artifacts and compatibility before each public release. Do not wait for 3D or require a Pilot migration for these client tasks.
+3. Qualify the a3 portable candidate against the existing paired contracts and
+   publish it through the maintainer release process. Preserve a1/a2 artifacts
+   and prior successful management evidence. This client delivery does not wait
+   for 3D or a Pilot migration.
 
 Digital-twin presentation retains its separate [design](digital-twin-design.md):
 authorized asset facts, parameterized models and clear measured/schematic status.
