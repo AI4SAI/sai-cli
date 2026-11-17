@@ -184,6 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
     defaults = account_commands.add_parser("defaults", help="show allowed accounts and site application receipts")
     _add_connection_arguments(defaults, suppress_defaults=True)
     _add_format_argument(defaults)
+    defaults.add_argument("--select", help="preview an account name or auto with --format table")
     _operation(defaults, source="portal", scopes=("sai.compute.read",))
     set_default = account_commands.add_parser("set-default", help="change your default account for all active sites")
     _add_connection_arguments(set_default, suppress_defaults=True)
@@ -393,6 +394,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_format_argument(logout_parser)
     _operation(logout_parser, source="identity", effect="session_write", site=False, site_option=True,
                notes=("Clears local credentials and attempts server revocation; inspect the revoked result, especially after a network failure.",))
+    from .discovery import configure_help
+    configure_help(parser)
     return parser
 
 
@@ -822,6 +825,8 @@ def main(
         from .config import resolve_settings
 
         requested_scopes: tuple[str, ...] = ()
+        if args.command == "account" and args.account_command == "defaults" and args.select is not None and output_format != "table":
+            raise ConfigError("--select previews a named account change; use --format table")
         if args.command == "auth" and args.auth_command == "login" and args.authorization_path:
             from .discovery import authorization_scopes
             if args.resume:

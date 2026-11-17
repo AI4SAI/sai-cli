@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from io import StringIO
+import json
+
 import pytest
 
 from sai_cli.client import JobQuery, PortalClient, clean_states
@@ -152,3 +155,59 @@ def test_central_show_binds_exact_canonical_array_identity(job_payload, task, mo
         job_payload["items"][0].update(job_id=f"12345_{task}", array_task_id=None)
         assert client.show_job(f"12345_{task}", query).items[0].canonical_id == f"12345_{task}"
     assert urlsplit(requests[0]["path"]).path == f"/v1/slurm/jobs/12345_{task}"
+
+
+@pytest.mark.parametrize("target,expected", [("account-research", None), (None, "account-research")])
+@pytest.mark.parametrize("failure,exit_code", [("disconnect", 8), ("unavailable", 6), ("malformed", 7)])
+def test_uncertain_default_write_recovers_original_acceptance_with_same_intent(
+    tmp_path, monkeypatch, target, expected, failure, exit_code,
+):
+    from sai_cli.cli import main
+    from test_default_account import acceptance
+    from test_site_transport import http_endpoint
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    saved, accepted, changes = [expected], {}, []
+
+    def reply(call, count):
+        assert call["method"] == "PUT" and call["path"] == "/v1/account/cli/defaults"
+        assert call["body"] == {"account_id": target, "expected_account_id": expected}
+        key = call["idempotency_key"]
+        if key not in accepted:
+            assert saved[0] == expected
+            changes.append(call["body"])
+            saved[0] = target
+            accepted[key] = acceptance(call)
+        if count == 1:
+            if failure == "disconnect":
+                raise ConnectionResetError("simulated response loss after commit")
+            return (503, {"detail": {"code": "service_unavailable"}}) if failure == "unavailable" else (200, {})
+        return 200, accepted[key]
+
+    with http_endpoint(reply) as (origin, calls):
+        env = {"SAI_TOKEN": "identity-user-token", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        command = ["account", "set-default", target or "auto", "--if-current", expected or "auto",
+                   "--request-id", "request-example-one", "--base-url", origin]
+        output, error = StringIO(), StringIO()
+        assert main(command, environ=env, stdout=output, stderr=error) == exit_code
+        assert output.getvalue() == "" and len(calls) == len(changes) == 1
+        recovery = json.loads(error.getvalue())["error"]["recovery"]["argv"]
+        assert recovery[:8] == ["sai", *command[:7]]
+        assert "--site" not in recovery and recovery[recovery.index("--base-url") + 1] == origin
+        saved[0] = "account-later"
+        output, error = StringIO(), StringIO()
+        assert main(recovery[1:], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        assert json.loads(output.getvalue()) == accepted["request-example-one"]
+        assert saved == ["account-later"] and len(changes) == 1 and len(calls) == 2
+
+
+@pytest.mark.parametrize("status", [400, 403, 409])
+def test_rejected_default_write_is_not_an_unknown_outcome(tmp_path, status, monkeypatch):
+    from test_default_account import invoke
+    from test_site_transport import http_endpoint
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with http_endpoint(lambda *_: (status, {"detail": {"code": "default_account_changed"}})) as (origin, calls):
+        code, output, error = invoke(tmp_path, origin, ["account", "set-default", "account-research",
+            "--if-current", "auto", "--request-id", "request-example-one"])
+        assert code != 0 and not output and len(calls) == 1
+        assert "recovery" not in json.loads(error)["error"] and "unknown" not in error

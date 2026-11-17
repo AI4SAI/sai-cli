@@ -3,6 +3,7 @@ from io import StringIO
 import os
 import shlex
 import json
+from uuid import UUID
 
 import pytest
 
@@ -89,7 +90,80 @@ def test_printed_default_account_readback_keeps_service_and_affected_site(tmp_pa
         command = shlex.split(out.getvalue().split('结果：')[1])[1:]
         out, err = StringIO(), StringIO()
         assert main(command,environ=env,stdout=out,stderr=err) == 0, err.getvalue()
-        assert json.loads(out.getvalue()) == state() and len(calls) == 2
+        assert "默认计算账户：自动选择（全局）" in out.getvalue() and len(calls) == 2
+        assert "本站选择结果：personal-alice" in out.getvalue()
+
+
+@pytest.mark.parametrize("saved, selected, target", [
+    (None, "org-research", "account-research"),
+    ("account-personal", "account-research", "account-research"),
+    ("account-research", "auto", None),
+])
+def test_human_discovers_previews_and_executes_default_change_with_readback(tmp_path, monkeypatch, saved, selected, target):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    current = state()
+    current["default_account_id"] = saved
+    env = {"SAI_TOKEN": "identity-user-token", "XDG_CONFIG_HOME": str(tmp_path / "config"),
+           "XDG_DATA_HOME": str(tmp_path / "data"), "XDG_CACHE_HOME": str(tmp_path / "cache")}
+
+    def execute(argv):
+        out, err = StringIO(), StringIO()
+        assert main(argv, environ=env, stdout=out, stderr=err) == 0, err.getvalue()
+        assert not err.getvalue()
+        return out.getvalue()
+
+    def respond(call, count):
+        assert call["bearer"] == "Bearer identity-user-token" and call["capability"] is None
+        if count == 3:
+            assert call["method"] == "PUT" and call["path"] == "/v1/account/cli/defaults"
+            assert call["body"] == {"account_id": target, "expected_account_id": saved}
+            assert UUID(call["idempotency_key"]).version == 4
+            current["default_account_id"] = target
+            current["effective_account_id"] = target or "account-personal"
+            current["deliveries"][0].update(generation=2, applied_at="2026-10-09T00:01:00Z")
+            return 200, acceptance(call)
+        assert call["method"] == "GET" and call["path"] == "/v1/account/cli/defaults?site_id=site-a"
+        return 200, current
+
+    with http_endpoint(respond) as (origin, calls):
+        discovery = execute(["account", "defaults", "--site", "site-a", "--format", "table", "--base-url", origin])
+        assert "本站可选：personal-alice, org-research" in discovery
+        assert "account-research" not in discovery and "--request-id" not in discovery
+        preview_argv = shlex.split(next(line.removeprefix("预览切换：") for line in discovery.splitlines()
+                                       if line.startswith("预览切换：")))[1:]
+        preview_argv[preview_argv.index("ACCOUNT_NAME")] = selected
+        preview = execute(preview_argv)
+        names = {row["id"]: row["name"] for row in current["choices"]}
+        previous = names[saved] if saved else "自动选择"
+        chosen = names[target] if target else "自动选择"
+        assert f"切换全局默认：{previous} → {chosen}" in preview
+        assert "本站可选：" not in preview
+        assert len(calls) == 2 and all(call["method"] == "GET" for call in calls)
+        apply_argv = shlex.split(next(line.removeprefix("确认切换：") for line in preview.splitlines()
+                                     if line.startswith("确认切换：")))[1:]
+        assert apply_argv[:3] == ["account", "set-default", target or "auto"]
+        assert "--site" not in apply_argv
+        accepted = execute(apply_argv)
+        read_argv = shlex.split(next(line.removeprefix("查看站点结果：") for line in accepted.splitlines()
+                                    if line.startswith("查看站点结果：")))[1:]
+        readback = execute(read_argv)
+        assert f"默认计算账户：{chosen}（全局）" in readback
+        assert f"本站选择结果：{names[target or 'account-personal']}" in readback and "已收到应用回执" in readback
+        assert len(calls) == 4
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_default_change_preview_rejects_unavailable_or_ambiguous_choice(tmp_path, monkeypatch, ambiguous):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    current = state()
+    if ambiguous:
+        current["choices"].append({"id": "account-other", "name": "org-research", "kind": "project"})
+    with http_endpoint(lambda *_: (200, current)) as (origin, calls):
+        code, output, error = invoke(tmp_path, origin, ["account", "defaults", "--site", "site-a",
+            "--select", "org-research" if ambiguous else "unavailable-account", "--format", "table"])
+        assert code == 2 and output == "" and len(calls) == 1
+        assert calls[0]["method"] == "GET"
+        assert ("名称不唯一" if ambiguous else "本站可选") in error
 
 
 @pytest.mark.parametrize("status", [401, 403, 409, 503])

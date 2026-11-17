@@ -255,7 +255,7 @@ def test_status_without_credentials_gives_login_action_without_starting_authoriz
                         environ=_env(tmp_path, identity_issuer=base_url), stdout=out, stderr=err) == 3
             assert out.getvalue() == ""
             if output_format == "table":
-                assert err.getvalue() == f"请运行 sai auth login --base-url {base_url} 完成 CLI 登录。\n身份认证：{base_url}/portal/#/portal/account/identity-assurance\n"
+                assert err.getvalue() == f"请运行 sai auth login --base-url {base_url} --format table 完成 CLI 登录。\n身份认证：{base_url}/portal/#/portal/account/identity-assurance\n"
             else:
                 assert json.loads(err.getvalue())["error"]["code"] == "credentials_unavailable"
         assert server.requests == []

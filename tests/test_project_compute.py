@@ -18,7 +18,8 @@ def sample(kind):
 
 
 @pytest.mark.parametrize("prefix", [False, True])
-def test_project_compute_preview_apply_and_late_replay_keep_one_intent(tmp_path, prefix):
+@pytest.mark.parametrize("action", ["member", "enable-compute"])
+def test_project_compute_preview_apply_and_late_replay_keep_one_intent(tmp_path, prefix, action):
     accepted = sample("project-compute-enable")
     writes = []
     def reply(call, _):
@@ -27,9 +28,14 @@ def test_project_compute_preview_apply_and_late_replay_keep_one_intent(tmp_path,
         if call["method"] == "POST":
             assert call["body"] == {"site_id":"site-a", "expected":{k:sample("project-member")["member"][k]
                 for k in ("role","compute_enabled","valid_from","expires_at")}}
-            assert call["idempotency_key"] == "request-example"
+            if action == "enable-compute":
+                assert call["idempotency_key"] == "request-example"
+            accepted["request_id"] = call["idempotency_key"]
             writes.append(call)
             return 200, accepted
+        if call["path"] == "/v1/account/cli/project-member-tasks/task-example":
+            assert writes
+            return 200, sample("project-member-task")
         assert not writes, "late replay must recover acceptance without re-reading changed membership"
         return 200, sample("project-member")
     with http_endpoint(reply) as (origin, calls):
@@ -37,18 +43,27 @@ def test_project_compute_preview_apply_and_late_replay_keep_one_intent(tmp_path,
         config.write_text(f'[profiles.chosen]\nbase_url={json.dumps(origin)}\n')
         config.chmod(0o600)
         flags=["--config",str(config),"--profile","chosen"]
-        command=["projects","enable-compute","project-example","member-example","--site","site-a","--request-id","request-example","--format","table"]
+        command=["projects",action,"project-example","member-example","--site","site-a","--format","table"]
+        if action == "enable-compute":
+            command += ["--request-id", "request-example"]
         output,error=StringIO(),StringIO()
         assert main(flags+command if prefix else command+flags,environ={"SAI_TOKEN":"test-user"},stdout=output,stderr=error)==0,error.getvalue()
         assert [c["method"] for c in calls]==["GET"]
         assert "Research team" in output.getvalue() and "受项目预算限制" in output.getvalue()
+        assert "Research · researcher" in output.getvalue() and "计算许可：未启用" in output.getvalue()
+        assert "所有关联站点" in output.getvalue() and output.getvalue().count("确认启用：") == 1
         apply=shlex.split(output.getvalue().split("确认启用：")[1].strip())[1:]
+        assert apply[:4] == ["projects", "enable-compute", "project-example", "member-example"]
+        assert apply[apply.index("--site") + 1] == "site-a" and "--apply" in apply
         for _ in range(2):
             out=StringIO()
             assert main(apply,environ={"SAI_TOKEN":"test-user"},stdout=out,stderr=error)==0,error.getvalue()
             assert "请求已受理" in out.getvalue()
             follow=shlex.split(out.getvalue().split("查看进度：")[1].strip())
             assert follow[:4]==["sai","projects","task","task-example"]
+        task_output = StringIO()
+        assert main(follow[1:], environ={"SAI_TOKEN":"test-user"}, stdout=task_output, stderr=error)==0,error.getvalue()
+        assert "等待执行" in task_output.getvalue() and "当前许可未启用" in task_output.getvalue()
         assert len(writes)==1
         assert all(call["capability"] is None and call["bearer"]=="Bearer test-user" for call in calls)
 
@@ -116,9 +131,24 @@ def test_followup_display_preserves_state_without_terminal_controls():
                                      "--config", "config\nwith\x85controls.toml"])
     rendered = render_project_compute(ProjectCompute(payload), args=args)
     assert "正在生效" in rendered and "查看进度" in rendered and "所有关联站点" in rendered
+    assert "确认启用" not in rendered
     assert "\x85" not in rendered and "\\x85" in rendered
     page = sample("project-members");page["items"][0] = payload["member"]
     assert "已过期" in render_project_compute(ProjectCompute(page), args=args)
+
+
+@pytest.mark.parametrize("missing", ["permission", "site"])
+def test_member_confirmation_requires_allowed_site_context(missing):
+    payload = sample("project-member")
+    if missing == "permission":
+        payload.update(enable_compute_allowed=False, unavailable_reason="permission_denied")
+    result = ProjectCompute.parse(payload, schema="project.member/v1", request_id="r",
+        project_id="project-example", membership_id="member-example",
+        site_id=None if missing == "site" else "site-a")
+    args = build_parser().parse_args(["projects", "member", "project-example", "member-example", "--site", "site-a"])
+    original = result.as_dict()
+    assert "确认启用" not in render_project_compute(result, args=args)
+    assert result.as_dict() == original
 
 
 @pytest.mark.parametrize("reason, label", [

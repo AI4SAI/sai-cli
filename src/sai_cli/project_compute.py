@@ -207,9 +207,9 @@ def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
                 lines.append("查看进度：" + terminal_log(follow_up_command(args, "projects", "task", site["task_id"], "--format", "table")))
             elif site.get("task_url"):
                 lines.append("相关任务：" + site["task_url"])
-        if args.projects_command == "enable-compute" and value["enable_compute_allowed"]:
+        if value["enable_compute_allowed"] and value.get("site_id"):
             lines.append("确认启用：" + terminal_log(follow_up_command(args, "projects", "enable-compute", project["project_id"],
-                member["membership_id"], "--apply", "--request-id", args.request_id or str(uuid4()),
+                member["membership_id"], "--apply", "--request-id", getattr(args, "request_id", None) or str(uuid4()),
                 "--site", value["site_id"], "--format", "table")))
         elif value["unavailable_reason"] not in {None, "already_enabled"}:
             lines.append({"permission_denied": "无权调整该成员", "member_not_current": "成员关系当前未生效",

@@ -66,6 +66,57 @@ def test_accept_failure_is_not_retried_and_extra_scope_selectors_make_no_request
         assert main(["invitations","accept","invitation-example","--apply"],environ=env,stdout=output,stderr=error)!=0
         assert not output.getvalue() and [call["method"] for call in calls]==["GET","POST"]
         assert "never-output" not in error.getvalue()
+        if status in {403, 409}:
+            assert "recovery" not in json.loads(error.getvalue())["error"]
+            assert "unknown" not in error.getvalue()
+
+
+@pytest.mark.parametrize("failure,exit_code", [("disconnect", 8), ("unavailable", 6), ("malformed", 7)])
+@pytest.mark.parametrize("output_format", ["json", "table"])
+def test_uncertain_invitation_acceptance_recovers_with_read_only_show(
+    tmp_path, monkeypatch, failure, exit_code, output_format,
+):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    detail = sample()
+
+    def reply(call, count):
+        if call["method"] == "POST":
+            assert count == 2 and call["body"] == {
+                "schema_version": "collaboration.invitation-accept/v2", "compute_enabled": False}
+            detail["invitation"].update(status="accepted", accepted_at="2030-01-01T00:00:00Z")
+            detail["next_action"] = "observe"
+            if failure == "disconnect":
+                raise ConnectionResetError("simulated response loss after acceptance")
+            return (503, {"detail": {"code": "service_unavailable"}}) if failure == "unavailable" else (200, {})
+        assert call["path"] == "/v1/account/cli/invitations/invitation-example"
+        return 200, detail
+
+    with http_endpoint(reply) as (origin, calls):
+        config = tmp_path / "selected service.toml"
+        config.write_text(f'[profiles.chosen]\nbase_url={json.dumps(origin)}\n')
+        config.chmod(0o600)
+        env = {"SAI_TOKEN": "test-user", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        command = ["invitations", "accept", "invitation-example", "--apply", "--config", str(config),
+                   "--profile", "chosen", "--format", output_format]
+        output, error = StringIO(), StringIO()
+        assert main(command, environ=env, stdout=output, stderr=error) == exit_code
+        assert not output.getvalue() and [call["method"] for call in calls] == ["GET", "POST"]
+        recovery = (json.loads(error.getvalue())["error"]["recovery"]["argv"] if output_format == "json"
+                    else shlex.split(error.getvalue().split("run `", 1)[1].split("`", 1)[0]))
+        assert recovery[:4] == ["sai", "invitations", "show", "invitation-example"]
+        assert "--apply" not in recovery and "--site" not in recovery
+        assert recovery[recovery.index("--config") + 1] == str(config)
+        assert recovery[recovery.index("--profile") + 1] == "chosen"
+        if output_format == "table":
+            assert recovery[-2:] == ["--format", "table"]
+        output, error = StringIO(), StringIO()
+        assert main(recovery[1:], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        assert [call["method"] for call in calls] == ["GET", "POST", "GET"]
+        if output_format == "json":
+            assert json.loads(output.getvalue())["invitation"]["status"] == "accepted"
+        else:
+            assert "已接受" in output.getvalue() and "--apply" not in output.getvalue()
 
 
 def test_invitation_allowlist_binding_pagination_and_terminal_controls():
@@ -142,6 +193,8 @@ def test_incompatible_preflight_never_accepts(tmp_path, failure):
         assert main(["invitations", "accept", "invitation-example", "--apply"],
                     environ=env, stdout=output, stderr=error) == 7
         assert not output.getvalue() and [call["method"] for call in calls] == ["GET"]
+        assert "recovery" not in json.loads(error.getvalue())["error"]
+        assert "result is unknown" not in error.getvalue()
         if failure == "v1":
             assert "Update the paired Portal and CLI" in error.getvalue()
 
@@ -168,7 +221,35 @@ def test_preview_requires_only_read_and_confirmation_keeps_selected_service(tmp_
         assert [call["method"] for call in calls] == ["GET", "GET", "POST"]
 
 
-@pytest.mark.parametrize("action", ["complete_identity_assurance", "observe"])
+def test_show_confirmation_commits_once_then_returns_read_only_progress(tmp_path, monkeypatch):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    detail = sample()
+
+    def reply(call, count):
+        if call["method"] == "POST":
+            detail["invitation"].update(status="accepted", accepted_at="2030-01-01T00:00:00Z")
+            detail["next_action"] = "observe"
+        return 200, detail
+
+    with http_endpoint(reply) as (origin, calls):
+        env = {"SAI_TOKEN": "test-user", "XDG_CONFIG_HOME": str(tmp_path / "config")}
+        output, error = StringIO(), StringIO()
+        assert main(["invitations", "show", "invitation-example", "--base-url", origin, "--format", "table"],
+                    environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        confirmation = shlex.split(output.getvalue().split("确认接受：", 1)[1].splitlines()[0])
+        assert [call["method"] for call in calls] == ["GET"]
+        assert "--apply" in confirmation and confirmation[confirmation.index("--format") + 1] == "table"
+        output = StringIO()
+        assert main(confirmation[1:], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        assert "已接受" in output.getvalue() and "--apply" not in output.getvalue()
+        readback = shlex.split(output.getvalue().split("查看进度：", 1)[1].splitlines()[0])
+        output = StringIO()
+        assert main(readback[1:], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
+        assert "已接受" in output.getvalue() and "--apply" not in output.getvalue()
+        assert [call["method"] for call in calls] == ["GET", "GET", "POST", "GET"]
+
+
+@pytest.mark.parametrize("action", ["complete_identity_assurance", "observe", "none"])
 def test_invitation_recovery_uses_selected_origin_and_reads_the_same_result(tmp_path, action):
     detail = sample()
     detail["next_action"] = action
@@ -189,7 +270,10 @@ def test_invitation_recovery_uses_selected_origin_and_reads_the_same_result(tmp_
         assert main([*args, "--format", "table"], environ=env, stdout=output, stderr=error) == 0, error.getvalue()
         if expected_url:
             assert expected_url in output.getvalue()
-        assert "auth login" not in output.getvalue()
+        assert "auth login" not in output.getvalue() and "--apply" not in output.getvalue()
+        if action == "none":
+            assert "查看进度：" not in output.getvalue() and len(calls) == 2
+            return
         following = shlex.split(output.getvalue().split("查看进度：")[1].strip())[1:]
         assert main(following, environ=env, stdout=StringIO(), stderr=error) == 0, error.getvalue()
         assert [call["method"] for call in calls] == ["GET", "GET", "GET"]

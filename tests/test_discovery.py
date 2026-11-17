@@ -149,3 +149,21 @@ def test_optional_site_is_distinct_from_required_site():
         assert build_parser().parse_args([*words,'--site','site-a']).site=='site-a'
     assert operation('account','defaults')['site_required']
     assert 'revoked result' in operation('auth','logout')['notes'][0]
+
+
+@pytest.mark.parametrize('words, absent', [
+    (['account', 'set-default'], ('--site', '--cluster')),
+    (['invitations', 'accept'], ('--site', '--cluster')),
+    (['projects', 'enable-compute'], ('--cluster',)),
+])
+def test_human_help_uses_the_same_connection_contract(words, absent, capsys):
+    with pytest.raises(SystemExit) as exit:
+        build_parser().parse_args([*words, '--help'])
+    assert exit.value.code == 0
+    help_text = capsys.readouterr().out
+    assert all(option not in help_text for option in absent)
+    assert '--config' in help_text and '--format' in help_text
+    if words == ['account', 'set-default']:
+        assert 'all active sites' in help_text
+    elif words[0] == 'projects':
+        assert 'configured site' in help_text
