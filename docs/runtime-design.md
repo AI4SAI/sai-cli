@@ -99,6 +99,18 @@ consent and member assignment remain separate acceptance.
 
 ## Command surface
 
+`projects invite PROJECT_ID --username USER` previews an existing-account
+project invitation. File role, computing permission and the member's expiry
+are explicit arguments. The human preview generates the complete confirmation
+command, binding the resolved account ID, terms and one request ID. `--apply`
+performs one send without replacing those values or automatically retrying.
+`projects invite-request` recovers the original receipt; `projects invitation`
+follows recipient acceptance and the original access tasks. These sender reads
+are global and use project management authority. The requested site supplies
+the invitation context; the member relationship retains the original global
+project scope. This source candidate requires the paired adapter and optional
+Identity grant before deployment.
+
 `invitations list/show/accept` are global recipient operations: the returned
 invitation carries its target site and current terms. They reject explicit
 site/cluster selectors, use normal Identity and Portal, and require no native

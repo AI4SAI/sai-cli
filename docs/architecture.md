@@ -144,6 +144,14 @@ permission stays separate from file editing, target resources and governance.
 An available browser route is not automatically an OAuth Agent endpoint.
 Local source availability and remote management do not depend on 3D deployment.
 
+The project invitation sender adapter reuses the original invitation preparation,
+writer, notification and recipient acceptance chain. Preview returns the resolved
+existing account and proposed terms without persisting a plan. Sending binds
+that account and complete request to the existing middleware idempotency record.
+Sender readback rechecks project management authority independently of recipient
+visibility. The CLI provides confirmation and recovery over this contract; it
+does not own membership rules, notification delivery or provisioning state.
+
 `sai sites` projects the existing published Portal site chooser to a bounded
 ID/name page. It provides the missing discovery step before explicit site
 selection on a portable client. Discovery does not resolve credential origins,

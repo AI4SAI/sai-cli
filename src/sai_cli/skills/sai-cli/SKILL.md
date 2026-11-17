@@ -134,6 +134,21 @@ any retry, then inspect the returned `projects task` references and current memb
 state. Task completion is separate from effective site permission and job
 admission. This operation cannot invite a person, change file roles or cancel jobs.
 
+To invite an existing account to a computing project, resolve the chosen project
+through `projects list`, then preview `projects invite` with the exact username,
+requested file role, explicit computing permission and member expiry. The
+invitation's acceptance lifetime and the membership's lifetime are separate.
+Use the returned exact invitee ID and the same terms with `--apply` and one
+request ID after checking the user's authorization. A missing invitation-write
+scope uses the normal task-specific consent flow. Do not change existing grants
+or use recipient acceptance authority to send an invitation.
+
+After an uncertain send, read `projects invite-request` with the original key.
+Then read `projects invitation` for that exact invitation. Creation, acceptance
+and current site access are separate results. Replays keep the same confirmed
+account, terms and request ID. A pending invitation or existing member is a
+current business state to inspect, not permission to cancel and resend.
+
 ## Return a useful answer
 
 Explain the result, selected site/account and any action still pending. Successful

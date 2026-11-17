@@ -1,0 +1,12 @@
+{
+  "schema_version": "project.invitation-create/v1",
+  "request_id": "request-project-invite",
+  "state": "accepted",
+  "invitation_id": "invitation-example",
+  "project_id": "project-example",
+  "invitee": {
+    "user_id": "user-example",
+    "username": "researcher"
+  },
+  "delivery": "message_center"
+}

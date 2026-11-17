@@ -9,6 +9,12 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
+- [ ] Pair and activate the existing-account project invitation sender. The
+  isolated source candidate adds preview, one confirmed send and original
+  request/invitation readback over the existing collaboration owner. Optional
+  Identity consent, publication and actual invitation/site effects remain
+  separate from local validation and the frozen a3 candidate.
+
 - [x] Carry optional SAI account restrictions through the shared standard
   association Comment reader into local jobs, gateway DTOs and terminal detail,
   retaining upstream Slurm's original reason. Native reads batch the observed
