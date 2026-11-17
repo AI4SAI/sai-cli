@@ -38,9 +38,8 @@ This optional context follows native visibility and does not require Portal logi
 ## On your computer
 
 Python 3.11+ is required. Existing portable-client qualification covers Linux;
-macOS and Windows are not yet qualified. This source tree prepares `0.2.0a3`,
-an unpublished candidate. The examples below use its wheel filename.
-Published wheels and SHA-256 checksums remain available from the
+macOS and Windows are not yet qualified. The examples below target `0.2.0a3`.
+Published wheels and SHA-256 checksums are available from the
 [versioned releases](https://github.com/AI4SAI/sai-cli/releases).
 With your reviewed wheel and matching checksum, verify it and install with pipx:
 
@@ -71,7 +70,7 @@ interface, including to an existing base installation, use
 your user configuration and credentials. It needs an interactive
 terminal. Local views require the corresponding Slurm/Lustre tools on that host.
 Use the wheel filename for your reviewed version. The a1 and a2 releases and
-their assets remain unchanged; see the [a3 candidate scope](docs/product-delivery.md#portable-management-candidate-020a3).
+their assets remain unchanged; see the [a3 scope](docs/product-delivery.md#portable-management-020a3).
 
 ## With your Agent
 
@@ -89,7 +88,7 @@ exit codes. A task can request its missing permissions with
 
 The client supports native queue/resource/quota reads, account and cost queries,
 job allocation and recorded-run outputs, default-account changes and recipient
-invitation acceptance. The a3 candidate includes `projects enable-compute`,
+invitation acceptance. Version a3 includes `projects enable-compute`,
 invitation v2 and task-specific consent/resume with the existing paired backend
 and optional grants. The called service owns authorization and reports whether
 a change was accepted or applied. Broader project, storage and compute lifecycle

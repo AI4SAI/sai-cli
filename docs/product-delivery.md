@@ -250,10 +250,10 @@ also verified without a login. The a1 release and assets were preserved.
 This GitHub publication did not change the shared installation or publish to
 PyPI. Later documentation updates do not change the frozen source or artifacts.
 
-### Portable management candidate 0.2.0a3
+### Portable management 0.2.0a3
 
-The current source is an unpublished `0.2.0a3` candidate. Published a2 predates
-project-member compute enablement and uses invitation v1. This candidate brings
+Published a2 predates project-member compute enablement and uses invitation v1.
+Version `0.2.0a3` brings
 the portable package up to the existing paired management contracts:
 
 - Default-account changes, `projects enable-compute`, invitation v2 preview and
@@ -263,10 +263,10 @@ the portable package up to the existing paired management contracts:
 - Existing local/native queries, topology reads and applied account-limit
   context, shared with the deployed client.
 
-This packages existing capabilities against the current Portal contracts.
-No new management operation or server rollout is introduced. Candidate checks,
-review and public publication remain pending. Keep the a1/a2 tags and assets
-unchanged. Independent user-device first use and genuinely requested invitation
+The [versioned release page](https://github.com/AI4SAI/sai-cli/releases) records
+public availability and qualified artifacts. This packages existing capabilities
+against the paired Portal contracts, with a1/a2 tags and assets preserved.
+Independent user-device first use and genuinely requested invitation
 or member changes remain separate acceptance work.
 
 API schema versions are independent of the client release version. Additive
