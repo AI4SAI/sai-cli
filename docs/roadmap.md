@@ -9,11 +9,12 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
-- [ ] Pair and activate the existing-account project invitation sender. The
-  isolated source candidate adds preview, one confirmed send and original
-  request/invitation readback over the existing collaboration owner. Optional
-  Identity consent, publication and actual invitation/site effects remain
-  separate from local validation and the frozen a3 candidate.
+- [x] Deploy the paired existing-account project invitation sender, shared
+  client and optional Identity scope. Preview, one confirmed send and original
+  request/invitation readback reuse the existing collaboration owner.
+- [ ] Verify a genuinely requested sender task with normal user consent and
+  actual invitation/site results. The sender commands remain outside the frozen
+  a3 public candidate.
 
 - [x] Carry optional SAI account restrictions through the shared standard
   association Comment reader into local jobs, gateway DTOs and terminal detail,
@@ -157,11 +158,14 @@ historical entries are not an automatic new-feature queue.
   public page, tagged guide and anonymous downloads of all three assets against
   the approved checksums. Preserve the a1 release and assets. Independent human
   first use and shared production activation remain separate from distribution.
-- [ ] Qualify and publish the `0.2.0a3` portable candidate with existing
+- [x] Qualify the `0.2.0a3` portable candidate with existing
   project-member compute enablement, invitation v2, task consent/resume,
-  credential continuity, native reads and account-limit context. The current
-  Portal contracts already support these operations. The source version is a3;
-  its package validation and public release remain pending, and a1/a2 stay intact.
+  credential continuity, native reads and account-limit context. Independent
+  installed-client interaction reviews and local HTTP recovery passed, including
+  account-name selection and upgrade with existing configuration and credentials.
+- [ ] Publish the reviewed `0.2.0a3` artifacts after explicit maintainer
+  approval. Public a1/a2 and the frozen a3 candidate stay intact; later shared
+  client changes do not replace that candidate.
 - [x] Activate PR #14 through shared source `4a3d794aee12`: ordinary-user
   candidate/selected native views, existing authorization/account/job/cost reads
   and actual PTY restoration passed; dependencies/configuration were preserved,

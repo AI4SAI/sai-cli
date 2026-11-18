@@ -20,8 +20,9 @@ both repositories.
 This is the implemented remote API contract, not the entire CLI product scope.
 Local native queries use the caller's Unix/native authority independently.
 Default-account management uses the existing domain writer, a separate write
-scope and the concurrency/replay contract below. Other Portal management remains
-planned. Existing read scopes and capabilities remain read-only. See
+scope and the concurrency/replay contract below. Collaboration management uses
+the separate contracts in this document. Existing read scopes and capabilities
+remain read-only. See
 [command scope](terminal-scope.md).
 
 ## First-use connection
@@ -117,9 +118,10 @@ original access-task results. It grants no recipient acceptance authority.
 Unknown write results use these reads before any deliberate replay. Repeating a
 confirmed request retains its exact invitee, terms and key.
 
-These adapters require coordinated Portal, CLI and optional Identity scope
-activation. They are a source candidate, separate from the frozen a3 release
-and its already deployed management operations.
+The paired Portal adapters, shared CLI and optional Identity scope are deployed.
+Actual new sender consent, invitation creation and resulting site access remain
+separate acceptance work. The sender commands are outside the frozen a3 public
+candidate.
 
 ### Recipient collaboration invitations
 
