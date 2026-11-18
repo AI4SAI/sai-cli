@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "FileWorkspaceActionOut": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "title": "Allowed",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "read_only",
+                "account_permission_required",
+                "needs_project_compute_permission",
+                "workspace_site_unavailable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "allowed",
+        "reason"
+      ],
+      "title": "FileWorkspaceActionOut",
+      "type": "object"
+    },
+    "FileWorkspaceActionsOut": {
+      "additionalProperties": false,
+      "properties": {
+        "browse": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "reference": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "work_directory": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "edit": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "terminal": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "byok": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "sai_model": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        },
+        "compute": {
+          "$ref": "#/$defs/FileWorkspaceActionOut"
+        }
+      },
+      "required": [
+        "browse",
+        "reference",
+        "work_directory",
+        "edit",
+        "terminal",
+        "byok",
+        "sai_model",
+        "compute"
+      ],
+      "title": "FileWorkspaceActionsOut",
+      "type": "object"
+    },
+    "FileWorkspaceDiscoveryItemOut": {
+      "additionalProperties": false,
+      "properties": {
+        "workspace_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Workspace Ref",
+          "type": "string"
+        },
+        "workspace_mount_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Workspace Mount Ref",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "home",
+            "org_share",
+            "org_user_dir",
+            "project_root"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "path_label": {
+          "minLength": 1,
+          "title": "Path Label",
+          "type": "string"
+        },
+        "scope_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 2,
+          "pattern": "^/[^\\x00]*$",
+          "title": "Path",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "account_workspace_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Account Workspace Key",
+          "type": "string"
+        },
+        "actions": {
+          "$ref": "#/$defs/FileWorkspaceActionsOut"
+        }
+      },
+      "required": [
+        "workspace_ref",
+        "workspace_mount_ref",
+        "kind",
+        "label",
+        "path_label",
+        "scope_ref",
+        "scope_label",
+        "path",
+        "role",
+        "account_workspace_key",
+        "actions"
+      ],
+      "title": "FileWorkspaceDiscoveryItemOut",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "file-workspace-discovery/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Site Id",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/FileWorkspaceDiscoveryItemOut"
+      },
+      "maxItems": 100,
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "maxLength": 101,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,35}~[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "schema_version",
+    "site_id",
+    "items",
+    "next_cursor"
+  ],
+  "title": "FileWorkspaceDiscoveryOut",
+  "type": "object"
+}

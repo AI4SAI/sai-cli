@@ -9,6 +9,12 @@ not imply production activation or completion of a paired rollout.
 
 ## Current priority: complete human and Agent tasks
 
+- [ ] Qualify and pair `storage directories` with Portal's authorized directory
+  discovery and directory metadata consent. The client candidate preserves
+  explicit-site pages, directory paths and permission actions. Empty pages with
+  a cursor permit continuing toward the requested directory. Runtime and funding
+  admission remain with the existing execution endpoints.
+
 - [x] Deploy the paired existing-account project invitation sender, shared
   client and optional Identity scope. Preview, one confirmed send and original
   request/invitation readback reuse the existing collaboration owner.
