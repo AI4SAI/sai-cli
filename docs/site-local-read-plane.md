@@ -5,6 +5,11 @@ settings. It selects no site or gateway origin and sends no credentials. Local
 native reads remain independent; direct gateway destinations still come only
 from protected deployment configuration.
 
+`storage directories` uses the central `file-workspace-discovery/v1` contract and
+directory metadata consent. It discovers current authorized roots through Portal
+without a site capability or native filesystem query. This metadata read adds no
+gateway operation and leaves storage quota observations on their existing routes.
+
 The shared read capabilities below remain independent of presentation. Source
 retires the broad terminal workbench under [terminal scope](terminal-scope.md).
 `sai tui` provides focused native query interaction plus explicit authorized

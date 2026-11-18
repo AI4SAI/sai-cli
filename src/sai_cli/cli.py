@@ -353,6 +353,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     storage = commands.add_parser("storage", help="read authorized storage observations")
     storage_commands = storage.add_subparsers(dest="storage_command", required=True)
+    directories = storage_commands.add_parser("directories", help="list your authorized directory roots")
+    _add_connection_arguments(directories, suppress_defaults=True)
+    directories.add_argument("--limit", type=int, default=50, help="maximum rows in one page (1-100)")
+    directories.add_argument("--cursor", help="next cursor returned by the previous page")
+    _add_format_argument(directories)
+    _operation(directories, source="portal", scopes=("sai.ssh.mounts.read",),
+               notes=("Directory metadata and current permissions; actions do not establish funding or execution readiness.",))
     local_quota = storage_commands.add_parser("local-quota", help="read this path's native Lustre project quota without Portal login")
     local_quota.add_argument("path", nargs="?", default=".", help="local file or directory (default: current directory)")
     local_quota.add_argument("--timeout", type=float, default=argparse.SUPPRESS, help="native read deadline in seconds (default: 10)")
@@ -1032,6 +1039,12 @@ def main(
             from .storage_summary import render_storage_workspaces
             if args.cluster is not None:
                 raise ConfigError("storage reads are site-scoped and do not accept --cluster")
+            if args.storage_command == "directories":
+                from .file_workspaces import render_directories
+                result = client.file_workspaces(site_id=settings.site_id, limit=args.limit, cursor=args.cursor)
+                output.write(render_json(result.as_dict()) if output_format == "json" else
+                    render_directories(result, args=args, limit=args.limit))
+                return 0
             if args.storage_command == "workspaces":
                 result = client.list_storage_workspaces(site_id=settings.site_id, limit=args.limit,
                                                        cursor=args.cursor, workspace_key=args.workspace_key)

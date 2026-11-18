@@ -50,6 +50,11 @@ local query convenience or authorized Agent management from the product.
 The current no-subcommand entry selects the existing account summary handler; terminal detection
 changes only plain-text versus JSON presentation, not the data source or authority.
 
+Authorized directory discovery uses Portal's existing file-access resolver.
+`storage directories` is a central metadata read with its own directory consent,
+returning names, paths and current permission gates. The CLI preserves those
+facts and pagination. Later file and execution requests retain their own checks.
+
 The architecture keeps the following responsibilities separate:
 
 | Owner | Responsibility | Explicitly does not own |

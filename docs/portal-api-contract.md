@@ -944,6 +944,24 @@ asset verification or deployment acceptance.
 Paired Portal producer: `ecb4f96e56820ac86b6f19e0a8128f289727810c`.
 The placement schema/sample are byte-identical across Portal, CLI and Pilot.
 
+## Authorized directories
+
+Paired Portal producer: `3971c667085ccb3c4d21002615b8ebacb81139d7`.
+
+`sai storage directories` reads `GET /v1/account/cli/file-workspaces` with the
+selected `site_id`, `limit` (1–100, default 50) and optional opaque `cursor`.
+The [file-workspace-discovery/v1 contract](../contracts/file-workspace-discovery/v1/README.md)
+contains current authorized directory roots, their names and paths, entry roles,
+scope references and structured permission actions. It uses the directory metadata
+scope `sai.ssh.mounts.read`. The ordinary Identity flow owns consent.
+
+The client checks the returned site and allowlists every modeled field. Labels
+and paths remain exact data in JSON and are visibly escaped in terminal output.
+An empty page may contain `next_cursor`; continue as needed using that returned
+cursor. Table output provides a command preserving site, page size, profile and
+format. Every later file or execution operation checks its own current authority
+and funding. This metadata query performs no native scan or SSH eligibility check.
+
 ## Storage quota summary
 
 `GET /v1/account/cli/storage/workspaces` returns the independent

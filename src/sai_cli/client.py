@@ -33,6 +33,7 @@ from .run_placement import ManagedRunPlacement
 from .site_jobs import SiteJobAllocationResult, SiteJobResult
 from .site_placement import SiteJobPlacementResult
 from .storage_summary import StorageQuotaSummary, StorageWorkspaces, clean_workspace_key
+from .file_workspaces import FileWorkspaces, directory_query
 from .workspace_page import workspace_page_query
 from .native_quota import NativeQuotaResult
 from .transport import JsonResponse, JsonTransport
@@ -852,6 +853,12 @@ class PortalClient:
         path = f"{prefix}/{quote(site, safe='')}/resource-catalog"
         response = self._central_get(path, query={})
         return ResourceCatalog.from_payload(response.payload, site_id=site, request_id=response.request_id)
+
+    def file_workspaces(self, *, site_id: str, limit: int = 50, cursor: str | None = None) -> FileWorkspaces:
+        query = directory_query(site_id=site_id, limit=limit, cursor=cursor)
+        response = self._central_get("/v1/account/cli/file-workspaces", query=query)
+        return FileWorkspaces.from_payload(response.payload, site_id=site_id,
+            limit=limit, cursor=cursor, request_id=response.request_id)
 
     def storage_quota_summary(self, *, workspace_key: str, site_id: str) -> StorageQuotaSummary:
         workspace = clean_workspace_key(workspace_key)

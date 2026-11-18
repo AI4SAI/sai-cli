@@ -1,0 +1,53 @@
+{
+  "schema_version": "file-workspace-discovery/v1",
+  "site_id": "research-east",
+  "items": [
+    {
+      "workspace_ref": "file:2ec1aa0a-8ec3-49cb-b30a-c910cda9a801",
+      "workspace_mount_ref": "wm1:2ec1aa0a-8ec3-49cb-b30a-c910cda9a801:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "project_root",
+      "label": "共同研究",
+      "path_label": "org-example/proj-study",
+      "scope_ref": "project:6931372b-e35e-4196-9830-5bc024cd4e11",
+      "scope_label": "共同研究",
+      "path": "/org/org-example/proj-study",
+      "role": "write",
+      "account_workspace_key": "project:6931372b-e35e-4196-9830-5bc024cd4e11",
+      "actions": {
+        "browse": {
+          "allowed": true,
+          "reason": null
+        },
+        "reference": {
+          "allowed": true,
+          "reason": null
+        },
+        "work_directory": {
+          "allowed": true,
+          "reason": null
+        },
+        "edit": {
+          "allowed": true,
+          "reason": null
+        },
+        "terminal": {
+          "allowed": true,
+          "reason": null
+        },
+        "byok": {
+          "allowed": true,
+          "reason": null
+        },
+        "sai_model": {
+          "allowed": false,
+          "reason": "needs_project_compute_permission"
+        },
+        "compute": {
+          "allowed": false,
+          "reason": "needs_project_compute_permission"
+        }
+      }
+    }
+  ],
+  "next_cursor": null
+}

@@ -40,6 +40,13 @@ passed bounded ordinary-user checks in [terminal scope](terminal-scope.md);
 it does not expand authentication scopes.
 Remote errors must not cause a silent source or authority change.
 
+`storage directories` reads the current authorized file roots from Portal's
+`/v1/account/cli/file-workspaces` endpoint. The selected site, bounded page size
+and returned cursor define each request. The dedicated DTO preserves labels,
+paths, entry roles and permission actions. Empty filtered pages can still have a
+next cursor. Human output lists name, entry access and path, with a copyable next
+page command. The existing Identity transport handles this metadata read.
+
 The first management action uses the existing default-account preference:
 `account defaults` discovers site choices and projection receipts;
 `account set-default` submits a global change with the caller's last saved value
