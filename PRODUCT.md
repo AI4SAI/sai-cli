@@ -118,13 +118,15 @@ ordinary-user reads; see the [delivery map](docs/product-delivery.md#shared-firs
 Project-member compute enablement is deployed through the original authority
 and task service, with independent optional scopes. Local installed-client
 execution and ordinary-user existing-grant compatibility passed; real additional
-consent and member assignment remain separate acceptance. Inviter, broader member/role,
+consent and member assignment remain separate acceptance. Broader member/role,
 project/budget, storage and compute lifecycle management remain product gaps;
 a read command does not establish their management coverage.
 
 Recipient invitation discovery, acceptance and original task readback are
 implemented and paired components are deployed, with separate optional scopes.
-Actual recipient consent/acceptance and inviter-side management remain open.
+The existing-account project invitation sender and its optional Identity scope
+are also deployed with the shared client. Actual sender consent, invitation
+creation, recipient acceptance and site application remain separate acceptance.
 See the [task map](docs/product-delivery.md).
 
 WebUI/Pilot product modules and the role-based hardware digital twin remain

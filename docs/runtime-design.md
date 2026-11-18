@@ -108,8 +108,9 @@ performs one send without replacing those values or automatically retrying.
 follows recipient acceptance and the original access tasks. These sender reads
 are global and use project management authority. The requested site supplies
 the invitation context; the member relationship retains the original global
-project scope. This source candidate requires the paired adapter and optional
-Identity grant before deployment.
+project scope. The paired adapter, shared client and optional Identity scope are
+deployed. Actual new sender consent and invitation/site results remain unverified.
+These sender commands are outside the frozen a3 public candidate.
 
 `invitations list/show/accept` are global recipient operations: the returned
 invitation carries its target site and current terms. They reject explicit

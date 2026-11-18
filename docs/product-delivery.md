@@ -1,7 +1,7 @@
 # Human and Agent product delivery
 
 Status: established product scope and current delivery map, reviewed 2026-10-14.
-Portable candidate and applied limit-context status updated 2026-11-17.
+Portable candidate and paired delivery status updated 2026-11-18.
 Publishing still requires the maintainer release process. [PRODUCT](../PRODUCT.md) remains the product definition; `sai describe`
 remains the executable operation catalogue.
 
@@ -47,11 +47,12 @@ for an already completed action.
 | Check local queue, GPU/CPU allocation and path quota | Native Slurm/Linux/Lustre under the actual Unix user | Shared aliases and focused Textual queries deployed; ordinary login/compute checks | Preserve familiar output and latency; broaden real terminal/device usability evidence as needed |
 | Start on a user device and choose context | Identity device flow; Portal site metadata and account policy | [First-use guide](getting-started.md), bundled skill and synthetic independent-Agent workflow verified; shared site discovery and account choices deployed with ordinary-user reads | Observe independent first-use experience on supported devices using shipped guidance |
 | Understand work, results and costs | Native/site job observations, existing managed Run reads, Portal final billing | Job/Run reads and output download; running estimates and settled charges have distinct contracts | Verify complete user tasks across the supported contexts; do not equate one list or sample with all workflows |
-| Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Compatible components deployed; the main account/member metadata batch completed without numeric changes; ordinary-owner local attribution and authenticated remote reads verified | Finish the remaining organization source records and an applicable remote annotation sample; retain v1 compatibility until migration completes |
+| Understand account limits associated with a waiting reason | Standard Slurm association metadata, original policy projector and shared job reader | Account/member source records in the published scope completed without numeric changes; current observation has no v1 input; ordinary-owner local attribution and authenticated remote reads verified | Deploy the merged removal of v1 readers and obtain an applicable remote annotation sample; preserve completed migration evidence |
 | Change the default computing identity | Existing Portal preference writer and site projection receipts | Actual ordinary-user change, restoration, replay and independent-session cleanup verified on an isolated Linux container | Preserve accepted/applied distinction; broaden supported-device evidence without repeating a no-op mutation |
 | Receive and accept a collaboration invitation | Portal invitation lifecycle, original acceptance writer and access-task readback | Paired v2 permissions, preview/`--apply` and verification recovery are deployed; positive recovery passed installed-client local HTTP | Verify a genuinely requested recipient task, including user consent and applied access |
-| Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | Existing-account computing-project invitation adapter is a source candidate, separate from frozen a3; broader member changes remain planned | Complete paired validation and activation, then normal user consent and actual invitation/site results |
+| Invite and manage collaborators | Portal collaboration resource resolver, invitation/change services and site-state readback | Existing-account computing-project invitation adapter, shared client and optional Identity scope deployed, separate from frozen a3 | Verify a genuinely requested sender task and site results; broader member changes remain planned |
 | Enable computation for an existing project member | Original collaboration guard, expected values, idempotency and site assignment receipts | Paired scopes/API/shared client deployed; installed-client local workflow and existing-grant production checks passed | Qualify genuine requested management through ordinary user consent and actual site application |
+| Manage the default account from a Pilot conversation | Original Portal preference writer and explicit login-bound delegation, consumed by Pilot's registered tool | Paired sources merged; local registered-tool, permission continuation and original-request recovery passed | Complete the compatible formal release and normal-user conversation through the original Pilot owner |
 | Manage a project's budget | Portal project-budget service, role checks and budget events | No CLI management adapter; cost/overview reads are not this action | Design authorized request, concurrency/replay and exact readback against the existing writer before exposing a write command |
 | Manage storage allocations or compute lifecycle remotely | Existing Portal storage and compute domain services and task receipts | Storage and computation read surfaces exist; broad management is not delivered | Pair each useful user intent with its current authority and durable outcome; native read visibility does not imply remote write rights |
 
@@ -64,13 +65,12 @@ references; an Agent adapter must inspect its actual replay/concurrency semantic
 rather than assume that a request ID supplies every required guarantee.
 
 The recipient's invitation task is shared by organizations, projects and
-directories. The next isolated source candidate covers sending an invitation to
-one existing account for an existing computing project, so an authorized Agent
-can complete both sides of this ordinary collaboration task. It reuses the
-same invitation and task owners, with named-target preview, one confirmed send
+directories. The deployed sender adapter covers inviting one existing account
+to an existing computing project. It reuses the same invitation and task owners,
+with named-target preview, one confirmed send
 and original-request recovery. Broader member changes, budget and storage
-management retain their separate gaps. Source validation and actual consent,
-delivery and site access remain distinct acceptance stages.
+management retain their separate gaps. Paired deployment is complete; actual
+sender and recipient consent, invitation delivery and site access remain open.
 
 An organization join preserves an existing valid default computing account;
 Portal selects the new organization only when no valid default exists. This
@@ -264,9 +264,9 @@ the portable package up to the existing paired management contracts:
 - Existing local/native queries, topology reads and applied account-limit
   context, shared with the deployed client.
 
-The [versioned release page](https://github.com/AI4SAI/sai-cli/releases) records
-public availability and qualified artifacts. This packages existing capabilities
-against the paired Portal contracts, with a1/a2 tags and assets preserved.
+The frozen a3 artifacts are qualified and await explicit maintainer approval
+for publication. The [versioned release page](https://github.com/AI4SAI/sai-cli/releases)
+records published versions; a1/a2 tags and assets are preserved.
 Independent user-device first use and genuinely requested invitation
 or member changes remain separate acceptance work.
 
@@ -294,11 +294,12 @@ reads verified sources for six existing pending jobs after a bounded metadata
 refresh that preserved native numeric limits. The 2026-11-10 Site/Read release
 passed authenticated job reads, foreign-job denial and public self/organization
 reads. Its sampled remote job returned empty context because its native reason
-had no applicable annotation. The main account/member metadata batch has since
-completed with native numeric values unchanged. The remaining organization
-source records and a positive remote annotation sample are still open; retain
-v1 compatibility until migration completes. See the [contract](../contracts/compute-limit-context/v1/README.md)
-and [roadmap](roadmap.md).
+had no applicable annotation. Account/member source records in the published
+scope have since completed with native numeric values unchanged. That scope has
+no v1 markers or retryable v1 input. Removal of the old readers is merged and
+its final paired artifacts are qualified; their deployment remains open. An
+applicable remote annotation sample is also still needed. See the
+[contract](../contracts/compute-limit-context/v1/README.md) and [roadmap](roadmap.md).
 
 Selected-site connection discovery was paired and deployed on 2026-10-13:
 CLI `e93932a6bb46`, Center `cb4f5217791b`. An ordinary user's temporary connection
@@ -317,10 +318,11 @@ rollback inputs; remote staging and all operator sessions were cleaned up.
    configuration delivery, understandable permission selection and recovery;
    preserve existing sessions and do not repeat completed change/restore tests.
 2. Verify recipient invitations when there is an actually requested task, through
-   the original domain and normal user consent. Keep inviter, budget/storage and
-   compute gaps visible; do not manufacture invitations or grants for acceptance.
-3. Qualify the a3 portable candidate against the existing paired contracts and
-   publish it through the maintainer release process. Preserve a1/a2 artifacts
+   the original domain and normal user consent. Keep remaining member,
+   budget/storage and compute gaps visible; do not manufacture invitations or
+   grants for acceptance.
+3. Publish the qualified a3 portable candidate after explicit maintainer
+   approval through the existing release process. Preserve a1/a2 artifacts
    and prior successful management evidence. This client delivery does not wait
    for 3D or a Pilot migration.
 
