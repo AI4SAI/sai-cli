@@ -3,7 +3,8 @@
 This additive job field uses the typed association Comment v2 carrier. The public
 DTO and native carrier have separate version numbers. The public shape is defined
 by [schema.json](schema.json). Compatible readers and writers for the applied-record
-extension are deployed. Full-cohort metadata migration remains incomplete.
+extension are deployed. The accepted source migration is complete. The source
+now removes native v1 compatibility; paired activation is tracked separately.
 
 `limit_context` describes native member limits and the account limits and policy
 sources last verified by the site writer. Slurm retains the original scheduling reason. The field identifies
@@ -86,8 +87,8 @@ During upgrades, compatible CLI, Read gateway and Core DTO consumers precede
 Site writers for the optional `applied` payload. The v2 frame, SAI native helper and Lua reader are
 unchanged. The original policy projector and workers refresh metadata while
 numeric limits remain unchanged. The SAI helper uses
-standard Slurm APIs, preserves the original manual suffix and supports both
-carrier versions before v2 writes start. Slurm source, libraries and protocol
+standard Slurm APIs and preserves the original manual suffix. Current codecs,
+writers and helpers accept only v2, with explicit limit metadata. Slurm source, libraries and protocol
 remain unmodified.
 
 The paired deployment completed with the Site/Read update on 2026-11-10.
@@ -96,7 +97,10 @@ limit changes. Authenticated remote reads and foreign-job denial passed; the
 sampled remote job had no applicable annotation, so positive remote source
 attribution remains unverified.
 
-Existing v1 records remain in the accepted cohort. Keep v1 readable until the
-original worker completes that cohort's migration. Metadata backfill and the
-remaining remote annotation check are tracked in the
+The accepted metadata migration and a current complete observation of the
+published scope found no v1 marker or supported retryable v1 input. Before
+adopting the current pair on another site, verify the same precondition there.
+Unmarked native comments are preserved. The v2 path without an `applied`
+record is a separate contract and remains supported. Paired activation and the
+remaining positive remote annotation check are tracked in the
 [roadmap](../../../docs/roadmap.md).

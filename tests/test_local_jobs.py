@@ -259,7 +259,7 @@ def test_explicit_limit_is_reported_not_a_complete_queue(native_client):
 
 
 def test_current_account_reason_uses_one_native_association_read_after_limit(native_client, tmp_path):
-    from sai_compute_restrictions import encode_association_comment
+    from test_compute_restrictions import encoded
     env, source, payload = native_client
     job = payload['jobs'][0]
     job.update(job_state=['PENDING'], state_reason='AssocGrpJobsLimit', association_id=47)
@@ -278,8 +278,7 @@ print(Path({str(rows)!r}).read_text())
     association = {'id': 47, 'cluster': 'cluster-a', 'account': 'research', 'user': job['user_name'],
         'partition': '', 'lineage': f"/org-a/research/0-{job['user_name']}/"}
     for reason in ('arrears', 'admin_blocked', None):
-        association['comment'] = encode_association_comment('private note', account='org-a', association_id=3,
-            owner_ref='11111111-2222-4333-8444-555555555555', revision=1, reason=reason)
+        association['comment'] = encoded('private note', reason, account='org-a', leaf='research', user=job['user_name'])
         rows.write_text(json.dumps({'associations': [association], 'errors': []}))
         code, output, errors = invoke(env, 'jobs', 'local', '--limit', '1')
         assert code == 0 and not errors

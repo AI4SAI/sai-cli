@@ -16,15 +16,15 @@ from sai_cli.job_reasons import job_reason
 from sai_cli.tui import QueryApp
 from sai_cli.tui_queries import Queries
 from sai_compute_restrictions import encode_association_comment
+from test_compute_restrictions import encoded
 from test_local_jobs import native_client, native_job, invoke, number
 from test_native_topology import topology_client
 from test_site_transport import http_endpoint, issuer, profile, invoke as invoke_remote, site_payload
 from test_tui import loaded
 
 
-def association_comment(reason, revision=1):
-    return encode_association_comment("private operator note", account="org-parent", association_id=3,
-        owner_ref="11111111-2222-4333-8444-555555555555", revision=revision, reason=reason)
+def association_comment(reason, revision=1, *, user):
+    return encoded("private operator note", reason, revision, account="org-parent", leaf="research", user=user)
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def native_associations(native_client):
     calls = source.parent / "association-calls.jsonl"
     value = {"associations": [{"id": 47, "cluster": "cluster-a", "account": job["account"],
         "user": job["user_name"], "partition": "", "lineage": f"/org-parent/research/0-{job['user_name']}/",
-        "comment": association_comment("arrears")}], "errors": []}
+        "comment": association_comment("arrears", user=job["user_name"])}], "errors": []}
     path.write_text(json.dumps(value))
     binary = source.parent / "sacctmgr"
     binary.write_text(f"#!{sys.executable}\n" + f'''
@@ -64,7 +64,7 @@ print(json.dumps(payload))
 def test_native_queue_and_exact_detail_keep_separate_account_context(topology_client, native_associations, code, label):
     env, path, payload = topology_client
     association_path, associations, reads = native_associations
-    associations["associations"][0]["comment"] = association_comment(code)
+    associations["associations"][0]["comment"] = association_comment(code, user=associations["associations"][0]["user"])
     association_path.write_text(json.dumps(associations))
     job = payload["jobs"][0]
     job.update(job_state=["PENDING"], state_reason="AssocGrpJobsLimit",
@@ -78,7 +78,7 @@ def test_native_queue_and_exact_detail_keep_separate_account_context(topology_cl
     observed = row["account_restriction"]["observed_at"]
     assert started <= observed <= int(time.time())
     assert row["account_restriction"] == {"code": code, "account": "org-parent",
-        "source": "sai_applied_policy", "observed_at": observed}
+        "source": "sai_applied_policy", "observed_at": observed, "basis": "applied_record", "recorded_at": 100}
     assert all(value not in output for value in ("private operator note", "association_id", "owner_ref"))
     assert "pending_reason" not in row
     assert row["slurm_account"] == "research"
@@ -218,7 +218,7 @@ def test_tui_account_context_refreshes_from_native_association_and_clears_when_r
             await pilot.press("enter")
             await loaded(app, pilot)
             assert app._allocation_detail["job"]["account_restriction"]["account"] == "org-parent"
-            associations["associations"][0]["comment"] = association_comment(None, revision=2)
+            associations["associations"][0]["comment"] = association_comment(None, revision=2, user=job["user_name"])
             association_path.write_text(json.dumps(associations))
             await pilot.press("r")
             await loaded(app, pilot)
@@ -335,7 +335,7 @@ def native_limits(native_associations):
                 limits=limits(billing, submit, sources))})
     user.update(max=values(64, 20), comment=encode_association_comment(
         "private member note", account="research", association_id=4, owner_ref=owner,
-        revision=1, reason=None, ancestor_ids=[1, 3, 4],
+        revision=1, reason=None, limits={}, ancestor_ids=[1, 3, 4],
         member={"association_id": user["id"], "owner_ref": owner, "revision": 1,
                 "limits": limits(64, 20, member_sources)}))
     payload["associations"] = [user, root, *parents]

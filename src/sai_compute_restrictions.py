@@ -32,10 +32,10 @@ def _time(value: object) -> int:
 
 _PREFIX = "[sai.account-state/"
 _MARKER = re.compile(
-    r"\[sai\.account-state/(v[12]):([A-Za-z0-9][A-Za-z0-9_.+\-]{0,127}):"
+    r"\[sai\.account-state/v2:([A-Za-z0-9][A-Za-z0-9_.+\-]{0,127}):"
     r"([1-9][0-9]{0,9}):([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}):"
     r"([1-9][0-9]{0,18}):(open|arrears|severe_arrears|no_compute_funding|admin_blocked)"
-    r"(?::([A-Za-z0-9_-]+))?\]"
+    r":([A-Za-z0-9_-]+)\]"
 )
 ASSOCIATION_BATCH_SIZE = 512
 _LIMIT_FIELDS = {"billing_tres_limit": 2**64 - 3, "max_submit_jobs": 2**32 - 3}
@@ -181,18 +181,12 @@ def decode_association_comment(comment: object) -> dict[str, Any] | None:
     match = _MARKER.match(comment)
     if match is None or (match.end() < len(comment) and comment[match.end()] != " "):
         raise ValueError("invalid managed association prefix")
-    version, account, association_id, owner_ref, revision, reason, encoded = match.groups()
+    account, association_id, owner_ref, revision, reason, encoded = match.groups()
     association_id, revision = int(association_id), int(revision)
     if association_id >= 2**32 - 2 or revision > 2**63 - 1:
         raise ValueError("invalid managed association generation")
     result = {"account": account, "association_id": association_id, "owner_ref": owner_ref,
               "revision": revision, "reason": None if reason == "open" else reason}
-    if version == "v1":
-        if encoded is not None:
-            raise ValueError("invalid v1 association metadata")
-        return result
-    if encoded is None:
-        raise ValueError("missing v2 association metadata")
     try:
         decoded = base64.b64decode(encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True)
         metadata = _metadata(json.loads(decoded.decode("ascii")))
@@ -214,24 +208,20 @@ def strip_association_comment(comment: str | None) -> str:
 
 
 def encode_association_comment(comment: str | None, *, account: str, association_id: int,
-                               owner_ref: str, revision: int, reason: str | None,
-                               limits: object = _OMITTED, ancestor_ids: object = _OMITTED,
+                               owner_ref: str, revision: int, reason: str | None, limits: object,
+                               ancestor_ids: object = _OMITTED,
                                member: object = _OMITTED, applied: object = _OMITTED) -> str:
     account = _name(account)
     validate_reason(reason)
     if type(association_id) is not int or type(revision) is not int:
         raise ValueError("invalid managed association generation")
-    version, suffix = "v1", ""
-    if any(value is not _OMITTED for value in (limits, ancestor_ids, member, applied)):
-        metadata = {"limits": {} if limits is _OMITTED else limits,
-                    "ancestor_ids": [] if ancestor_ids is _OMITTED else ancestor_ids,
-                    "member": None if member is _OMITTED else member}
-        if applied is not _OMITTED:
-            metadata["applied"] = applied
-        metadata = _metadata(metadata)
-        suffix = ":" + base64.urlsafe_b64encode(_canonical(metadata)).rstrip(b"=").decode("ascii")
-        version = "v2"
-    prefix = f"{_PREFIX}{version}:{account}:{association_id}:{owner_ref}:{revision}:{reason or 'open'}{suffix}]"
+    metadata = {"limits": limits, "ancestor_ids": [] if ancestor_ids is _OMITTED else ancestor_ids,
+                "member": None if member is _OMITTED else member}
+    if applied is not _OMITTED:
+        metadata["applied"] = applied
+    metadata = _metadata(metadata)
+    encoded = base64.urlsafe_b64encode(_canonical(metadata)).rstrip(b"=").decode("ascii")
+    prefix = f"{_PREFIX}v2:{account}:{association_id}:{owner_ref}:{revision}:{reason or 'open'}:{encoded}]"
     decode_association_comment(prefix)
     note = strip_association_comment(comment)
     value = prefix + (" " + note if note else "")
@@ -356,7 +346,7 @@ def _applied_matches(row: dict[str, Any], lineage: list[str], marker: dict[str, 
 
 def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object], *,
                       cluster: str, fetch, now: float | None = None) -> list[dict[str, Any]]:
-    """Read visible job associations and their applied records; old v2 reads parents."""
+    """Read visible associations and applied records; v2 without a record reads parents."""
     _name(cluster)
     if len(jobs) != len(association_ids):
         raise ValueError("job association bindings are incomplete")
@@ -374,11 +364,10 @@ def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object],
         if marker is not None:
             if marker["account"] not in lineage or marker.get("limits"):
                 raise ValueError("account context is outside the observed association lineage")
-            if "ancestor_ids" in marker:
-                if len(marker["ancestor_ids"]) != len(lineage) or row["id"] in marker["ancestor_ids"]:
-                    raise ValueError("native association ancestry changed")
-                if "applied" not in marker:
-                    ancestor_ids.extend(marker["ancestor_ids"])
+            if len(marker["ancestor_ids"]) != len(lineage) or row["id"] in marker["ancestor_ids"]:
+                raise ValueError("native association ancestry changed")
+            if "applied" not in marker:
+                ancestor_ids.extend(marker["ancestor_ids"])
         prepared[index] = row, lineage, marker
     parents = _association_rows(list(dict.fromkeys(ancestor_ids)), cluster=cluster, fetch=fetch)
     results = [{} for _ in jobs]
@@ -404,7 +393,7 @@ def read_job_contexts(jobs: list[dict[str, Any]], association_ids: list[object],
             current_parents.append((parent, _parent_marker(parent), association_limit_values(parent)))
         reason = jobs[index]["reason_or_nodelist"]
         if reason == "AssocGrpJobsLimit" and marker is not None and marker["reason"] is not None:
-            verified = "ancestor_ids" not in marker or any(
+            verified = any(
                 parent["id"] == marker["association_id"] and source is not None
                 and all(source[key] == marker[key] for key in ("account", "owner_ref", "revision", "reason"))
                 and numeric["group_jobs_limit"] == 0

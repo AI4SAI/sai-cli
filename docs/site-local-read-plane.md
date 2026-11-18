@@ -325,8 +325,10 @@ metadata through standard Slurm association Comments. The diagnostic carrier
 has no controller HTTP fetch, timer or dynamic policy file. The
 [roadmap](roadmap.md) tracks applied-record activation and metadata refresh.
 New readers precede writers because earlier strict decoders reject the added
-payload key. The helper and Lua v2 frame stay unchanged. v1 remains readable only until the original worker
-has migrated the accepted association cohort. Each site still needs
+payload key. The current codec, Site writer, helper and Lua notice reader use
+the v2 frame. Adopting this pair requires a completed metadata migration and
+confirmation that supported retries contain no retired three-field input.
+The separate v2 ancestor-read path remains available. Each site still needs
 verification of its actual service-UID read permission and native environment.
 
 The paired `jobs.allocation/v2` projection reads `gres_detail` from that same

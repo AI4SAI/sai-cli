@@ -618,8 +618,11 @@ An `open` account-state marker emits no account notice and does not imply a job
 can run. Missing or malformed metadata and failed context reads preserve the
 native job result, with the existing bounded diagnostic on read failure. The
 shared module adds no local policy file, Center lookup or pricing calculation.
-v1 markers remain readable for the paired migration only; activation, backfill
-and removal of that bridge are pending in the [roadmap](roadmap.md).
+The shared codec accepts only the v2 marker and requires writers to supply
+`limits` explicitly. Unmarked native comments retain their original meaning.
+Deployments must complete the original metadata migration and confirm that no
+supported retry can send the retired three-field input before adopting this
+reader/writer pair. The public DTO remains `compute-limit-context/v1`.
 
 Native holds, dependencies and selected account/QOS limits use short labels
 from the same presenter in local, remote and TUI views. Details retain the native

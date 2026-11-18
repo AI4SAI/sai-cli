@@ -7,9 +7,19 @@ from sai_compute_restrictions import (association_read_command, decode_associati
 OWNER = "11111111-2222-4333-8444-555555555555"
 
 
-def encoded(note="", reason="arrears", revision=1):
-    return encode_association_comment(note, account="org-a", association_id=3,
-        owner_ref=OWNER, revision=revision, reason=reason)
+def encoded(note="", reason="arrears", revision=1, *, account="org-a", leaf="project-a", user="alice"):
+    lineage = f"/{account}/{leaf}/0-{user}/"
+    parents = []
+    for ident, name in ((1, "root"), (3, account), (4, leaf)):
+        owned = ident == 3
+        parents.append({"account": name, "association_id": ident,
+            "owner_ref": OWNER if owned else None, "revision": revision if owned else None,
+            "reason": reason if owned else None, "limits": {},
+            "numeric": {"group_jobs_limit": 0 if owned and reason else None,
+                        "billing_tres_limit": None, "max_submit_jobs": None}})
+    return encode_association_comment(note, account=account, association_id=3,
+        owner_ref=OWNER, revision=revision, reason=reason, limits={}, ancestor_ids=[1, 3, 4],
+        applied={"recorded_at": 100, "association_id": 47, "lineage": lineage, "parents": parents})
 
 
 def test_reason_changes_and_open_preserve_original_note_exactly():
@@ -18,10 +28,24 @@ def test_reason_changes_and_open_preserve_original_note_exactly():
     second = encoded(first, "admin_blocked", 2)
     cleared = encoded(second, None, 3)
     assert strip_association_comment(first) == strip_association_comment(second) == strip_association_comment(cleared) == note
-    assert decode_association_comment(second) == {"account": "org-a", "association_id": 3,
-        "owner_ref": OWNER, "revision": 2, "reason": "admin_blocked"}
+    marker = decode_association_comment(second)
+    assert second.startswith("[sai.account-state/v2:")
+    assert {key: marker[key] for key in ("account", "association_id", "owner_ref", "revision", "reason")} == {
+        "account": "org-a", "association_id": 3, "owner_ref": OWNER, "revision": 2, "reason": "admin_blocked"}
+    assert encode_association_comment(second, **marker) == second
     assert decode_association_comment(cleared)["reason"] is None
     assert strip_association_comment("ordinary [brackets] note") == "ordinary [brackets] note"
+
+
+def test_retired_prefix_is_rejected_and_encoder_requires_explicit_limits():
+    old = f"[sai.account-state/v1:org-a:3:{OWNER}:1:arrears] manual note"
+    for read in (decode_association_comment, strip_association_comment, encoded):
+        with pytest.raises(ValueError):
+            read(old)
+    with pytest.raises(TypeError):
+        encode_association_comment("note", account="org-a", association_id=3,
+            owner_ref=OWNER, revision=1, reason="arrears")
+    assert decode_association_comment("manual " + old) is None
 
 
 def test_visible_page_deduplicates_native_read_and_existing_job_sees_reason_change():
@@ -39,7 +63,8 @@ def test_visible_page_deduplicates_native_read_and_existing_job_sees_reason_chan
         result = read_job_contexts([job, job, {**job, "state": "R"}], [47, 47, 99],
             cluster="cluster-a", fetch=fetch, now=123)
         expected = {} if reason is None else {"account_restriction": {
-            "code": reason, "account": "org-a", "source": "sai_applied_policy", "observed_at": 123}}
+            "code": reason, "account": "org-a", "source": "sai_applied_policy", "observed_at": 123,
+            "basis": "applied_record", "recorded_at": 100}}
         assert result == [expected, expected, {}]
     assert calls == [[47]] * 3 and job == before
     assert read_job_contexts([{**job, "reason_or_nodelist": "Resources"}], [47], cluster="cluster-a", fetch=fetch) == [{}]

@@ -26,7 +26,8 @@ Its optional `applied` record lets the site writer publish verified parent
 observations in the existing user association. The shared reader binds that
 record to the visible job and current user association using one bounded native
 read with `WOPLimits`. Ordinary users need no parent-association privilege.
-Older records keep their existing ancestor-read path during migration. The additive
+v2 records without `applied` keep their existing ancestor-read path. The retired
+v1 native marker is no longer accepted. The additive
 [`limit_context` contract](../contracts/compute-limit-context/v1/README.md)
 preserves each group billing layer and the nearest explicit `MaxSubmitJobs`
 value. Details distinguish recorded account values from current member values,
