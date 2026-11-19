@@ -336,7 +336,6 @@ def resolve_settings(
             "config",
             "profile",
             "base_url",
-            "site",
             "cluster",
             "cache",
             "no_cache",
@@ -389,6 +388,8 @@ def resolve_settings(
         None if managed else env.get("SAI_SITE_ID"),
         values.get("site_id"),
     )
+    if managed and args.site is not None and args.site != site_id:
+        raise ConfigError("--site must match the site configured on this login node")
     if not site_id and require_site:
         raise ConfigError(
             "No site selected; choose a site ID, then repeat with --site",
