@@ -1,6 +1,7 @@
 from copy import deepcopy
 from io import StringIO
 import json
+import os
 from pathlib import Path
 import shlex
 from urllib.parse import parse_qs, urlsplit
@@ -9,6 +10,7 @@ import pytest
 
 from sai_cli.cli import main
 from sai_cli.cli import build_parser
+from sai_cli import config as config_module
 from sai_cli.errors import ContractError
 from sai_cli.project_compute import ProjectCompute, render_project_compute
 from test_site_transport import http_endpoint
@@ -85,7 +87,8 @@ def test_project_query_pagination_preserves_service_and_filter(tmp_path):
         assert len(calls)==2
 
 
-def test_listed_project_and_member_open_the_selected_permission_preview(tmp_path):
+@pytest.mark.parametrize("managed", [False, True], ids=["personal", "login-node"])
+def test_listed_project_and_member_open_the_selected_permission_preview(tmp_path, monkeypatch, managed):
     projects = sample("collaboration-projects")
     selected = projects["items"][0]
     projects["items"].insert(0, {**selected, "project_id": "project-a", "organization_label": "Other team"})
@@ -94,10 +97,11 @@ def test_listed_project_and_member_open_the_selected_permission_preview(tmp_path
     detail = sample("project-member")
     members["site_id"] = detail["site_id"] = detail["sites"][0]["site_id"] = "site-b"
     responses = iter((projects, members, detail))
+    env = {"SAI_TOKEN": "test-user"}
 
     def run(words):
         output, error = StringIO(), StringIO()
-        assert main(words, environ={"SAI_TOKEN": "test-user"}, stdout=output, stderr=error) == 0, error.getvalue()
+        assert main(words, environ=env, stdout=output, stderr=error) == 0, error.getvalue()
         return output.getvalue()
 
     def command_under(display, label):
@@ -108,14 +112,26 @@ def test_listed_project_and_member_open_the_selected_permission_preview(tmp_path
 
     with http_endpoint(lambda call, count: (200, next(responses))) as (origin, calls):
         config = tmp_path / "team profile.toml"
-        config.write_text(f'[profiles.research]\nbase_url = {json.dumps(origin)}\nsite_id = "site-b"\n')
+        config.write_text(f'default_profile = "research"\n[profiles.research]\nbase_url = {json.dumps(origin)}\n'
+                          'site_id = "site-b"\nrequire_site_capability = true\n')
         config.chmod(0o600)
-        listing = run(["projects", "list", "--query", "Research", "--format", "table",
-                       "--config", str(config), "--profile", "research"])
+        connection = ["--config", str(config), "--profile", "research"]
+        if managed:
+            monkeypatch.setattr(config_module, "_MANAGED_CONFIG_PATH", config)
+            monkeypatch.setattr(config_module, "_MANAGED_CONFIG_OWNER_UID", os.getuid())
+            env["SAI_MANAGED_LOGIN_NODE"] = "1"
+            connection = []
+        listing = run(["projects", "list", "--query", "Research", "--format", "table", *connection])
         roster = run(command_under(listing, "Research · Research team · proj-example"))
         member = command_under(roster, "researcher · 计算未启用 · 编辑文件")
         assert member[member.index("--site") + 1] == "site-b"
         preview = run(member)
+        if managed:
+            wrong_site = member.copy()
+            wrong_site[wrong_site.index("--site") + 1] = "site-a"
+            output, error = StringIO(), StringIO()
+            assert main(wrong_site, environ=env, stdout=output, stderr=error) == 2
+            assert not output.getvalue() and "site" in error.getvalue()
 
     assert [(call["method"], urlsplit(call["path"]).path) for call in calls] == [
         ("GET", "/v1/account/cli/projects"),
