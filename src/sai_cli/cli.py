@@ -35,7 +35,7 @@ _SITE_CONNECTION_NOTE = (
 
 _ALLOCATION_NOTES = (
     "allocation.nodes[].cpu_ids and GPU gres[].indices are Slurm IDs, not Linux CPU or task CUDA IDs. Slurm sockets may represent NUMA groups.",
-    "--with-interconnect adds per-node recorded hardware or an unavailable reason. Match records to allocation nodes by name and respect observed_at/expires_at.",
+    "--with-interconnect adds each node's hardware observation or unavailable reason. Match nodes by name. A v1 record expires at expires_at. A v2 review_after marks when a review is due.",
     "For recorded CPU locality, cpu_mapping.slurm_to_linux[slurm_cpu_id] gives the Linux CPU ID; locate it in numa[].linux_cpu_ids. Missing mapping means unknown locality; never sort the mapping or substitute GPU affinity.",
     "Recorded gpus[].index and links[].a/b use Slurm GPU indices. NIC peers and fabric_links describe observed adjacency. Paths and link rates do not measure utilization, available bandwidth or application traffic.",
 )

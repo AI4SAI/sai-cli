@@ -1,5 +1,19 @@
 # Node interconnect facts, v1
 
+The existing operator normalizer also emits `node.interconnect/v2` from a
+capture by default. The v2 schema is in [the adjacent version](../v2/schema.json).
+It keeps the hardware and optional CPU-map observation times. An optional
+`--review-after` records when the operator plans to review the evidence.
+Readers can continue to use a published v2 observation after that date when
+the allocation, configuration and native daemon generation still match.
+Hardware replacement, rewiring or an incompatible mapping requires the
+publisher to withdraw or replace the affected record. Reuse of a node name or
+unchanged device counts is insufficient evidence that its hardware is unchanged.
+
+An explicit `--expires-at` still emits v1 and its deadline remains binding.
+The join envelope accepts both record versions. Upgrade stored-schema consumers
+and their embedded validators before the publisher switches records to v2.
+
 `node.interconnect/v1` is a bounded, read-only projection of one compute node's
 hardware relationships. It is a view over native observations, not a scheduler,
 asset database, or utilization stream. The producer records a node-local

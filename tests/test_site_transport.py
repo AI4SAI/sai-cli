@@ -206,13 +206,24 @@ def test_allocation_uses_exact_operation_and_gateway_path(tmp_path, site_allocat
 
 def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tmp_path, site_allocation_payload):
     nodes = site_allocation_payload['allocation']['nodes']
-    site_allocation_payload['interconnect']={'schema_version':'node-interconnect-join/v1','nodes':[
-        {'node':row['name'],'status':'unavailable','reason':'not_recorded'} for row in nodes]}
+    sample = Path(__file__).resolve().parents[1] / "contracts/node-interconnect/v1/sample.json"
+    hardware = json.loads(sample.read_text())
+    hardware.update(node=nodes[1]["name"], schema_version="node.interconnect/v2")
+    hardware["review_after"] = hardware.pop("expires_at")
+    nodes[1].update(cpu_ids=list(range(8)), cpu_topology=hardware["cpu_topology"], gpu_total=2)
+    nodes[1]["gres"][0]["indices"] = [0, 1]
+    unknown = {"node": nodes[0]["name"], "status": "unavailable", "reason": "not_recorded"}
+    site_allocation_payload["interconnect"] = {"schema_version": "node-interconnect-join/v1", "nodes": [
+        unknown, {"node": nodes[1]["name"], "status": "recorded", "value": hardware},
+    ]}
     with http_endpoint(issuer) as (portal,issued), http_endpoint(lambda *_:(200,site_allocation_payload)) as (gateway,reads):
         config=profile(tmp_path,portal,gateway)
         code,text,error=invoke(config,tmp_path,['jobs','allocation','12345','--with-interconnect'])
         assert code==0,error
-        assert json.loads(text)['interconnect']==site_allocation_payload['interconnect']
+        unavailable, recorded = json.loads(text)["interconnect"]["nodes"]
+        assert unavailable == unknown and recorded["status"] == "recorded"
+        assert recorded["value"]["review_after"] == hardware["review_after"]
+        assert recorded["value"]["links"] == hardware["links"]
         assert reads[0]['path']=='/v1/site-read/jobs/12345/allocation?include_interconnect=true'
         assert issued[0]['body']['operation']=='jobs.allocation' and reads[0]['bearer'] is None
         del site_allocation_payload['interconnect']

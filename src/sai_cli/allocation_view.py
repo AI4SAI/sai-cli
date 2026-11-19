@@ -96,6 +96,7 @@ def _allocation_view(value: dict, *, language: str, width: int, expanded: bool =
                         Text(ranges(assigned)) if expanded else Text(""))
                 blocks.append(summary)
             reasons = {"expired": ("硬件记录已过期", "Hardware record expired"),
+                       "not_yet_observed": ("硬件观测时间晚于当前时间", "Hardware observation is dated in the future"),
                        "node_restarted": ("节点已重启，映射待更新", "Node restarted; mapping needs refresh"),
                        "configuration_changed": ("硬件配置已变更", "Hardware configuration changed"),
                        "record_invalid": ("硬件记录暂不可用", "Hardware record unavailable")}

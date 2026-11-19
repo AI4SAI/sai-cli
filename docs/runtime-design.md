@@ -769,11 +769,14 @@ an ordinary user. The paired Web/Pilot source is merged; its production
 activation remains with the original Pilot release. Focused polling and account
 selection reuse the client reads described in [terminal scope](terminal-scope.md#focused-query-interaction).
 
-Hardware interconnect is a separate recorded fact, `node.interconnect/v1`.
-It is joined only when `sai jobs local --job-id ID --with-interconnect` is
-requested, so ordinary allocation JSON remains stable and a missing mapping
-cannot look like an empty topology. The record is site-published and time-bound;
-it contains verified CPU/NUMA-to-GPU affinity, GPU path classes and safe
+Hardware interconnect is a site-published observation. A v1 record expires at
+its stated deadline. A `node.interconnect/v2` record can carry a review date.
+Passing that date preserves the observation. The reader still checks the cluster,
+node, hardware dimensions and Slurm daemon generation when joining a job.
+The local CLI joins the observation on `sai jobs local --job-id ID --with-interconnect`,
+so ordinary allocation JSON remains stable and a missing mapping
+cannot look like an empty topology. The record contains verified
+CPU/NUMA-to-GPU affinity, GPU path classes and safe
 node-fabric peer references. The same standard-library record reader and validator
 is exported from the Portal producer for the CLI and gateway. Capture parsing
 and record construction remain in its operator-only module, excluded from both

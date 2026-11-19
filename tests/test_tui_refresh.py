@@ -40,6 +40,51 @@ def test_refresh_tick_during_shutdown_never_uses_removed_widgets(job_client):
     assert closing_ticks == [True]
 
 
+def test_mixed_topology_detail_keeps_reviewable_node_when_legacy_record_expires(job_client):
+    env, _, _ = job_client
+    queries = Queries(build_parser().parse_args(['tui']), env)
+    native_read = queries.read
+    sample = Path(__file__).resolve().parents[1] / "contracts/node-interconnect/v1/sample.json"
+    record = json.loads(sample.read_text())
+    record["gpus"] += [{**gpu, "index": gpu["index"] + 2} for gpu in record["gpus"]]
+    record["links"] = [{"a": a, "b": b, "kind": "NV2"} for a in range(4) for b in range(a + 1, 4)]
+
+    async def read(request):
+        result = await native_read(request)
+        if request.view == "allocation":
+            value = result.as_dict()
+            current, legacy = [node["name"] for node in value["allocation"]["nodes"]]
+            reviewable = {**record, "node": current, "schema_version": "node.interconnect/v2"}
+            reviewable["review_after"] = reviewable.pop("expires_at")
+            value["interconnect"] = {"schema_version": "node-interconnect-join/v1", "nodes": [
+                {"node": current, "status": "recorded", "value": reviewable},
+                {"node": legacy, "status": "recorded", "value": {**record, "node": legacy}},
+            ]}
+        return result
+
+    async def run():
+        queries.read = read
+        app = QueryApp(queries, language="zh-CN")
+        async with app.run_test(size=(100, 50)) as pilot:
+            await loaded(app, pilot)
+            await pilot.press('enter')
+            await loaded(app, pilot)
+            app._poll_current_view()
+            app._poll_current_view()
+            detail = app._allocation_detail
+            reviewed, expired = detail["interconnect"]["nodes"]
+            assert reviewed["status"] == "recorded" and "review_after" in reviewed["value"]
+            assert expired == {"node": "compute-b", "status": "unavailable", "reason": "expired"}
+            assert all(node["gres"][0]["indices"] == [1, 3] for node in detail["allocation"]["nodes"])
+            await app.wait_for_refresh()
+            screen = html.unescape(app.export_screenshot())
+            assert "NUMA" in screen and "硬件记录已过期" in screen
+            await pilot.press('escape')
+            assert app.query_one('#job-table').has_focus
+
+    asyncio.run(run())
+
+
 def test_background_refresh_preserves_rows_selection_scroll_and_focus(job_client):
     env, path, payload = job_client
     payload['jobs'] = [{**deepcopy(payload['jobs'][0]), 'job_id': number} for number in range(100,180)]

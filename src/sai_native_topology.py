@@ -13,6 +13,7 @@ import re
 import stat
 
 SCHEMA = "node.interconnect/v1"
+REVIEWABLE_SCHEMA = "node.interconnect/v2"
 DEFAULT_ROOT = "/opt/sai/runtime/topology"
 MAX_BYTES = 512 * 1024
 MAX_CPU_IDS = 65536
@@ -43,19 +44,30 @@ def _time(value):
 
 def normalize_interconnect(value):
     """Allowlist the same node DTO in the gateway, CLI and other consumers."""
-    if not isinstance(value, dict) or value.get("schema_version") != SCHEMA:
+    if not isinstance(value, dict) or value.get("schema_version") not in (SCHEMA, REVIEWABLE_SCHEMA):
         raise ValueError("invalid interconnect schema")
-    result = {"schema_version": SCHEMA}
+    schema = value["schema_version"]
+    result = {"schema_version": schema}
     for key in ("node", "cluster"):
         item = value.get(key)
         if not isinstance(item, str) or _NAME.fullmatch(item) is None:
             raise ValueError("invalid topology binding")
         result[key] = item
-    start, end = _time(value.get("observed_at")), _time(value.get("expires_at"))
-    if start >= end:
-        raise ValueError("invalid topology observation interval")
-    result.update(observed_at=value["observed_at"], expires_at=value["expires_at"],
-                  boot_time=_number(value.get("boot_time"), 2**63 - 1),
+    start = _time(value.get("observed_at"))
+    result["observed_at"] = value["observed_at"]
+    end = None
+    if schema == SCHEMA:
+        end = _time(value.get("expires_at"))
+        if start >= end or "review_after" in value:
+            raise ValueError("invalid topology observation interval")
+        result["expires_at"] = value["expires_at"]
+    elif "expires_at" in value:
+        raise ValueError("reviewable topology cannot declare an expiry")
+    elif "review_after" in value:
+        if _time(value["review_after"]) <= start:
+            raise ValueError("topology review must follow its observation")
+        result["review_after"] = value["review_after"]
+    result.update(boot_time=_number(value.get("boot_time"), 2**63 - 1),
                   slurmd_start_time=_number(value.get("slurmd_start_time"), 2**63 - 1))
     if not result["boot_time"] or not result["slurmd_start_time"]:
         raise ValueError("missing node generation")
@@ -97,7 +109,8 @@ def normalize_interconnect(value):
         mapped = [_number(cpu) for cpu in mapped]
         if len(set(mapped)) != total or not set(mapped).issubset(seen_cpus):
             raise ValueError("CPU mapping is outside Linux topology")
-        if not start <= _time(mapping.get("observed_at")) < end:
+        mapped_at = _time(mapping.get("observed_at"))
+        if mapped_at < start or (end is not None and mapped_at >= end):
             raise ValueError("CPU mapping observation is outside record interval")
         result["cpu_mapping"] = {"observed_at": mapping["observed_at"], "slurm_to_linux": mapped}
     result["gpus"] = []
@@ -161,6 +174,16 @@ def normalize_interconnect(value):
     return result
 
 
+def _observation_time_failure(record, current):
+    """Use only observation times and the legacy publisher's explicit cutoff."""
+    newest = record.get("cpu_mapping", {}).get("observed_at", record["observed_at"])
+    if current < _time(newest):
+        return "expired" if record["schema_version"] == SCHEMA else "not_yet_observed"
+    if record["schema_version"] == SCHEMA and current >= _time(record["expires_at"]):
+        return "expired"
+    return None
+
+
 def job_cpu_locality(record, cpu_ids):
     """Project allocation onto NUMA using only the recorded native CPU map."""
     mapping = record.get("cpu_mapping")
@@ -200,9 +223,9 @@ def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT
     current = now or datetime.now(timezone.utc)
     if value["node"] != name or value["cluster"] != cluster:
         raise ValueError("topology identity differs")
-    newest = value.get("cpu_mapping", {}).get("observed_at", value["observed_at"])
-    if not _time(newest) <= current < _time(value["expires_at"]):
-        return {"status": "unavailable", "reason": "expired"}
+    reason = _observation_time_failure(value, current)
+    if reason:
+        return {"status": "unavailable", "reason": reason}
     if value["cpu_topology"] != dimensions or len(value["gpus"]) != gpu_total:
         return {"status": "unavailable", "reason": "configuration_changed"}
     return {"status": "recorded", "value": value}
@@ -264,9 +287,12 @@ def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT
                 record.update(status="unavailable", reason="node_restarted")
         finished = clock()
         for record in available:
-            if record["status"] == "recorded" and not _time(record["value"]["observed_at"]) <= finished < _time(record["value"]["expires_at"]):
+            if record["status"] != "recorded":
+                continue
+            reason = _observation_time_failure(record["value"], finished)
+            if reason:
                 record.pop("value")
-                record.update(status="unavailable", reason="expired")
+                record.update(status="unavailable", reason=reason)
     peers = {nic["peer"] for record in records if record["status"] == "recorded" for nic in record["value"]["nics"] if nic["peer"] is not None}
     for record in records:
         if record["status"] == "recorded":
@@ -290,7 +316,7 @@ def normalize_join(value, allocation, *, cluster, now=None):
             raise ValueError("interconnect is outside allocation")
         seen.add(name)
         if row["status"] == "unavailable":
-            if row["reason"] not in {"not_recorded", "expired", "configuration_changed", "allocation_dimensions_unknown",
+            if row["reason"] not in {"not_recorded", "expired", "not_yet_observed", "configuration_changed", "allocation_dimensions_unknown",
                                      "record_invalid", "node_limit", "size_limit", "node_restarted"}:
                 raise ValueError("invalid interconnect failure")
             clean.append({"node": name, "status": "unavailable", "reason": row["reason"]})
@@ -308,12 +334,14 @@ def normalize_join(value, allocation, *, cluster, now=None):
         else:
             raise ValueError("invalid interconnect status")
     for row in clean:
-        if row["status"] == "recorded" and any(edge["a"] not in published_peers or edge["b"] not in published_peers for edge in row["value"]["fabric_links"]):
+        if row["status"] != "recorded":
+            continue
+        if any(edge["a"] not in published_peers or edge["b"] not in published_peers for edge in row["value"]["fabric_links"]):
             raise ValueError("fabric connection is outside the job projection")
-        newest = row.get("value", {}).get("cpu_mapping", {}).get("observed_at", row.get("value", {}).get("observed_at"))
-        if row["status"] == "recorded" and not _time(newest) <= current < _time(row["value"]["expires_at"]):
+        reason = _observation_time_failure(row["value"], current)
+        if reason:
             row.pop("value")
-            row.update(status="unavailable", reason="expired")
+            row.update(status="unavailable", reason=reason)
     peers = {nic["peer"] for row in clean if row["status"] == "recorded" for nic in row["value"]["nics"] if nic["peer"] is not None}
     for row in clean:
         if row["status"] == "recorded":

@@ -862,7 +862,6 @@
         "node",
         "cluster",
         "observed_at",
-        "expires_at",
         "cpu_topology",
         "numa",
         "gpus",
@@ -900,7 +899,10 @@
       },
       "properties": {
         "schema_version": {
-          "const": "node.interconnect/v1"
+          "enum": [
+            "node.interconnect/v1",
+            "node.interconnect/v2"
+          ]
         },
         "node": {
           "$ref": "#/$defs/hardware_record/$defs/ref"
@@ -1152,6 +1154,33 @@
               "$ref": "#/$defs/hardware_record/$defs/cpuIds"
             }
           }
+        },
+        "review_after": {
+          "$ref": "#/$defs/hardware_record/$defs/timestamp"
+        }
+      },
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "node.interconnect/v1"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "expires_at"
+        ],
+        "not": {
+          "required": [
+            "review_after"
+          ]
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "expires_at"
+          ]
         }
       }
     },
@@ -1215,7 +1244,8 @@
                       "record_invalid",
                       "node_limit",
                       "size_limit",
-                      "node_restarted"
+                      "node_restarted",
+                      "not_yet_observed"
                     ]
                   }
                 }
