@@ -27,6 +27,8 @@ def http_endpoint(respond):
                     "capability": self.headers.get("X-SAI-Capability")}
             if self.headers.get("Idempotency-Key") is not None:
                 call["idempotency_key"] = self.headers["Idempotency-Key"]
+            if "X-SAI-Interconnect-Schema" in self.headers:
+                call["interconnect_schema"] = self.headers["X-SAI-Interconnect-Schema"]
             calls.append(call)
             status, payload = respond(call, len(calls))
             encoded = json.dumps(payload).encode()
@@ -202,6 +204,7 @@ def test_allocation_uses_exact_operation_and_gateway_path(tmp_path, site_allocat
         "partition": None, "states": [], "job_id": "12345_7", "limit": None,
     }
     assert all(c["path"] == "/v1/site-read/jobs/12345_7/allocation" and c["bearer"] is None for c in reads)
+    assert all("interconnect_schema" not in c for c in reads)
 
 
 def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tmp_path, site_allocation_payload):
@@ -216,7 +219,12 @@ def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tm
     site_allocation_payload["interconnect"] = {"schema_version": "node-interconnect-join/v1", "nodes": [
         unknown, {"node": nodes[1]["name"], "status": "recorded", "value": hardware},
     ]}
-    with http_endpoint(issuer) as (portal,issued), http_endpoint(lambda *_:(200,site_allocation_payload)) as (gateway,reads):
+    def gateway_reply(call, count):
+        if count == 2:
+            return 401, {}
+        return 200, site_allocation_payload
+
+    with http_endpoint(issuer) as (portal,issued), http_endpoint(gateway_reply) as (gateway,reads):
         config=profile(tmp_path,portal,gateway)
         code,text,error=invoke(config,tmp_path,['jobs','allocation','12345','--with-interconnect'])
         assert code==0,error
@@ -228,6 +236,8 @@ def test_optional_interconnect_uses_same_exact_capability_and_fails_if_absent(tm
         assert issued[0]['body']['operation']=='jobs.allocation' and reads[0]['bearer'] is None
         del site_allocation_payload['interconnect']
         assert invoke(config,tmp_path,['jobs','allocation','12345','--with-interconnect'])[0]==7
+        assert [call.get("interconnect_schema") for call in reads] == ["node.interconnect/v2"] * 3
+        assert all("interconnect_schema" not in call for call in issued)
 
 
 @pytest.mark.parametrize("capability", [False, True])

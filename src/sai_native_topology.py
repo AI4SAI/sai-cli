@@ -14,6 +14,7 @@ import stat
 
 SCHEMA = "node.interconnect/v1"
 REVIEWABLE_SCHEMA = "node.interconnect/v2"
+INTERCONNECT_SCHEMA_HEADER = "X-SAI-Interconnect-Schema"
 DEFAULT_ROOT = "/opt/sai/runtime/topology"
 MAX_BYTES = 512 * 1024
 MAX_CPU_IDS = 65536
@@ -194,7 +195,7 @@ def job_cpu_locality(record, cpu_ids):
     return {row["id"]: sorted(machine.intersection(row["linux_cpu_ids"])) for row in record["numa"]}
 
 
-def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT, now=None, trusted_uid=0):
+def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT, now=None, trusted_uid=0, reviewable=True):
     """Only root-published native mapping assets, without business config/auth."""
     if not isinstance(name, str) or not _NAME.fullmatch(name):
         raise ValueError("invalid topology node")
@@ -223,6 +224,8 @@ def read_interconnect(name, *, cluster, dimensions, gpu_total, root=DEFAULT_ROOT
     current = now or datetime.now(timezone.utc)
     if value["node"] != name or value["cluster"] != cluster:
         raise ValueError("topology identity differs")
+    if not reviewable and value["schema_version"] == REVIEWABLE_SCHEMA:
+        return {"status": "unavailable", "reason": "record_invalid"}
     reason = _observation_time_failure(value, current)
     if reason:
         return {"status": "unavailable", "reason": reason}
@@ -246,7 +249,7 @@ def same_node_generation(expected, observed):
     return starts[0] == starts[1]
 
 
-def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT, clock=None, trusted_uid=0):
+def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT, clock=None, trusted_uid=0, reviewable=True):
     """Same bounded optional layer for native callers and authorized gateways."""
     nodes = allocation["nodes"] or []
     clock = clock or (lambda: datetime.now(timezone.utc))
@@ -259,7 +262,7 @@ def join_interconnect(allocation, *, cluster, read_node_state, root=DEFAULT_ROOT
         else:
             try:
                 record = read_interconnect(node["name"], cluster=cluster, dimensions=node["cpu_topology"],
-                    gpu_total=node["gpu_total"], root=root, now=clock(), trusted_uid=trusted_uid)
+                    gpu_total=node["gpu_total"], root=root, now=clock(), trusted_uid=trusted_uid, reviewable=reviewable)
             except (OSError, ValueError, TypeError, KeyError):
                 record = {"status": "unavailable", "reason": "record_invalid"}
         size += len(json.dumps(record))

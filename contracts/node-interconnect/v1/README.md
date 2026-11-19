@@ -11,8 +11,12 @@ publisher to withdraw or replace the affected record. Reuse of a node name or
 unchanged device counts is insufficient evidence that its hardware is unchanged.
 
 An explicit `--expires-at` still emits v1 and its deadline remains binding.
-The join envelope accepts both record versions. Upgrade stored-schema consumers
-and their embedded validators before the publisher switches records to v2.
+The join envelope accepts both record versions. For a remote allocation with
+`include_interconnect=true`, clients that can read v2 send
+`X-SAI-Interconnect-Schema: node.interconnect/v2`. Without the header the
+gateway returns readable v1 records and marks nodes with v2 records unavailable.
+In both cases the live allocation is preserved. Upgrade the gateway and any
+consumers that read stored records directly before publishing v2 records.
 
 `node.interconnect/v1` is a bounded, read-only projection of one compute node's
 hardware relationships. It is a view over native observations, not a scheduler,

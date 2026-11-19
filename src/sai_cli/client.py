@@ -255,24 +255,25 @@ class PortalClient:
         )
         return result
 
-    def _site_get(self, path: str, *, body: dict[str, object]) -> JsonResponse:
+    def _site_get(self, path: str, *, body: dict[str, object], interconnect: bool = False) -> JsonResponse:
         if self.site_transport is None or self.capability_provider is None:
             raise ConfigError("native reads require a configured site_read_base_url and capability mode")
         lease, capability = self._acquire_capability(body, lease=self.token_provider.get())
-        # The gateway receives only the capability. All filters are signed in it.
+        headers = {CAPABILITY_HEADER: capability.token}
+        if interconnect:
+            from sai_native_topology import INTERCONNECT_SCHEMA_HEADER, REVIEWABLE_SCHEMA
+
+            path += "?include_interconnect=true"
+            headers[INTERCONNECT_SCHEMA_HEADER] = REVIEWABLE_SCHEMA
         try:
-            response = self.site_transport.request(
-                "GET", path, headers={CAPABILITY_HEADER: capability.token},
-            )
+            return self.site_transport.request("GET", path, headers=headers)
         except AuthenticationError:
             if capability.source != "cache":
                 raise
             self.capability_provider.invalidate(capability)
             _, capability = self._acquire_capability(body, lease=lease, force_refresh=True)
-            response = self.site_transport.request(
-                "GET", path, headers={CAPABILITY_HEADER: capability.token},
-            )
-        return response
+            headers[CAPABILITY_HEADER] = capability.token
+            return self.site_transport.request("GET", path, headers=headers)
 
     def job_allocation(self, job_id: str, query: JobQuery, *, interconnect: bool = False) -> SiteJobAllocationResult:
         identifier = clean_token(job_id, field="job ID", required=True, maximum=64) or ""
@@ -280,8 +281,9 @@ class PortalClient:
             raise ConfigError("allocation requires a numeric job ID or numeric job_task ID")
         request = query.validated(detail=True)
         response = self._site_get(
-            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/allocation" + ("?include_interconnect=true" if interconnect else ""),
+            "/v1/site-read/jobs/" + quote(identifier, safe="") + "/allocation",
             body=request.capability_request(operation="jobs.allocation", job_id=identifier),
+            interconnect=interconnect,
         )
         result = SiteJobAllocationResult.from_payload(response.payload, request_id=response.request_id)
         if interconnect and result.interconnect is None:
