@@ -174,11 +174,24 @@ def render_project_compute(result: ProjectCompute, *, args: Namespace) -> str:
     value = result.values
     if "items" in value:
         if value["schema_version"] == "collaboration.projects/v1":
-            lines = [f"{row['label']} · {row['organization_label']} · {row['code']}\n  {row['project_id']}" for row in value["items"]]
+            lines = []
+            for row in value["items"]:
+                command = follow_up_command(args, "projects", "members", row["project_id"], "--format", "table")
+                lines.append(f"{row['label']} · {row['organization_label']} · {row['code']}\n  {terminal_log(command)}")
         else:
             roles = {"owner": "负责人", "admin": "管理员", "write": "编辑文件", "read": "查看文件"}
             states = {"active": "", "scheduled": " · 尚未生效", "expired": " · 已过期"}
-            lines = [f"{row['username']} · {'计算已启用' if row['compute_enabled'] else '计算未启用'} · {roles[row['role']]}{states[row['membership_status']]}\n  {row['membership_id']}" for row in value["items"]]
+            lines = []
+            for row in value["items"]:
+                command = follow_up_command(
+                    args, "projects", "member", value["project"]["project_id"], row["membership_id"],
+                    "--site", value["site_id"], "--format", "table",
+                )
+                compute = "计算已启用" if row["compute_enabled"] else "计算未启用"
+                lines.append(
+                    f"{row['username']} · {compute} · {roles[row['role']]}{states[row['membership_status']]}\n"
+                    f"  {terminal_log(command)}"
+                )
         if value["has_more"]:
             words = ["projects", args.projects_command]
             if args.projects_command == "members":

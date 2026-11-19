@@ -3,6 +3,7 @@ from io import StringIO
 import json
 from pathlib import Path
 import shlex
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -82,6 +83,47 @@ def test_project_query_pagination_preserves_service_and_filter(tmp_path):
         following=shlex.split(out.getvalue().split("下一页：")[1].strip())[1:]
         assert main(following,environ=env,stdout=StringIO(),stderr=error)==0,error.getvalue()
         assert len(calls)==2
+
+
+def test_listed_project_and_member_open_the_selected_permission_preview(tmp_path):
+    projects = sample("collaboration-projects")
+    selected = projects["items"][0]
+    projects["items"].insert(0, {**selected, "project_id": "project-a", "organization_label": "Other team"})
+    members = sample("project-members")
+    members["items"].insert(0, {**members["items"][0], "membership_id": "member-a", "username": "another"})
+    detail = sample("project-member")
+    members["site_id"] = detail["site_id"] = detail["sites"][0]["site_id"] = "site-b"
+    responses = iter((projects, members, detail))
+
+    def run(words):
+        output, error = StringIO(), StringIO()
+        assert main(words, environ={"SAI_TOKEN": "test-user"}, stdout=output, stderr=error) == 0, error.getvalue()
+        return output.getvalue()
+
+    def command_under(display, label):
+        lines = display.splitlines()
+        command = shlex.split(lines[lines.index(label) + 1])
+        assert command[0] == "sai"
+        return command[1:]
+
+    with http_endpoint(lambda call, count: (200, next(responses))) as (origin, calls):
+        config = tmp_path / "team profile.toml"
+        config.write_text(f'[profiles.research]\nbase_url = {json.dumps(origin)}\nsite_id = "site-b"\n')
+        config.chmod(0o600)
+        listing = run(["projects", "list", "--query", "Research", "--format", "table",
+                       "--config", str(config), "--profile", "research"])
+        roster = run(command_under(listing, "Research · Research team · proj-example"))
+        member = command_under(roster, "researcher · 计算未启用 · 编辑文件")
+        assert member[member.index("--site") + 1] == "site-b"
+        preview = run(member)
+
+    assert [(call["method"], urlsplit(call["path"]).path) for call in calls] == [
+        ("GET", "/v1/account/cli/projects"),
+        ("GET", "/v1/account/cli/projects/project-example/members"),
+        ("GET", "/v1/account/cli/projects/project-example/members/member-example"),
+    ]
+    assert all(parse_qs(urlsplit(call["path"]).query)["site_id"] == ["site-b"] for call in calls[1:])
+    assert "付款组织：Research team" in preview and "确认启用：" in preview
 
 
 @pytest.mark.parametrize("failure", ["unavailable", "invalid_response", "state_changed", "member_pending", "idempotency_conflict"])
