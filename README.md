@@ -37,14 +37,14 @@ This optional context follows native visibility and does not require Portal logi
 
 ## On your computer
 
-Python 3.11+ is required. Existing portable-client qualification covers Linux;
-macOS and Windows are not yet qualified. The examples below target `0.2.0a3`.
-Published wheels and SHA-256 checksums are available from the
-[versioned releases](https://github.com/AI4SAI/sai-cli/releases).
-With your reviewed wheel and matching checksum, verify it and install with pipx:
+Python 3.11+ is required. The portable client has been tested on Linux.
+macOS and Windows still await qualification.
+Choose a [GitHub release](https://github.com/AI4SAI/sai-cli/releases) and
+download its wheel and `SHA256SUMS`. Verify the wheel's checksum, then run
+the `pipx install` command on that release page. It also gives the command
+for the optional TUI and links to the first-use guide for that version.
 
 ```bash
-pipx install ./sai_cli-0.2.0a3-py3-none-any.whl
 sai configure https://console.example.org --format table
 sai auth login
 sai sites --format table
@@ -61,16 +61,10 @@ sai account defaults --site site-a --format table
 The catalogue contains published specifications and prices. Account defaults
 shows your authorized choices; neither command changes an account or grants
 site access. Configuration preserves existing profiles and credentials.
-See [first use and recovery](docs/getting-started.md) for wheel installation,
-additional permissions, multiple services and upgrade/rollback.
 
-The base client has no third-party runtime dependency. To add the optional
-interface, including to an existing base installation, use
-`pipx install --force './sai_cli-0.2.0a3-py3-none-any.whl[tui]'`. This preserves
-your user configuration and credentials. It needs an interactive
-terminal. Local views require the corresponding Slurm/Lustre tools on that host.
-Use the wheel filename for your reviewed version. The a1 and a2 releases and
-their assets remain unchanged; see the [a3 scope](docs/product-delivery.md#portable-management-020a3).
+The base client has no third-party runtime dependency. Adding the optional TUI
+preserves your configuration and credentials. It needs an interactive terminal.
+Local views require the corresponding Slurm/Lustre tools on that host.
 
 ## With your Agent
 
@@ -88,7 +82,7 @@ exit codes. A task can request its missing permissions with
 
 The client supports native queue/resource/quota reads, account and cost queries,
 job allocation and recorded-run outputs, default-account changes and recipient
-invitation acceptance. Version a3 includes `projects enable-compute`,
+invitation acceptance. [Version a3](docs/product-delivery.md#portable-management-020a3) includes `projects enable-compute`,
 invitation v2 and task-specific consent/resume with the existing paired backend
 and optional grants. The called service owns authorization and reports whether
 a change was accepted or applied. Broader project, storage and compute lifecycle
@@ -98,7 +92,7 @@ add `--apply` to accept. This v2 workflow requires the paired Portal update.
 
 ## Learn more
 
-- [First useful task](docs/getting-started.md)
+- [First-use guide for this source version](docs/getting-started.md)
 - [Human and Agent scope](docs/terminal-scope.md)
 - [Supported management and receipts](docs/portal-management.md)
 - [Architecture and ownership](docs/architecture.md)
