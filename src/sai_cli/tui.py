@@ -168,9 +168,11 @@ class QueryApp(App):
         if self._allocation_detail is not None:
             value = self._allocation_detail
             joined = value.get("interconnect")
-            if joined and any(row["status"] == "recorded" and datetime.fromisoformat(
-                    row["value"]["expires_at"].replace("Z", "+00:00")).timestamp() <= time.time()
-                    for row in joined["nodes"]):
+            if joined and any(
+                datetime.fromisoformat(row["value"]["expires_at"]).timestamp() <= time.time()
+                for row in joined["nodes"]
+                if row["status"] == "recorded" and "expires_at" in row["value"]
+            ):
                 from sai_native_topology import normalize_join
                 from .allocation_view import allocation_view
                 value["interconnect"] = normalize_join(joined, value["allocation"], cluster=value["cluster"])
