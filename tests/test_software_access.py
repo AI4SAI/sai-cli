@@ -10,15 +10,24 @@ import pytest
 
 HELPER = Path(__file__).resolve().parents[1] / "site/modules/software_access.tcl"
 HEADER = "# sai-software-access/v1\n"
+EXAMPLE = HEADER + "example\t23456\tExample\n"
 
 
-def _run(tmp_path: Path, text: str, *, key: str = "example", mode: str = "load", groups: str = ""):
-    binding = tmp_path / "software-access.tsv"
-    binding.write_text(text, encoding="utf-8")
-    interpreter = shutil.which("tclsh")
-    assert interpreter, "Tcl is required to exercise the actual module helper"
+def _run(tmp_path: Path, install_root: Path, *, binding: str = EXAMPLE,
+         key: str = "example", mode: str = "load", namespace: bool = False):
+    table = tmp_path / "software-access.tsv"
+    table.write_text(binding, encoding="utf-8")
+    interpreter = shutil.which("tclsh") or shutil.which("tclsh8.6")
+    assert interpreter, "Tcl is required to exercise the module helper"
+    command = [interpreter, "/dev/stdin", str(HELPER), str(table), key, mode, str(install_root)]
+    if namespace:
+        bwrap = shutil.which("bwrap")
+        if not bwrap:
+            pytest.skip("the native user namespace test requires bubblewrap")
+        command = [bwrap, "--unshare-user", "--ro-bind", "/", "/", "--dev", "/dev", "--proc",
+                   "/proc", "--", *command]
     return subprocess.run(
-        [interpreter, "/dev/stdin", str(HELPER), str(binding), key, mode, groups],
+        command,
         input="""
 proc module-info {operation value} {return [expr {[lindex $::argv 3] eq $value}]}
 encoding system iso8859-1
@@ -26,14 +35,7 @@ fconfigure stdout -encoding utf-8
 fconfigure stderr -encoding utf-8
 source -encoding utf-8 [lindex $argv 0]
 set sai_software_access::binding_file [lindex $argv 1]
-if {[lindex $argv 4] ne ""} {
-    rename exec native_exec
-    proc exec {args} {
-        if {$args ne {/usr/bin/id -G}} {error "unexpected external command"}
-        return [lindex $::argv 4]
-    }
-}
-if {[catch {sai_require_software_access [lindex $argv 2]} message]} {
+if {[catch {sai_require_software_access [lindex $argv 2] [lindex $argv 4]} message]} {
     puts stderr $message
     exit 42
 }
@@ -43,28 +45,35 @@ if {[catch {sai_require_software_access [lindex $argv 2]} message]} {
     )
 
 
-def test_real_process_groups_are_used_and_environment_cannot_grant_access(tmp_path: Path) -> None:
-    groups = set(os.getgroups()) | {os.getegid()}
-    positive = groups - {0}
-    if positive:
-        allowed = _run(tmp_path, HEADER + f"example\t{min(positive)}\tExample\n")
-        assert (allowed.returncode, allowed.stdout, allowed.stderr) == (0, "", "")
-    denied_gid = 23456 if 23456 not in groups else 23457
-    denied = _run(tmp_path, HEADER + f"example\t{denied_gid}\tExample\n")
-    assert denied.returncode == 42
-    assert denied.stdout == ""
-    assert denied.stderr == "Example 当前会话无权限：控制台开通；已开通请重新登录\n"
-
-
-@pytest.mark.parametrize("groups", ["23456 1000", "1000 23456"])
-def test_primary_or_supplementary_group_uses_same_checker(tmp_path: Path, groups: str) -> None:
-    result = _run(tmp_path, HEADER + "third_app\t23456\tThird application\n", key="third_app", groups=groups)
+@pytest.mark.parametrize("namespace", [False, True])
+def test_current_process_can_load_an_accessible_installation(tmp_path: Path, namespace: bool) -> None:
+    root = tmp_path / "vendor"
+    root.mkdir(mode=0o750)
+    root.chmod(0o750)
+    result = _run(tmp_path, root, key="third_app",
+                  binding=HEADER + "third_app\t23456\tThird application\n", namespace=namespace)
     assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="this denial requires an ordinary non-root file owner")
+@pytest.mark.parametrize("namespace", [False, True])
+def test_kernel_denial_is_preserved_despite_forged_group_environment(tmp_path: Path, namespace: bool) -> None:
+    root = tmp_path / "vendor"
+    root.mkdir()
+    root.chmod(0o050)
+    try:
+        assert not os.access(root, os.R_OK | os.X_OK)
+        result = _run(tmp_path, root, namespace=namespace)
+    finally:
+        root.chmod(0o700)
+    assert (result.returncode, result.stdout, result.stderr) == (
+        42, "", "Example 当前会话无权限：控制台开通；已开通请重新登录\n"
+    )
 
 
 @pytest.mark.parametrize("mode", ["display", "help", "spider", "remove"])
 def test_readonly_and_unload_modes_do_not_require_access(tmp_path: Path, mode: str) -> None:
-    result = _run(tmp_path, "invalid", mode=mode, groups="unreadable")
+    result = _run(tmp_path, tmp_path / "missing", binding="invalid", mode=mode)
     assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
 
 
@@ -75,7 +84,29 @@ def test_readonly_and_unload_modes_do_not_require_access(tmp_path: Path, mode: s
     "example\t1234\tA\nexample\t1234\tB\n",
 ])
 def test_missing_or_malformed_binding_fails_closed(tmp_path: Path, rows: str) -> None:
-    result = _run(tmp_path, HEADER + rows, groups="1234")
-    assert result.returncode == 42
-    assert result.stdout == ""
-    assert result.stderr == "软件访问配置不可用，请联系管理员\n"
+    root = tmp_path / "vendor"
+    root.mkdir(mode=0o750)
+    root.chmod(0o750)
+    result = _run(tmp_path, root, binding=HEADER + rows)
+    assert (result.returncode, result.stdout, result.stderr) == (
+        42, "", "软件访问配置不可用，请联系管理员\n"
+    )
+
+
+@pytest.mark.parametrize("invalid", ["public", "missing", "file", "alias"])
+def test_requires_the_protected_installation_directory(tmp_path: Path, invalid: str) -> None:
+    root = tmp_path / "vendor"
+    root.mkdir(mode=0o750)
+    root.chmod(0o750)
+    wrong = tmp_path / invalid
+    if invalid == "public":
+        wrong.mkdir()
+        wrong.chmod(0o755)
+    elif invalid == "alias":
+        wrong.symlink_to(root, target_is_directory=True)
+    elif invalid == "file":
+        wrong.touch()
+    result = _run(tmp_path, wrong)
+    assert (result.returncode, result.stdout, result.stderr) == (
+        42, "", "软件访问配置不可用，请联系管理员\n"
+    )

@@ -21,26 +21,37 @@ Unknown or duplicate keys, invalid records and a missing definition fail closed.
 Different sites resolve their own GIDs; numbers are never compiled into the
 shared checker.
 
-Publish `site/modules/software_access.tcl` and the generated TSV together under
-the existing shared modules root, outside MODULEPATH. A Tcl modulefile calls:
+Publish `site/modules/software_access.tcl` and the generated TSV together in an
+immutable release under the existing shared modules root, outside MODULEPATH.
+Each Tcl modulefile calls the matching helper with its software key and the
+canonical protected root of its own installation. For example:
 
 ```tcl
-source -encoding utf-8 /opt/modules/site/software-access/current/software_access.tcl
-sai_require_software_access example
+source -encoding utf-8 /opt/modules/site/software-access/releases/RELEASE/software_access.tcl
+sai_require_software_access example /opt/apps/example
 ```
 
 Explicit UTF-8 source encoding also works with Lmod's Tcl translation locale.
-Put this before dependencies and environment changes. The helper checks only
-load mode, using `/usr/bin/id -G` without a username. This reads the current
-process's numeric groups; it performs no Portal, directory-service, OAuth or
-license-server request. Success is silent. Failure tells the user to open the
-console or reconnect after access was enabled. Show/help/spider and unload do
-not check membership. The same helper accepts every configured software key.
+Put this before dependencies and environment changes. At publication, verify that
+the root is the directory used by this module, its owning group matches the GID
+exported for this key, and its mode and ACL grant read and search to the software
+group and the installation owner. Check for any other grants. A public parent
+or the mode of a binary below the protected root cannot establish that boundary.
+Use a fixed modulefile argument. User input and environment variables cannot
+select the directory.
+
+On load, the helper validates the registered key and directory, then asks the
+kernel whether the current process can read and search the directory. This
+works when a user namespace cannot display the numeric software GID. Success is
+silent. Show, help, spider and unload skip the preflight. No per-load Portal,
+NSS, OAuth or licence-server request is required.
 
 The helper belongs to the shared module environment and the sdist, not the CLI
 wheel. A normal shared publication does not install anything on compute nodes,
-alter mounts or require a new `sai` command. User environment variables are not
-permission evidence, and there is no root exception or per-session allow marker.
+alter mounts or require a new `sai` command. An installation owner or an
+administrator who already has native access passes the same check. Module
+loading reports current file access; Portal remains the source of commercial
+authorization. There is no separate root exception or per-session allow marker.
 Old processes retain their group credentials: refreshing NSS does not update an
 existing shell or stop an already-running application.
 
@@ -63,11 +74,20 @@ does not add a software-specific authorization rule.
 ## Acceptance and rollout
 
 Preserve existing group names and restricted software-directory permissions.
-Inventory and checksum the exact modulefiles first. Stage one versioned helper
-and data directory, test explicit candidate module paths as ordinary users, and
-atomically publish the reviewed modulefiles and release pointer with backups.
-Preserve all existing scientific environment settings. Refresh the existing
+Inventory and checksum the exact modulefiles first. Stage the versioned helper
+and TSV before changing any modulefile. Test explicit candidate paths as
+ordinary users. Replace the helper reference and both arguments together in
+each modulefile by an atomic rename, retaining its original bytes and metadata.
+Rollback restores the complete old modulefile while its original helper remains
+available. Preserve all existing scientific environment settings. Refresh the existing
 Lmod discovery cache through its established publication command when required.
+
+The nine inventoried modulefiles use this migration path. Before their migration
+they call the one-argument helper through `current`; the replacements reference
+the two-argument release directly. Leave `current` on its previous release so
+older and in-flight calls can finish, including during rollback. A custom
+one-argument caller still has the old group-number behavior. Retire the old
+binding only after its consumers, in-flight loads and rollback requirement end.
 
 Validate both software families, unknown/no-group rejection, primary and
 supplementary groups, forged environment values, read-only module operations,

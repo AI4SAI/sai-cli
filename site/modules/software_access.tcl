@@ -3,7 +3,7 @@ namespace eval sai_software_access {
     variable binding_file [file join [file dirname [info script]] software-access.tsv]
 }
 
-proc sai_require_software_access {software} {
+proc sai_require_software_access {software install_root} {
     if {![module-info mode load]} {
         return
     }
@@ -30,21 +30,20 @@ proc sai_require_software_access {software} {
                 || [string length $label] == 0 || [string length $label] > 128
                 || [regexp {[\x00-\x1f\x7f-\x9f]} $label]
                 || [dict exists $bindings $key]} {error $unavailable}
-            dict set bindings $key [list $gid $label]
+            dict set bindings $key $label
         }
-        lassign [dict get $bindings $software] required_gid display_name
+        set display_name [dict get $bindings $software]
+        if {[file pathtype $install_root] ne "absolute" || [file normalize $install_root] ne $install_root} {
+            error $unavailable
+        }
+        file lstat $install_root guard
+        if {$guard(type) ne "directory" || ($guard(mode) & 0057) != 0050} {error $unavailable}
     }]} {
         error $unavailable
     }
-    # No username: numeric credentials of this process, with no NSS name lookup.
-    if {[catch {exec /usr/bin/id -G} groups]} {
-        error "当前会话权限无法读取，请重新登录"
-    }
-    if {![regexp {^[0-9]+([ \t]+[0-9]+)*$} [string trim $groups]]} {
-        error "当前会话权限无法读取，请重新登录"
-    }
-    set groups [regexp -all -inline {[0-9]+} $groups]
-    if {[lsearch -exact $groups $required_gid] < 0} {
+    # Publication pairs each module with the installation guarded by its registered group.
+    # The kernel can use supplementary groups even when their numbers are unmapped.
+    if {![file readable $install_root] || ![file executable $install_root]} {
         error "$display_name 当前会话无权限：控制台开通；已开通请重新登录"
     }
 }
