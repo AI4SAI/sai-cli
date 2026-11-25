@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 from sai_native_slurm import gpu_counts as _gpu_counts, gpu_indices as _gpu_indices, node_dimensions
 
-from .errors import ConfigError
+from .errors import ConfigError, ContractError, UnavailableError
 from .native_process import read_native_json
 from .native_values import (invalid_native, local_options, native_environment,
                             native_header, native_number, native_text, native_user)
@@ -192,6 +192,9 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
         raise ConfigError("choose the positional partition or --partition, not both")
     partition = args.partition_name if args.partition_name is not None else args.partition
     filters = {"partition": partition, "nodes": args.node, "kind": args.kind}
+    with_interconnect = getattr(args, "with_interconnect", False)
+    if with_interconnect and (not args.node or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.node)):
+        raise ConfigError("--with-interconnect requires one exact --node name")
     for value in (partition, args.node):
         if value is not None and (not value.strip() or len(value) > 4096
                                   or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)):
@@ -201,7 +204,8 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
         argv.append("--partition=" + partition)
     if args.node is not None:
         argv.append("--nodes=" + args.node)
-    payload = read_native_json(argv, environ=native_environment(environ, filter_prefix="SINFO_"), timeout=timeout)
+    env = native_environment(environ, filter_prefix="SINFO_")
+    payload = read_native_json(argv, environ=env, timeout=timeout)
     cluster, warnings = native_header(payload)
     rows = payload.get("sinfo")
     if not isinstance(rows, list):
@@ -231,8 +235,19 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
         members = [node for node in selected if name in node["partitions"]]
         if members:
             selected_parts.append({**parts[name], "summary": _summary(members, {name: parts[name]})})
-    return LocalResources({"schema_version": "native.resources/v1", "source": "sinfo", "authority": "native",
+    result = {"schema_version": "native.resources/v1", "source": "sinfo", "authority": "native",
         "observation_kind": "scheduler", "cluster": cluster, "actor": {"user": actor, "uid": os.geteuid()},
         "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "filters": filters, "nodes": selected, "partitions": selected_parts,
-        "summary": _summary(selected, parts), "unclassified_nodes": unknown, "warning_count": warnings})
+        "summary": _summary(selected, parts), "unclassified_nodes": unknown, "warning_count": warnings}
+    if with_interconnect:
+        from .native_topology import local_interconnect
+        if any(name != args.node for name in nodes):
+            raise invalid_native()
+        dimensions = [{"name": node["name"], "cpu_topology": node["cpu_topology"],
+                       "gpu_total": node["gpu"]["configured_units"]} for node in selected]
+        try:
+            result["interconnect"] = local_interconnect(dimensions, cluster=cluster, env=env, timeout=timeout)
+        except (ContractError, UnavailableError) as error:
+            result["interconnect_error"] = error.code
+    return LocalResources(result)

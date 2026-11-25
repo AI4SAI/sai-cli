@@ -73,11 +73,15 @@ def read_local_job_topology(args: argparse.Namespace, *, environ: Mapping[str, s
         "scheduler_states": allocation["scheduler_states"], "restart_count": allocation["restart_count"],
         "allocation": {key: allocation[key] for key in ("status", "nodes")}}
     if getattr(args, "with_interconnect", False):
-        from sai_native_topology import join_interconnect
-        try:
-            result["interconnect"] = join_interconnect(allocation, cluster=cluster,
-                read_node_state=lambda names: read_native_json(
-                    ["scontrol", "--local", "show", "node", ",".join(names), "--json"], environ=env, timeout=timeout))
-        except (ValueError, KeyError, TypeError) as exc:
-            raise invalid_native() from exc
+        result["interconnect"] = local_interconnect(allocation["nodes"], cluster=cluster, env=env, timeout=timeout)
     return NativeTopology(result)
+
+
+def local_interconnect(nodes, *, cluster: str, env: Mapping[str, str], timeout: float) -> dict:
+    from sai_native_topology import join_interconnect
+    try:
+        return join_interconnect({"nodes": nodes}, cluster=cluster,
+            read_node_state=lambda names: read_native_json(
+                ["scontrol", "--local", "show", "node", ",".join(names), "--json"], environ=env, timeout=timeout))
+    except (ValueError, KeyError, TypeError) as exc:
+        raise invalid_native() from exc

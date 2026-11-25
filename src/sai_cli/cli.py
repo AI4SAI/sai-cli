@@ -337,6 +337,8 @@ def build_parser() -> argparse.ArgumentParser:
     native_resources.add_argument("partition_name", nargs="?", help="native partition name")
     native_resources.add_argument("-p", "--partition", help="native partition narrowing filter")
     native_resources.add_argument("-n", "--node", help="native node/hostlist narrowing filter")
+    native_resources.add_argument("--with-interconnect", action="store_true",
+                                  help="include the published hardware record for one exact --node")
     native_resources.add_argument("--kind", choices=("all", "gpu", "cpu"), default="all",
                                   help="GPU GRES nodes, nodes without GPU GRES, or both")
     native_resources.add_argument("--details", action="store_true", help="include node details in human output (implicit with a partition)")
@@ -344,6 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
                                   help="native query deadline in seconds (default: 10)")
     _add_format_argument(native_resources)
     _operation(native_resources, source="native", site=False, executables=("sinfo",),
+               requirements=({"when": "--with-interconnect", "parameters": ["node"], "executables": ["scontrol"]},),
                notes=("Scheduler allocation and reported capacity, not measured utilization.",))
     catalog_parser = resource_commands.add_parser("catalog", help="show compute and storage specifications and prices")
     _add_connection_arguments(catalog_parser, suppress_defaults=True)

@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import partial
 from io import StringIO
 import json
 import os
@@ -67,6 +68,50 @@ def result(native_client, *args):
     code, output, errors = invoke(native_client[0], 'resources', 'local', *args)
     assert code == 0 and not errors, errors
     return json.loads(output)
+
+
+def test_exact_node_uses_published_hardware_without_a_job(native_client, tmp_path, monkeypatch):
+    import sai_native_topology
+    env, path, data = native_client
+    record = json.loads((Path(__file__).parents[1] / 'contracts/node-interconnect/v1/sample.json').read_text())
+    record['schema_version'] = 'node.interconnect/v2'
+    record.pop('expires_at')
+    records = tmp_path / 'records'
+    records.mkdir()
+    (records / 'node-a.json').write_text(json.dumps(record))
+    monkeypatch.setattr(sai_native_topology, 'join_interconnect', partial(
+        sai_native_topology.join_interconnect, root=records, trusted_uid=os.geteuid()))
+    data['sinfo'] = [data['sinfo'][0]]
+    selected = data['sinfo'][0]
+    for key, value in [('sockets', 2), ('cores', 4), ('threads', 2)]:
+        selected[key] = {'minimum': value, 'maximum': value}
+    selected['gres']['total'] = 'gpu:example:2'
+    path.write_text(json.dumps(data))
+    generation = tmp_path / 'state.json'
+    state = {'meta': data['meta'], 'errors': [], 'warnings': [],
+             'nodes': [{'name': 'node-a', 'slurmd_start_time': record['slurmd_start_time']}]}
+    generation.write_text(json.dumps(state))
+    command = tmp_path / 'scontrol'
+    command.write_text(f'#!{sys.executable}\nimport sys\nfrom pathlib import Path\n'
+                       "assert sys.argv[1:] == ['--local', 'show', 'node', 'node-a', '--json']\n"
+                       f'print(Path({str(generation)!r}).read_text())\n')
+    command.chmod(0o755)
+    args = ('--node', 'node-a', '--with-interconnect')
+    row, = result(native_client, *args)['interconnect']['nodes']
+    assert row['status'] == 'recorded' and row['value']['node'] == 'node-a'
+    state['nodes'][0]['slurmd_start_time'] += 1
+    generation.write_text(json.dumps(state))
+    assert result(native_client, *args)['interconnect']['nodes'] == [
+        {'node': 'node-a', 'status': 'unavailable', 'reason': 'node_restarted'}]
+    command.write_text(f'#!{sys.executable}\nraise SystemExit(1)\n')
+    partial_read = result(native_client, *args)
+    assert partial_read['nodes'][0]['gpu']['configured_units'] == 2
+    assert 'interconnect' not in partial_read and partial_read['interconnect_error'] == 'native_query_failed'
+    for invalid in ((), ('--node', 'node-[a,b]')):
+        code, _, _ = invoke(env, 'resources', 'local', '--with-interconnect', *invalid)
+        assert code != 0
+    assert all(row['argv'] == ['--json', '--local', '--Node', '--nodes=node-a']
+               for row in map(json.loads, Path(env['NATIVE_CALL']).read_text().splitlines()))
 
 
 def test_one_local_read_has_no_portal_prerequisite_or_native_credentials_leak(native_client, monkeypatch):
