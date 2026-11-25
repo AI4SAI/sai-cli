@@ -25,6 +25,13 @@ There is no site-specific partition whitelist. Unknown GPU configuration is
 reported separately as `unclassified_nodes`; `--kind all` retains those nodes.
 This coverage must be considered before treating a filtered subtotal as complete.
 
+With one exact `--node NAME`, `--with-interconnect` additionally returns the
+same `node-interconnect-join/v1` as the native job reader. The scheduler's
+visible node name, cluster and dimensions constrain the record lookup. The
+reader checks the published record's generation with `scontrol show node`.
+An absent, expired or mismatched record leaves the scheduler observation
+available. A single-node lookup needs no job and does not expand a hostlist.
+
 ## Source and quantities
 
 Per-node mode must yield one node per native record. Group averages are not

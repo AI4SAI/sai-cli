@@ -260,6 +260,12 @@ def resource_view(result: LocalResources, *, details: bool = False, width: int =
         blocks.append(_cpu_nodes(value, width) if details else _summary(value, "cpu", width))
     if value["unclassified_nodes"]:
         blocks.append(Text(f"Unknown GPU configuration: {value['unclassified_nodes']} nodes", style=UNKNOWN))
+    for row in value.get("interconnect", {}).get("nodes", []):
+        if row["status"] == "recorded":
+            from .interconnect_view import node_interconnect
+            blocks.append(node_interconnect(row["value"], occupied=set(), chinese=False, width=width, expanded=details))
+        else:
+            blocks.append(Text(f"{row['node']}: {row['reason'].replace('_', ' ')}", style=UNKNOWN))
     return Group(*blocks)
 
 
