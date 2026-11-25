@@ -103,6 +103,10 @@ def test_exact_node_uses_published_hardware_without_a_job(native_client, tmp_pat
     generation.write_text(json.dumps(state))
     assert result(native_client, *args)['interconnect']['nodes'] == [
         {'node': 'node-a', 'status': 'unavailable', 'reason': 'node_restarted'}]
+    command.write_text(f'#!{sys.executable}\nraise SystemExit(1)\n')
+    partial_read = result(native_client, *args)
+    assert partial_read['nodes'][0]['gpu']['configured_units'] == 2
+    assert 'interconnect' not in partial_read and partial_read['interconnect_error'] == 'native_query_failed'
     for invalid in ((), ('--node', 'node-[a,b]')):
         code, _, _ = invoke(env, 'resources', 'local', '--with-interconnect', *invalid)
         assert code != 0

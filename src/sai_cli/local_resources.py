@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 from sai_native_slurm import gpu_counts as _gpu_counts, gpu_indices as _gpu_indices, node_dimensions
 
-from .errors import ConfigError
+from .errors import ConfigError, ContractError, UnavailableError
 from .native_process import read_native_json
 from .native_values import (invalid_native, local_options, native_environment,
                             native_header, native_number, native_text, native_user)
@@ -242,9 +242,12 @@ def read_local_resources(args: argparse.Namespace, *, environ: Mapping[str, str]
         "summary": _summary(selected, parts), "unclassified_nodes": unknown, "warning_count": warnings}
     if with_interconnect:
         from .native_topology import local_interconnect
-        if any(node["name"] != args.node for node in selected):
+        if any(name != args.node for name in nodes):
             raise invalid_native()
         dimensions = [{"name": node["name"], "cpu_topology": node["cpu_topology"],
                        "gpu_total": node["gpu"]["configured_units"]} for node in selected]
-        result["interconnect"] = local_interconnect(dimensions, cluster=cluster, env=env, timeout=timeout)
+        try:
+            result["interconnect"] = local_interconnect(dimensions, cluster=cluster, env=env, timeout=timeout)
+        except (ContractError, UnavailableError) as error:
+            result["interconnect_error"] = error.code
     return LocalResources(result)

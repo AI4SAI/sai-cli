@@ -30,7 +30,9 @@ same `node-interconnect-join/v1` as the native job reader. The scheduler's
 visible node name, cluster and dimensions constrain the record lookup. The
 reader checks the published record's generation with `scontrol show node`.
 An absent, expired or mismatched record leaves the scheduler observation
-available. A single-node lookup needs no job and does not expand a hostlist.
+available. If the verification query itself fails, `interconnect_error` carries
+the native error code and the response retains the scheduler facts. A
+single-node lookup needs no job and does not expand a hostlist.
 
 ## Source and quantities
 
